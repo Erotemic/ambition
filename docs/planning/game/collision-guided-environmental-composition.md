@@ -227,6 +227,8 @@ The Coil Lab rig also uses the positions of both gravity switches. Its
 conduit and control panels must move with those switches.
 The Temple Stair decks need the top of each ledge and the surface below
 each support. Give both heights to the art generator from the room spec.
+For the Durum Terraces, give the art generator the bounds of both stops of
+the grain lift so the rails and the moving deck fit the same shaft.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

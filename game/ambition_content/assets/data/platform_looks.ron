@@ -9,6 +9,7 @@
 // outside the frame. An edit here is drawn after a content reload, with no
 // Rust build.
 {
+    "noodle_terraces_grain_car": (row: "idle", frame_px: (224.0, 88.0), span_px: (16.0, 208.0), top_px: 24.0),
     // The Art dimension's palette lifts: the top of the palette IS the
     // platform (`targets/props/art_props.py`: `PALETTE_FRAME`,
     // `PALETTE_SPAN`, `PALETTE_TOP`).

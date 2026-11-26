@@ -39,6 +39,8 @@
     "noodly_scullery_fixtures": (),
     "noodly_narthex_fixtures": (),
     "noodle_temple_stair_fixtures": (),
+    "noodle_terraces_fixtures": (),
+    "noodle_terraces_grain_car": (),
     "temple_gate_bell": (),
     // The Art dimension (`targets/props/art_props.py`). The keys of its
     // colour gate are jars of the three primaries; each door is a canvas in a

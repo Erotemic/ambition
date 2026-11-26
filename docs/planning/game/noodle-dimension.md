@@ -52,6 +52,13 @@ dimensions. The narthex lost its ring and got a front door to the stair
 (`noodly_narthex_to_stair`). The narthex is LDtk-owned, so this edit was made
 in the map; the temple's `make_specs.py` writes the same door.
 
+## Durum Terraces
+
+The grain lift starts in the dry field between the paddies. Stand on the
+lift to go up to the middle terraces. The low fields still lead west to
+the start of the upper route. Stone banks and rows of wheat mark the
+broth paddies. A shelter marks the threshing floor at the temple stair.
+
 ## Temple Stair
 
 The overlook route starts at the foot of the stair and joins the stair

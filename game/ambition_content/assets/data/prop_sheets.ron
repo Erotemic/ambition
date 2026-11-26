@@ -511,6 +511,7 @@
     "art_great_loom": (),
     "art_crane": (),
     "art_forge_firing_racks": (backdrop: true),
+    "art_loom_drying_rack": (backdrop: true),
     // The Math town. The cradle is the stand a gate ring sits in: a plinth
     // with stairs at each end (walked on zero-speed one-way platforms the
     // room places) and two pylons that hold the ring. The house fronts

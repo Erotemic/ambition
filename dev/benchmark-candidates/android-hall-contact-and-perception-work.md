@@ -1273,6 +1273,32 @@ The assembled desktop pair kept all 596 bodies. The new build measured
 desktop runs across the measured phases. The ranges overlap. This pair
 does not establish a reduction in total Hall tick cost.
 
+### Frame view publication
+
+Publish ten item, gear, projectile, and feature views after the last
+simulation step for the frame. Keep pose transitions and status clocks in
+the simulation. The schedule census showed all ten systems move from
+`GgrsSchedule` to `Update`. The test runs two simulation steps and checks
+the projectile's final position and removal in the frame view.
+
+In the loaded 596-body Hall, the ten systems took a median of 0.047 ms
+for one pass and 0.738 ms for fifteen passes over the same state. This
+single-thread probe used twelve paired batches of 144 frames. It excludes
+simulation steps and rendering.
+
+Three native development runs used all 596 Hall bodies, 1280 × 800,
+software rendering, and Potato quality. The median costs after 30 s were:
+
+| Run | Simulation ms/tick | Feature view phase ms/tick |
+| --- | ---: | ---: |
+| Reference `d2fa3ea7f` | 61.13 | 6.94 |
+| Frame views | 25.62 | 2.59 |
+| Reference `d2fa3ea7f` repeat | 48.90 | 5.71 |
+
+Costs also changed in phases outside this patch. These runs show fewer
+publications per frame. They do not measure an isolated change in total
+tick cost or provide an Android frame time.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

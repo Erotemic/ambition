@@ -91,6 +91,10 @@ pub use view_index::{
 /// and animation clocks in the simulation.
 pub struct FeatureViewSyncSchedulePlugin;
 
+/// Publish render data from the last simulation step in this frame.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FrameViewSync;
+
 impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
@@ -142,6 +146,14 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 .before(ambition_input::InputSet::Consume),
         );
         use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
+        app.configure_sets(
+            bevy::prelude::Update,
+            FrameViewSync
+                .in_set(PresentedPoseSet)
+                .after(Platformer2dSimulationPhase::FeatureViewSync)
+                .before(presented_pose::PresentedPoseStage::Resample)
+                .before(Platformer2dSimulationPhase::PresentationVisualSync),
+        );
         app.add_systems(
             bevy::prelude::Update,
             (
@@ -157,9 +169,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                     ambition_characters::actor::character_catalog::CharacterCatalog>),
                 rebuild_combat_strikes_view,
             )
-                .after(Platformer2dSimulationPhase::FeatureViewSync)
-                .before(PresentedPoseSet)
-                .before(Platformer2dSimulationPhase::PresentationVisualSync),
+                .in_set(FrameViewSync),
         );
         app.add_systems(
             bevy::prelude::Update,

@@ -35,6 +35,11 @@ simulation owner system
 Immutable authored world data may be read directly when doing so does not hide
 observer-dependent or mutable truth.
 
+Publish frame views once per frame after the simulation steps for
+that frame. Advance animation clocks and publish tick observations in the
+simulation schedule. An app without a window can read frame views after
+`App::update()`.
+
 ## Invariants
 
 - Headless composition can run every outcome-changing system without cameras,

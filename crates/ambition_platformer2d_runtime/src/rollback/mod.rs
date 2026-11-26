@@ -279,7 +279,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
         .declare_rollback_derived_component::<ambition_sim_view::ProjectileView>(
             ENGINE,
             "derived.projectile_view",
-            "SimView projection rebuilt every tick",
+            "Projectile view published once per frame",
         )
         // ⚠ the frame-derived RESOURCE that used to close this chain,
         // `derived.control_frame`, is the floor's and is declared there.

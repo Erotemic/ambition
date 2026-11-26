@@ -1,13 +1,9 @@
 //! The observation-boundary staging ground (E4): small sim-resolved view
 //! resources presentation consumes INSTEAD of querying live sim components.
 //!
-//! Every resource here is a plain-data snapshot rebuilt once per tick in the
-//! sim tail (`Platformer2dSimulationPhase::FeatureViewSync`) by a function of sim state — no
-//! caching across ticks, no `Entity`/`Handle` borrows — so any observer
-//! (render, RL, netcode confirmation, the fighter brain) can read the same
-//! facts. This module (with `view_index`/`anim_helpers`/`pose_view`/
-//! `camera_snapshot`) is the seed of the `ambition_sim_view` crate; it moves
-//! wholesale at the E4 mint.
+//! These views publish copies of simulation facts. The simulation publishes
+//! tick observations at its tail. Frame views read the state after the
+//! simulation steps for that frame.
 
 use bevy::prelude::*;
 
@@ -1387,9 +1383,8 @@ impl Plugin for SimViewPlugin {
         // the view is what a rebuild would make: empty.
         use ambition_combat::held_items::HeldItem;
         app.add_systems(
-            sim,
+            Update,
             (
-                rebuild_player_hud_facts,
                 rebuild_held_item_view.run_if(sources_or_rows::<HeldItem, HeldItemView>),
                 rebuild_controlled_bodies_view,
                 rebuild_ground_items_view
@@ -1398,16 +1393,7 @@ impl Plugin for SimViewPlugin {
                     .run_if(sources_or_rows::<ambition_world_items::world_item::WorldItem, WorldItemsView>),
                 rebuild_mark_beacons_view
                     .run_if(sources_or_rows::<ambition_abilities::traversal::mark_recall::PlayerMark, MarkBeaconsView>),
-                rebuild_body_clocks_view
-                    .run_if(|view: Res<BodyClocksView>| view.has_rows())
-                    .in_set(BodyClockViewSet::Reset),
-                publish_status_clocks
-                    .run_if(any_with_component::<ambition_combat::extension::status::StatusClocks>)
-                    .in_set(BodyClockViewSet::Contribute),
                 rebuild_shrines_view.run_if(sources_or_rows::<ambition_shrine::HealShrine, ShrinesView>),
-                tick_shrine_activation_pulse.run_if(
-                    |pulse: Res<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>| pulse.remaining > 0.0,
-                ),
                 rebuild_hostile_wielded_items_view.run_if(sources_or_rows::<HeldItem, HostileWieldedItemsView>),
                 rebuild_worn_gear_view
                     .run_if(sources_or_rows::<ambition_characters::equipment::WornEquipment, WornGearView>),
@@ -1418,6 +1404,22 @@ impl Plugin for SimViewPlugin {
                     },
                 ),
                 rebuild_dynamic_feature_views,
+            )
+                .in_set(crate::FrameViewSync),
+        );
+        app.add_systems(
+            sim,
+            (
+                rebuild_player_hud_facts,
+                rebuild_body_clocks_view
+                    .run_if(|view: Res<BodyClocksView>| view.has_rows())
+                    .in_set(BodyClockViewSet::Reset),
+                publish_status_clocks
+                    .run_if(any_with_component::<ambition_combat::extension::status::StatusClocks>)
+                    .in_set(BodyClockViewSet::Contribute),
+                tick_shrine_activation_pulse.run_if(
+                    |pulse: Res<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>| pulse.remaining > 0.0,
+                ),
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
@@ -1433,6 +1435,40 @@ impl Plugin for SimViewPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_frame_publishes_the_final_projectile_pose_and_clears_retired_shots() {
+        use ambition_platformer2d_shared_tangle::{schedule::GameMode, shrine::ShrineActivationPulse};
+        use ambition_projectiles::{LiveProjectile, ProjectileVisualId};
+
+        let mut app = App::new();
+        app.set_sim_schedule(FixedUpdate)
+            .init_resource::<ControlledSubject>()
+            .init_resource::<ShrineActivationPulse>()
+            .insert_resource(State::new(GameMode::Playing))
+            .insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0))
+            .add_plugins(SimViewPlugin);
+        app.add_systems(FixedUpdate, |mut shots: Query<&mut BodyKinematics, With<LiveProjectile>>| {
+            for mut shot in &mut shots {
+                shot.pos.x += 1.0;
+            }
+        });
+        let shot = app.world_mut()
+            .spawn((LiveProjectile, ProjectileVisualId("test".into()), BodyKinematics::default()))
+            .id();
+
+        app.world_mut().run_schedule(FixedUpdate);
+        app.world_mut().run_schedule(FixedUpdate);
+        assert!(app.world().get::<ProjectileView>(shot).is_none());
+        app.world_mut().run_schedule(Update);
+        assert_eq!(app.world().get::<ProjectileView>(shot).unwrap().pos.x, 2.0);
+
+        app.world_mut().entity_mut(shot).remove::<LiveProjectile>();
+        app.world_mut().run_schedule(FixedUpdate);
+        assert!(app.world().get::<ProjectileView>(shot).is_some());
+        app.world_mut().run_schedule(Update);
+        assert!(app.world().get::<ProjectileView>(shot).is_none());
+    }
 
     /// ⭐⭐ A PEACEFUL ENCOUNTER MOB IS STILL A BODY SOMEBODY HAS TO SEE.
     ///

@@ -332,7 +332,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         app.init_resource::<item_visuals::FailedItemArt>()
             .configure_sets(
                 Update,
-                posed_hand::HeldItemPresentationSet.run_if(posed_hand::items_are_held_or_were),
+                posed_hand::HeldItemPresentationSet
+                    .after(ambition_sim_view::FrameViewSync)
+                    .run_if(posed_hand::items_are_held_or_were),
             )
             .add_systems(Startup, morph_ball::build_morph_ball_sprite)
             .add_systems(Startup, submerged::build_trapdoor_sprite)
@@ -408,6 +410,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             .add_systems(
                 Update,
                 worn_gear_visuals::sync_worn_gear_visuals
+                    .after(ambition_sim_view::FrameViewSync)
                     .after(actors::sync_visuals)
                     .after(actors::rigged::RiggedDriveSet)
                     .run_if(worn_gear_visuals::gear_is_worn_or_was)
@@ -486,6 +489,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         .before(posed_hand::HeldItemPresentationSet),
                 )
                     .after(item_visuals::report_unloadable_item_art)
+                    .after(ambition_sim_view::FrameViewSync)
                     .run_if(session_presentation_is_ready),
             );
 

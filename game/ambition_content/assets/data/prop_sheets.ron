@@ -1119,6 +1119,8 @@
     "authority_baggage_wall_west": (),
     "authority_baggage_wall_east": (),
     "authority_baggage_hall": (),
+    "authority_baggage_lift_shaft": (),
+    "authority_baggage_lift": (),
     "authority_clock_arcade": (),
     "authority_blossom_tree": (),
     "authority_notice_board": (),

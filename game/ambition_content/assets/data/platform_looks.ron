@@ -22,6 +22,7 @@
     // platform; the folders hang under it (`targets/props/business_props.py`:
     // `CARRIER_FRAME`, `CARRIER_SPAN`, `CARRIER_TOP`).
     "business_folder_carrier": (row: "idle", frame_px: (320.0, 96.0), span_px: (16.0, 304.0), top_px: 40.0),
+    "authority_baggage_lift": (row: "idle", frame_px: (352.0, 104.0), span_px: (24.0, 328.0), top_px: 40.0),
     // The Automaton dimension's glider lifts: the top of the slab IS the
     // platform; a glider steps through its four phases on its front
     // (`targets/props/automaton_props.py`: `LIFT_FRAME`, `LIFT_SPAN`,

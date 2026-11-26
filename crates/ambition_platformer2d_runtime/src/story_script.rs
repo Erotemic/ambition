@@ -132,7 +132,8 @@ fn queue_story<P: Port<Value = StoryTick>>(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     #[cfg(feature = "dialogue")]
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
-    cutscene: Res<ambition_cutscene::ActiveCutscene>,
+    // A profile without the cutscene capability has no playback to wait on.
+    cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
 ) {
     if time.sim_dt() <= 0.0 {
         return;
@@ -163,7 +164,7 @@ fn queue_story<P: Port<Value = StoryTick>>(
             }
             commands.entity(root).insert(StoryBegun {begun: true});
         }
-        let busy = cutscene.holds(Some(room.ordinal()));
+        let busy = cutscene.as_ref().is_some_and(|active| active.holds(Some(room.ordinal())));
         #[cfg(feature = "dialogue")]
         let busy = busy || conversation
                 .as_ref()
@@ -268,7 +269,12 @@ fn lower_cutscenes(world: &mut World) {
         let asks_full = dispatch.reply.is_some() && world.get::<CutsceneAsks>(submitted.state_scope)
             .is_some_and(|asks| asks.rows.len() >= MAX_CUTSCENE_ASKS);
         let checked = (|| -> Result<u32, &'static str> {
-            let script = world.resource::<ambition_cutscene::CutsceneLibrary>().get(&id).ok_or("unknown_cutscene")?;
+            // No library or queue: this profile plays no cutscenes.
+            if !world.contains_resource::<ambition_cutscene::CutsceneTriggerQueue>() {
+                return Err("unknown_cutscene");
+            }
+            let script = world.get_resource::<ambition_cutscene::CutsceneLibrary>()
+                .and_then(|library| library.get(&id)).ok_or("unknown_cutscene")?;
             let room = caller_room(world, submitted.scope).ok_or("no_room")?;
             if script.seen_flag.as_deref().is_some_and(|seen| world.get_resource::<ambition_persistence::save::AmbitionGameSave>()
                 .is_some_and(|save| save.data().flag(seen))) {

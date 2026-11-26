@@ -264,7 +264,7 @@ pub struct AdmittedSchema {
 }
 
 /// The sealed result of admission.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Admitted {
     /// Entries in serial execution order: dependency order, and declaration
     /// order where no dependency decides.
@@ -324,6 +324,22 @@ impl PreparedDispatch {
             .and_then(|phase| phase.by_trigger.get(port))
             .and_then(|selectors| selectors.get(selector))
             .map_or(&[], Vec::as_slice)
+    }
+}
+
+/// A deep copy re-prepares its dispatch: its `entries` are public and may be
+/// edited, which would leave a copied dispatch indexing the old list. Sharing
+/// goes through the `Arc`, which this does not touch.
+impl Clone for Admitted {
+    fn clone(&self) -> Self {
+        Self {
+            entries: self.entries.clone(),
+            schemas: self.schemas.clone(),
+            offers: self.offers.clone(),
+            digest: self.digest,
+            replaced: self.replaced.clone(),
+            dispatch: Default::default(),
+        }
     }
 }
 

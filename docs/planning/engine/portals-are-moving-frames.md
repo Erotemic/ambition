@@ -611,16 +611,45 @@ integration tests (`every_supported_profile_steps_a_body…`,
 without this change. They are inherited, as is portal2d's
 `the_pair_of_an_entry_that_is_no_longer_admitted_is_released`.
 
-What still parks at the exit: a chain longer than four legs.
+A chain longer than four legs (a tuning past the composed budget's four
+hops; no authored tuning sets `max_hops`) no longer parks at the exit
+(2026-11-25). `PresentedCrossing::new` keeps the four longest legs, in
+order, so the pose stays a fixed-size `Copy` value. Over a dropped leg's
+interval the body is drawn where the next kept leg begins. That point is on
+its path, in the chart it is drawn in next. A dropped leg is shorter than
+every kept one, so a frame rarely samples it. The leg-by-leg witness checks
+that a five-leg chain drops its shortest leg and draws that start point.
 
 Extrapolated views draw past the tick's end, so the crossing is behind
 them. Only position follows the crossing; the body's turn and material still
 change with the tick's pose. No game run was made: the projection is unit
 tested, and the host builds it from fields the M1/M2 receipts measured.
+**Observers, cursors and the retention cut (2026-11-25).** Two observers
+present a body that a pair carried: its own `PresentedPose`, and the
+feature row an enemy or NPC is drawn by (`PresentedFeaturePoses`). The row
+never read a declared warp. An interpolated view drew a thin-wall hop as
+travel through the wall, and a long hop parked at the exit for the whole
+tick. `advance_presented_feature_poses` now matches each declared body to
+its row by the body's `FeatureId` and live room. It draws that row the
+way the body's pose is drawn: the crossing's legs, or an earlier tick's
+travel on the far side. It runs before `advance_presented_body_poses`,
+which clears the declarations.
+
+Each observer's cursor is its pose's tick, and it consumes the frame's
+declarations only when that tick moves. The clear is the retention cut:
+a declaration lives one frame, the frame whose ticks wrote it, so nothing
+is resident for a lagging observer to rebase onto. Every observer presents
+the one frame time. A rewind's resimulated ticks are declared again by
+their messages. A resimulated crossing before the frame's last tick is
+`Before`, drawn as travel on the far side. That is the same draw a pose
+already past it on the same branch would have made, and the right one if
+the branch changed. A mispredicted crossing that the correction removes
+is caught by the ordinary travel test: the corrected pose is not
+reachable by travel, so it is drawn parked, not interpolated across. The
+witness is `a_feature_row_draws_its_bodys_declared_crossing`: x 5 at a
+quarter of the tick, with an undeclared control row parked at x 510.
+
 Still open in M4:
-- per-observer cursors and rollback invalidation. Each view reads the
-  same declared warps once per frame, and a rewind's resimulated ticks
-  are declared again by their messages; no observer keeps a cursor yet;
 - ~~cost measurement on single-leg and chained traffic~~ (measured
   2026-11-25, below).
 

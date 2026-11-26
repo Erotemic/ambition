@@ -129,6 +129,12 @@ runtime paths (`generated/runtime/full/backgrounds/` and
 `./scripts/regen/sprites.sh` does not produce those assets. The quality-variant
 producer supplies smaller tiers where applicable.
 
+For a new backdrop, the scene registry and the runtime catalog need the
+same layer and tier names. Lighthouse Point needed 24 catalog rows after
+the scene was published. Consider generating the standard catalog
+bindings from the scene's layer and tier declarations. Keep support for
+explicit catalog entries where a scene needs a different binding.
+
 To look at a scene without the game:
 
 ```bash

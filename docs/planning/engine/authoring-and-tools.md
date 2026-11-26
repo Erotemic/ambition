@@ -548,9 +548,10 @@ interchangeable. Preserve the existing LDtk/sprite/audio tool boundaries.
 
 The room generator for Hylbert's Hotel reproduced the lobby, but the LDtk
 ownership report classified it as hand-edited until the author recorded
-the new fingerprint. Give room generators a shared operation that validates
-the final room and records its fingerprint. Call it after all entity and
-IntGrid changes so the next generation can tell which rooms have manual edits.
+the new fingerprint. The History generator uses `district_kit.make_rooms`
+to record the rooms it generates. `district_kit.run("validate", ...)`
+then records the final fingerprints after entity and IntGrid changes.
+Use the same functions in the Math generator.
 
 ## Repeatable scenario and truthful activation result
 

@@ -463,6 +463,28 @@ update before the change and 2.40–2.61 ms after it. Individual windows
 overlapped. The probe matched the pose counts, clips, position, facing,
 and defense facts. The isolated result does not give a full tick speedup.
 
+### Body control and move admission
+
+The action scheme indexes each slot when the scheme is built or read from
+data. The ordered actions and the index come from the same list. The persona
+pass reads each body's cast generation and request before it fetches the
+components it can change. The move admission pass checks for a proposal,
+a playing move, or a capture throw latch before it reads combat rules.
+
+| Isolated desktop pass for 596 bodies | Before, ms | After, ms |
+| --- | ---: | ---: |
+| Quiet move admission | 0.51–0.55 | 0.09 |
+| Worn persona scan in the loaded Hall | 0.226–0.232 | 0.017–0.018 |
+| Slot lookup pass in the development build | 0.119–0.120 | 0.046–0.048 |
+| Slot lookup pass in the optimized build | 0.032–0.033 | 0.007 |
+
+The persona probe confirmed that the pass consumed a request and refreshed
+a stale generation. The slot probe matched the result digest. In a separate
+full-cast run on the earlier build, removing the complete move trigger
+reduced the median `Combat` phase from 3.96–4.64 ms to 3.52 ms. Full tick
+timings overlapped. The complete removal is a cost probe. The engine still
+accepts buffered moves, held follow-ups, movement cancels, and throws.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

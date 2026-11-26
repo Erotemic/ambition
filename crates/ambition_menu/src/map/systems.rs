@@ -154,7 +154,7 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
     }
     MapRoomNode {
         id: level.identifier.clone(),
-        area: text(&level.field_instances, "activeArea").unwrap_or(&level.identifier).to_string(),
+        area: level.active_area(),
         title: title.or(label).unwrap_or_else(|| super::view::title_from_id(&level.identifier)),
         world: level.world_source.clone(),
         world_min: Vec2::new(level.world_x as f32, level.world_y as f32),

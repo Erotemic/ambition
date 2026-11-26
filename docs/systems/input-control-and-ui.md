@@ -156,6 +156,8 @@ Previous and Next can select rooms that overlap or are outside the viewport.
 
 A game supplies room data to `ambition_platformer2d::menu::map::browser::MapAtlas`.
 The LDtk adapter supplies room bounds, world IDs, doors, and pins.
+Levels with the same active area form one room. Each level keeps its own
+rectangle. Select any of these rectangles to open the same room.
 A game can set world titles and room group paths in `MapHierarchy`. Each path
 can contain any number of groups inside the room's world. `MapBrowser` supplies
 the viewport, selection, and actions for one menu. `MapAccess` supplies visits,

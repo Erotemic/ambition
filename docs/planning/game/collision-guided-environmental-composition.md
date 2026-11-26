@@ -255,6 +255,9 @@ At the Smugglers' Hoard, show the coin pile with its surface chain and
 the chest's support point at the top.
 At the Pirate Port Gate Plaza, show the sling at both stops with the
 crate tops, loading platforms, and balcony.
+In the Drowned Compass, pass the gallery and keg step bounds to the
+art generator. Use the climbable bounds to place the ladder at the
+west edge of the gallery. Show these parts together in the room preview.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

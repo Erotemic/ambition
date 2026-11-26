@@ -49,6 +49,10 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
     world.blocks[0].id = crate::GeoId::tile_layer("Collision", 0);
     world.blocks.add(Block::solid("remote", Vec2::splat(900.0), Vec2::splat(20.0)));
     let mut cached = BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::default());
+    let (MotionModel::AxisSwept(axis), _) = cached.parts() else {
+        panic!("expected the axis-swept model");
+    };
+    axis.params.flight.hover_speed = 0.0;
     let mut reference = cached.clone();
     let mut cache = SettledMotion::default();
     let frame = MotionFrame::from_direction(Vec2::Y, 900.0);
@@ -73,6 +77,15 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             sample = initial_sample;
             reference_sample = initial_sample;
             observed_reuse = false;
+        }
+        if tick == 205 {
+            assert!(cache.reused());
+            for body in [&mut cached, &mut reference] {
+                let (MotionModel::AxisSwept(axis), _) = body.parts() else {
+                    panic!("expected the axis-swept model");
+                };
+                axis.params.flight.hover_speed = -0.0;
+            }
         }
         if tick == 220 {
             assert!(observed_reuse);
@@ -117,6 +130,9 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
         if tick == 180 {
             assert!(!cache.reused());
             assert_eq!(result.events.reset, Some(ResetCause::Hazard));
+        }
+        if tick == 205 {
+            assert!(!cache.reused());
         }
         if tick == 220 {
             assert!(!cache.reused());

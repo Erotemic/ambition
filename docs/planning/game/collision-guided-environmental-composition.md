@@ -251,6 +251,8 @@ At the Ranger Station, use the public room connections to draw the trail
 map. Let the author omit secret exits and place the labels on the chart.
 At the Gate Garden, use the same walking-surface anchor to place each
 moonstone and its one-way surface. Show the two stones and both hilltops.
+At Starlight Square, show the ladder and the beanstalk in the same view.
+Pass the climbable bounds to the art generator to place the stalk.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

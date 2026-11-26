@@ -637,7 +637,7 @@ pub(crate) fn capture_armed_rebind(
 #[derive(Component, Default)]
 pub(crate) struct KaleidoscopeScroll {
     /// Explicit System scroll-window start, or `None` to follow the cursor.
-    system_window_start: Option<usize>,
+    pub(crate) system_window_start: Option<usize>,
 }
 
 /// All the live resources the broadened SYSTEM screens need to READ a snapshot
@@ -1201,7 +1201,7 @@ fn kaleidoscope_focus_nav(
             // Features C/D: a keyboard move/select takes the selection cursor back over
             // from the wheel/scrollbar — drop any explicit scroll override so the window
             // snaps to follow the cursor again.
-            if dx != 0 || dy != 0 || menu.select {
+            if dx != 0 || dy != 0 || menu.select || menu.back {
                 scroll.system_window_start = None;
             }
             system_focus_nav(
@@ -1444,7 +1444,7 @@ pub(crate) fn system_focus_nav(
         if system_nav.open_entry.is_some() {
             play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
             quality_confirm.cancel();
-            close_system_entry(system_nav, cursor);
+            close_system_entry(&model, system_nav, cursor);
         } else {
             activated.write(MenuActionActivated {
                 menu: menu_entity,
@@ -1555,14 +1555,20 @@ pub(crate) fn system_row_action_for(
     }
 }
 
-/// Drill OUT of an open System entry back to the entry list, resetting the cursor
-/// to the first row so the highlight lands sensibly.
+/// Return to the parent page. Focus the submenu entry when returning from one.
 pub(crate) fn close_system_entry(
+    model: &SystemMenuModel,
     system_nav: &mut KaleidoscopeSystemNav,
     cursor: &mut KaleidoscopeCursor,
 ) {
-    system_nav.open_entry = None;
-    cursor.mark_keyboard(MenuFocus::System(0));
+    let closed = system_nav.open_entry;
+    system_nav.open_entry = closed.and_then(SystemMenuEntryId::parent);
+    let index = closed.filter(|_| system_nav.open_entry.is_some()).and_then(|id| {
+        system_rows_with_quality_prompt(model, system_nav.open_entry, None)
+            .iter()
+            .position(|row| *row == SystemRow::Entry(id))
+    });
+    cursor.mark_keyboard(MenuFocus::System(index.unwrap_or(0)));
 }
 
 /// Apply a signed LEFT/RIGHT step to a value-style System option (slider up/down,

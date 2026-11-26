@@ -8,7 +8,7 @@
 //!
 //! Developer-only entries are omitted when the `dev_tools` feature is absent.
 
-use super::settings::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
+use super::settings::{settings_menu_model, shader_option_ids, SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_persistence::settings::UserSettings;
 use std::borrow::Cow;
 
@@ -273,6 +273,7 @@ impl LocaleId {
 pub enum SystemMenuEntryId {
     Radio,
     Video,
+    Shaders,
     Audio,
     Controls,
     Gameplay,
@@ -312,10 +313,19 @@ pub enum SystemMenuEntryId {
 }
 
 impl SystemMenuEntryId {
+    /// The screen that opens this entry, when the entry is a submenu.
+    pub fn parent(self) -> Option<Self> {
+        match self {
+            Self::Shaders => Some(Self::Video),
+            _ => None,
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Radio => "Radio",
             Self::Video => "Video",
+            Self::Shaders => "Shaders",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Rebind => "Rebind Controls",
@@ -334,7 +344,8 @@ impl SystemMenuEntryId {
     pub fn description(self) -> &'static str {
         match self {
             Self::Radio => "Pick the sandbox radio station (music plays as you browse).",
-            Self::Video => "Display, FPS, camera zoom, and the shader / post-process stack.",
+            Self::Video => "Display, camera, frame rate, and shaders.",
+            Self::Shaders => "CRT, film grain, and other screen effects.",
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Touch overlay, burst input, and stick deadzone.",
             Self::Rebind => "Put an action on a different key or button.",
@@ -501,6 +512,7 @@ pub struct SystemMenuEntry {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SystemMenuModel {
     pub entries: Vec<SystemMenuEntry>,
+    submenus: Vec<SystemMenuEntry>,
 }
 
 /// A live snapshot of the radio station list, passed into [`SystemMenuModel::build`]
@@ -548,7 +560,6 @@ impl DevSnapshot {
 /// page order.
 fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
     match id {
-        // Video includes the basic rows followed by all shader controls.
         SystemMenuEntryId::Video => &[
             SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,
@@ -563,26 +574,6 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::ShowFps,
             SettingsOptionId::FramePacing,
             SettingsOptionId::Vsync,
-            SettingsOptionId::ShaderStrength,
-            SettingsOptionId::ShaderCrtStrength,
-            SettingsOptionId::ShaderCrtScanlines,
-            SettingsOptionId::ShaderCrtMask,
-            SettingsOptionId::ShaderCrtCurvature,
-            SettingsOptionId::ShaderCrtBloom,
-            SettingsOptionId::ShaderCrtChroma,
-            SettingsOptionId::ShaderFilmGrainStrength,
-            SettingsOptionId::ShaderFilmGrainSize,
-            SettingsOptionId::ShaderFilmGrainFps,
-            SettingsOptionId::ShaderFilmGrainLumaBias,
-            SettingsOptionId::ShaderRobotDeathStrength,
-            SettingsOptionId::ShaderRobotStatic,
-            SettingsOptionId::ShaderRobotTear,
-            SettingsOptionId::ShaderRobotDesaturate,
-            SettingsOptionId::ShaderRobotScanlines,
-            SettingsOptionId::ShaderUnderwaterStrength,
-            SettingsOptionId::ShaderUnderwaterDistortion,
-            SettingsOptionId::ShaderDeepDreamStrength,
-            SettingsOptionId::ShaderVignetteStrength,
         ],
         SystemMenuEntryId::Audio => &[
             SettingsOptionId::MasterVolume,
@@ -722,8 +713,7 @@ impl SystemMenuModel {
     /// appear only in dev builds ([`DEV_BUILD`]).
     pub fn build(settings: &UserSettings, radio: &RadioSnapshot, dev: &DevSnapshot) -> Self {
         let model = settings_menu_model(settings);
-        let settings_entry = |id: SystemMenuEntryId| -> SystemMenuEntry {
-            let wanted = curated_options(id);
+        let settings_entry = |id: SystemMenuEntryId, wanted: &[SettingsOptionId]| -> SystemMenuEntry {
             // Pull each wanted option's LIVE IR entry (value label + kind) so the
             // System face can never drift from the pause menu's settings.
             let options: Vec<SettingsOption> = wanted
@@ -764,12 +754,15 @@ impl SystemMenuModel {
             target: SystemMenuTarget::Radio(radio_rows),
         });
 
-        // Settings categories (curated subsets). Shaders are no longer a sibling
-        // entry: they ride UNDER Video (see `curated_options`).
-        entries.push(settings_entry(SystemMenuEntryId::Video));
-        entries.push(settings_entry(SystemMenuEntryId::Audio));
-        entries.push(settings_entry(SystemMenuEntryId::Controls));
-        entries.push(settings_entry(SystemMenuEntryId::Gameplay));
+        // Settings categories. Video also has a Shaders submenu.
+        for id in [
+            SystemMenuEntryId::Video,
+            SystemMenuEntryId::Audio,
+            SystemMenuEntryId::Controls,
+            SystemMenuEntryId::Gameplay,
+        ] {
+            entries.push(settings_entry(id, curated_options(id)));
+        }
 
         // Language (stub).
         let locale_rows: Vec<LocaleRow> = LocaleId::ALL
@@ -858,13 +851,27 @@ impl SystemMenuModel {
             });
         }
 
-        SystemMenuModel { entries }
+        let shader_ids: Vec<_> = shader_option_ids().collect();
+        SystemMenuModel {
+            entries,
+            submenus: vec![settings_entry(SystemMenuEntryId::Shaders, &shader_ids)],
+        }
     }
 
     /// The entry with the given id, if present (absent dev entries return `None`
     /// in non-dev builds).
     pub fn entry(&self, id: SystemMenuEntryId) -> Option<&SystemMenuEntry> {
-        self.entries.iter().find(|e| e.id == id)
+        self.all_entries().find(|e| e.id == id)
+    }
+
+    /// All screens and actions, including submenus.
+    pub fn all_entries(&self) -> impl Iterator<Item = &SystemMenuEntry> {
+        self.entries.iter().chain(&self.submenus)
+    }
+
+    /// The entries directly below a screen.
+    pub fn children(&self, parent: SystemMenuEntryId) -> impl Iterator<Item = &SystemMenuEntry> {
+        self.submenus.iter().filter(move |entry| entry.id.parent() == Some(parent))
     }
 }
 

@@ -29,6 +29,7 @@ pub(super) struct ShaderRow {
     pub label: &'static str,
     pub description: &'static str,
     pub step: ShaderStep,
+    pub starts_effect: bool,
     pub get: fn(&ScreenShaderSettings) -> f32,
     pub set: fn(&mut ScreenShaderSettings, f32),
 }
@@ -48,9 +49,16 @@ macro_rules! unit_row {
             label: $label,
             description: $desc,
             step: ShaderStep::Unit($step),
+            starts_effect: false,
             get: |s: &ScreenShaderSettings| s.$field,
             set: |s: &mut ScreenShaderSettings, v: f32| s.$field = v,
         }
+    };
+}
+
+macro_rules! effect_row {
+    ($($field:tt)*) => {
+        ShaderRow { starts_effect: true, ..unit_row!($($field)*) }
     };
 }
 
@@ -64,7 +72,7 @@ pub(super) const SHADER_ROWS: &[ShaderRow] = &[
         "Shader Strength",
         "Global multiplier for the whole shader stack (0% = off)."
     ),
-    unit_row!(
+    effect_row!(
         SettingsOptionId::ShaderCrtStrength,
         crt_strength,
         ScreenShaderSettings::UNIT_STEP,
@@ -106,7 +114,7 @@ pub(super) const SHADER_ROWS: &[ShaderRow] = &[
         "CRT Chroma Split",
         "CRT chromatic-aberration split."
     ),
-    unit_row!(
+    effect_row!(
         SettingsOptionId::ShaderFilmGrainStrength,
         film_grain_strength,
         ScreenShaderSettings::FINE_STEP,
@@ -117,6 +125,7 @@ pub(super) const SHADER_ROWS: &[ShaderRow] = &[
         id: SettingsOptionId::ShaderFilmGrainSize,
         label: "Film Grain Size",
         description: "Output pixels per film-grain cell.",
+        starts_effect: false,
         step: ShaderStep::Range {
             min: 1.0,
             max: 8.0,
@@ -130,6 +139,7 @@ pub(super) const SHADER_ROWS: &[ShaderRow] = &[
         id: SettingsOptionId::ShaderFilmGrainFps,
         label: "Film Grain Rate",
         description: "How often the film-grain seed changes.",
+        starts_effect: false,
         step: ShaderStep::Range {
             min: 1.0,
             max: 60.0,
@@ -146,7 +156,7 @@ pub(super) const SHADER_ROWS: &[ShaderRow] = &[
         "Film Grain Luma Bias",
         "Bias film grain toward darker / brighter areas."
     ),
-    unit_row!(
+    effect_row!(
         SettingsOptionId::ShaderRobotDeathStrength,
         robot_death_strength,
         ScreenShaderSettings::UNIT_STEP,
@@ -181,7 +191,7 @@ pub(super) const SHADER_ROWS: &[ShaderRow] = &[
         "Robot Scanlines",
         "Robot-death scanline overlay."
     ),
-    unit_row!(
+    effect_row!(
         SettingsOptionId::ShaderUnderwaterStrength,
         underwater_strength,
         ScreenShaderSettings::UNIT_STEP,
@@ -195,14 +205,14 @@ pub(super) const SHADER_ROWS: &[ShaderRow] = &[
         "Underwater Distortion",
         "Underwater displacement amount."
     ),
-    unit_row!(
+    effect_row!(
         SettingsOptionId::ShaderDeepDreamStrength,
         deep_dream_strength,
         ScreenShaderSettings::UNIT_STEP,
         "Deep Dream Strength",
         "Full-screen deep-dream reference view strength."
     ),
-    unit_row!(
+    effect_row!(
         SettingsOptionId::ShaderVignetteStrength,
         vignette_strength,
         ScreenShaderSettings::FINE_STEP,

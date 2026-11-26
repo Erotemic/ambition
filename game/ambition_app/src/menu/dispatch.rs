@@ -166,6 +166,10 @@ pub(crate) fn dispatch_menu_action(
             info!("cube system action: reset all settings");
         }
         MenuPageAction::OpenSystemEntry(entry) => {
+            if entry.parent().is_some_and(|parent| system_nav.open_entry != Some(parent)) {
+                return;
+            }
+            quality_confirm.cancel();
             // Drill INTO an entry: show its screen rows, land the cursor on the
             // first row. The republish picks up the new drill state + cursor.
             play_ui(sfx, ambition_platformer2d::sfx::ids::UI_TAB_CHANGE);
@@ -175,8 +179,9 @@ pub(crate) fn dispatch_menu_action(
         }
         MenuPageAction::CloseSystemEntry => {
             play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
-            close_system_entry(system_nav, cursor);
-            info!("cube system entry \u{2192} (list)");
+            quality_confirm.cancel();
+            let model = system.model(settings, menu, None);
+            close_system_entry(&model, system_nav, cursor);
         }
     }
 }
@@ -296,6 +301,7 @@ pub(crate) fn menu_action_activated(
     regions: Query<&super::regions::MenuRegion>,
     mut map_travel: super::map_page::MapTravel,
     mut map_browsers: Query<&mut ambition_platformer2d::menu::map::browser::MapBrowser>,
+    #[cfg(feature = "kaleidoscope_menu")] mut cube_scrolls: Query<&mut crate::menu::kaleidoscope_app::KaleidoscopeScroll>,
     #[cfg(feature = "bevy_ui_menu")] mut grids: Query<
         &mut crate::menu::grid_backend::GridMenuTabState,
     >,
@@ -351,6 +357,7 @@ pub(crate) fn menu_action_activated(
             continue;
         }
         let mut close_menu = false;
+        let previous_entry = system_nav.open_entry;
         crate::menu::dispatch::dispatch_menu_action(
             menu_entity,
             menu_owner.owner,
@@ -368,8 +375,18 @@ pub(crate) fn menu_action_activated(
             &mut sfx,
             &mut system,
         );
+        let changed_screen = previous_entry != system_nav.open_entry;
+        #[cfg(feature = "kaleidoscope_menu")]
+        if changed_screen {
+            if let Ok(mut scroll) = cube_scrolls.get_mut(menu_entity) {
+                scroll.system_window_start = None;
+            }
+        }
         #[cfg(feature = "bevy_ui_menu")]
         if let Ok(mut grid) = grids.get_mut(menu_entity) {
+            if changed_screen {
+                grid.reset_navigation();
+            }
             grid.invalidate();
         }
         if close_menu {

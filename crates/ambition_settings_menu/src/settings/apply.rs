@@ -13,6 +13,9 @@ fn apply_shader_row(row: &ShaderRow, dir: i32, shaders: &mut ScreenShaderSetting
         ShaderStep::Range { min, max, step, .. } => (value + s * step).clamp(min, max),
     };
     (row.set)(shaders, stepped);
+    if row.starts_effect && stepped > value && shaders.strength <= 0.001 {
+        shaders.strength = 1.0;
+    }
 }
 
 pub fn close_menu_option() -> SettingsOption {
@@ -119,15 +122,6 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
                 .find(|r| r.id == id)
                 .unwrap_or_else(|| panic!("{id:?} missing from SHADER_ROWS"));
             apply_shader_row(row, dir, &mut settings.video.shaders);
-            // Side-effect kept OUTSIDE the shared row shape: enabling deep-dream
-            // while the global strength is off auto-arms the master strength so
-            // the effect shows.
-            if id == SettingsOptionId::ShaderDeepDreamStrength
-                && settings.video.shaders.deep_dream_strength > 0.001
-                && settings.video.shaders.strength <= 0.001
-            {
-                settings.video.shaders.strength = 1.0;
-            }
         }
 
         SettingsOptionId::MasterVolume => {

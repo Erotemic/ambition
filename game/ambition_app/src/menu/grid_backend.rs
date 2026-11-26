@@ -481,7 +481,7 @@ pub(crate) fn grid_menu_nav(
                 // Features C/D: a keyboard move/select takes the selection cursor back
                 // over from the wheel/scrollbar — drop any explicit scroll override so the
                 // window snaps to follow the cursor again (the cube's clear-on-keyboard rule).
-                if dx != 0 || dy != 0 || menu.select {
+                if dx != 0 || dy != 0 || menu.select || menu.back {
                     tab_state.system_window_start = None;
                 }
                 // Reuse the cube's System row nav (drill in/out, value-step, select →

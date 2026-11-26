@@ -868,6 +868,35 @@ used reference, candidate, candidate, reference order.
 Total tick windows overlapped. The Android capture for this change is
 pending.
 
+### Parallel body pose publication
+
+In 18,826 CPU samples from the windowed Hall, the two pose builders had
+the largest named system counts on the main thread. The body pose pass
+now updates existing poses in parallel for groups of at least 256 bodies
+when compute workers are available. First publication inserts the new
+components in query order. Both paths use the same pose calculation and
+animation clocks.
+
+A six-worker probe compared all 596 poses through first publication,
+movement, hitlag, and a late arrival. The pose records matched. The
+development pass fell from 0.483–0.505 ms to 0.163–0.207 ms. With the
+pose crate optimized, it fell from 0.077–0.092 ms to 0.050–0.057 ms.
+The optimized 64-body pass took longer with workers. The 192-body
+results overlapped. At 256 bodies the measured pass took 0.036–0.038 ms
+with serial updates and 0.026–0.033 ms with workers.
+The assembled pose system also matched the serial reference with 400
+bodies in two rooms with distinct hitlag laws, with and without a pool.
+
+Four windowed desktop runs used the same 596 bodies, viewport, and
+quality in reference, candidate, candidate, reference order.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 18.09, 19.05 | 18.92, 18.73 |
+| Feature view publication | 1.88, 1.97 | 1.76, 1.76 |
+
+Total tick windows overlapped. Device performance still needs a capture.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

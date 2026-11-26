@@ -65,7 +65,8 @@ is [Q185](../awaiting-maintainer-decision.md#q185--should-legal-the-address-ever
   its terminal; the information booth and Marguerite in it; a catwalk of
   freight overhead (a chest on it). A grate in the floor drops to the
   baggage hall below: a conveyor of bags from every dimension, the claw,
-  and Lou at Lost Baggage.
+  and Lou at Lost Baggage. The lift beside the conveyor returns to the
+  main floor under the freight catwalk.
 - **Authority Plaza** (`authority_plaza`), east: the arcade with the great
   clock, stairs up to its balcony, Gatekeeper Imre at the podium; the
   blossom tree on its planter, benches round it; the notice board; the

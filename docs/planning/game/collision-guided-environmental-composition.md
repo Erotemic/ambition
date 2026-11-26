@@ -232,6 +232,9 @@ body on the trail below. Use the deck bounds to place its supports.
 At Primeval Ridge, show the cache ledge, seep lookout, and canopy branch
 with the two climbs. Use the climbable region bounds and kind to select
 fixture art for vines and ladders.
+At the Fossil Beds, use the same room crop for the current and candidate
+wall art. Include the skull, survey grid, chest, and ladder at the game
+camera scale. Let the preview select candidate art before publication.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

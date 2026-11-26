@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ambition_platformer2d_core::config::WORLD_Z_FX;
+use ambition_platformer2d_core::config::WORLD_Z_DUMMY;
 use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, LiveRoomInstance, LiveRooms, SessionSpawnScope, SpawnSessionScopedExt,
@@ -162,7 +162,7 @@ fn area_mesh(owner: Entity, center: Vec2, half: Vec2, progress: f32, active: boo
         tris,
         root: center,
         source: PartSource::World { owner: Some(owner) },
-        z: WORLD_Z_FX + 2.0,
+        z: WORLD_Z_DUMMY - 0.5,
         composite: Composite::Blend,
     }
 }

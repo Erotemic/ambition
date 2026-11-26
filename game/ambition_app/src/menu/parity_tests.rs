@@ -36,6 +36,7 @@ use ambition_platformer2d::settings_menu::system::{
 const ALL_SYSTEM_MENU_ENTRY_IDS: &[SystemMenuEntryId] = &[
     SystemMenuEntryId::Radio,
     SystemMenuEntryId::Video,
+    SystemMenuEntryId::Shaders,
     SystemMenuEntryId::Audio,
     SystemMenuEntryId::Controls,
     SystemMenuEntryId::Gameplay,
@@ -55,6 +56,7 @@ fn assert_all_system_menu_entry_ids_listed(id: SystemMenuEntryId) {
     match id {
         SystemMenuEntryId::Radio
         | SystemMenuEntryId::Video
+        | SystemMenuEntryId::Shaders
         | SystemMenuEntryId::Audio
         | SystemMenuEntryId::Controls
         | SystemMenuEntryId::Gameplay
@@ -114,7 +116,7 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
         &DevSnapshot::default(),
     );
     let surfaced: std::collections::HashSet<SystemMenuEntryId> =
-        model.entries.iter().map(|e| e.id).collect();
+        model.all_entries().map(|e| e.id).collect();
 
     let dev_build = cfg!(feature = "dev_tools");
     for id in ALL_SYSTEM_MENU_ENTRY_IDS {
@@ -234,8 +236,7 @@ fn every_settings_option_is_curated_into_the_system_model() {
         &DevSnapshot::default(),
     );
     let curated: std::collections::HashSet<SettingsOptionId> = model
-        .entries
-        .iter()
+        .all_entries()
         .filter_map(|e| match &e.target {
             SystemMenuTarget::Settings(options) => Some(options),
             _ => None,
@@ -643,6 +644,33 @@ mod dispatch_parity {
             "both backends drill into the same System entry through dispatch_menu_action"
         );
     }
+    #[test]
+    fn video_opens_shaders_and_back_restores_the_video_row() {
+        use crate::menu::kaleidoscope_app::KaleidoscopeCursor;
+        use crate::menu::model::{system_rows, MenuFocus, SystemRow};
+        use crate::menu::test_support::{active_pages_mut, menu_component};
+
+        for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+            let mut app = menu_app(backend);
+            active_pages_mut(app.world_mut()).active = Some(MenuPage::System);
+            activate(&mut app, backend, MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video));
+            activate(&mut app, backend, MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Shaders));
+            assert_eq!(menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry, Some(SystemMenuEntryId::Shaders));
+            activate(&mut app, backend, MenuPageAction::SystemStep(SettingsOptionId::ShaderCrtStrength, 1));
+            assert!(app.world().resource::<UserSettings>().video.shaders.crt_strength > 0.0);
+            activate(&mut app, backend, MenuPageAction::CloseSystemEntry);
+            assert_eq!(menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry, Some(SystemMenuEntryId::Video));
+            let model = SystemMenuModel::build(app.world().resource::<UserSettings>(), &Default::default(), &Default::default());
+            let video = system_rows(&model, Some(SystemMenuEntryId::Video));
+            let MenuFocus::System(index) = menu_component::<KaleidoscopeCursor>(app.world()).focus() else {
+                panic!("the cursor returns to the Shaders row");
+            };
+            assert_eq!(video[index], SystemRow::Entry(SystemMenuEntryId::Shaders));
+            activate(&mut app, backend, MenuPageAction::CloseSystemEntry);
+            assert!(menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry.is_none());
+        }
+    }
+
     #[test]
     fn two_menus_dispatch_drill_quality_rebind_and_close_independently() {
         use crate::menu::quality_confirm::VisualQualityConfirmState;

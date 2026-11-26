@@ -35,6 +35,27 @@ fn shader_rows_cover_every_shader_id() {
     );
 }
 
+#[test]
+fn turning_up_an_effect_enables_the_stack() {
+    let effects = [
+        SettingsOptionId::ShaderCrtStrength,
+        SettingsOptionId::ShaderFilmGrainStrength,
+        SettingsOptionId::ShaderRobotDeathStrength,
+        SettingsOptionId::ShaderUnderwaterStrength,
+        SettingsOptionId::ShaderDeepDreamStrength,
+        SettingsOptionId::ShaderVignetteStrength,
+    ];
+    for effect in effects {
+        let mut settings = UserSettings::default();
+        apply_settings_option(effect, 1, &mut settings);
+        assert!(settings.video.shaders.any_effect_enabled());
+        assert_eq!(settings.video.shaders.strength, 1.0);
+    }
+    let mut settings = UserSettings::default();
+    apply_settings_option(SettingsOptionId::ShaderCrtMask, 1, &mut settings);
+    assert_eq!(settings.video.shaders.strength, 0.0);
+}
+
 /// Pins every row's (step, min, max) against the per-row values that
 /// `build.rs` and `apply.rs` used before the collapse, copied by hand. The
 /// `expected` table is that reference. `shader_rows_cover_every_shader_id` only

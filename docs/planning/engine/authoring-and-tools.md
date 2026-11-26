@@ -401,6 +401,13 @@ still miss the first ledge. Use the landing preview to check a route from
 the floor to the next exit. Include the one-way ledges and the side of the
 solid ledge that can stop an upward jump.
 
+### Ladder landings
+
+In the Works, the balcony's one-way surface stopped descent onto the
+ladder. A ladder beside the balcony let the body climb in both directions.
+Show the ladder contact and the space to enter and leave at each end in
+the room preview.
+
 ### Scenery and platform alignment
 
 The Unfinished Gallery staging uses one scenery sprite for six platform

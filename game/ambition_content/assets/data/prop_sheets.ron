@@ -1212,6 +1212,7 @@
     "automaton_waterwheel": (),
     "automaton_block_stairs": (),
     "automaton_clock_tower": (),
+    "automaton_tower_balcony": (),
     "automaton_still_life": (),
     "automaton_sierpinski_panel": (),
     "automaton_tape": (),

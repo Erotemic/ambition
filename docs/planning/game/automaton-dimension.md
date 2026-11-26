@@ -43,7 +43,8 @@ machine, the busy beaver that writes the most ones before it halts.
 - **The Works** (`automaton_works`): the gate CELLS; the Escapement Cafe,
   its gear sign and its tables; the water wheel; Busy Beaver at the stair of
   blocks he is building (64 a step) up to a chest; the clock tower, whose
-  door is the Tape Room's.
+  door is the Tape Room's. An inspection balcony connects the top block to
+  a ladder beside the tower.
 - **The Life field** (`automaton_life`), east: you come down off the Works'
   edge onto a floor of cells. Pillars of cubes stand up from it, their tops
   lit with live patterns. **Gliders** carry you: a glider is a moving

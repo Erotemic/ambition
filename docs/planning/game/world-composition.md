@@ -77,6 +77,8 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 ```
 
 - **Two roads over:** the low road (street, pier) and the high road (galleries, roofs, gantry) join the plaza, the waterfront and the docks.
+- **Docks:** ladders connect both banks of each gap to the water. A hatch
+  past the brig lets swimmers reach the east end of the pier.
 - **Under:** down the plaza's well into the cellars, east through the arch into the smugglers' tunnel, up the drain into the waterfront's street. The drain's grate is shut until the lever under it is pulled (a shortcut opened from below).
 - **Secret:** the plank wall at the tunnel's east end; the hoard behind it.
 - **Reef:** jump from the stern to the bow, or swim across the gap. A ladder

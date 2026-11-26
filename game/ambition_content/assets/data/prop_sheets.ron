@@ -654,6 +654,8 @@
     "port_brig": (),
     "port_cove_entrance": (),
     "port_dock_clutter": (),
+    "port_east_pier_supports": (),
+    "port_swim_landing": (),
     "port_manifest_page": (scale: 1.4),
     // The General's tower inside, one floor each (`targets/props/
     // military_tower_props.py`): drawn in the room's coordinates, deck to deck.

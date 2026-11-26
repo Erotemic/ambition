@@ -40,6 +40,7 @@ const ENGINE: &str = "ambition_platformer2d_runtime";
 
 pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     crate::behavior_inbox::register_rollback_state(registrar);
+    crate::obstructions::register_rollback_state(registrar);
     crate::behavior_events::register_rollback_state(registrar);
     crate::world_values::register_rollback_state(registrar);
     crate::story_script::register_rollback_state(registrar);

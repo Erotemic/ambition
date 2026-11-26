@@ -7,12 +7,23 @@ use ambition_platformer2d_shared_tangle::schedule::{
 };
 use ambition_portal2d::{PlacedPortal, PortalLinkResolution, PortalSet, publish_portal_carves};
 
+mod carried;
 mod carves;
 mod hosts;
 #[cfg(test)]
 mod tests;
 
 pub(crate) fn install(app: &mut App, sim: InternedScheduleLabel) {
+    // Crushing C5: bodies a moving host pushes through its portal, read by
+    // the platforms' advance (`advance_moving_platforms`).
+    app.init_resource::<ambition_platformer2d_world::platforms::obstruction::CarriedObstructions>();
+    app.add_systems(
+        sim,
+        carried::publish_carried_obstructions
+            .run_if(gameplay_allowed)
+            .in_set(WorldPrepSet::BeforeIntegrate)
+            .before(ambition_platformer2d_world::platforms::MovingPlatformStep),
+    );
     app.add_systems(
         sim,
         (

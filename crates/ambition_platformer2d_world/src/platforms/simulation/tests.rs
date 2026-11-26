@@ -342,3 +342,86 @@ fn a_called_lift_goes_only_when_sent_and_waits_at_each_stop() {
         MovingPlatformState::lift("l", "L", ae::Vec2::new(0.0, 0.0), ae::Vec2::new(10.0, 10.0), -100.0, 60.0);
     assert!(!rider_lift.send(), "a rider's lift took a switch's send");
 }
+
+/// Crushing C3: a press descending at 6 px a tick onto a body that stands on
+/// a floor. `authority` is the press's own.
+fn press_app(authority: Option<ae::crush::SurfaceAuthority>) -> (App, Entity) {
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    // The press: 200 wide, 20 tall, its underside at y 100, falling 360 px/s.
+    let mut press = MovingPlatformState::from_vertical_loop("press", "Press",
+        ae::Vec2::new(400.0, 90.0), ae::Vec2::new(200.0, 20.0), 0.0, 1000.0, 360.0, true);
+    press.authority = authority;
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+        MovingPlatformSet(vec![press]));
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+        ae::RoomGeometry(ae::World::new("press room", ae::Vec2::new(1600.0, 900.0), ae::Vec2::ZERO,
+            vec![ae::Block::solid("floor", ae::Vec2::new(0.0, 160.0), ae::Vec2::new(1600.0, 40.0))])));
+    install_moving_platform_simulation(&mut app, Update);
+    // A 48-tall body on the floor: its head at y 112, 12 px under the press.
+    let body = app.world_mut().spawn(ae::BodyKinematics {
+        pos: ae::Vec2::new(400.0, 136.0), canonical_size: ae::Vec2::new(24.0, 48.0), ..Default::default()
+    }).id();
+    (app, body)
+}
+
+fn press(app: &App) -> MovingPlatformState {
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<MovingPlatformSet>(app.world())
+        .unwrap().0[0].clone()
+}
+
+/// A yielding press stops where it meets the body, which has no room to give:
+/// two ticks of 6 px, then 0 px of the third (its underside on the body's
+/// head at y 112), and it holds there. What it records is the move it made,
+/// so a rider on it is carried by that. The body is untouched.
+#[test]
+fn a_yielding_press_stops_on_a_body_under_it() {
+    let (mut app, body) = press_app(Some(ae::crush::SurfaceAuthority::Yielding));
+    let mut deltas = Vec::new();
+    for _ in 0..5 {
+        app.update();
+        deltas.push(press(&app).last_delta().y);
+    }
+    let underside = press(&app).aabb().max.y;
+    assert!((underside - 112.0).abs() < 1e-3, "it rests on the body's head: {underside}, deltas {deltas:?}");
+    assert!((deltas[0] - 6.0).abs() < 1e-3 && (deltas[1] - 6.0).abs() < 1e-3, "{deltas:?}");
+    assert!(deltas[3].abs() < 1e-3 && deltas[4].abs() < 1e-3, "it holds: {deltas:?}");
+    assert_eq!(app.world().get::<ae::BodyKinematics>(body).unwrap().pos, ae::Vec2::new(400.0, 136.0));
+}
+
+/// Control: an unstoppable press (the default) keeps its schedule.
+#[test]
+fn an_unstoppable_press_keeps_its_schedule() {
+    let (mut app, _) = press_app(None);
+    for _ in 0..5 { app.update(); }
+    assert!((press(&app).aabb().max.y - 130.0).abs() < 1e-3, "{:?}", press(&app).aabb());
+}
+
+/// A limited press pushes up to its allowance past the body's room, then
+/// holds.
+#[test]
+fn a_limited_press_pushes_to_its_limit_then_holds() {
+    let (mut app, _) = press_app(Some(ae::crush::SurfaceAuthority::Limited { max_overconstraint_px: 4.0, max_force: 1.0 }));
+    for _ in 0..6 { app.update(); }
+    assert!((press(&app).aabb().max.y - 116.0).abs() < 1e-3, "4 px into the body: {:?}", press(&app).aabb());
+}
+
+/// A stalled press goes on when the body leaves, and a rewind of the platform
+/// set replays the same stall.
+#[test]
+fn a_stalled_press_resumes_when_the_body_leaves_and_a_rewind_replays_it() {
+    let (mut app, body) = press_app(Some(ae::crush::SurfaceAuthority::Yielding));
+    app.update();
+    let saved = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<MovingPlatformSet>(app.world())
+        .unwrap().to_snapshot_ron();
+    for _ in 0..4 { app.update(); }
+    let stalled = press(&app);
+    // Rewind the platforms to the first tick and replay: the same stall.
+    let restored = MovingPlatformSet::from_snapshot_ron(&saved).unwrap();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), restored);
+    for _ in 0..4 { app.update(); }
+    assert_eq!(press(&app), stalled, "the rewind replays the stall");
+    app.world_mut().despawn(body);
+    app.update();
+    assert!((press(&app).last_delta().y - 6.0).abs() < 1e-3, "it goes on: {:?}", press(&app).last_delta());
+}

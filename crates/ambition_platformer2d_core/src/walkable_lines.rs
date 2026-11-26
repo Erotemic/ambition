@@ -695,6 +695,36 @@ mod portal_cut_tests {
         assert_eq!(ramp.without(&far).len(), 1);
     }
 
+    /// SUP1's portal case: a changing line a portal cuts keeps its material
+    /// history in each piece. A line of three points stretches to twice its
+    /// length this tick; a hole in its second segment leaves pieces whose
+    /// points were where the same places along the same segments were at the
+    /// tick's start, so each piece still reads as changing, with its own
+    /// segments' history, not the whole line's (which the first piece's three
+    /// points paired with the wrong segments).
+    #[test]
+    fn a_cut_changing_line_keeps_each_pieces_material_history() {
+        let mut line = SurfaceChain::open("hump", vec![Vec2::new(0.0, 200.0), Vec2::new(200.0, 200.0), Vec2::new(400.0, 200.0)]);
+        line.shape_before = vec![Vec2::new(0.0, 200.0), Vec2::new(100.0, 200.0), Vec2::new(200.0, 200.0)];
+        let hole = FaceRect { center: Vec2::new(300.0, 200.0), normal: Vec2::new(0.0, -1.0), half_along: 40.0, half_out: 30.0 };
+        let pieces = line.without(&hole);
+        assert_eq!(pieces.len(), 2);
+        let (first, second) = (&pieces[0], &pieces[1]);
+        let close = |a: &[Vec2], b: &[Vec2]| a.len() == b.len() && a.iter().zip(b).all(|(a, b)| a.distance(*b) < 1.0e-3);
+        assert!(close(&first.points, &[Vec2::new(0.0, 200.0), Vec2::new(200.0, 200.0), Vec2::new(260.0, 200.0)]), "{first:?}");
+        assert!(first.deforms() && second.deforms(), "each piece still changes: {first:?} {second:?}");
+        // The cut at x 260 is 30% along the second segment, which began at
+        // x 100..200: the cut point was at x 130.
+        let (a, b) = first.segment_before(1);
+        assert!(close(&[a, b], &[Vec2::new(100.0, 200.0), Vec2::new(130.0, 200.0)]), "{a:?} {b:?}");
+        assert!(close(&second.points, &[Vec2::new(340.0, 200.0), Vec2::new(400.0, 200.0)]), "{second:?}");
+        let (a, b) = second.segment_before(0);
+        assert!(close(&[a, b], &[Vec2::new(170.0, 200.0), Vec2::new(200.0, 200.0)]), "{a:?} {b:?}");
+        // A still line's pieces carry no history.
+        line.shape_before.clear();
+        assert!(line.without(&hole).iter().all(|piece| piece.shape_before.is_empty() && !piece.deforms()));
+    }
+
     /// For a level face the rectangle is a box: its bounds and its overlap
     /// test are the box's.
     #[test]

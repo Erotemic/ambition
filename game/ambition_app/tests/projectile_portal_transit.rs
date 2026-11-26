@@ -7,7 +7,7 @@
 //! normal `PortalSet::Transit` schedule.
 
 use bevy::ecs::system::RunSystemOnce;
-use crate::common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_platformer2d::engine_core::BodyKinematics;
 use bevy::prelude::*;

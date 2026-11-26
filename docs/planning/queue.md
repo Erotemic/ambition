@@ -1060,19 +1060,21 @@ The existing visual play gate remains separate.
 
 **Owner:** [crushing, compression and motion authority](engine/crushing-and-obstruction-response.md).
 
-**State:** the architecture is ruled; the numerical model and the
-deterministic fallback for irreconcilable constraints still need design
-(before C4). C1's core landed 2026-11-26: each `AxisConstraintConflict`
-carries the root-chart motion of both claimants and answers `obstruction()`
-with the driver chosen by relative motion (receipt in the owner's C1
-stage). Nothing consumes it yet; platforms take no refusal.
+**State:** C0–C3 and C5 landed 2026-11-26 (receipts in the owner's
+stages). C0 pinned today's behaviour and found that a full step does not
+report a press closing on a standing body: the step meets it as a head
+contact and lets it pass through. C1 publishes each tick's obstructions in
+identity order (`TickObstructions`), with the pinch across a portal pair
+reading as the local one. C2 is the policy data with defaults that change
+nothing. C3: a yielding or limited platform stalls on a body that has no
+room, and riders are carried by the accepted move. C5 (= portal M2e): a
+portal's moving host admits its move against the part of a body pushed
+through the pair.
 
-**Next action:** C0, pin today's behaviour: a moving block's pinch reports
-one conflict with both sources; Mary-O's moving one-way platform lets a
-player raised into a ceiling fall through (find and name its mechanism); a walk into a still wall is a refusal with
-no conflict. Then C1 (the obstruction fact, including the same pinch
-through a static portal pair) and C2 (policy data whose defaults change
-nothing).
+**Next action:** C4. Design the numerical model and the deterministic
+fallback (owner page, "not decided"), then make the full step report the
+press-on-a-standing-body conflict, then the body responses. C6 authors
+content after C4.
 
 **Acceptance:** the stage tests in the owner page, stage by stage: C3 a
 yielding or limited mover stalls with riders carried by the accepted
@@ -3757,8 +3759,9 @@ the rest of the tick's change of velocity in the exit's chart. M2d landed
 the same day: transit moves no root (a settled item's carry crosses in its
 owner), the old completed-endpoint road is deleted, and the crossing reads
 the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
-P2: host admission before the aperture writer commits, and SUP1 through a
-portal cell (which needs a deforming line split, not only a clipped cast). P4's full-turn bounds and repeated-link candidate exclusion landed
+P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26;
+the rider across the cut and S2/S3 remain). Host admission landed the same
+day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 (receipt in the owner's P4 section); its shared projectile source
 leg remains. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the

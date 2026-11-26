@@ -119,6 +119,11 @@ where
         "derived.portal_passages",
         "rebuilt from placed portals and transit occupancy each frame",
     );
+    registrar.declare_rollback_derived_resource::<crate::AdmittedPortals>(
+        OWNER,
+        "derived.admitted_portals",
+        "the placed portals as body integration admitted them; republished each tick before bodies step (portal M1b)",
+    );
     registrar.declare_rollback_derived_resource::<crate::PortalHostDepthsByRoom>(
         OWNER,
         "derived.portal_host_depths",

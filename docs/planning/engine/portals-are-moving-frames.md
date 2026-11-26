@@ -840,12 +840,25 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
 - **M2e — host admission before the aperture writer commits** (crushing
   C5, after C1 and C3). Test: the refused control keeps host, aperture and
   material in one combined state.
+  *Done 2026-11-26* as [crushing C5](crushing-and-obstruction-response.md#stages):
+  the portal layer publishes each straddling body's part through the pair
+  before platforms advance, a host that may stall admits its move against
+  it, and the aperture follows the host's accepted delta, so host, aperture
+  and material commit together. Witness:
+  `portal_world::tests::a_yielding_host_stalls_on_a_body_whose_far_side_meets_a_solid`.
 
 **SUP1 through a portal cell** ([SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion)).
 - **S1 — split a deforming line at an aperture.** The line's material place
   (segment, fraction) on each side is mapped through the pair. Test: a
   stretching line cut by a static portal; a body standing across the cut
   keeps its material place on both sides.
+  *Split landed 2026-11-26:* `SurfaceChain::without` gave every piece the
+  whole line's `shape_before`, so a piece usually read as rigid (its point
+  count differed) and, when the counts matched, paired its segments with the
+  wrong history. Each piece now carries its own history, the cut points at
+  the same place along the same segment as the tick began
+  (`a_cut_changing_line_keeps_each_pieces_material_history`). The rider test
+  across the cut is still open.
 - **S2 — carry and swept bounds in the cut cell** use the shape motion
   (`shape_before`) on each side. Test: a rider on the stretching line
   crosses the portal and keeps its material point; the deforming-segment

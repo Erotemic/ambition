@@ -227,6 +227,8 @@ At Primeval Trailhead, show the survey walk, the two steps, and the path
 under the walk. Use the platform spans to place the plank edges.
 At Primeval Run, use the spine surface points to draw the exposed bone.
 Show the ledges at both ends and the space under the ribs.
+At Primeval Rookery, show Twitchell on the hide deck and a standing
+body on the trail below. Use the deck bounds to place its supports.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

@@ -602,8 +602,31 @@ shared value preparation are sufficient until source proves otherwise.
    between the live scene and the witness (the camera pitch, the seated
    fact or the rim height). Not investigated yet.
 
-   Still unrealized in the card view: held and wielded art, portals (P5/P6),
-   room tiles, and bodies that have no rigged presentation.
+   **Held and wielded art (2026-11-25).** Both 2D roads (`sync_held_item_visual`
+   and `sync_wielded_item_visuals`) now mark their sprite with the root that
+   draws its holder (`HeldArtOf`, from `PosedHands::root`, kept current each
+   frame). The card view records each drawn root's card depth
+   (`CardRootDepths`) and draws each such sprite as a card at the sprite's
+   place on that depth. The sprite's 2D depth offset from the root, counted
+   in part slots, becomes the same number of card part steps, so the item is
+   between the same two parts in both views. Art at no hand (an absolute 2D
+   depth) is held within the body's band (±1). Witness
+   `held_art_is_a_card_on_its_holders_depth`: three slots in front of the
+   root is three part steps in front of the body; art at no hand stays in the
+   band; a hidden item, or one whose holder has no card, shows none. Render
+   lib: 529 (default), 534 (`card_view`).
+
+   A `goblin_encounter` capture with `--card-view` shows an empty card view,
+   as it did before today's RV3 edits. That is the declared framing, not a
+   fault (probe, deleted): the card camera is active and centred on the 2D
+   frame's centre (x −515), and Scout's root is at x −675 with his parts
+   sampled. At `zoom` 2.5 in a 0.42 viewport the card view shows the middle
+   ~227 world units of the 2D view's 568, and the 2D camera, held at the
+   room's edge, has Scout 160 units off its centre. Held art is witnessed by
+   the unit test only; no capture has a held item in the card frame yet.
+
+   Still unrealized in the card view: portals (P5/P6), room tiles, and bodies
+   that have no rigged presentation.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

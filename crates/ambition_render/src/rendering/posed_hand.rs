@@ -118,6 +118,12 @@ impl VisualRoots<'_, '_> {
     }
 }
 
+/// On a held or wielded item's sprite: the root that draws the body holding
+/// it ([`PosedHands::root`]), so another view of the body draws the item with
+/// it (RV3's card view).
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HeldArtOf(pub Entity);
+
 /// The hands of the bodies that are drawn. See the module docs.
 #[derive(SystemParam)]
 pub struct PosedHands<'w, 's> {

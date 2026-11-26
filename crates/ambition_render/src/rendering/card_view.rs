@@ -38,8 +38,18 @@
 //!
 //! # Not yet realized (RV3)
 //!
-//! Held and wielded art, the gate cue's scanlines (drawn as its flat tint),
-//! portals and room tiles are not drawn in this view.
+//! # Held and wielded art
+//!
+//! An item in a body's hand ([`HeldArtOf`]) is a card at its 2D sprite's
+//! place, on its holder's depth. Its 2D depth offset from the holder's root,
+//! counted in part slots, is the same count of card part steps, so it is
+//! between the same two parts here as there; an item placed at no hand (an
+//! absolute 2D depth) is held to its body's own band.
+//!
+//! # Not yet realized (RV3)
+//!
+//! The gate cue's scanlines (drawn as its flat tint), portals and room tiles
+//! are not drawn in this view.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -58,6 +68,7 @@ use super::actors::rigged::{
     BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
 };
 use super::hit_flash::PresentedFlash;
+use super::posed_hand::HeldArtOf;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{PresentedVessels, SeatedInVessel, VesselBox};
 
@@ -71,6 +82,11 @@ pub const CARD_PART_STEP: f32 = 0.05;
 /// A flash card's distance in front of the card it covers: inside the gap to
 /// the next part.
 const FLASH_STEP: f32 = CARD_PART_STEP * 0.5;
+/// A 2D part slot's depth step (`rigged::SLOT_DEPTH_STEP`): one part.
+const SLOT_STEP_2D: f32 = 1.0e-4;
+/// How far in front of or behind its body's card place a held item may be:
+/// inside the body's own band ([`CARD_BODY_STEP`]).
+const HELD_ART_REACH: f32 = 1.0;
 /// The near panel's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
 /// Panel and floor thickness.
@@ -123,6 +139,15 @@ pub struct CardPart;
 #[derive(Component, Debug)]
 pub struct CardVessel;
 
+/// A card drawing one held or wielded item.
+#[derive(Component)]
+pub struct CardHeldArt;
+
+/// Each drawn rigged root's card depth and its 2D depth, this frame: where
+/// its held art goes.
+#[derive(Resource, Default, Debug)]
+pub struct CardRootDepths(pub HashMap<Entity, (f32, f32)>);
+
 /// The card view: install it beside the 2D presentation.
 pub struct CardViewPlugin;
 
@@ -130,6 +155,7 @@ impl Plugin for CardViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CardViewSettings>();
         app.init_resource::<CardMeshes>();
+        app.init_resource::<CardRootDepths>();
         // Seating publishes its vessels only while this resource exists.
         app.init_resource::<PresentedVessels>();
         app.add_systems(
@@ -138,12 +164,15 @@ impl Plugin for CardViewPlugin {
                 present_card_view_rigs,
                 place_card_view_cameras,
                 realize_card_bodies,
+                realize_card_held_art,
                 realize_card_vessels,
             )
                 .chain()
                 .after(ViewCameraSet)
                 .after(super::actors::rigged::RiggedDriveSet)
                 .after(super::hit_flash::sync_hit_flash_overlays)
+                .after(super::item_visuals::sync_held_item_visual)
+                .after(super::wielded_item_visuals::sync_wielded_item_visuals)
                 .after(super::moving_platforms::seat_bodies_in_vessels),
         );
     }
@@ -448,6 +477,8 @@ pub fn realize_card_bodies(
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<StandardMaterial>>>,
     mut cache: ResMut<CardMeshes>,
+    // Where held art goes. Optional: an app with bodies alone runs without it.
+    mut root_depths: Option<ResMut<CardRootDepths>>,
     mut by_owner: Local<HashMap<Entity, Entity>>,
     mut ranked: Local<Vec<(bool, f32, Entity)>>,
     mut shown: Local<Vec<(Handle<Mesh>, Handle<StandardMaterial>, Transform)>>,
@@ -479,6 +510,9 @@ pub fn realize_card_bodies(
     }
     ranked.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)));
     let mut rank_of: HashMap<Entity, f32> = HashMap::with_capacity(ranked.len());
+    if let Some(depths) = root_depths.as_deref_mut() {
+        depths.0.clear();
+    }
     let mut last: Option<bool> = None;
     let mut rank = 0usize;
     for &(seated, _, owner) in ranked.iter() {
@@ -510,6 +544,9 @@ pub fn realize_card_bodies(
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
+        if let Some(depths) = root_depths.as_deref_mut() {
+            depths.0.insert(of.0, (*depth, root.translation.z));
+        }
         let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
         // A baked frame is one card at the root, drawn whole; so is a body
         // the 2D view composites, as its cell (its fade is in the cell).
@@ -627,6 +664,131 @@ pub fn realize_card_bodies(
     }
 }
 
+/// A held item's card depth relative to its body's card place: its 2D depth
+/// offset from the holder's root, one card part step per 2D part slot, held
+/// to the body's band.
+pub fn held_art_card_offset(art_z: f32, root_z: f32) -> f32 {
+    ((art_z - root_z) / SLOT_STEP_2D * CARD_PART_STEP).clamp(-HELD_ART_REACH, HELD_ART_REACH)
+}
+
+/// Realize each held and wielded item sprite as a card on its holder's depth.
+#[allow(clippy::too_many_arguments)]
+pub fn realize_card_held_art(
+    mut commands: Commands,
+    art: Query<
+        (Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &HeldArtOf, Option<&Visibility>),
+        (Without<CardBody>, Without<CardPart>, Without<CardHeldArt>),
+    >,
+    depths: Res<CardRootDepths>,
+    mut cards: Query<
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
+        With<CardHeldArt>,
+    >,
+    images: Option<Res<Assets<Image>>>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<StandardMaterial>>>,
+    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
+    mut cache: ResMut<CardMeshes>,
+    mut by_art: Local<HashMap<Entity, Entity>>,
+) {
+    let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
+        return;
+    };
+    by_art.retain(|art_entity, card| {
+        let keep = art.contains(*art_entity);
+        if !keep {
+            commands.entity(*card).try_despawn();
+        }
+        keep
+    });
+    for (entity, sprite, anchor, place, HeldArtOf(root), visibility) in &art {
+        let shown = visibility.is_none_or(|visibility| *visibility != Visibility::Hidden);
+        let frame = shown
+            .then(|| depths.0.get(root).copied())
+            .flatten()
+            .and_then(|depth| {
+                let page_size = images.get(&sprite.image)?.size().as_vec2();
+                let rect = match (&sprite.texture_atlas, sprite.rect) {
+                    (Some(cell), _) => *layouts.as_deref()?.get(&cell.layout)?.textures.get(cell.index)?,
+                    (None, Some(rect)) => rect.as_urect(),
+                    (None, None) => URect::from_corners(UVec2::ZERO, page_size.as_uvec2()),
+                };
+                let frame = BakedFrame {
+                    image: sprite.image.clone(),
+                    rect,
+                    size: sprite.custom_size.unwrap_or_else(|| rect.size().as_vec2()),
+                    anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
+                    flip_x: sprite.flip_x,
+                };
+                Some((depth, frame, page_size))
+            });
+        let Some(((depth, root_z), frame, page_size)) = frame else {
+            if let Some(card) = by_art.get(&entity) {
+                if let Ok((.., mut card_visibility)) = cards.get_mut(*card) {
+                    card_visibility.set_if_neq(Visibility::Hidden);
+                }
+            }
+            continue;
+        };
+        let mesh = cache
+            .baked_meshes
+            .entry(baked_key(&frame))
+            .or_insert_with(|| meshes.add(baked_quad(&frame, page_size)))
+            .clone();
+        let color = sprite.color.to_srgba().to_u8_array();
+        let blended = color[3] < 255;
+        let material = cache
+            .materials
+            .entry((frame.image.id(), color, blended))
+            .or_insert_with(|| {
+                materials.add(StandardMaterial {
+                    base_color: sprite.color,
+                    base_color_texture: Some(frame.image.clone()),
+                    unlit: true,
+                    cull_mode: None,
+                    double_sided: true,
+                    alpha_mode: if blended { AlphaMode::Blend } else { AlphaMode::Mask(0.5) },
+                    ..default()
+                })
+            })
+            .clone();
+        let flip = Vec3::new(
+            if sprite.flip_x { -1.0 } else { 1.0 },
+            if sprite.flip_y { -1.0 } else { 1.0 },
+            1.0,
+        );
+        let mut card_place = *place;
+        card_place.translation.z = depth + held_art_card_offset(place.translation.z, root_z);
+        card_place.scale *= flip;
+        match by_art.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+                if card_mesh.0 != mesh {
+                    card_mesh.0 = mesh;
+                }
+                if card_material.0 != material {
+                    card_material.0 = material;
+                }
+                transform.set_if_neq(card_place);
+                card_visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                let card = commands
+                    .spawn((
+                        CardHeldArt,
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        card_place,
+                        Visibility::Inherited,
+                        RenderLayers::layer(CARD_VIEW_LAYER),
+                        Name::new("Card held art"),
+                    ))
+                    .id();
+                by_art.insert(entity, card);
+            }
+        }
+    }
+}
+
 /// Realize each published vessel as a cart: a floor, a back panel, two
 /// sides and a near panel, recessed behind the play plane by the policy.
 pub fn realize_card_vessels(
@@ -705,6 +867,51 @@ pub fn cart_boards(vessel: &VesselBox, room_size: bevy::math::Vec2) -> [(Vec3, V
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// RV3: a held item is a card on its holder's card depth, its 2D offset
+    /// from the root kept in part steps (between the same two parts); one at
+    /// an absolute 2D depth is held to the body's band; a hidden one, or one
+    /// whose holder draws no card, shows none.
+    #[test]
+    fn held_art_is_a_card_on_its_holders_depth() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<TextureAtlasLayout>>()
+            .init_resource::<CardMeshes>()
+            .init_resource::<CardRootDepths>()
+            .add_systems(Update, realize_card_held_art);
+        let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
+        let root = app.world_mut().spawn_empty().id();
+        let no_card = app.world_mut().spawn_empty().id();
+        app.world_mut().resource_mut::<CardRootDepths>().0.insert(root, (-20.0, 5.0));
+        let item = |at: Vec3, holder| {
+            (
+                Sprite { image: image.clone(), custom_size: Some(Vec2::new(10.0, 4.0)), ..default() },
+                Transform::from_translation(at),
+                HeldArtOf(holder),
+            )
+        };
+        // Three slots in front of the root, as a hand's item is.
+        let in_hand = app.world_mut().spawn(item(Vec3::new(30.0, 40.0, 5.0 + 3.0 * SLOT_STEP_2D), root)).id();
+        let at_no_hand = app.world_mut().spawn(item(Vec3::new(0.0, 0.0, 12.0), root)).id();
+        let hidden = app.world_mut().spawn((item(Vec3::ZERO, root), Visibility::Hidden)).id();
+        let unheld = app.world_mut().spawn(item(Vec3::ZERO, no_card)).id();
+        app.update();
+        let world = app.world_mut();
+        let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardHeldArt>>();
+        let mut places: Vec<Vec3> = cards
+            .iter(world)
+            .filter(|(_, visibility)| **visibility != Visibility::Hidden)
+            .map(|(place, _)| place.translation)
+            .collect();
+        places.sort_by(|a, b| a.x.total_cmp(&b.x));
+        assert_eq!(places.len(), 2, "the hidden item and the one whose holder has no card show none");
+        assert_eq!(places[0], Vec3::new(0.0, 0.0, -20.0 + HELD_ART_REACH), "held to the body's band");
+        assert!((places[1] - Vec3::new(30.0, 40.0, -20.0 + 3.0 * CARD_PART_STEP)).length() < 1e-4, "three part steps in front");
+        let _ = (in_hand, at_no_hand, hidden, unheld);
+    }
 
     /// The declared depth policy: a seated body is behind the cart's near
     /// panel, which is behind every body on the play plane; the back panel is

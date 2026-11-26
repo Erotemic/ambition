@@ -76,7 +76,7 @@ pub use pose_view::{
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView, LOOK_UP_CLIP, LOOK_DOWN_CLIP,
 };
 pub use presented_pose::{
-    DeclaredPoseWarps, PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
+    DeclaredPoseWarps, PresentationPhase, PresentedCrossing, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
     PresentedPoseStage,
 };
 /// What a conductor stages around its boss, as [`BossRenderView::stage`] carries it.

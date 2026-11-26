@@ -123,6 +123,45 @@ pub struct PresentedPose {
     /// history reaches back along its new heading, which may be the far side
     /// of the warp.
     warped: bool,
+    /// When the warp was one portal crossing in the last tick, where the body
+    /// went inside that tick ([`PresentedCrossing`]): interpolated, it is
+    /// drawn on the entry side until it crossed and on the exit side after.
+    crossing: Option<PresentedCrossing>,
+}
+
+/// One portal crossing inside a tick, as presentation draws it (portal M4).
+///
+/// Times are fractions of the tick. The body travelled from `from` to
+/// `crossed_at` in the chart it left over `[start, at]`, then arrived at
+/// `arrived_at` (the crossing point carried by the pair's map at the
+/// crossing) and travelled straight to the tick's end pose. An interpolated
+/// view applies the chart change at `at` and at no other time.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PresentedCrossing {
+    pub from: Vec2,
+    pub start: f32,
+    pub crossed_at: Vec2,
+    pub at: f32,
+    pub arrived_at: Vec2,
+}
+
+impl PresentedCrossing {
+    /// Where the body was `time` of the way through the tick that ended at
+    /// `end`.
+    pub fn position(&self, time: f32, end: Vec2) -> Vec2 {
+        let along = |a: Vec2, b: Vec2, t0: f32, t1: f32| {
+            if t1 <= t0 {
+                b
+            } else {
+                a.lerp(b, ((time - t0) / (t1 - t0)).clamp(0.0, 1.0))
+            }
+        };
+        if time < self.at {
+            along(self.from, self.crossed_at, self.start, self.at)
+        } else {
+            along(self.arrived_at, end, self.at, 1.0)
+        }
+    }
 }
 
 /// How much of a buried body's height is drawn under the floor.
@@ -164,6 +203,7 @@ impl PresentedPose {
             jitter: Vec2::ZERO,
             posture: Vec2::ZERO,
             warped: false,
+            crossing: None,
         }
     }
 
@@ -229,19 +269,25 @@ impl PresentedPose {
         self.current = pos;
         self.tick = tick;
         self.warped = false;
+        self.crossing = None;
     }
 
     /// A warp carried the body here (it did not travel): it keeps the pace it
     /// had, along the way it now moves (its velocity, which the warp turned
     /// with it), so it is drawn neither a whole hop ahead nor parked. At rest
     /// it parks.
-    fn push_warped(&mut self, pos: Vec2, vel: Vec2, tick: u64) {
+    ///
+    /// `crossing` is the crossing inside the last tick, when the warp was one
+    /// portal crossing in it; it is kept only when the push spans that one
+    /// tick, since an earlier tick's travel is not in it.
+    fn push_warped(&mut self, pos: Vec2, vel: Vec2, tick: u64, crossing: Option<PresentedCrossing>) {
         let pace = self.tick_delta().length();
         self.spanned = tick.saturating_sub(self.tick).clamp(1, u32::MAX as u64) as u32;
         self.previous = pos - vel.normalize_or_zero() * pace * self.spanned as f32;
         self.current = pos;
         self.tick = tick;
         self.warped = true;
+        self.crossing = crossing.filter(|_| self.spanned == 1);
     }
 
     /// Follow a point that is not a body's (a moving platform): take its tick
@@ -266,6 +312,10 @@ impl PresentedPose {
     fn resample(&mut self, phase: f32, interpolate: bool) {
         self.presented = if !interpolate {
             self.current + self.tick_delta() * phase
+        } else if let (true, Some(crossing)) = (self.warped, self.crossing) {
+            // One tick behind: `phase` of the way through the tick that
+            // crossed, on whichever side the body was then.
+            crossing.position(phase, self.current)
         } else if self.warped {
             self.current
         } else {
@@ -309,11 +359,22 @@ pub(crate) fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: 
 /// The travel guess cannot see a short hop: a thin-wall door moves a body
 /// 16 px, which it takes for a step and draws the whole hop ahead.
 #[derive(bevy::prelude::Resource, Default, Debug)]
-pub struct DeclaredPoseWarps(Vec<bevy::prelude::Entity>);
+pub struct DeclaredPoseWarps(Vec<(bevy::prelude::Entity, Option<PresentedCrossing>)>);
 
 impl DeclaredPoseWarps {
     pub fn declare(&mut self, body: bevy::prelude::Entity) {
-        self.0.push(body);
+        self.0.push((body, None));
+    }
+
+    /// A warp that was one portal crossing in the last tick, with where the
+    /// body went inside that tick.
+    pub fn declare_crossing(&mut self, body: bevy::prelude::Entity, crossing: PresentedCrossing) {
+        self.0.push((body, Some(crossing)));
+    }
+
+    fn of(&self, body: bevy::prelude::Entity) -> Option<Option<PresentedCrossing>> {
+        // The last declaration of a body is its newest crossing.
+        self.0.iter().rev().find(|(entity, _)| *entity == body).map(|(_, crossing)| *crossing)
     }
 }
 
@@ -363,8 +424,8 @@ pub fn advance_presented_body_poses(
                 .0
                 .saturating_sub(presented.tick)
                 .clamp(1, u32::MAX as u64) as u32;
-            if warps.as_ref().is_some_and(|warps| warps.0.contains(&entity)) {
-                presented.push_warped(pose.pos, pose.vel, tick.0);
+            if let Some(crossing) = warps.as_ref().and_then(|warps| warps.of(entity)) {
+                presented.push_warped(pose.pos, pose.vel, tick.0, crossing);
             } else {
                 let down = frame
                     .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
@@ -812,9 +873,48 @@ mod tests {
     fn interpolated_draws_a_warped_body_at_the_exit() {
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
-        pose.push_warped(Vec2::new(500.0, 0.0), Vec2::new(360.0, 0.0), 2);
+        pose.push_warped(Vec2::new(500.0, 0.0), Vec2::new(360.0, 0.0), 2, None);
         pose.resample(0.0, true);
         assert_eq!(pose.presented(), Vec2::new(500.0, 0.0));
+    }
+
+    /// INTERPOLATED, a body that crossed a portal pair inside the drawn tick
+    /// is drawn on the entry side until the crossing time and on the exit
+    /// side from it (portal M4): the chart change is applied when the body
+    /// crossed, not at the start of the tick it crossed in. The control is
+    /// the same warp declared with no crossing, which is drawn at the exit
+    /// for the whole tick.
+    #[test]
+    fn interpolated_draws_a_crossing_on_its_side_of_the_crossing_time() {
+        let crossing = PresentedCrossing {
+            from: Vec2::new(0.0, 0.0),
+            start: 0.0,
+            crossed_at: Vec2::new(10.0, 0.0),
+            at: 0.5,
+            arrived_at: Vec2::new(500.0, 0.0),
+        };
+        let end = Vec2::new(510.0, 0.0);
+        let drawn = |crossing: Option<PresentedCrossing>, phase: f32| {
+            let mut pose = pose_at(Vec2::ZERO);
+            pose.push_warped(end, Vec2::new(1200.0, 0.0), 1, crossing);
+            pose.resample(phase, true);
+            pose.presented()
+        };
+        assert_eq!(drawn(Some(crossing), 0.0), Vec2::new(0.0, 0.0));
+        assert_eq!(drawn(Some(crossing), 0.25), Vec2::new(5.0, 0.0), "before it crossed: the entry side");
+        assert_eq!(drawn(Some(crossing), 0.5), Vec2::new(500.0, 0.0), "at the crossing: the mapped point");
+        assert_eq!(drawn(Some(crossing), 0.75), Vec2::new(505.0, 0.0), "after: the exit side");
+        assert_eq!(drawn(None, 0.25), end, "control: a warp with no crossing parks at the exit");
+        // Spanning two ticks, the crossing is not the whole travel: parked.
+        let mut late = pose_at(Vec2::ZERO);
+        late.push_warped(end, Vec2::new(1200.0, 0.0), 2, Some(crossing));
+        late.resample(0.25, true);
+        assert_eq!(late.presented(), end);
+        // Extrapolated views draw after the tick's end, so the crossing is behind them.
+        let mut ahead = pose_at(Vec2::ZERO);
+        ahead.push_warped(end, Vec2::new(1200.0, 0.0), 1, Some(crossing));
+        ahead.resample(0.25, false);
+        assert!(ahead.presented().x >= end.x);
     }
 
     #[test]
@@ -895,19 +995,19 @@ mod tests {
         // Walking 4.5 px a tick, then a thin-wall door carries it 16 px more.
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(4.5, 0.0), 1, true, Vec2::ZERO);
-        pose.push_warped(Vec2::new(25.0, 0.0), Vec2::new(270.0, 0.0), 2);
+        pose.push_warped(Vec2::new(25.0, 0.0), Vec2::new(270.0, 0.0), 2, None);
         pose.resample(1.0, false);
         assert_eq!(pose.presented(), Vec2::new(29.5, 0.0));
         // A pair that turns it: the pace goes the way it now moves.
         let mut turned = pose_at(Vec2::ZERO);
         turned.push(Vec2::new(4.0, 0.0), 1, true, Vec2::ZERO);
-        turned.push_warped(Vec2::new(50.0, 50.0), Vec2::new(0.0, -240.0), 2);
+        turned.push_warped(Vec2::new(50.0, 50.0), Vec2::new(0.0, -240.0), 2, None);
         turned.resample(0.5, false);
         assert_eq!(turned.presented(), Vec2::new(50.0, 48.0));
         // At rest it parks.
         let mut rest = pose_at(Vec2::ZERO);
         rest.push(Vec2::new(4.0, 0.0), 1, true, Vec2::ZERO);
-        rest.push_warped(Vec2::new(50.0, 0.0), Vec2::ZERO, 2);
+        rest.push_warped(Vec2::new(50.0, 0.0), Vec2::ZERO, 2, None);
         rest.resample(1.0, false);
         assert_eq!(rest.presented(), Vec2::new(50.0, 0.0));
     }

@@ -1,7 +1,7 @@
 # The Neural dimension: the Cortex and the Weights (started 2026-11-24)
 
-**State:** BEGUN. Four rooms, two biomes, two enemies, four residents and the
-gate are in the game. What is under "Next" is not built.
+**State:** BEGUN. Four rooms, two biomes, four residents, the gate, and the
+enemies listed below are in the game. What is under "Next" is not built.
 
 Jon (2026-11-24): "The Neural Dimension (both biological and artificial)".
 The roster note (`docs/brainstorms/story_and_world_directions_2026-11-18.md`)
@@ -65,7 +65,12 @@ brain).
 | `npc_neural_echo` | Echo | Echo Chamber | Says what you said, louder. |
 | `intrusive_thought` | Intrusive Thought | Cathedral | A purple cloud of talk that drifts at you and will not leave. |
 | `sunk_cost_fallacy` | Sunk Cost Fallacy | Cathedral | A diver beside the pool who swings his salvage chest. |
+| `halo_horns_effect` | Halo and Horns Effect | Cathedral | It charges with its horns after the halo splits. |
+| `anchoring_bias` | Anchoring Bias | Cathedral | It swings an anchor across the memory gallery. |
+| `motor_neuron` | Motor Neuron | Cathedral | It winds up its motor and charges along the floor. |
+| `brainstorm` | Brainstorm | Cathedral | It floats above the nave and fires lightning. |
 | `attention_head` | Attention Head | Weights | An eye on rotors that watches and fires at what it looks at. |
+| `stereotyping` | Stereotyping | Weights | It types and shoots paper labels beside the classifier's board. |
 
 ## Next
 

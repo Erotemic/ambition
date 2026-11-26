@@ -61,6 +61,14 @@ title: business_barista
     <<stop>>
 <<endif>>
 ===
+title: quison
+---
+<<present_speaker "npc_quison">>
+Quison: Ines handles the coffee. I cook whatever came through the gate this morning.
+-> What's on the menu?
+    Quison: Something in the pantry smells like onions. If it stops clicking, I'll make soup.
+-> ‹go›
+===
 title: business_clerk
 ---
 <<present_speaker "npc_business_records_clerk">>

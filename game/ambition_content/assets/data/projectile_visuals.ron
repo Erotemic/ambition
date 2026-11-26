@@ -30,6 +30,14 @@
         expiry_vfx: Some((fx: "classic_burst", scale: 0.3)),
         hit_vfx: Some((fx: "classic_burst", scale: 0.5)),
     ),
+    "stereotyping_label": (
+        source: SolidColor(rgba: (0.96, 0.88, 0.65, 1.0)),
+        size: Body(min: 4.0, scale: 1.0),
+        rotation: VelocityAligned,
+        debug_tint: (0.96, 0.88, 0.65, 1.0),
+        label: "paper label",
+        expiry_vfx: None,
+    ),
     // A shot that names no look (the empty id): a bolt of magic. A boss's
     // volley and a `Bolt` ranged action are this, not the engine's orange box.
     "": (

@@ -42,6 +42,16 @@
 //! draws from a sheet cell) is one card of the cell it draws, ranked with the
 //! rigged bodies on its depth by the same logical order.
 //!
+//! # The room's terrain
+//!
+//! The skin of a room's blocks ([`TerrainSkinMesh`], what the 2D view draws
+//! as its tiles) and the earth under its lines ([`ChainEarth`], a hill's
+//! fill) are the same meshes here, pictures on the play plane just behind
+//! its bodies ([`TERRAIN_DEPTH`]), the earth behind the block skin and the
+//! skin's layers in their 2D order. A
+//! body recessed behind the play plane (a seated one) is behind it, as the
+//! policy places everything behind that plane.
+//!
 //! # Held and wielded art
 //!
 //! An item in a body's hand ([`HeldArtOf`]) is a card at its 2D sprite's
@@ -52,8 +62,8 @@
 //!
 //! # Not yet realized (RV3)
 //!
-//! The gate cue's scanlines (drawn as its flat tint), portals and room tiles
-//! are not drawn in this view.
+//! The gate cue's scanlines (drawn as its flat tint) and portals are not
+//! drawn in this view, nor the parallax backdrops and room dressing props.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -77,6 +87,8 @@ use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{PresentedVessels, SeatedInVessel, VesselBox};
+use super::chain_skin::ChainEarth;
+use super::terrain_skin::TerrainSkinMesh;
 
 /// How deep a vessel's bed is, in world units: the pilot cart's authored
 /// thickness.
@@ -93,6 +105,12 @@ const SLOT_STEP_2D: f32 = 1.0e-4;
 /// How far in front of or behind its body's card place a held item may be:
 /// inside the body's own band ([`CARD_BODY_STEP`]).
 const HELD_ART_REACH: f32 = 1.0;
+/// The room's terrain picture: just behind the bodies on the play plane, in
+/// front of a vessel's near panel.
+pub const TERRAIN_DEPTH: f32 = -0.5;
+/// How far the earth under a line is behind the block skin (its 2D band is
+/// under the blocks').
+const EARTH_BEHIND_SKIN: f32 = 0.1;
 /// The near panel's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
 /// Panel and floor thickness.
@@ -149,6 +167,10 @@ pub struct CardVessel;
 #[derive(Component)]
 pub struct CardHeldArt;
 
+/// The card of one mesh of a room's terrain skin.
+#[derive(Component)]
+pub struct CardTerrain;
+
 /// The card of a body drawn from a sheet (no rigged presentation).
 #[derive(Component)]
 pub struct CardSpriteBody;
@@ -186,6 +208,7 @@ impl Plugin for CardViewPlugin {
                 realize_card_sprite_bodies,
                 realize_card_held_art,
                 realize_card_vessels,
+                realize_card_terrain,
             )
                 .chain()
                 .after(ViewCameraSet)
@@ -932,6 +955,107 @@ pub fn realize_card_sprite_bodies(
     }
 }
 
+/// Realize each mesh of a room's terrain skin as a card of the same mesh on
+/// the play plane ([`TERRAIN_DEPTH`]), its skin layer's 2D depth kept as its
+/// order among the terrain.
+#[allow(clippy::too_many_arguments)]
+pub fn realize_card_terrain(
+    mut commands: Commands,
+    terrain: Query<
+        (
+            Entity,
+            &Mesh2d,
+            &bevy::sprite_render::MeshMaterial2d<bevy::sprite_render::ColorMaterial>,
+            &Transform,
+            &GlobalTransform,
+            Option<&InheritedVisibility>,
+            Has<ChainEarth>,
+        ),
+        (Or<(With<TerrainSkinMesh>, With<ChainEarth>)>, Without<CardTerrain>),
+    >,
+    mut cards: Query<(&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility), With<CardTerrain>>,
+    color_materials: Option<Res<Assets<bevy::sprite_render::ColorMaterial>>>,
+    materials: Option<ResMut<Assets<StandardMaterial>>>,
+    mut cache: ResMut<CardMeshes>,
+    mut by_mesh: Local<HashMap<Entity, Entity>>,
+) {
+    let (Some(color_materials), Some(mut materials)) = (color_materials, materials) else {
+        return;
+    };
+    by_mesh.retain(|mesh, card| {
+        let keep = terrain.contains(*mesh);
+        if !keep {
+            commands.entity(*card).try_despawn();
+        }
+        keep
+    });
+    for (entity, mesh, skin, local, global, visibility, earth) in &terrain {
+        let shown = visibility.is_none_or(|visibility| visibility.get());
+        let Some((skin, image)) = color_materials
+            .get(&skin.0)
+            .and_then(|skin| Some((skin, skin.texture.clone()?)))
+            .filter(|_| shown)
+        else {
+            if let Some((.., mut card_visibility)) = by_mesh.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+                card_visibility.set_if_neq(Visibility::Hidden);
+            }
+            continue;
+        };
+        let color = skin.color.to_srgba().to_u8_array();
+        let material = cache
+            .materials
+            .entry((image.id(), color, true))
+            .or_insert_with(|| {
+                materials.add(StandardMaterial {
+                    base_color: skin.color,
+                    base_color_texture: Some(image.clone()),
+                    unlit: true,
+                    cull_mode: None,
+                    double_sided: true,
+                    alpha_mode: AlphaMode::Blend,
+                    ..default()
+                })
+            })
+            .clone();
+        let (scale, rotation, translation) = global.to_scale_rotation_translation();
+        let place = Transform {
+            translation: translation.truncate().extend(if earth {
+                TERRAIN_DEPTH - EARTH_BEHIND_SKIN
+            } else {
+                TERRAIN_DEPTH + local.translation.z
+            }),
+            rotation,
+            scale,
+        };
+        match by_mesh.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+                if card_mesh.0 != mesh.0 {
+                    card_mesh.0 = mesh.0.clone();
+                }
+                if card_material.0 != material {
+                    card_material.0 = material;
+                }
+                transform.set_if_neq(place);
+                card_visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                let card = commands
+                    .spawn((
+                        CardTerrain,
+                        Mesh3d(mesh.0.clone()),
+                        MeshMaterial3d(material),
+                        place,
+                        Visibility::Inherited,
+                        RenderLayers::layer(CARD_VIEW_LAYER),
+                        Name::new("Card terrain"),
+                    ))
+                    .id();
+                by_mesh.insert(entity, card);
+            }
+        }
+    }
+}
+
 /// Realize each published vessel as a cart: a floor, a back panel, two
 /// sides and a near panel, recessed behind the play plane by the policy.
 pub fn realize_card_vessels(
@@ -1093,6 +1217,58 @@ mod tests {
             vec![Vec3::new(-10.0, 0.0, card_body_depth(false, 0)), Vec3::new(10.0, 0.0, card_body_depth(false, 1))],
             "the player and the actor, in logical order; no prop, no hidden body"
         );
+    }
+
+    /// RV3: each mesh of a room's terrain skin is a card of the same mesh on
+    /// the play plane, its layer order kept; a hidden mesh shows none, and a
+    /// mesh that goes takes its card with it.
+    #[test]
+    fn a_rooms_terrain_skin_is_a_card_on_the_play_plane() {
+        use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<ColorMaterial>>()
+            .init_resource::<CardMeshes>()
+            .add_systems(Update, realize_card_terrain);
+        let image = Handle::<Image>::default();
+        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(Rectangle::new(32.0, 16.0));
+        let skin = app.world_mut().resource_mut::<Assets<ColorMaterial>>().add(ColorMaterial {
+            texture: Some(image.clone()),
+            ..ColorMaterial::from_color(Color::WHITE)
+        });
+        let terrain = |z: f32| {
+            (
+                Mesh2d(mesh.clone()),
+                MeshMaterial2d(skin.clone()),
+                Transform::from_xyz(0.0, 0.0, z),
+                GlobalTransform::from_translation(Vec3::new(40.0, -12.0, 7.0 + z)),
+                TerrainSkinMesh { theme: ambition_sprite_sheet::game_assets::ParallaxTheme::new("cave"), centre: Vec2::ZERO },
+            )
+        };
+        let cap = app.world_mut().spawn(terrain(0.03)).id();
+        app.world_mut().spawn(terrain(0.005));
+        app.world_mut().spawn((terrain(0.01), InheritedVisibility::HIDDEN));
+        app.update();
+        let shown = |app: &mut App| {
+            let world = app.world_mut();
+            let mut cards = world.query_filtered::<(&Mesh3d, &Transform, &Visibility), With<CardTerrain>>();
+            let mut found: Vec<(bool, f32)> = cards
+                .iter(world)
+                .filter(|(.., visibility)| **visibility != Visibility::Hidden)
+                .map(|(card, place, _)| (card.0 == mesh, place.translation.z))
+                .collect();
+            found.sort_by(|a, b| a.1.total_cmp(&b.1));
+            found
+        };
+        let found = shown(&mut app);
+        assert_eq!(found.len(), 2, "the hidden mesh shows none");
+        assert!(found.iter().all(|(same, _)| *same), "the 2D mesh itself");
+        assert!((found[0].1 - (TERRAIN_DEPTH + 0.005)).abs() < 1e-6 && (found[1].1 - (TERRAIN_DEPTH + 0.03)).abs() < 1e-6);
+        assert!(found[1].1 < card_body_depth(false, 0) && found[1].1 > -NEAR_PANEL_GAP, "behind the bodies, before the near panel");
+        app.world_mut().entity_mut(cap).despawn();
+        app.update();
+        assert_eq!(shown(&mut app).len(), 1, "a mesh that goes takes its card");
     }
 
     /// The declared depth policy: a seated body is behind the cart's near

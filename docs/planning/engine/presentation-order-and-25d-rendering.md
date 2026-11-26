@@ -648,7 +648,26 @@ shared value preparation are sufficient until source proves otherwise.
    same order as in 2D. The same capture with the old `card_view.rs` has no
    sheep there. The rigged shepherd is drawn in both.
 
-   Still unrealized in the card view: portals (P5/P6) and room tiles.
+   **Room terrain (2026-11-25).** The card view drew bodies on nothing.
+   The room's ground is what the 2D view draws for its tiles: the skin of
+   its blocks (`TerrainSkinMesh`, a few textured meshes per room) and the
+   earth under its lines (`ChainEarth`, a hill's fill). These are the same
+   mesh assets here, drawn as cards (`realize_card_terrain`). They sit on
+   the play plane just behind its bodies (`TERRAIN_DEPTH` −0.5, in front
+   of a cart's near panel), with the earth 0.1 behind the block skin and
+   the skin's layers in their 2D order. They use the 2D blend, since a
+   skin picture has clear parts. A seated body is recessed behind the play
+   plane and is behind them, as the depth policy places it. The 2D meshes
+   carry no normals, and the unlit 3D pipeline draws them as they are.
+   Witness `a_rooms_terrain_skin_is_a_card_on_the_play_plane`: the same
+   mesh, layer order kept, none for a hidden mesh, and the card leaves with
+   its mesh. Render lib with `card_view`: 536 passed. The same
+   `intro_fell` capture now shows the shepherd, the sheep and Scout
+   standing on the turf, and the hill's earth rising behind them.
+
+   Still unrealized in the card view: portals (P5/P6), the grass turf
+   pieces on a line (sprites, `ChainTurf`), room dressing props, and the
+   parallax backdrop.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

@@ -691,6 +691,18 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   Test: an aperture that moves after the step leaves the crossing's record
   on the snapshot it crossed; a rewind restores record and snapshot
   together.
+  *Done 2026-11-26.* `publish_portal_apertures` keeps the pairs it built
+  `BodyGeometry`'s links from as `AdmittedPortals` (derived, written each
+  tick before the bodies step, from the placed portals a rewind restores),
+  and `portal_transit` crosses through that snapshot instead of collecting
+  the live portals again: one snapshot for the step and its crossings, so
+  a pair that moves, opens or closes after the step cannot give a crossing
+  a pose the step was not admitted against. Witness:
+  `body_contract_tests::a_crossing_comes_out_of_the_exit_its_step_was_admitted_against`
+  (the exit is moved 400 px between publication and transit; control: no
+  move, same arrival). Fixtures that ran transit alone now publish first.
+  Items and projectiles still find their crossings from the live portals
+  of their own step; that moves with M2c.
 - **M1c — source-frame contact facts.** A contact keeps the chart it was
   met in through to its readers. Test: a support met on the exit side
   reports the exit chart's normal and surface velocity.

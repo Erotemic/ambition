@@ -47,7 +47,9 @@ fn transit_app() -> App {
     app.init_resource::<PortalTuning>();
     app.add_message::<crate::PortalBodyEntered>();
     app.add_message::<crate::PortalBodyTransited>();
-    app.add_systems(Update, crate::portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (crate::publish_portal_apertures, crate::portal_transit).chain());
     app
 }
 
@@ -529,7 +531,9 @@ fn a_root_transfer_carries_scale_axes_and_parity_for_each_convention() {
             app.insert_resource(PortalTuning { convention, ..Default::default() });
             app.add_message::<crate::PortalBodyEntered>();
             app.add_message::<crate::PortalBodyTransited>();
-            app.add_systems(Update, crate::portal_transit);
+            app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+            // Transit crosses the pairs the step admitted (M1b): publish them first.
+            app.add_systems(Update, (crate::publish_portal_apertures, crate::portal_transit).chain());
             let entry = PlacedPortal::fixed(BLUE, Vec2::new(200.0, 380.0), -Vec2::Y, HALF).unwrap();
             let exit = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), -Vec2::X, HALF).unwrap();
             let map = ae::frame::Sim2::through(&entry.aperture(), &exit.aperture(), convention.map_convention()).unwrap();
@@ -556,4 +560,42 @@ fn a_root_transfer_carries_scale_axes_and_parity_for_each_convention() {
             assert_eq!(after.facing, before.facing);
         }
     }
+}
+
+/// M1b: a crossing is bound to the pairs the step was admitted against. The
+/// orange exit is moved 400 px up after the pairs were published and before
+/// transit runs (as a host or a held pair could move it); the body still
+/// comes out where the admitted exit was. The control runs with no move, and
+/// the two arrivals are the same.
+#[test]
+fn a_crossing_comes_out_of_the_exit_its_step_was_admitted_against() {
+    fn raise_orange(mut portals: Query<&mut PlacedPortal>) {
+        for mut portal in &mut portals {
+            if portal.channel == ORANGE {
+                *portal = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 600.0), Vec2::new(-1.0, 0.0), HALF).unwrap();
+            }
+        }
+    }
+    let arrival = |moved: bool| {
+        let mut app = App::new();
+        app.init_resource::<PortalTuning>();
+        app.add_message::<crate::PortalBodyEntered>();
+        app.add_message::<crate::PortalBodyTransited>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+        if moved {
+            app.add_systems(Update, (crate::publish_portal_apertures, raise_orange, crate::portal_transit).chain());
+        } else {
+            app.add_systems(Update, (crate::publish_portal_apertures, crate::portal_transit).chain());
+        }
+        wall_pair(&mut app);
+        // Its step began 30 px in front of blue and ends 6 px behind it.
+        let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(14.0, 200.0), vel: Vec2::new(-1800.0, 0.0), canonical_size: Vec2::splat(16.0), facing: 1.0 };
+        let record = SweepSample { prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::Y, ..SweepSample::at_rest(kin, Vec2::Y) };
+        let body = app.world_mut().spawn((kin, record)).id();
+        app.update();
+        app.world().get::<BodyKinematics>(body).unwrap().pos
+    };
+    let admitted = arrival(false);
+    assert!(admitted.x > 300.0 && (admitted.y - 200.0).abs() < 1.0, "control: the body came out of orange: {admitted:?}");
+    assert_eq!(arrival(true), admitted, "the crossing used the exit as it stood after the step, not as admitted");
 }

@@ -420,7 +420,9 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.init_resource::<ambition_portal2d::PortalTuning>();
-    app.add_systems(Update, portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
         Vec2::new(20.0, 200.0),
@@ -586,7 +588,9 @@ fn actors_carry_their_physical_material_through_portals() {
     app.insert_resource(ambition_portal2d::PortalTuning {
         convention: ambition_portal2d::PortalConvention::Reflection, ..Default::default()
     });
-    app.add_systems(Update, portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
     // The pair reflects the physical material across a floor-to-wall crossing.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
@@ -637,7 +641,9 @@ fn portal_pair_teleports_player_carrying_momentum() {
     app.insert_resource(ambition_portal2d::PortalTuning {
         convention: ambition_portal2d::PortalConvention::Reflection, ..Default::default()
     });
-    app.add_systems(Update, portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
     // Blue on the left (facing right), orange on the right (facing left).
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
@@ -698,7 +704,9 @@ fn a_gunless_player_transits_an_authored_pair() {
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<ambition_portal2d::PortalTuning>();
-    app.add_systems(Update, portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
     let he = ambition_portal2d::PORTAL_OPENING_HALF;
     app.world_mut().spawn(PlacedPortal::fixed(
         PURPLE,
@@ -762,7 +770,9 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     app.init_resource::<ambition_portal2d::PortalTuning>();
     // The trace and trail notices of the transfer are the runtime's
     // (`portal_seat::tests`); this measures the core's gradual crossing.
-    app.add_systems(Update, portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
     // Two FLOOR portals (normal up): blue at x=200, orange at x=600.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,

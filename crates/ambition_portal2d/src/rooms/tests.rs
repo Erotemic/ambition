@@ -48,7 +48,9 @@ fn transit_app() -> (App, [LiveRoomInstance; 2]) {
     app.add_message::<crate::PortalBodyEntered>();
     app.add_message::<crate::PortalBodyTransited>();
     app.init_resource::<crate::PortalTuning>();
-    app.add_systems(Update, crate::portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (crate::publish_portal_apertures, crate::portal_transit).chain());
     (app, live)
 }
 

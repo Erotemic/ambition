@@ -27,6 +27,16 @@ fn linked_pairs_iter(portals:&[PlacedPortal]) -> impl Iterator<Item=(&PlacedPort
         .filter_map(move |p| find_portal(portals, p.channel.partner()).map(|q| (p,q)))
 }
 
+/// The placed portals of each live room as body integration admitted them
+/// this tick: the snapshot `BodyGeometry`'s links were built from. Transit
+/// crosses through this snapshot, not through the live portals, so a pair
+/// that moves, opens or closes after the bodies stepped cannot give a
+/// crossing a pose the step was not admitted against (portal M1b). Derived:
+/// the publisher writes it each tick before the bodies step, from the
+/// placed portals a rewind restores.
+#[derive(Resource, Debug, Default, Clone)]
+pub struct AdmittedPortals(pub PortalsByRoom);
+
 /// Publish current apertures and occupancy before body integration.
 pub fn publish_portal_apertures(
     mut commands: Commands,
@@ -83,6 +93,7 @@ pub fn publish_portal_apertures(
     }
     *rings_said = rings;
     write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
+    commands.insert_resource(AdmittedPortals(by_room));
 }
 
 /// Refresh body occupancy after transit without changing the admitted apertures.

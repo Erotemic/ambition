@@ -45,7 +45,7 @@ pub type PortalRoom = Option<LiveRoomInstance>;
 
 /// The placed portals of each live room, each room's list in
 /// [`crate::stable_portal_order`].
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PortalsByRoom(Vec<(PortalRoom, Vec<PlacedPortal>)>);
 
 impl PortalsByRoom {

@@ -1132,6 +1132,35 @@ rapid jab test reached all three jabs and recorded zero loop time with
 both move-start systems. The desktop target is 13.75 ms per tick. Device
 measurements are pending.
 
+### Prepared sprite frame addresses
+
+A loaded character sheet stores each frame's page, atlas index, and
+trim. The animator reads this table. The rest-row pass checks the worn
+form before it gets mutable pin state.
+
+Four windowed desktop runs used 596 bodies, a 1280 × 800 viewport,
+Potato quality, and the CPU renderer. The run order was reference,
+candidate, candidate, reference.
+
+| Median after 30 s | Reference runs, ms | Candidate runs, ms |
+| --- | ---: | ---: |
+| All measured simulation phases per tick | 15.47, 15.63 | 15.40, 15.32 |
+| Update per displayed frame | 21.16, 21.27 | 19.46, 19.25 |
+
+The total tick windows overlapped. The desktop target is 13.75 ms per
+tick. A headless check compared page, index, and trim for 4,247 frames
+from 12 loaded sheets. All values matched. The rest-pin pass kept the
+same rows and clocks for 596 forms. In isolation it took 41.5–42.1 μs
+per pass, down from 46.2–46.8 μs. The rest-pin and character sprite
+tests passed. The sheet suite reported the same three rig and asset
+failures with each version.
+
+The available Pixel 5 capture from `2ef7f0cc8` had a median of
+13.20 ms across the measured simulation phases. Its largest phase was
+movement integration at 3.81 ms per tick. That build preceded the
+changes to the settled step for powered flight and ground contact.
+The new frame-address table has no device result yet.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

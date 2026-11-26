@@ -240,6 +240,9 @@ camera framing. Use the room's background override in the preview.
 At Primeval Canopy, show the branch steps and the jump arc from each
 takeoff point. Use the active movement profile and the actual landing
 surfaces to show which steps a player can reach.
+At the Smoking Mountain, show the foothold and each opening beside it.
+Use the solid bounds and the damage region to align the basalt edge and
+the lava surface.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

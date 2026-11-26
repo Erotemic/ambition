@@ -75,7 +75,6 @@ fn walk_distance_with_hitstop(sprite_content: &ambition_sprite_sheet::SpriteCont
         combat.decay_reaction_timers(dt, dt);
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             dt,
             false,
             frame,
@@ -83,7 +82,7 @@ fn walk_distance_with_hitstop(sprite_content: &ambition_sprite_sheet::SpriteCont
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             // No move playing: these fixtures are about movement, not helplessness.
             None,
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut combat,
             // Not tumbling — this fixture is not about the floor game.

@@ -6,7 +6,7 @@
 use ambition_body_seed::clusters::ActorMut;
 use super::*;
 use ambition_combat::events::{
-    FeatureCombatTuning, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
+    HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
     HitTarget,
 };
 
@@ -25,14 +25,13 @@ pub(crate) trait ActorMutIntegrationExt {
     fn update(
         &mut self,
         world: &ae::World,
-        tuning: FeatureCombatTuning,
         dt: f32,
         pose_owned_externally: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
         motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
         motion_frame: ae::MotionFrame,
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
-        feel: ambition_combat::feel::FeelTuning,
+        hitstun_control_scale: f32,
         authored_tuning: Option<&ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         tumbling: bool,
@@ -53,7 +52,7 @@ pub(crate) trait ActorMutIntegrationExt {
         dt: f32,
         motion_frame: ae::MotionFrame,
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
-        feel: ambition_combat::feel::FeelTuning,
+        hitstun_control_scale: f32,
         authored_tuning: Option<&ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         tumbling: bool,
@@ -71,7 +70,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
     fn update(
         &mut self,
         world: &ae::World,
-        tuning: FeatureCombatTuning,
         dt: f32,
         // Something else owns this body's pose. Named for the FACT rather than
         // for the saddle: see `PoseOwnedExternally`. ⛔ This is the RIDER's side
@@ -93,7 +91,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
         // Post-hit stagger (§A2 step 7): the body's own `BodyCombat`, applied to
         // the FINAL InputState by the SAME gate the player's input bridge uses.
-        feel: ambition_combat::feel::FeelTuning,
+        hitstun_control_scale: f32,
         // The body's OWN feel, when its character authored one.
         //
         // without this the line below overwrote the axis params from the
@@ -174,7 +172,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
                 dt,
                 motion_frame,
                 None,
-                feel,
+                hitstun_control_scale,
                 authored_tuning,
                 combat,
                 tumbling,
@@ -191,9 +189,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // and spawns the active-window strike, so movement integration owns movement
         // only. The AI reads `self.attack` (the projected `BodyMelee` read-model) as
         // of the previous frame's advance — a consistent one-frame view.
-        let _ = tuning.enemy_attack_active;
-
-
         // ONE integration arm for every actor: the kernel dispatches on the
         // body's explicit MotionModel (axis-swept, surface momentum, or the
         // adhesive crawler — the former hidden surface-walker path).
@@ -204,7 +199,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             dt,
             motion_frame,
             playing_a_move,
-            feel,
+            hitstun_control_scale,
             authored_tuning,
             combat,
             tumbling,
@@ -257,7 +252,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         motion_frame: ae::MotionFrame,
         // Threaded to `update`'s helpless derivation. See its parameter.
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
-        feel: ambition_combat::feel::FeelTuning,
+        hitstun_control_scale: f32,
         // The body's OWN feel, when its character authored one.
         //
         // without this the line below overwrote the axis params from the
@@ -278,21 +273,19 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
         let flight_speed = self.config.tuning.flight_speed(&self.policy.0);
-        let fallback;
+        let mut fallback;
         let resolved_tuning = match authored_tuning {
             Some(tuning) => tuning,
             None => {
                 let tuning = &self.config.tuning;
                 let flight_response = (flight_speed * 3.0).max(900.0);
-                fallback = ae::MovementTuning {
-                    flight_terminal_speed: flight_speed,
-                    flight_accel: flight_response,
-                    flight_drag: flight_response,
-                    flight_hover_speed: 0.0,
-                    flight_hover_hz: 0.0,
-                    flight_direct_velocity: tuning.flight_direct_velocity,
-                    ..tuning.movement.body_tuning(tuning.max_run_speed)
-                };
+                fallback = tuning.movement.body_tuning(tuning.max_run_speed);
+                fallback.flight_terminal_speed = flight_speed;
+                fallback.flight_accel = flight_response;
+                fallback.flight_drag = flight_response;
+                fallback.flight_hover_speed = 0.0;
+                fallback.flight_hover_hz = 0.0;
+                fallback.flight_direct_velocity = tuning.flight_direct_velocity;
                 &fallback
             }
         };
@@ -319,7 +312,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // flight-axis override so a knocked flyer loses its steering too.
         ambition_combat::attack_support::apply_post_hit_input_gates(
             &mut input,
-            feel,
+            hitstun_control_scale,
             combat,
             self.shield,
             tumbling,
@@ -532,7 +525,6 @@ pub(crate) trait SeedActorIntegrationTestExt:
     fn update_for_test(
         &mut self,
         world: &ae::World,
-        tuning: FeatureCombatTuning,
         dt: f32,
         pose_owned_externally: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
@@ -542,7 +534,6 @@ pub(crate) trait SeedActorIntegrationTestExt:
         self.as_actor_mut()
             .update(
                 world,
-                tuning,
                 dt,
                 pose_owned_externally,
                 frame,
@@ -550,7 +541,7 @@ pub(crate) trait SeedActorIntegrationTestExt:
                 motion_frame,
                 // No move playing on a scratch rig, so it is never helpless.
                 None,
-                ambition_combat::feel::FeelTuning::default(),
+                ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
                 None,
                 &mut ambition_characters::actor::BodyCombat::default(),
                 // Not tumbling — a scratch harness body is not in a floor game.

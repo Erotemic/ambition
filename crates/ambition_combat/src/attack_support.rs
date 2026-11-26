@@ -76,7 +76,7 @@ pub fn engine_input_from_actor_control(
     // frame's.
     let mut input = actor.to_input_state();
     input.control_dt = control_dt;
-    apply_post_hit_input_gates(&mut input, feel, combat, shield, tumbling, helpless);
+    apply_post_hit_input_gates(&mut input, feel.hitstun_control_scale, combat, shield, tumbling, helpless);
     input
 }
 
@@ -100,7 +100,7 @@ pub fn body_action_lock_timer(combat: &ambition_characters::actor::BodyCombat, s
 /// bridge and the actor's `integrate_body` both call this.
 pub fn apply_post_hit_input_gates(
     input: &mut ae::InputState,
-    feel: FeelTuning,
+    hitstun_control_scale: f32,
     // the BODY, so the two gates read the same authority and neither caller
     // can spell one of them differently. See `engine_input_from_actor_control`.
     combat: &ambition_characters::actor::BodyCombat,
@@ -178,7 +178,7 @@ pub fn apply_post_hit_input_gates(
         // jump/burst/blink, but the attack verb (and its pogo sibling) is
         // PRESERVED — you can fight back, and damage a boss you're standing in,
         // the instant the recoil lock ends while i-frames are still ticking.
-        let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
+        let scale = hitstun_control_scale.clamp(0.0, 1.0);
         input.axes = ae::LocalAxes::new(input.axes.x * scale, input.axes.y * scale);
         // No jump/burst/blink, but PRESERVE an in-progress jump's held/released
         // (only the press EDGE is eaten, matching the pre-re-key behavior).

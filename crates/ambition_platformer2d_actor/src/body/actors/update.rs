@@ -964,7 +964,6 @@ fn integrate_actor_body(
     // Somebody is carrying THIS body. Declines the locomotion pass.
     pose_owned_externally: bool,
     feature_world: &ae::World,
-    combat_tuning: ambition_combat::events::FeatureCombatTuning,
     steering: &ActorSteering,
     motion_frame: ae::MotionFrame,
     // The live move's authored motion lock (`MoveSpec::motion_scale_at` of the
@@ -987,7 +986,7 @@ fn integrate_actor_body(
     // clusters — and read on BOTH roads, which is the part that was missing.
     out_of_play: bool,
     dt: f32,
-    feel: ambition_combat::feel::FeelTuning,
+    hitstun_control_scale: f32,
     // This body's own movement feel, when its character authored one.
     //
     // The actor twin of the player loop's `authored_tuning`. Threaded rather
@@ -1055,7 +1054,6 @@ fn integrate_actor_body(
     // comment recommending it is how the last one nearly got restored.
     let (frame, move_events) = em.update(
         feature_world,
-        combat_tuning,
         dt,
         // ⛔ THE RIDER'S FACT, NOT THE MOUNT'S. `is_being_ridden` guards the
         // charge-crash below and belongs to a body somebody is sitting ON;
@@ -1065,7 +1063,7 @@ fn integrate_actor_body(
         motion_model,
         motion_frame,
         playing_a_move,
-        feel,
+        hitstun_control_scale,
         authored_tuning,
         combat,
         tumbling,
@@ -1494,7 +1492,7 @@ pub fn integrate_sim_bodies(
     let BodyIntegrationBuffers { workers, completed } = &mut *buffers;
     #[cfg(feature = "causal")]
     let record_operations = cues.movement_ops.is_some();
-    let combat_tuning = feel_tuning.feature_combat_tuning();
+    let hitstun_control_scale = feel_tuning.hitstun_control_scale;
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
     actors.par_iter_mut().for_each_init(|| workers.borrow_local_mut(), |scratch, (
         actor_entity,
@@ -1543,7 +1541,6 @@ pub fn integrate_sim_bodies(
             mounted.is_some_and(|slot| slot.rider.is_some()),
             pose_owned_externally,
             feature_world,
-            combat_tuning,
             &steering,
             resolved_frame.get(),
             playback.map_or(1.0, |pb| pb.motion_scale_now()),
@@ -1554,7 +1551,7 @@ pub fn integrate_sim_bodies(
             motion_facts.tumbling,
             out_of_play,
             dt * room_scale(actor_entity) * action_share,
-            *feel_tuning,
+            hitstun_control_scale,
             authored_tuning.map(|t| &t.0),
             &mut frame_out,
             #[cfg(feature = "causal")]
@@ -2609,17 +2606,25 @@ pub fn tick_npc_idle_barks(
     npcs: Query<
         (
             Entity,
-            &ambition_platformer2d_core::BodyKinematics,
             &ActorIdentity,
             &ambition_characters::actor::BodyCombat,
-            &ActorInteraction,
             &ActorDisposition,
             &ambition_characters::actor::BodyHealth,
-            &ambition_combat::components::FeatureId,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
-        (With<FeatureSimEntity>, Without<ambition_characters::control::ControlHolds>),
+        (
+            With<FeatureSimEntity>,
+            With<ambition_platformer2d_core::BodyKinematics>,
+            With<ActorInteraction>,
+            With<ambition_combat::components::FeatureId>,
+            Without<ambition_characters::control::ControlHolds>,
+        ),
     >,
+    details: Query<(
+        &ambition_platformer2d_core::BodyKinematics,
+        &ActorInteraction,
+        &ambition_combat::components::FeatureId,
+    )>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     // Optional so narrow fixtures without a room set still bark.
     room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
@@ -2634,7 +2639,9 @@ pub fn tick_npc_idle_barks(
     }
     let catalog = &*character_catalog;
     use ambition_characters::actor::character_catalog::BarkSituation;
-    for (entity, kin, identity, combat, interaction, disposition, health, feature_id, stamp) in &npcs {
+    let mut cached_room = None;
+    let mut cached_clocks = None;
+    for (entity, identity, combat, disposition, health, stamp) in &npcs {
         // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
         if disposition.is_hostile() || combat.recently_struck() || !health.alive() {
@@ -2644,7 +2651,11 @@ pub fn tick_npc_idle_barks(
             stamp.map(|room| room.0).or_else(|| rooms.live().of(entity))
         });
         // Two instances of a room can have the same authored NPC IDs.
-        let clocks = state.rooms.entry(room).or_default();
+        if cached_room != Some(room) {
+            cached_room = Some(room);
+            cached_clocks = Some(state.rooms.entry(room).or_default());
+        }
+        let clocks = cached_clocks.as_deref_mut().expect("the current room has clocks");
         let mut clock = clocks.get_mut(&identity.id);
         if let Some(clock) = clock.as_deref_mut() {
             clock.remaining_s -= dt;
@@ -2659,6 +2670,9 @@ pub fn tick_npc_idle_barks(
             (BarkSituation::Hall, 28.0, 24_000)
         } else {
             (BarkSituation::Idle, 12.0, 8_000)
+        };
+        let Ok((kin, interaction, feature_id)) = details.get(entity) else {
+            continue;
         };
         let rotation = clock.as_ref().map_or(0, |clock| clock.rotation);
         let Some(line) = crate::body::npcs::npc_ambient_bark_line(

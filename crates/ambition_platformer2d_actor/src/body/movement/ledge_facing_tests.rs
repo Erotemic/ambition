@@ -54,14 +54,13 @@ fn a_body_that_grabs_a_ledge_turns_to_face_it() {
     for _ in 0..4 {
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             frame,
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             None,
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             false,

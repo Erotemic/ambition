@@ -229,6 +229,9 @@ At Primeval Run, use the spine surface points to draw the exposed bone.
 Show the ledges at both ends and the space under the ribs.
 At Primeval Rookery, show Twitchell on the hide deck and a standing
 body on the trail below. Use the deck bounds to place its supports.
+At Primeval Ridge, show the cache ledge, seep lookout, and canopy branch
+with the two climbs. Use the climbable region bounds and kind to select
+fixture art for vines and ladders.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

@@ -798,6 +798,13 @@ run order as the previous desktop comparison.
 The combat reduction was consistent across the four runs. Total time and
 integration varied across the runs.
 
+Two consecutive headless observations of the settled Hall found the same
+kinematics, control, motion, ground, combat, animation, damageable volumes,
+and body bounds for all 596 bodies. Every one of these components received
+a new change tick. Check the owners of these writes before using change
+detection to retain derived views. Keep explicit samples that identify a
+simulation tick.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

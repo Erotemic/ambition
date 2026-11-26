@@ -28,6 +28,7 @@
     // (`targets/props/automaton_props.py`: `LIFT_FRAME`, `LIFT_SPAN`,
     // `LIFT_TOP`).
     "automaton_glider_lift": (row: "idle", frame_px: (160.0, 96.0), span_px: (16.0, 144.0), top_px: 24.0),
+    "automaton_tape_carriage": (row: "idle", frame_px: (304.0, 96.0), span_px: (8.0, 296.0), top_px: 18.0),
     // The History dimension's felucca: the top of its deck IS the platform;
     // the sail rises over it (`targets/props/history_nile_props.py`:
     // `FELUCCA_FRAME`, `FELUCCA_SPAN`, `FELUCCA_TOP`).

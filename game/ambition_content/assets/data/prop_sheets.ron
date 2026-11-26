@@ -1156,6 +1156,8 @@
     "automaton_still_life": (),
     "automaton_sierpinski_panel": (),
     "automaton_tape": (),
+    "automaton_tape_landings": (),
+    "automaton_tape_carriage": (),
     "automaton_state_table": (),
     "automaton_glider_lift": (),
     "automaton_arena_ring": (),

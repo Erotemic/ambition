@@ -805,6 +805,33 @@ a new change tick. Check the owners of these writes before using change
 detection to retain derived views. Keep explicit samples that identify a
 simulation tick.
 
+### Body geometry and weapon readiness
+
+Damageable body boxes keep the published shape when its bounds and axes
+match. Movement feedback reads an arrival or action before it builds
+effects. The contact pass collects portal geometry when a body straddles
+a pair. The weapon readiness pass counts shots once per owner for all
+readers in that pass.
+
+Isolated checks on the loaded 596-body Hall used the same simulation
+state for each comparison. The damageable-volume pass kept 592 change
+ticks and published the same shapes. The probe checked a resize, an
+authored shape and facing change, and death and revival. The readiness
+probe matched all results with zero shots and with 400 test shots.
+
+| Isolated pass | Reference, ms | Candidate, ms |
+| --- | ---: | ---: |
+| Damageable volumes | 0.111–0.121 | 0.070–0.077 |
+| Weapon readiness, no shots | 0.063–0.069 | 0.042 |
+| Weapon readiness, 400 shots | 2.257–2.314 | 0.102–0.120 |
+
+The assembled desktop development build passed. The four windowed runs
+with the same 596 bodies had total medians of 18.47 and 18.96 ms/tick
+for the reference and 19.63 and 19.15 ms/tick for the candidate. Their
+windows overlapped. This comparison established no total tick reduction.
+Three focused checks matched feedback and physical contacts, including a
+straddler with contact geometry at the far end of its portal.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

@@ -69,7 +69,7 @@ pub enum HurtSource {
     Body(Vec<ae::CombatVolume>),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum HurtSpace {
     World,
     Body,
@@ -127,6 +127,13 @@ impl DamageableVolumes {
         self.replace_domains(HurtSpace::World, std::iter::empty());
     }
 
+    /// Publish an empty world source when no volume can receive damage.
+    pub fn clear_if_needed(volumes: &mut bevy::prelude::Mut<'_, Self>) {
+        if !matches!(&volumes.source, Some(HurtSource::World(regions)) if regions.is_empty()) {
+            volumes.clear();
+        }
+    }
+
     /// Publish fixed regions in room coordinates.
     pub fn publish_world(&mut self, domains: Vec<ae::CombatVolume>) {
         self.source = Some(HurtSource::World(domains));
@@ -176,6 +183,31 @@ impl DamageableVolumes {
         let mut out = Self::default();
         out.set_body_box(canonical_half);
         out
+    }
+
+    /// Publish the coarse body envelope in its own axes, or in room axes
+    /// for an object with no body map.
+    pub fn refresh_box(
+        volumes: &mut bevy::prelude::Mut<'_, Self>,
+        body: Option<&ae::BodyKinematics>,
+        world_box: &ae::CenteredAabb,
+    ) {
+        let (space, bounds) = match body {
+            Some(body) => (HurtSpace::Body, ae::Aabb::new(ae::Vec2::ZERO, body.canonical_size * 0.5)),
+            None => (HurtSpace::World, world_box.aabb()),
+        };
+        if volumes.space() == space {
+            if let [ae::CombatVolume::Aabb(before)] = volumes.domains() {
+                if before.min.x.to_bits() == bounds.min.x.to_bits()
+                    && before.min.y.to_bits() == bounds.min.y.to_bits()
+                    && before.max.x.to_bits() == bounds.max.x.to_bits()
+                    && before.max.y.to_bits() == bounds.max.y.to_bits()
+                {
+                    return;
+                }
+            }
+        }
+        volumes.replace_domains(space, std::iter::once(ae::CombatVolume::aabb(bounds)));
     }
 
     fn material(

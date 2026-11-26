@@ -1025,7 +1025,7 @@ fn integrate_actor_body(
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
     mut control: Option<&mut ambition_characters::control::ActorControl>,
-    mut anim: Option<&mut ambition_characters::actor::BodyAnimFacts>,
+    anim: Option<Mut<'_, ambition_characters::actor::BodyAnimFacts>>,
     // The body's coarse footprint size: `Some` (a boss's composite render
     // envelope, from `BodyEnvelope`) publishes the `CenteredAabb` at that size;
     // `None` (every ordinary actor) publishes it at `em.kin.size` — the
@@ -1093,8 +1093,10 @@ fn integrate_actor_body(
     let mut brain_frame = brain_frame.damped_by_move_motion(move_motion_scale);
     // The same animation fact that a charging player publishes: the body
     // displays a held aim pose before the first shot, not a false muzzle flash.
-    if let Some(anim) = anim.as_deref_mut() {
-        anim.aim_anim_active = brain_frame.ranged_aim_held;
+    if let Some(mut anim) = anim {
+        if anim.aim_anim_active != brain_frame.ranged_aim_held {
+            anim.aim_anim_active = brain_frame.ranged_aim_held;
+        }
     }
     let previous_pos = em.kin.pos;
     let shark_charge_vec = brain_frame.velocity_target.vec();
@@ -1280,7 +1282,8 @@ pub fn snapshot_body_contact(
 ) {
     snapshot.clear();
     if marked.is_empty() && !rules.any_live_declaration() { return; }
-    // Each grounded body's box, and the parts of it a pair carries elsewhere.
+    let passages = passages.as_deref().filter(|passages| passages.has_straddlers());
+    // Keep the other boxes only when a body can meet them through a pair.
     let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2,
     )> =
         Vec::new();
@@ -1295,10 +1298,13 @@ pub fn snapshot_body_contact(
         // controller, which is the whole point of a common snapshot.
         snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance,
         );
-        boxes.push((entity, room, contact_box, kinematics.vel));
-        let Some(passages) = passages.as_deref().filter(|passages| passages.straddled_by(entity).is_some()) else {
+        let Some(passages) = passages else {
             continue;
         };
+        boxes.push((entity, room, contact_box, kinematics.vel));
+        if passages.straddled_by(entity).is_none() {
+            continue;
+        }
         let Ok(material) = kinematics.material_map() else { continue; };
         let Ok(pieces) = passages.body_world_pieces(&ae::CombatVolume::aabb(contact_box), entity, material, kinematics.pos, room) else { continue; };
         for piece in pieces.iter()
@@ -1316,7 +1322,7 @@ pub fn snapshot_body_contact(
     }
     // A body in a pair meets what is at its far end: each other box in front
     // of the exit and inside its opening, mapped back through the pair.
-    let Some(passages) = passages.as_deref() else {
+    let Some(passages) = passages else {
         return;
     };
     for (entity, _, ground, ..) in &bodies {
@@ -1569,7 +1575,7 @@ pub fn integrate_sim_bodies(
         mut aabb,
         mut combat,
         mut control,
-        (mut anim, mut frame_out),
+        (anim, mut frame_out),
         mounted,
         pose_owned_externally,
         mut motion_model,
@@ -1604,7 +1610,7 @@ pub fn integrate_sim_bodies(
             &mut aabb,
             &mut combat,
             control.as_deref_mut(),
-            anim.as_deref_mut(),
+            anim,
             envelope.map(|envelope| envelope.0),
             &mut motion_model,
             // Ridden means somebody is IN the saddle, not merely that a saddle

@@ -253,6 +253,8 @@ At the Gate Garden, use the same walking-surface anchor to place each
 moonstone and its one-way surface. Show the two stones and both hilltops.
 At Starlight Square, show the ladder and the beanstalk in the same view.
 Pass the climbable bounds to the art generator to place the stalk.
+At Starless Hollow, show the stone ramp, the chest shelf, and the floor
+below the ramp. Show the first jump onto the ramp.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

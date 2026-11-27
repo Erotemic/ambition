@@ -15,7 +15,7 @@ use bevy::sprite::Anchor;
 use bevy::text::{TextBounds, TextLayoutInfo};
 
 use super::{CardMeshes, CardRootDepths, CardScope, RetainedEntities, TextureQuad, CARD_BODY_STEP};
-use crate::rendering::actors::rigged::AppearanceSampleCamera;
+use crate::rendering::camera::coverage::ReplacedPlaneCamera;
 use crate::rendering::label_layout::WorldLabel;
 
 #[derive(Component)]
@@ -27,7 +27,7 @@ pub(super) fn prepare_label_layout(
     mut commands: Commands,
     plane: Query<
         (Entity, &Camera, &Transform, &Projection, &RenderLayers),
-        (With<AppearanceSampleCamera>, Without<LabelLayoutCamera>),
+        (With<ReplacedPlaneCamera>, Without<LabelLayoutCamera>),
     >,
     mut preparation: Query<
         (
@@ -37,7 +37,7 @@ pub(super) fn prepare_label_layout(
             &mut RenderTarget,
             &mut RenderLayers,
         ),
-        (With<LabelLayoutCamera>, Without<AppearanceSampleCamera>),
+        (With<LabelLayoutCamera>, Without<ReplacedPlaneCamera>),
     >,
     mut retained: Local<RetainedEntities<Entity>>,
 ) {

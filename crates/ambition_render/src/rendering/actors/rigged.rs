@@ -114,6 +114,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
+use crate::rendering::camera::coverage::{GameplayCoverage, GameplayOutputs, PlayPlane};
 use crate::rendering::{impostor_compositing, ART_COMPOSITING};
 use ambition_sprite_sheet::character::rigged::{
     BodyWarp, ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PerformedBodyWarp, PosedParts, Swing,
@@ -590,14 +591,16 @@ impl RiggedLocalSample {
     }
 }
 
-/// The rigged presentation stage: the local sample, then the 2D driver.
+/// The rigged presentation stage: demand, local sample, and sprite draws.
 /// Order a system against the whole stage, not one of its systems.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RiggedDriveSet;
 
 /// The stage's systems, in order, in [`RiggedDriveSet`].
 pub fn rigged_presentation_drive() -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
-    (sample_rigged_presentations, drive_rigged_presentations).chain().in_set(RiggedDriveSet)
+    (prepare_rigged_demand, sample_rigged_presentations, drive_rigged_presentations)
+        .chain()
+        .in_set(RiggedDriveSet)
 }
 
 /// The presentation owner of one rigged root.
@@ -610,7 +613,9 @@ pub struct RiggedPresentation {
     /// Reusable part sprites, children of the owner, in draw order.
     pub slots: Vec<Entity>,
     /// Whether a view or a reader needs this owner's current pose.
-    drawing: bool,
+    sampling: bool,
+    /// A world sprite pass needs the parts directly.
+    direct: bool,
     /// Frames to keep allocated slots after their last use.
     slot_hold: u8,
     /// Its cell of the impostor atlas while the body is composited (something
@@ -819,17 +824,13 @@ type RootShows = (
 const VIEW_MARGIN: f32 = 256.0;
 const SLOT_HOLD_FRAMES: u8 = 8;
 
-/// This camera supplies a plane footprint for an appearance consumer.
-#[derive(Component)]
-pub(crate) struct AppearanceSampleCamera;
-
 /// The cameras, for what each one shows. A part slot is not a camera; the
 /// filter says so, because the slots' layers are written beside this read.
 type Views<'w, 's> = Query<
     'w,
     's,
-    (&'static Camera, &'static Projection, &'static GlobalTransform, Option<&'static RenderLayers>, Has<AppearanceSampleCamera>),
-    (Without<RiggedImpostorCamera>, Without<RiggedPartSlot>),
+    (Entity, &'static Camera, &'static Projection, &'static GlobalTransform, Option<&'static RenderLayers>),
+    (With<Camera2d>, Without<RiggedImpostorCamera>, Without<RiggedPartSlot>),
 >;
 
 /// What each active orthographic camera that is not an impostor camera
@@ -837,38 +838,33 @@ type Views<'w, 's> = Query<
 /// not draw the world's sprites. A camera whose target is not measured yet
 /// (its first frame, a host with no window) has no area yet: it shows the
 /// whole world.
-fn world_views(views: &Views) -> Vec<(Rect, RenderLayers)> {
+fn world_views<'a>(
+    views: &'a Views,
+    gameplay: &[GameplayCoverage<'_>],
+) -> Vec<(Rect, Option<&'a RenderLayers>)> {
     views
         .iter()
-        .filter(|(camera, _, _, _, sample)| camera.is_active || *sample)
-        .filter_map(|(camera, projection, transform, layers, _)| {
+        .filter_map(|(entity, camera, projection, transform, layers)| {
+            if !camera.is_active || gameplay.iter().any(|output| output.source == entity) {
+                return None;
+            }
             let Projection::Orthographic(ortho) = projection else {
                 return None;
             };
-            let layers = layers.cloned().unwrap_or_default();
             if camera.logical_viewport_size().is_none_or(|size| size.min_element() <= 0.0) {
                 return Some((Rect::new(f32::MIN, f32::MIN, f32::MAX, f32::MAX), layers));
             }
-            let area = ortho.area;
-            let corners = [area.min, Vec2::new(area.max.x, area.min.y), area.max, Vec2::new(area.min.x, area.max.y)]
-                .map(|corner| transform.transform_point(corner.extend(0.0)).truncate());
-            let shown = corners.iter().fold(Rect::from_corners(corners[0], corners[0]), |rect, corner| rect.union_point(*corner));
-            Some((shown, layers))
+            Some((PlayPlane::intersect(transform, ortho.area)?.bounds(Vec2::X), layers))
         })
         .collect()
 }
 
-/// Whether a view shows the body of a top-level root at `transform`. With no
-/// view (a host with no camera, a test) every body is shown.
-fn seen_by_a_view(views: &[(Rect, RenderLayers)], transform: &Transform, sprite: &Sprite, layers: Option<&RenderLayers>) -> bool {
-    if views.is_empty() {
-        return true;
-    }
-    let reach = sprite.custom_size.map_or(0.0, |size| size.max_element()) + VIEW_MARGIN;
-    let body = Rect::from_center_half_size(transform.translation.truncate(), Vec2::splat(reach));
-    let default_layers = RenderLayers::default();
-    let layers = layers.unwrap_or(&default_layers);
-    views.iter().any(|(shown, view_layers)| view_layers.intersects(layers) && !shown.intersect(body).is_empty())
+/// Test the body's bounds against outputs that draw its scene layers.
+fn seen_by_a_view(views: &[(Rect, Option<&RenderLayers>)], body: Rect, layers: Option<&RenderLayers>) -> bool {
+    views.iter().any(|(shown, view_layers)| {
+        view_layers.unwrap_or_default().intersects(layers.unwrap_or_default())
+            && !shown.intersect(body).is_empty()
+    })
 }
 
 /// Whether a root is shown. ⛔ A top-level root's own `Visibility` is this
@@ -1197,7 +1193,8 @@ fn spawn_presentation(
         target: target.to_owned(),
         pages,
         slots: Vec::new(),
-        drawing: false,
+        sampling: false,
+        direct: false,
         slot_hold: 0,
         impostor: None,
         composed_hold: 0,
@@ -1216,24 +1213,61 @@ fn spawn_presentation(
     owner
 }
 
-/// Give part sprites to the views and readers that need the pose this frame.
-pub(in crate::rendering) fn prepare_rigged_slots(
+/// Select the bodies to sample and the bodies that need sprite slots.
+fn prepare_rigged_demand(
     mut commands: Commands,
     views: Views,
-    demand: Option<Res<ComposedBodyDemand>>,
-    roots: Query<(&Transform, &Sprite, Option<&RenderLayers>, Has<ChildOf>, Has<PartSetRequest>)>,
+    outputs: GameplayOutputs,
+    mut demand: Option<ResMut<ComposedBodyDemand>>,
+    preview: Option<Res<BodyWarpPreview>>,
+    roots: Query<(&Transform, &Sprite, Option<&RenderLayers>, Has<ChildOf>, Has<PartSetRequest>,
+        &CharacterAnimator, Option<&PerformedBodyWarp>)>,
     mut owners: Query<(Entity, &RiggedPresentationOf, &mut RiggedPresentation)>,
 ) {
-    let views = world_views(&views);
+    let gameplay: Vec<_> = outputs.coverage().collect();
+    let mut plane_views = world_views(&views, &gameplay);
+    let mut card_views = Vec::new();
+    for output in &gameplay {
+        if let Some(plane) = &output.plane {
+            plane_views.push((plane.bounds(Vec2::X), output.layers));
+        }
+        if let Some(cards) = &output.cards {
+            card_views.push((cards.bounds(Vec2::X), output.layers));
+        }
+    }
+    let no_views = plane_views.is_empty() && card_views.is_empty();
+    let always_compose = PartPresentation::current() == PartPresentation::Impostor;
     for (owner, &RiggedPresentationOf(root), mut presentation) in &mut owners {
-        let Ok((transform, sprite, layers, parented, part_reader)) = roots.get(root) else {
+        let Ok((transform, sprite, layers, parented, part_reader, animator, performed)) = roots.get(root) else {
             continue;
         };
-        presentation.drawing = part_reader
+        let reach = sprite.custom_size.map_or(0.0, |size| size.max_element()) + VIEW_MARGIN;
+        let body = Rect::from_center_half_size(transform.translation.truncate(), Vec2::splat(reach));
+        let image_reader = demand.as_ref().is_some_and(|demand| demand.is_declared(root));
+        presentation.direct = no_views
+            || (parented && !plane_views.is_empty())
+            || seen_by_a_view(&plane_views, body, layers);
+        presentation.sampling = presentation.direct
+            || part_reader
+            || image_reader
             || parented
-            || demand.as_ref().is_some_and(|demand| demand.is_declared(root))
-            || seen_by_a_view(&views, transform, sprite, layers);
-        if presentation.drawing {
+            || seen_by_a_view(&card_views, body, layers);
+
+        if presentation.sampling {
+            let flipbook = &presentation.pages.flipbook;
+            let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
+            // Fade or warp all the parts as one image.
+            let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
+            let warps = preview.is_some() || body_warp(animator, flipbook, row, performed).is_some();
+            presentation.composed_hold = if always_compose || fades || warps || image_reader {
+                COMPOSED_HOLD_FRAMES
+            } else {
+                presentation.composed_hold.saturating_sub(1)
+            };
+        } else {
+            presentation.composed_hold = 0;
+        }
+        if presentation.direct || presentation.composed_hold > 0 {
             presentation.slot_hold = SLOT_HOLD_FRAMES;
             if presentation.slots.is_empty() {
                 let count = presentation.pages.flipbook.max_draws();
@@ -1260,6 +1294,9 @@ pub(in crate::rendering) fn prepare_rigged_slots(
                 presentation.shown = None;
             }
         }
+    }
+    if let Some(demand) = &mut demand {
+        demand.clear();
     }
 }
 
@@ -1328,7 +1365,7 @@ pub fn sample_rigged_presentations(
         let Ok((animator, pose, mask, root_sprite, root_anchor)) = roots.get(root) else {
             continue;
         };
-        if !presentation.drawing {
+        if !presentation.sampling {
             // Unseen, it draws nothing to blend from: the frame it is seen
             // again is drawn as it is.
             presentation.last_row = None;
@@ -1472,7 +1509,6 @@ fn baked_frame(
 pub fn drive_rigged_presentations(
     mut commands: Commands,
     mut impostors: ImpostorAssets,
-    demand: Option<ResMut<ComposedBodyDemand>>,
     mut owners: Query<
         (Entity, &RiggedPresentationOf, &mut RiggedPresentation, &mut Visibility, &mut Transform, &RiggedLocalSample),
         Without<RiggedPartSlot>,
@@ -1496,39 +1532,24 @@ pub fn drive_rigged_presentations(
         (preview.warp, (elapsed / preview.period_s.max(0.05)).fract())
     });
     // Which bodies are composited this frame, and where their slots draw.
-    let always = PartPresentation::current() == PartPresentation::Impostor;
     let can_composite = impostors.images.is_some();
     // Pages built this frame: their cameras arrive with this frame's commands,
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, &RiggedPresentationOf(root), mut presentation, _, _, sample) in &mut owners {
-        if !presentation.drawing {
+        if !presentation.sampling {
             if let Some(impostor) = presentation.impostor.take() {
                 impostors.atlas.give(&impostor);
                 presentation.shown = None;
             }
-            presentation.composed_hold = 0;
             presentation.overflow_hold = 0;
             continue;
         }
-        let Ok((animator, _, _, _, _, _, root_layers, pose, _, performed, _, _)) = roots.get(root) else {
+        let Ok((_, _, _, _, _, _, root_layers, pose, _, _, _, _)) = roots.get(root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
-        // ⛔ A FADING FRAME IS ONE PICTURE FADING: `opacity(composite(parts))`.
-        // Spread over loose parts, each would show the one under it through
-        // it (alice's blink drew her arm through her coat).
-        let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
-        let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
-        // A body under a warp is taken apart as one picture, in the pass
-        // that finishes the composited image (`ImpostorCellOpacity::warp`).
-        let warps = preview.is_some() || body_warp(animator, &flipbook, row, performed).is_some();
-        let wanted = always || fades || warps || demand.as_ref().is_some_and(|demand| demand.is_declared(root));
-        presentation.composed_hold = if wanted {
-            COMPOSED_HOLD_FRAMES
-        } else {
-            presentation.composed_hold.saturating_sub(1)
-        };
+        let wanted = presentation.composed_hold > 0;
         let margin = impostor_margin(&flipbook);
         // ⛔ A POSE IS IN NO FILE, SO ITS REACH IS MEASURED. The margin holds
         // what the flipbook draws; a `PartPose` can put a part anywhere.
@@ -1558,7 +1579,7 @@ pub fn drive_rigged_presentations(
             );
         }
         let composited = match class {
-            Some(class) if can_composite && presentation.composed_hold > 0 && presentation.overflow_hold == 0 => {
+            Some(class) if can_composite && wanted && presentation.overflow_hold == 0 => {
                 Some(class)
             }
             _ => None,
@@ -1597,9 +1618,6 @@ pub fn drive_rigged_presentations(
             }
             presentation.layers = layers;
         }
-    }
-    if let Some(mut demand) = demand {
-        demand.clear();
     }
     // ⛔ AN EMPTY PAGE AT THE END OF ITS CLASS IS RETIRED: its cameras and quad
     // despawned, its targets dropped with their handles. Composition is
@@ -1651,7 +1669,7 @@ pub fn drive_rigged_presentations(
         else {
             continue;
         };
-        if !presentation.drawing {
+        if !presentation.sampling {
             owner_visibility.set_if_neq(Visibility::Hidden);
             // The root draws nothing on the direct road, hidden or not: a
             // writer that gives it a baked frame (`animate_bosses`) does not
@@ -2002,11 +2020,15 @@ fn drive_direct_presentation(
     owner_transform: &mut Mut<Transform>,
     slots: &mut Slots,
 ) {
-    owner_transform.set_if_neq(place);
-    owner_visibility.set_if_neq(if root_visible { Visibility::Inherited } else { Visibility::Hidden });
     if root_sprite.image != ambition_sprite_sheet::character::NO_BAKED_IMAGE {
         root_sprite.image = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
     }
+    if !presentation.direct {
+        owner_visibility.set_if_neq(Visibility::Hidden);
+        return;
+    }
+    owner_transform.set_if_neq(place);
+    owner_visibility.set_if_neq(if root_visible { Visibility::Inherited } else { Visibility::Hidden });
     if presentation.update_draws(draws, PartDrawTarget::World(body_color)) {
         write_slots(presentation, draws, slots, |draw| part_color(draw, body_color));
     }

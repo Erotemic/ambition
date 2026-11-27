@@ -202,7 +202,7 @@ impl CardViewMode {
         }
     }
 
-    fn replaces_plane(self) -> bool {
+    pub(super) fn replaces_plane(self) -> bool {
         matches!(self, Self::SideOn | Self::Gameplay)
     }
 }

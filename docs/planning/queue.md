@@ -3872,7 +3872,9 @@ day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion 
 2026-11-26 and its shared projectile source leg 2026-11-27 (receipts in the
 owner's P4 section), and an unreachable moving portal is witnessed not to
 change a straight query's cells 2026-11-27; exact cell dependencies (a
-reuse cache keyed by what each cell reads) wait on a production work count. P3 removes
+reuse cache keyed by what each cell reads) were measured the same day and not
+built: in `portal_lab`, 93 % of portal-cut preparations repeat their inputs,
+but all of them cost at most 2.4 % of step time. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools

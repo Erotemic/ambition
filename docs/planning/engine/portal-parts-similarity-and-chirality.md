@@ -775,13 +775,32 @@ curve-carried, and the same contact time against a wall on the far side.
 The S3 witnesses are the positive control: a reachable turning pair does
 give a curve-carried cell. Core lib 975 pass.
 
-Still open in P4: compiling exact cell dependencies, meaning a prepared
-cell keyed by the links and clocks it actually reads, so a source, clock
-or topology change invalidates only the cells that depend on it. Today
-cells are rebuilt per query, so nothing can be stale; this is a reuse
-optimization. Its trigger is a production work count that shows repeated
-preparation of unchanged cells. No such count has been taken, and no speedup
-is claimed.
+Exact cell dependencies would mean a prepared cell keyed by the links and
+clocks it actually reads, so a source, clock or topology change
+invalidates only the cells that depend on it. Today cells are rebuilt per
+query, so nothing can be stale; this is a reuse optimization. Its trigger
+was a production work count showing repeated preparation of unchanged
+cells.
+
+**Work count (2026-11-27): not built.** The scene was `portal_lab`, the
+real app through the RL harness, debug build, no sync-test rollback. The
+player walked right through station A's ground pair (a 314 px transfer),
+stood for 150 ticks, then walked back, 600 ticks in all. A temporary
+probe in `MaterialCast::cells`, since deleted, keyed each portal-cut
+preparation by every input (domain, material map, root, delta, interval,
+reachable links). Results:
+- 36 573 preparations, 8 404 of them with reachable links, over 538 ticks.
+- Of those 8 404, 4 772 repeated an identical input set within the same
+  tick and 3 019 repeated the previous tick's, so repetition is real.
+- The cost is small: portal-cut preparation took 1.93 s of a 79.4 s run,
+  2.4 % of step wall time, and the uncut ones 1.30 s. That is an upper
+  bound, because the probe's key formatting was inside the timed region.
+- Two runs agreed within 1 % (the counts were identical).
+
+A perfect cache would save at most about 2 % of a step here, which does
+not pay for an invalidation-keyed cache and its staleness risk. Revisit
+if a scene's profile shows portal-cut preparation as a large share of a
+release step.
 
 **Delete:** endpoint-only visited exclusion, duplicate world/recipient source
 cell construction, repeated immutable/root preparation and irrelevant

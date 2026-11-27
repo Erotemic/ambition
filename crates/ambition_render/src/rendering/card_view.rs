@@ -82,6 +82,7 @@
 //! The card view also uses the 2D view's portal capture texture. A body
 //! split across an opening still needs its own presentation.
 
+mod drawings;
 mod gameplay;
 mod labels;
 mod paint_order;
@@ -90,6 +91,7 @@ mod world_mesh;
 mod portal_windows;
 
 pub use world_mesh::{install_card_mesh_material, CardMaterialSource};
+pub(crate) use gameplay::PlaneCameraForCard;
 
 use gameplay::CardScope;
 use std::collections::HashMap;
@@ -219,6 +221,23 @@ impl CardViewSettings {
     pub fn for_game(mode: CardViewMode) -> Self {
         Self { mode, viewport_fraction: 0.48, ..Self::gameplay() }
     }
+
+    pub(super) fn inset_size(&self, size: UVec2) -> Option<UVec2> {
+        if size.x < 64 || size.y < 64 {
+            return None;
+        }
+        let w = ((size.x as f32 * self.viewport_fraction) as u32).clamp(32, size.x);
+        let h = ((w as f32 * size.y as f32 / size.x as f32) as u32).clamp(32, size.y);
+        Some(UVec2::new(w, h))
+    }
+
+    pub(super) fn projection_scale(&self, plane_scale: f32) -> f32 {
+        if self.mode == CardViewMode::Inset {
+            plane_scale / (self.viewport_fraction * self.zoom).max(0.05)
+        } else {
+            plane_scale
+        }
+    }
 }
 
 impl Default for CardViewSettings {
@@ -281,11 +300,26 @@ type SpriteBodyFilter = (
 pub struct CardRootDepths {
     roots: HashMap<Entity, CardBodyDepth>,
     fronts: HashMap<Option<LiveRoomInstance>, f32>,
+    paint_slots: Vec<BodyPaintSlot>,
+}
+
+#[derive(Debug)]
+struct BodyPaintSlot {
+    room: Option<LiveRoomInstance>,
+    source_z: f32,
+    plane_z: f32,
+    order_scale: f32,
 }
 
 impl CardRootDepths {
     fn scenery_depth(&self, z: f32, room: Option<LiveRoomInstance>) -> f32 {
         scenery_depth(z, self.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP))
+    }
+
+    pub(crate) fn field_depth(&self, source: Entity, z: f32, room: Option<LiveRoomInstance>) -> f32 {
+        self.roots
+            .get(&source)
+            .map_or_else(|| self.scenery_depth(z, room), |depth| depth.plane_z)
     }
 
     fn representation_of(&self, subject: Option<&PresentationOf>) -> Option<CardBodyRepresentation> {
@@ -309,6 +343,21 @@ impl CardRootDepths {
             depth.front_part + fraction * FLASH_STEP
         };
         Some(depth.plane_z + offset * depth.order_scale)
+    }
+
+    fn scene_paint_depth(&self, source_z: f32, room: Option<LiveRoomInstance>) -> Option<f32> {
+        let index = self.paint_slots.partition_point(|body| {
+            body.room < room || (body.room == room && body.source_z.total_cmp(&source_z).is_lt())
+        });
+        let next = self.paint_slots.get(index).filter(|body| body.room == room)?;
+        let before = index.checked_sub(1)
+            .and_then(|index| self.paint_slots.get(index))
+            .filter(|body| body.room == room)
+            .map_or(next.source_z - 1.0, |body| body.source_z);
+        let fraction = ((next.source_z - source_z) / (next.source_z - before).max(f32::EPSILON)).clamp(0.0, 1.0);
+        // Keep the gap behind the body's back gear. Order lights in the gap
+        // by the depth of their source draws.
+        Some(next.plane_z - (2.0 + fraction) * FLASH_STEP * next.order_scale)
     }
 
     fn gear_depth(&self, order: WornGearOrder, layer: GearLayer) -> Option<f32> {
@@ -360,6 +409,9 @@ pub struct CardViewPlugin;
 
 impl Plugin for CardViewPlugin {
     fn build(&self, app: &mut App) {
+        if app.get_sub_app(bevy::render::RenderApp).is_some() {
+            bevy::shader::load_shader_library!(app, "card_view/play_plane.wgsl");
+        }
         app.init_resource::<CardViewSettings>();
         app.init_resource::<CardMeshes>();
         app.init_resource::<CardRootDepths>();
@@ -414,7 +466,7 @@ impl Plugin for CardViewPlugin {
         );
         app.add_systems(
             PostUpdate,
-            realize_card_scenery
+            (realize_card_scenery, drawings::realize_card_drawings)
                 .in_set(world_mesh::CardWorldMeshSet)
                 .run_if(card_outputs_enabled),
         );
@@ -496,16 +548,20 @@ pub fn present_card_view_rigs(
                 clear_color: ClearColorConfig::Custom(Color::srgb(0.07, 0.08, 0.11)),
                 ..default()
             },
-            Projection::Orthographic(OrthographicProjection {
-                scaling_mode: ScalingMode::WindowSize,
-                near: 0.0,
-                far: CAMERA_DISTANCE * 2.0,
-                ..OrthographicProjection::default_3d()
-            }),
+            Projection::Orthographic(card_camera_projection()),
             RenderLayers::layer(CARD_VIEW_LAYER),
             ambition_sim_view::PresentsView(view),
             Name::new("Card view camera"),
         ));
+    }
+}
+
+pub(super) fn card_camera_projection() -> OrthographicProjection {
+    OrthographicProjection {
+        scaling_mode: ScalingMode::WindowSize,
+        near: 0.0,
+        far: CAMERA_DISTANCE * 2.0,
+        ..OrthographicProjection::default_3d()
     }
 }
 
@@ -524,12 +580,7 @@ pub fn place_card_view_cameras(
         };
         *transform = card_camera_transform(frame, &settings);
         if let Projection::Orthographic(orthographic) = &mut *projection {
-            let inset_scale = if settings.mode == CardViewMode::Inset {
-                (settings.viewport_fraction * settings.zoom).max(0.05)
-            } else {
-                1.0
-            };
-            orthographic.scale = frame.orthographic_scale / inset_scale;
+            orthographic.scale = settings.projection_scale(frame.orthographic_scale);
         }
     }
 }
@@ -1042,6 +1093,7 @@ pub(super) fn realize_card_bodies(
     if let Some(depths) = root_depths.as_deref_mut() {
         depths.roots.clear();
         depths.fronts.clear();
+        depths.paint_slots.clear();
     }
     for row in ranked.chunk_by(|a, b| a.0 == b.0) {
         let count = row.iter().filter(|(_, _, _, seat)| seat.is_none()).count();
@@ -1053,11 +1105,14 @@ pub(super) fn realize_card_bodies(
             } else {
                 let depth = card_body_depth(false, rank) * scale;
                 rank += 1;
-                if let Some(depths) = root_depths.as_deref_mut() {
-                    depths.fronts.insert(room, depth + CARD_BODY_STEP * scale);
-                }
                 (depth, scale)
             };
+            if let Some(depths) = root_depths.as_deref_mut() {
+                if seat.is_none() {
+                    depths.fronts.insert(room, plane_z + CARD_BODY_STEP * scale);
+                }
+                depths.paint_slots.push(BodyPaintSlot { room, source_z, plane_z, order_scale });
+            }
             placements.insert(owner, CardBodyDepth {
                 plane_z,
                 source_z,
@@ -1866,6 +1921,14 @@ mod tests {
             vec![Vec3::new(-10.0, 0.0, card_body_depth(false, 0)), Vec3::new(10.0, 0.0, card_body_depth(false, 1))],
             "the player and the actor, in logical order; no prop, no hidden body"
         );
+        let depths = world.resource::<CardRootDepths>();
+        let under_both = depths.scene_paint_depth(2.95, None).unwrap();
+        let between = depths.scene_paint_depth(6.94, None).unwrap();
+        let nearer_light = depths.scene_paint_depth(6.96, None).unwrap();
+        assert!(under_both < places[0].z);
+        assert!(places[0].z < between && between < nearer_light && nearer_light < places[1].z);
+        assert!(depths.scene_paint_depth(7.5, None).is_none());
+        assert!(depths.scene_paint_depth(2.95, Some(LiveRoomInstance::ACTIVATION)).is_none());
     }
 
     /// RV3: a room's props and its turf are cards at their 2D places, in the

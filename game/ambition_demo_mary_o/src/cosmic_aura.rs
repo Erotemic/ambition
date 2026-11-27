@@ -44,7 +44,7 @@ const AURA_Z: f32 = -0.06;
 const STAR_TILE: f32 = 190.0;
 
 /// The material of the light. Its fields are the uniforms of `cosmic_aura.wgsl`.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct MaryOCosmicAuraMaterial {
     #[uniform(0)]
     pub inner: Vec4,
@@ -55,6 +55,13 @@ pub struct MaryOCosmicAuraMaterial {
     #[texture(3)]
     #[sampler(4)]
     pub stars: Handle<Image>,
+}
+
+#[cfg(feature = "card_view")]
+impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOCosmicAuraMaterial {
+    fn paints_in_scene_order(&self) -> bool {
+        true
+    }
 }
 
 impl Material2d for MaryOCosmicAuraMaterial {
@@ -106,6 +113,8 @@ pub fn install(app: &mut App) {
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOCosmicAuraMaterial>::default());
+        #[cfg(feature = "card_view")]
+        ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOCosmicAuraMaterial>(app);
     }
     // The quad is made now and not with the first light: Bevy does not try
     // again to draw a quad whose mesh came late.
@@ -190,6 +199,7 @@ fn light_her_while_she_is_cosmic(
                         Mesh2d(assets.quad.clone()),
                         MeshMaterial2d(material),
                         place,
+                        ambition_platformer2d::platformer::lifecycle::PresentationOf(body),
                         Name::new("mary-o cosmic aura"),
                     ))
                     .id();

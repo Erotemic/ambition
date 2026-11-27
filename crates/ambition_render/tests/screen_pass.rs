@@ -204,4 +204,36 @@ fn camera_passes_render_independently_and_together() {
             "the other half of the target must stay intact"
         );
     }
+
+    #[cfg(feature = "card_view")]
+    {
+        let world = app.world_mut();
+        let mut planes = world.query_filtered::<&mut Camera, With<Camera2d>>();
+        for mut plane in planes.iter_mut(world) {
+            plane.is_active = false;
+        }
+        world.spawn((
+            Camera3d::default(),
+            RenderTarget::Image(target.clone().into()),
+            Transform::from_xyz(0.0, 0.0, 100.0),
+            MainCamera,
+            ScreenEffectCamera,
+            Msaa::Off,
+        ));
+        set_effect(&mut app, |_| {});
+        let no_effect = capture(&mut app, &target);
+        set_effect(&mut app, |s| s.vignette_strength = 1.0);
+        let filtered = capture(&mut app, &target);
+        assert_ne!(filtered, no_effect, "the 3D graph runs the screen filter");
+
+        app.world_mut().spawn((VoidAura { radius: 30.0, strength: 1.0 }, Transform::default()));
+        let darkened = capture(&mut app, &target);
+        assert_ne!(darkened, filtered, "the 3D graph adds the void field");
+
+        app.world_mut().spawn((
+            SpiritAura { radius: 25.0, strength: 1.0, tint: Vec3::new(0.1, 0.9, 0.3) },
+            Transform::from_xyz(3.0, 0.0, 0.0),
+        ));
+        assert_ne!(capture(&mut app, &target), darkened, "the 3D graph adds the spirit field");
+    }
 }

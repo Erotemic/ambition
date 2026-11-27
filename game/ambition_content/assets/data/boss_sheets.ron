@@ -1249,4 +1249,28 @@
         authored_faces_left: false,
         parts: None,
     ),
+    "mother_lode": (
+        label_width: 100,
+        frame_width: 392,
+        frame_height: 336,
+        rows: [
+            (Rest, (frame_count: 8, duration_secs: 0.125)),
+            (Rest, (frame_count: 10, duration_secs: 0.09)),
+            (SideSweep, (frame_count: 8, duration_secs: 0.049)),
+            (Rest, (frame_count: 9, duration_secs: 0.095)),
+            (FloorSlam, (frame_count: 8, duration_secs: 0.051)),
+            (Rest, (frame_count: 10, duration_secs: 0.105)),
+            (SpikeHalo, (frame_count: 10, duration_secs: 0.054)),
+            (Hit, (frame_count: 5, duration_secs: 0.066)),
+            (Death, (frame_count: 18, duration_secs: 0.07)),
+            (Rest, (frame_count: 1, duration_secs: 0.25)),
+        ],
+        // The 208 px body in the 336 px frame aligns with the 136 px placement.
+        collision_scale: 1.4844,
+        feet_anchor_y: -0.309524,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+        parts: None,
+    ),
 }

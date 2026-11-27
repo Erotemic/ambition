@@ -26,6 +26,11 @@ use bevy::{
     shader::Shader,
 };
 
+#[cfg(feature = "card_view")]
+use bevy::core_pipeline::schedule::{Core3d, Core3dSystems};
+
+pub(crate) mod fields;
+
 pub(crate) trait ScreenPass:
     Component + ExtractComponent + Clone + ShaderType + WriteInto
 {
@@ -72,6 +77,16 @@ impl<T: ScreenPass> Plugin for ScreenPassPlugin<T> {
                 prepare_passes::<T>.in_set(RenderSystems::PrepareBindGroups),
             )
             .add_systems(Core2d, draw_pass::<T>.in_set(T::STAGE));
+        #[cfg(feature = "card_view")]
+        render_app
+            .configure_sets(
+                Core3d,
+                (Spirit, Void, Filter)
+                    .chain()
+                    .in_set(Core3dSystems::PostProcess)
+                    .after(tonemapping),
+            )
+            .add_systems(Core3d, draw_pass::<T>.in_set(T::STAGE));
     }
 }
 

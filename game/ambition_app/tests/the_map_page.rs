@@ -96,6 +96,44 @@ fn the_fantasy_overworld_opens_the_barrows_as_a_separate_map() {
 }
 
 #[test]
+fn the_elemental_mine_opens_from_the_science_overworld() {
+    use ambition_platformer2d::world::world_manifest::WorldManifest;
+
+    let app = a_session_in("science_mine_yard");
+    let rooms: Vec<_> = app.world().resource::<ActiveLdtkProject>().0.levels.iter().map(map_room_node).collect();
+    let hierarchy = MapHierarchy {
+        world_titles: app.world().resource::<WorldManifest>().worlds.iter()
+            .filter_map(|world| Some((world.id.as_str().to_owned(), world.map_title.clone()?)))
+            .collect(),
+        ..Default::default()
+    };
+    let atlas = MapAtlas::new(&rooms, Some(&hierarchy));
+    let visited = Default::default();
+    let access = MapAccess {
+        current_room: Some("science_mine_yard"),
+        visited: &visited,
+        reveal_all: true,
+        can_travel: false,
+    };
+    let mut browser = MapBrowser::default();
+    browser.apply(&atlas, access, 1.7, MapAction::Fit);
+    let overworld = browser.view(&atlas, access, 1.7);
+    assert_eq!(overworld.title, "Science Dimension");
+    let mine = overworld.entries.iter().find(|entry| entry.title == "The Elemental Mine").unwrap();
+    assert_eq!(mine.kind, MapEntryKind::Landmark);
+    assert!(overworld.entries.iter().any(|entry| entry.here && entry.title.contains("ORE YARD")));
+    assert!(overworld.entries.iter().all(|entry| entry.title != "THE LISTENING CAVERN"));
+
+    browser.apply(&atlas, access, 1.7, MapAction::Open(mine.id));
+    let dungeon = browser.view(&atlas, access, 1.7);
+    assert_eq!(dungeon.title, "The Elemental Mine");
+    assert_eq!(dungeon.parent_title.as_deref(), Some("Science Dimension"));
+    assert_eq!(dungeon.entries.len(), 7);
+    assert!(dungeon.entries.iter().any(|entry| entry.title == "THE LISTENING CAVERN"));
+    assert!(dungeon.links.len() >= 7);
+}
+
+#[test]
 fn a_named_room_travel_request_reaches_another_dimension() {
     use ambition_platformer2d::platformer::host_intents::write_host_intent;
     use ambition_platformer2d::platformer::lifecycle::LiveBodyId;

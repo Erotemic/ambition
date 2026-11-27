@@ -1,4 +1,4 @@
-//! The skeleton and electrical arcs of a shock.
+//! Place painted bone parts and electrical arcs on a body.
 
 use ambition_characters::actor::Landmark;
 use ambition_render::{
@@ -19,8 +19,8 @@ pub(super) struct Skeleton {
 impl Skeleton {
     pub(super) fn from_landmarks(joint: impl Fn(Landmark) -> Option<Vec2>) -> Option<Self> {
         let head = joint(Landmark::Head)?;
-        let hands = [joint(Landmark::HandNear), joint(Landmark::HandFar)];
-        let feet = [joint(Landmark::FootNear), joint(Landmark::FootFar)];
+        let hands = [joint(Landmark::HandFar), joint(Landmark::HandNear)];
+        let feet = [joint(Landmark::FootFar), joint(Landmark::FootNear)];
         (hands.iter().any(Option::is_some) && feet.iter().any(Option::is_some)).then_some(Self {
             head,
             hands,
@@ -37,99 +37,141 @@ impl Skeleton {
         }
     }
 
-    fn draw(self, tris: &mut Tris, center: Vec2, down: Vec2, side: Vec2, height: f32, alpha: f32) {
-        let bone = [0.78, 0.91, 1.0, alpha];
-        let dark = [0.025, 0.028, 0.10, alpha];
-        let width = (height * 0.045).clamp(0.8, 4.5);
-        let chest = self.head.lerp(center, 0.75);
-        let hip = center + down * height * 0.10;
-        stroke(tris, &[self.head, chest, hip], width, bone);
-        for i in 0..3 {
-            let center = chest.lerp(hip, 0.22 + i as f32 * 0.20);
-            let rib = side * (0.12 - 0.018 * i as f32) * height;
-            stroke(
-                tris,
-                &[center + rib, center + down * width, center - rib],
-                width * 0.62,
-                bone,
-            );
-        }
-        for (end, sign) in self.hands.into_iter().zip([-1.0, 1.0]) {
-            if let Some(hand) = end {
-                let shoulder = chest + side * (sign * height * 0.09);
-                let elbow = shoulder.lerp(hand, 0.55) + down * height * 0.045;
-                stroke(tris, &[shoulder, elbow, hand], width, bone);
+    pub(super) fn parts(self, center: Vec2, size: Vec2, forward: Vec2, down: Vec2) -> Vec<Bone> {
+        let h = size.y;
+        let neck = self.head + down * (0.075 * h);
+        let hip = center + down * (0.10 * h);
+        let shoulder = neck.lerp(hip, 0.16);
+        let trunk_down = (hip - neck).normalize_or(down);
+        let trunk_forward =
+            Vec2::new(trunk_down.y, -trunk_down.x) * forward.dot(-down.perp()).signum();
+        let mut parts = Vec::with_capacity(14);
+        for index in [0, 1] {
+            let far = index == 0;
+            let side = forward * if far { -1.0 } else { 1.0 };
+            let first = parts.len();
+            if let Some(foot) = self.feet[index] {
+                let socket = hip + side * (0.075 * size.x);
+                let knee = socket.lerp(foot, 0.53) + forward * (0.04 * h);
+                parts.extend(Bone::limb(socket, knee, foot, 0.46 * h));
+                parts.push(Bone::upright(
+                    Tile::Foot,
+                    foot,
+                    Vec2::splat(0.38 * h),
+                    forward,
+                    down,
+                ));
+            }
+            if let Some(hand) = self.hands[index] {
+                let socket = shoulder + trunk_forward * if far { -0.072 * h } else { 0.072 * h };
+                let elbow = socket.lerp(hand, 0.56) + down * (0.054 * h);
+                parts.extend(Bone::limb(socket, elbow, hand, 0.36 * h));
+                parts.push(Bone::aimed(
+                    Tile::Hand,
+                    hand,
+                    Vec2::splat(0.34 * h),
+                    hand - elbow,
+                ));
+            }
+            if far {
+                for draw in &mut parts[first..] {
+                    draw.far = true;
+                }
+                parts.push(Bone::upright(
+                    Tile::Trunk,
+                    hip.midpoint(neck),
+                    Vec2::new(0.54 * h, (hip - neck).length() * TILE_OVER_JOINTS),
+                    forward,
+                    trunk_down,
+                ));
+                parts.push(Bone::upright(
+                    Tile::Skull,
+                    self.head - down * (0.035 * h),
+                    Vec2::splat(0.47 * h),
+                    forward,
+                    down,
+                ));
             }
         }
-        for (end, sign) in self.feet.into_iter().zip([-1.0, 1.0]) {
-            if let Some(foot) = end {
-                let socket = hip + side * (sign * height * 0.055);
-                let knee = socket.lerp(foot, 0.54);
-                stroke(tris, &[socket, knee, foot], width, bone);
-            }
+        parts
+    }
+}
+
+// The atlas cells are 64 pixels across. A shaft or trunk spans 40 pixels between joints.
+const CELL: f32 = 64.0;
+const TILE_OVER_JOINTS: f32 = CELL / 40.0;
+
+#[derive(Clone, Copy)]
+enum Tile {
+    Skull,
+    Trunk,
+    Shaft,
+    Pair,
+    Hand,
+    Foot,
+}
+
+pub(super) struct Bone {
+    tile: Tile,
+    pub at: Vec2,
+    pub size: Vec2,
+    pub angle: f32,
+    pub flip_x: bool,
+    pub far: bool,
+}
+
+impl Bone {
+    pub fn rect(&self) -> bevy::math::Rect {
+        let index = self.tile as u32;
+        let min = Vec2::new((index % 4) as f32, (index / 4) as f32) * CELL;
+        bevy::math::Rect {
+            min,
+            max: min + Vec2::splat(CELL),
         }
-        let skull = self.head - down * height * 0.046;
-        let radius = height * 0.125;
-        ellipse(tris, skull, side * radius, down * radius * 0.78, bone);
-        stroke(
-            tris,
-            &[
-                skull + down * radius * 0.64 - side * radius * 0.55,
-                skull + down * radius * 0.64 + side * radius * 0.55,
-            ],
-            radius * 0.52,
-            bone,
-        );
-        for sign in [-1.0, 1.0] {
-            ellipse(
-                tris,
-                skull + side * radius * 0.37 * sign,
-                side * radius * 0.23,
-                down * radius * 0.2,
-                dark,
-            );
+    }
+
+    fn upright(tile: Tile, at: Vec2, size: Vec2, forward: Vec2, down: Vec2) -> Self {
+        Self {
+            tile,
+            at,
+            size,
+            angle: down.x.atan2(down.y),
+            flip_x: down.perp().dot(forward) > 0.0,
+            far: false,
         }
     }
-}
 
-fn stroke(tris: &mut Tris, points: &[Vec2], width: f32, color: [f32; 4]) {
-    let widths = [width; 3];
-    ribbon(
-        tris,
-        points,
-        &widths[..points.len()],
-        color,
-        [color[0], color[1], color[2], color[3] * 0.50],
-    );
-}
-
-fn ellipse(tris: &mut Tris, at: Vec2, side: Vec2, down: Vec2, color: [f32; 4]) {
-    const SIDES: u32 = 12;
-    let center = tris.vertex(at, color);
-    for i in 0..SIDES {
-        let (y, x) = (std::f32::consts::TAU * i as f32 / SIDES as f32).sin_cos();
-        tris.vertex(at + side * x + down * y, color);
+    fn aimed(tile: Tile, at: Vec2, size: Vec2, along: Vec2) -> Self {
+        Self {
+            tile,
+            at,
+            size,
+            angle: -along.to_angle(),
+            flip_x: false,
+            far: false,
+        }
     }
-    for i in 0..SIDES {
-        tris.indices
-            .extend_from_slice(&[center, center + 1 + i, center + 1 + (i + 1) % SIDES]);
+
+    fn limb(start: Vec2, mid: Vec2, end: Vec2, width: f32) -> impl Iterator<Item = Self> {
+        [(Tile::Shaft, start, mid), (Tile::Pair, mid, end)]
+            .into_iter()
+            .filter_map(move |(tile, from, to)| {
+                let delta = to - from;
+                (delta.length_squared() > 0.01).then(|| {
+                    Self::aimed(
+                        tile,
+                        from.midpoint(to),
+                        Vec2::new(delta.length() * TILE_OVER_JOINTS, width),
+                        delta,
+                    )
+                })
+            })
     }
 }
 
-pub(super) fn shock_art(
-    seed: u64,
-    age: f32,
-    center: Vec2,
-    size: Vec2,
-    side: Vec2,
-    down: Vec2,
-    bones: Option<Skeleton>,
-) -> Tris {
+pub(super) fn arcs(seed: u64, age: f32, center: Vec2, size: Vec2, side: Vec2, down: Vec2) -> Tris {
     let mut tris = Tris::default();
     let remaining = (1.0 - age / DURATION).clamp(0.0, 1.0);
-    if let Some(bones) = bones {
-        bones.draw(&mut tris, center, down, side, size.y, remaining.sqrt());
-    }
 
     let mut rng = Rng::new(seed ^ ((age / 0.044) as u64));
     let half = size * Vec2::new(0.58, 0.52);

@@ -654,6 +654,9 @@ pub(crate) fn build_room_asset_manifest(sprite_content: &crate::sprite_sheet::Sp
         &room.metadata,
         Some(&quality.budget),
     );
+    for skin in crate::sprite_sheet::game_assets::door_skins(room) {
+        assets.room_dressing.ensure_theme_loaded(catalog, asset_server, skin);
+    }
     // A room that authors a boss demands the dedicated boss sheets HERE, the
     // first time such a room is prepared — not at boot for every room (asset
     // open work 2: 30 MP resident in the hall for bosses it does not have).
@@ -744,6 +747,13 @@ pub fn build_loaded_room_asset_manifest(
                         handle,
                     );
                 }
+            }
+        }
+    }
+    for skin in crate::sprite_sheet::game_assets::door_skins(room) {
+        for part in [RoomDressingPart::Door, RoomDressingPart::DoorOpening] {
+            if let Some(handle) = assets.room_dressing.get(skin, part) {
+                add_image_handle(&mut draft, format!("door-skin:{}:{}", skin.key(), part.key()), handle);
             }
         }
     }

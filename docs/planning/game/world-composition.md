@@ -11,7 +11,10 @@ Jon, 2026-10-30:
 
 ## Rules
 
-- **A region is a 2D cluster of rooms that touch on the flat map** and join by edge exits (side and vertical). Doors are for entering a building or a separate place; a region's inside is joined by its edges.
+Read the [level connection rules](../../concepts/level-connections.md)
+before you lay out rooms.
+
+- **A region is a 2D cluster of rooms that touch on the flat map** and join by side or vertical edge exits. Use doors to enter buildings or separate places. The Sandbox may use doors between rooms.
 - Give each visible passage door a destination. Use a side loading zone
   where adjacent rooms share a walk.
 - **Loops, not corridors.** A room has more than one way in where it can. Every region has at least one loop.

@@ -40,7 +40,7 @@ const GLOW_Z: f32 = -0.05;
 const DEFAULT_FIRE_SIZE: f32 = 24.0;
 
 /// The material of a glow. Its fields are the uniforms of `fire_glow.wgsl`.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct MaryOFireGlowMaterial {
     #[uniform(0)]
     pub outer: Vec4,
@@ -49,6 +49,13 @@ pub struct MaryOFireGlowMaterial {
     #[texture(2)]
     #[sampler(3)]
     pub flame: Handle<Image>,
+}
+
+#[cfg(feature = "card_view")]
+impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOFireGlowMaterial {
+    fn paints_in_scene_order(&self) -> bool {
+        true
+    }
 }
 
 impl Material2d for MaryOFireGlowMaterial {
@@ -106,6 +113,8 @@ pub fn install(app: &mut App) {
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOFireGlowMaterial>::default());
+        #[cfg(feature = "card_view")]
+        ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOFireGlowMaterial>(app);
     }
     // The quad is made now and not with the first fire: Bevy does not try
     // again to draw a quad whose mesh came late.
@@ -190,6 +199,7 @@ fn give_each_fire_its_glow(
                 Mesh2d(assets.quad.clone()),
                 MeshMaterial2d(material),
                 Transform::from_xyz(0.0, 0.0, GLOW_Z).with_scale(Vec3::new(size * GLOW_SCALE, size * GLOW_SCALE, 1.0)),
+                ambition_platformer2d::platformer::lifecycle::PresentationOf(fire),
                 Name::new("mary-o fire glow"),
                 FireGlow,
                 // What the fire lights in a dark room: twice its glow's

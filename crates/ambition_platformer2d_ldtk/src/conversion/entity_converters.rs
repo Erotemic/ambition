@@ -114,11 +114,19 @@ pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
             LoadingZoneActivation::AUTHORED_SPELLINGS
         )
     })?;
+    use ambition_platformer2d_world::rooms::LoadingZonePresentation;
     let presentation = match field_string(entity, "presentation").as_deref() {
-        None | Some("Default") => ambition_platformer2d_world::rooms::LoadingZonePresentation::Default,
-        Some("SceneArt") => ambition_platformer2d_world::rooms::LoadingZonePresentation::SceneArt,
-        Some("SceneLabel") => ambition_platformer2d_world::rooms::LoadingZonePresentation::SceneLabel,
+        None | Some("Default") => LoadingZonePresentation::Default,
+        Some("SceneArt") => LoadingZonePresentation::SceneArt,
+        Some("SceneLabel") => LoadingZonePresentation::SceneLabel,
         Some(value) => return Err(format!("LoadingZone '{name}' has unknown presentation '{value}'")),
+    };
+    let presentation = match field_string(entity, "door_skin").filter(|skin| !skin.trim().is_empty()) {
+        Some(skin) if activation == LoadingZoneActivation::Door && presentation == LoadingZonePresentation::SceneLabel => {
+            LoadingZonePresentation::SceneDoor { skin: skin.trim().to_owned() }
+        }
+        Some(_) => return Err(format!("LoadingZone '{name}' requires Door activation and SceneLabel presentation for door_skin")),
+        None => presentation,
     };
     Ok(RoomEmission::zone(LoadingZone { presentation,
         id: loading_zone_id(entity),

@@ -1,5 +1,11 @@
 # Ambition LDtk Tools
 
+> [!IMPORTANT]
+> **Use edge exits between adjacent rooms. The Sandbox may use doors between
+> rooms. Use platforms for climbs.** Read the
+> [level connection rules](../../docs/concepts/level-connections.md) before
+> you lay out a level or add a loading zone.
+
 Modal CLI for editing, validating, and repairing the Ambition `sandbox.ldtk` world. Agents should not hand-edit LDtk JSON; use this package so mutations are repaired and validated before write.
 
 Run commands from the repository root with the package directory on `PYTHONPATH`:

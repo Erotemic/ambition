@@ -5,12 +5,13 @@ use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{CameraMainTextureUsages, ClearColorConfig, CompositingSpace, MsaaWriteback, RenderTarget, Viewport};
 use bevy::prelude::{
-    Camera, Camera2d, Commands, Component, Entity, Local, Query, Res, UVec2, With, Without,
+    Camera, Camera2d, Commands, Component, Entity, Has, Local, Query, Res, UVec2, With, Without,
 };
 use bevy::render::view::Msaa;
 
 use super::{CardViewCamera, CardViewSettings, PresentedViewFrames};
 use crate::rendering::actors::rigged::AppearanceSampleCamera;
+use crate::screen_effects::{ScreenEffectCamera, ScreenEffectSettings};
 
 #[derive(Component, PartialEq, Eq)]
 pub(super) enum CardScope {
@@ -19,7 +20,7 @@ pub(super) enum CardScope {
 }
 
 #[derive(Component, PartialEq, Eq)]
-pub(super) struct PlaneCameraForCard(Entity);
+pub(crate) struct PlaneCameraForCard(pub Entity);
 
 /// Use the gameplay viewport, target, and stack settings for the card view.
 /// Keep the plane camera for systems that calculate placement in 2D.
@@ -37,6 +38,7 @@ pub(super) fn route_card_outputs(
             &CameraMainTextureUsages,
             Option<&CompositingSpace>,
             Option<&Msaa>,
+            Has<ScreenEffectCamera>,
         ),
         (With<MainCamera>, With<Camera2d>, Without<CardViewCamera>),
     >,
@@ -50,6 +52,7 @@ pub(super) fn route_card_outputs(
             Option<&CompositingSpace>,
             Option<&Msaa>,
             Option<&PlaneCameraForCard>,
+            Has<ScreenEffectCamera>,
         ),
         With<CardViewCamera>,
     >,
@@ -58,7 +61,7 @@ pub(super) fn route_card_outputs(
 ) {
     selected.clear();
     let on_hand = ViewsOnHand::survey(views.iter());
-    for (rig, view, mut card, mut target, mut usages, space, msaa, plane_link) in &mut card_cameras {
+    for (rig, view, mut card, mut target, mut usages, space, msaa, plane_link, has_filter) in &mut card_cameras {
         let source = plane_cameras
             .iter_mut()
             .find(|(id, camera, target, link, ..)| {
@@ -66,7 +69,7 @@ pub(super) fn route_card_outputs(
                     && (camera.is_active || hidden.contains(id))
                     && on_hand.presented_by(link.copied()) == Some(view.0)
             });
-        let Some((entity, mut plane, plane_target, _, plane_usages, plane_space, plane_msaa)) =
+        let Some((entity, mut plane, plane_target, _, plane_usages, plane_space, plane_msaa, plane_filter)) =
             source.filter(|_| frames.of(view.0).is_some())
         else {
             if card.is_active {
@@ -75,13 +78,16 @@ pub(super) fn route_card_outputs(
             if plane_link.is_some() {
                 commands.entity(rig).remove::<PlaneCameraForCard>();
             }
+            if has_filter {
+                commands.entity(rig).remove::<(ScreenEffectCamera, ScreenEffectSettings)>();
+            }
             continue;
         };
         let replacing = settings.mode.replaces_plane();
         let (active, order, viewport, clear_color, writeback) = if replacing {
             (true, plane.order, plane.viewport.clone(), plane.clear_color, plane.msaa_writeback)
         } else {
-            let viewport = inset_viewport(&plane, settings.viewport_fraction);
+            let viewport = inset_viewport(&plane, &settings);
             (viewport.is_some(), plane.order.saturating_add(1).max(6), viewport, ClearColorConfig::None, MsaaWriteback::Auto)
         };
         if card.is_active != active || card.order != order || !same_viewport(&card.viewport, &viewport)
@@ -111,6 +117,13 @@ pub(super) fn route_card_outputs(
         }
         if plane_link.is_none_or(|previous| previous.0 != entity) {
             commands.entity(rig).insert(PlaneCameraForCard(entity));
+        }
+        if has_filter != plane_filter {
+            if plane_filter {
+                commands.entity(rig).insert(ScreenEffectCamera);
+            } else {
+                commands.entity(rig).remove::<(ScreenEffectCamera, ScreenEffectSettings)>();
+            }
         }
         if replacing {
             if plane.is_active {
@@ -148,15 +161,10 @@ fn same_clear_color(a: ClearColorConfig, b: ClearColorConfig) -> bool {
     }
 }
 
-fn inset_viewport(plane: &Camera, fraction: f32) -> Option<Viewport> {
+fn inset_viewport(plane: &Camera, settings: &CardViewSettings) -> Option<Viewport> {
     let size = plane.physical_viewport_size()?;
-    if size.x < 64 || size.y < 64 {
-        return None;
-    }
     let origin = plane.viewport.as_ref().map_or(UVec2::ZERO, |v| v.physical_position);
-    let w = ((size.x as f32 * fraction) as u32).clamp(32, size.x);
-    let h = ((w as f32 * size.y as f32 / size.x as f32) as u32).clamp(32, size.y);
-    let inset = UVec2::new(w, h);
+    let inset = settings.inset_size(size)?;
     Some(Viewport { physical_position: origin + size - inset, physical_size: inset, ..Default::default() })
 }
 
@@ -211,10 +219,18 @@ pub(super) fn isolate_cards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_sim_view::camera_snapshot::{ResolvedCameraFrame, ResolvedCameraSnapshot};
     use crate::rendering::camera::PresentedViewFrame;
-    use crate::rendering::card_view::{retire_card_outputs, CardMeshes, CardViewMode};
+    use crate::rendering::card_view::{
+        card_outputs_enabled,
+        drawings::{realize_card_drawings, CardDrawing},
+        retire_card_outputs, CardMeshes, CardViewMode,
+    };
+    use crate::rendering::retained_drawings::DrawingScope;
+    use crate::rendering::view_isolation::{isolate_live_rooms, isolate_per_view_projections};
     use bevy::camera::Viewport;
+    use bevy::gizmos::{retained::Gizmo, GizmoAsset};
     use bevy::prelude::{App, Assets, Image, IntoScheduleConfigs, PostUpdate, UVec2, Vec2};
 
     #[test]
@@ -248,6 +264,7 @@ mod tests {
             MainCamera,
             PresentsView(view),
             RenderTarget::Image(image.clone().into()),
+            ScreenEffectCamera,
             Msaa::Off,
         )).id();
         let inset = world.spawn((
@@ -266,6 +283,7 @@ mod tests {
 
         assert!(world.get::<Camera>(plane).unwrap().is_active);
         assert_eq!(world.get::<RenderTarget>(inset).unwrap().as_image(), Some(&image));
+        assert!(world.get::<ScreenEffectCamera>(inset).is_some());
         assert_eq!(world.get::<Msaa>(inset), Some(&Msaa::Off));
         let camera = world.get::<Camera>(inset).unwrap();
         assert!(camera.is_active);
@@ -283,9 +301,17 @@ mod tests {
         app.insert_resource(CardViewSettings::gameplay())
             .init_resource::<CardMeshes>()
             .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<GizmoAsset>>()
             .add_systems(
                 PostUpdate,
-                (retire_card_outputs, route_card_outputs, isolate_cards).chain(),
+                (
+                    retire_card_outputs,
+                    route_card_outputs,
+                    isolate_per_view_projections,
+                    isolate_live_rooms,
+                    realize_card_drawings.run_if(card_outputs_enabled),
+                    isolate_cards,
+                ).chain(),
             );
         let world = app.world_mut();
         let image = world.resource_mut::<Assets<Image>>().add(Image::default());
@@ -296,8 +322,16 @@ mod tests {
         let mut frames = Vec::new();
         let mut outputs = Vec::new();
         for (index, room) in rooms.into_iter().enumerate() {
-            let view = world.spawn((LocalView, LocalViewId(index as u8))).id();
-            let mask = RenderLayers::none().with(256 + index);
+            world.spawn((RoomInstanceRoot, room));
+            let view = world.spawn((
+                LocalView,
+                LocalViewId(index as u8),
+                ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
+                    room,
+                    snapshot: Default::default(),
+                    follow_world: Default::default(),
+                })),
+            )).id();
             let origin = UVec2::new(index as u32 * 600, 0);
             let plane = world
                 .spawn((
@@ -313,7 +347,6 @@ mod tests {
                         ..Default::default()
                     },
                     PresentsView(view),
-                    mask.clone(),
                 ))
                 .id();
             if index == 1 {
@@ -327,10 +360,17 @@ mod tests {
                     RenderLayers::none(),
                 ))
                 .id();
-            let source = world.spawn(mask).id();
+            let source = world.spawn(InRoomInstance(room)).id();
             let model = world
                 .spawn((CardScope::Source(source), RenderLayers::none()))
                 .id();
+            let lines = world.resource_mut::<Assets<GizmoAsset>>().add(GizmoAsset::new());
+            let gizmo = Gizmo { handle: lines, ..Default::default() };
+            let drawing = if index == 0 {
+                world.spawn((DrawingScope::Room(room), InRoomInstance(room), gizmo))
+            } else {
+                world.spawn((DrawingScope::View(view), ambition_sim_view::PresentedForView(view), gizmo))
+            }.id();
             frames.push((
                 view,
                 PresentedViewFrame {
@@ -340,11 +380,19 @@ mod tests {
                     orthographic_scale: 1.0,
                 },
             ));
-            outputs.push((plane, card, model, origin));
+            outputs.push((plane, card, model, origin, drawing));
         }
         world.insert_resource(PresentedViewFrames::of_views(frames));
         world.run_schedule(PostUpdate);
-        for (index, &(plane, card, model, origin)) in outputs.iter().enumerate() {
+        let drawings = |world: &mut bevy::prelude::World| {
+            world.query_filtered::<(Entity, &CardScope), With<CardDrawing>>().iter(world)
+                .map(|(entity, scope)| match *scope {
+                    CardScope::Source(source) => (source, entity),
+                    CardScope::Camera(_) => unreachable!(),
+                }).collect::<std::collections::BTreeMap<_, _>>()
+        };
+        let retained = drawings(world);
+        for (index, &(plane, card, model, origin, drawing)) in outputs.iter().enumerate() {
             assert!(!world.get::<Camera>(plane).unwrap().is_active);
             assert!(world.get::<AppearanceSampleCamera>(plane).is_some());
             let camera = world.get::<Camera>(card).unwrap();
@@ -359,15 +407,24 @@ mod tests {
             let layers = world.get::<RenderLayers>(model).unwrap();
             assert!(layers.intersects(world.get::<RenderLayers>(card).unwrap()));
             assert!(!layers.intersects(world.get::<RenderLayers>(outputs[1 - index].1).unwrap()));
+            let product = retained[&drawing];
+            let layers = world.get::<RenderLayers>(product).unwrap();
+            assert!(layers.intersects(world.get::<RenderLayers>(card).unwrap()));
+            assert!(!layers.intersects(world.get::<RenderLayers>(outputs[1 - index].1).unwrap()));
+            assert_eq!(world.get::<Gizmo>(product).unwrap().handle, world.get::<Gizmo>(drawing).unwrap().handle);
         }
+        world.run_schedule(PostUpdate);
+        assert_eq!(drawings(world), retained);
 
         world.resource_mut::<CardViewSettings>().mode = CardViewMode::Plane;
         world.run_schedule(PostUpdate);
-        for (plane, card, model, _) in outputs {
+        for (plane, card, model, _, drawing) in outputs {
             assert!(world.get::<Camera>(plane).unwrap().is_active);
             assert!(world.get::<AppearanceSampleCamera>(plane).is_none());
             assert!(world.get::<Camera>(card).is_none());
             assert!(world.get::<CardScope>(model).is_none());
+            assert!(world.get::<Gizmo>(drawing).is_some());
         }
+        assert!(drawings(world).is_empty());
     }
 }

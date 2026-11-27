@@ -237,6 +237,18 @@ impl PortalCameraContinuityHostView {
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalObserverViews {
     views: Vec<(Entity, PortalCameraContinuityHostView)>,
+    windows: Vec<(Entity, PortalWindowView)>,
+}
+
+/// A rectangle that contains the play plane shown by an observer's outputs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PortalWindowView {
+    pub center_world: Vec2,
+    pub visible_view: Vec2,
+    /// The rectangle's horizontal unit vector in world coordinates.
+    pub axis: Vec2,
+    /// The physical dimensions of the main output.
+    pub output_pixels: Vec2,
 }
 
 impl PortalObserverViews {
@@ -257,6 +269,17 @@ impl PortalObserverViews {
     pub fn of(&self, observer: Option<Entity>) -> Option<&PortalCameraContinuityHostView> {
         let observer = observer?;
         self.views.iter().find(|(held, _)| *held == observer).map(|(_, view)| view)
+    }
+
+    /// Publish the output coverage for this frame.
+    pub fn set_windows(&mut self, windows: impl IntoIterator<Item = (Entity, PortalWindowView)>) {
+        self.windows.clear();
+        self.windows.extend(windows);
+    }
+
+    pub(crate) fn window_of(&self, observer: Option<Entity>) -> Option<PortalWindowView> {
+        let observer = observer?;
+        self.windows.iter().find(|(held, _)| *held == observer).map(|(_, window)| *window)
     }
 
     /// Drop the sample of each observer for which `live` is false.

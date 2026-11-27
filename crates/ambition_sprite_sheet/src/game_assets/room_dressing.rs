@@ -48,6 +48,8 @@ pub enum RoomDressingPart {
     /// The door of the theme: the art of a door of a room of that theme. It
     /// has the shape and the size of the door of the entity sheet.
     Door,
+    /// The frames of the door opening, in order from left to right.
+    DoorOpening,
     /// The shadow a body throws on the ground: a soft ellipse of the dark of
     /// the theme.
     Shadow,
@@ -126,7 +128,7 @@ pub const MOTE_CELL_PX: u32 = 32;
 
 impl RoomDressingPart {
     pub const ALL: &'static [Self] =
-        &[Self::Fill, Self::BreakableBrick, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
+        &[Self::Fill, Self::BreakableBrick, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door, Self::DoorOpening,
             Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface, Self::WaterBackdrop,
             Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge, Self::HazardFill, Self::HazardEdge,
             Self::DecorGlow, Self::Pillar, Self::Underhang, Self::Pendant, Self::LedgeEnd, Self::Trailing,
@@ -147,6 +149,7 @@ impl RoomDressingPart {
             Self::Motes => "motes",
             Self::Decor => "decor",
             Self::Door => "door",
+            Self::DoorOpening => "door_opening",
             Self::Shadow => "shadow",
             Self::Ladder => "ladder",
             Self::WaterClear => "water_clear",
@@ -176,6 +179,12 @@ impl RoomDressingPart {
 /// Stable [`AssetId`] of one part of the dressing of one theme: `room.dressing.<theme>.<part>`.
 pub fn room_dressing_asset_id(theme: ParallaxTheme, part: RoomDressingPart) -> AssetId {
     AssetId::new(format!("room.dressing.{}.{}", theme.key(), part.key()))
+}
+
+pub fn door_skins(room: &ambition_platformer2d_world::rooms::RoomSpec) -> impl Iterator<Item = ParallaxTheme> + '_ {
+    room.loading_zones.iter()
+        .filter(|zone| zone.shows_marker())
+        .filter_map(|zone| ParallaxTheme::from_key(zone.door_skin()?))
 }
 
 /// The loaded parts of the dressing of the themes that are resident.

@@ -88,9 +88,10 @@ projectile trajectories and action timing remain simulation authority.
 Held rays can carry a set of game-defined damage type IDs. A jump carries
 the types of the ray that caused it. The damage receiver publishes the types
 with its decision. Ambition uses `ambition.electric` on Scout's lightning
-and draws a shock on each body that takes the damage. The skeleton follows
-body landmarks when available. The character's body kind and tags select
-whether the shock shows bones or only arcs.
+and draws a shock on each body that takes the damage. The shock places
+painted bone parts from the `shock_bones` atlas at the body's landmarks.
+The atlas uses the same painters as the Barrow Skeleton. The character's
+body kind and tags select whether the shock shows bones or only arcs.
 
 ## When adding an effect
 

@@ -22,6 +22,7 @@ should survive crate moves. Exact current symbols and files belong in source,
 | [`input-and-game-modes.md`](input-and-game-modes.md) | changing devices, control authority, action slots, prompts, touch, menus, dialogue, or pause |
 | [`sim-presentation-seam.md`](sim-presentation-seam.md) | changing messages, read models, rendering, audio, UI, or headless behavior |
 | [`ldtk-world-composition.md`](ldtk-world-composition.md) | changing authored space, world records, lowering, loading zones, or room construction |
+| [`level-connections.md`](level-connections.md) | lay out paths between rooms and choose edge exits or doors |
 | [`movement-collision.md`](movement-collision.md) | changing movement, collision, body modes, blink, ledges, hitboxes, or projectiles |
 | [`asset-management.md`](asset-management.md) | changing logical asset identity, provider catalogs, loading, or platform packaging |
 | [`platform-targets.md`](platform-targets.md) | changing desktop, web, Android/touch, controller, or Steam Deck support |

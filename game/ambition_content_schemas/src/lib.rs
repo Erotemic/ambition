@@ -11,6 +11,7 @@ pub mod area_cards;
 pub mod autoplay;
 pub mod flag_chains;
 pub mod gate_directory;
+pub mod gate_network;
 pub mod npc_lives;
 pub mod rules;
 pub mod text;
@@ -30,6 +31,7 @@ pub fn ambition_schemas() -> Vec<SchemaRegistration> {
         text::ambition_text_schema(),
         flag_chains::flag_chains_schema(),
         gate_directory::gate_directory_schema(),
+        gate_network::gate_network_schema(),
         npc_lives::npc_lives_schema(),
         yarn_dialogue::yarn_dialogue_schema(),
     ]

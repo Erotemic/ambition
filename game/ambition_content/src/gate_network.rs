@@ -1,12 +1,15 @@
 //! Ambition's gate network (the pack's `data/gate_network.ron`): the
 //! addresses a terminal dials and each ring of the network.
 //!
-//! The catalog is one App resource. A content reload replaces it whole: the
-//! network is one game's, and no other provider adds rings to it.
+//! The file lowers into the engine's numbered catalog (one App resource) and
+//! Ambition's words ([`GateWordsResource`]: the inscription, and each ring's
+//! address word). A content reload replaces both whole: the network is one
+//! game's, and no other provider adds rings to it.
 
 use ambition_content_schemas::gate_directory::{lowered_gate_directory, GateDirectory, GateStartKnowledge};
+use ambition_content_schemas::gate_network::{AuthoredGateNetwork, GateWords};
 use ambition_platformer2d::world::rooms::{
-    GateAddressLearned, GateNetworkCatalog, GateRing, GateRingPositions, RingPosition, GATE_NETWORK_SCHEMA,
+    GateAddressLearned, GateNetworkCatalog, GateRing, GateRingPositions, RingPosition,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::{App, Commands, DetectChanges, IntoScheduleConfigs, MessageReader, PreUpdate, Res, ResMut};
@@ -22,8 +25,8 @@ pub fn gate_address_known_flag(address: &str) -> String {
 /// Whether a traveller knows the address of `ring`: under
 /// [`GateStartKnowledge::All`] every address, else the ones whose known flag
 /// `flag` reads as set.
-pub fn knows(directory: &GateDirectory, ring: &GateRing, flag: impl Fn(&str) -> bool) -> bool {
-    matches!(directory.start_known, GateStartKnowledge::All) || flag(&gate_address_known_flag(ring.address_key()))
+pub fn knows(directory: &GateDirectory, words: &GateWords, ring: &GateRing, flag: impl Fn(&str) -> bool) -> bool {
+    matches!(directory.start_known, GateStartKnowledge::All) || flag(&gate_address_known_flag(words.address_key(ring)))
 }
 
 /// What Ambition's terminals list, as the pack states it (its own file, not
@@ -36,26 +39,46 @@ pub fn lowered_directory(pack: &ambition_content_pack::PreparedContentPack) -> G
 #[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct GateDirectoryResource(pub GateDirectory);
 
+/// [`GateWords`] as an App resource: what a terminal shows of the chevrons
+/// the engine dials.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct GateWordsResource(pub GateWords);
+
 /// Record each address the network taught this tick as its known flag.
 fn remember_learned_addresses(
-    catalog: Option<Res<GateNetworkCatalog>>,
+    (catalog, words): (Option<Res<GateNetworkCatalog>>, Option<Res<GateWordsResource>>),
     mut learned: MessageReader<GateAddressLearned>,
     mut save: ResMut<ambition_platformer2d::persistence::save::AmbitionGameSave>,
 ) {
-    let Some(catalog) = catalog else {
+    let (Some(catalog), Some(words)) = (catalog, words) else {
         learned.clear();
         return;
     };
     for learned in learned.read() {
         if let Some(ring) = catalog.ring(&learned.ring) {
-            save.data_mut().set_flag(gate_address_known_flag(ring.address_key()), true);
+            save.data_mut().set_flag(gate_address_known_flag(words.0.address_key(ring)), true);
         }
     }
 }
 
-/// The gate network a pack states.
+/// The gate network a pack states, lowered: the engine's catalog and
+/// Ambition's words.
+pub(crate) fn lowered_gate_network_and_words(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> (GateNetworkCatalog, GateWords) {
+    ambition_content_schemas::gate_network::lowered_gate_network(pack).map(AuthoredGateNetwork::lower).unwrap_or_default()
+}
+
+/// The engine's catalog of the gate network a pack states.
+#[cfg(test)]
 pub(crate) fn lowered_gate_network(pack: &ambition_content_pack::PreparedContentPack) -> GateNetworkCatalog {
-    ambition_content_pack::lowered_rules::<GateNetworkCatalog>(pack, GATE_NETWORK_SCHEMA).cloned().unwrap_or_default()
+    lowered_gate_network_and_words(pack).0
+}
+
+/// Ambition's words of the gate network a pack states.
+#[cfg(test)]
+pub(crate) fn lowered_gate_words(pack: &ambition_content_pack::PreparedContentPack) -> GateWords {
+    lowered_gate_network_and_words(pack).1
 }
 
 /// Install the network the selected pack states, and keep each ring's place
@@ -64,8 +87,9 @@ pub(crate) fn lowered_gate_network(pack: &ambition_content_pack::PreparedContent
 /// its ring.
 pub(super) fn register(app: &mut App) {
     let pack = crate::pack::select(app.world_mut());
-    let catalog = lowered_gate_network(&pack);
+    let (catalog, words) = lowered_gate_network_and_words(&pack);
     app.world_mut().insert_resource(catalog);
+    app.world_mut().insert_resource(GateWordsResource(words));
     app.world_mut().insert_resource(GateDirectoryResource(lowered_directory(&pack)));
     // The dial asks Ambition's spelling whether an address can be dialed.
     app.insert_resource(crate::gate_inscription::address_rule());
@@ -134,7 +158,7 @@ pub fn ring_positions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::world::rooms::normalize_address;
+    use ambition_content_schemas::gate_network::normalize_address;
 
     /// Every ring of the shipped network stands somewhere on its world's flat
     /// map, so a portal's reach can be measured to it.
@@ -157,16 +181,16 @@ mod tests {
     /// heights' arch, posted on the keep's terminal, is listed from the start.
     #[test]
     fn magicals_arches_list_only_the_arches_they_reach() {
-        let catalog = lowered_gate_network(crate::pack::shipped());
+        let (catalog, gate_words) = lowered_gate_network_and_words(crate::pack::shipped());
         let mut directory = lowered_directory(crate::pack::shipped());
         let manifest = crate::worlds::world_manifest();
         let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
         let positions = ring_positions(&catalog, &project);
         let words = |catalog: &GateNetworkCatalog, directory: &GateDirectory, ring: &str, learned: &[&str]| -> Vec<String> {
             let learned: Vec<String> = learned.iter().map(|word| gate_address_known_flag(word)).collect();
-            crate::gate_terminal::known_addresses(catalog, directory, &positions, ring, |flag| learned.iter().any(|known| known == flag))
+            crate::gate_terminal::known_addresses(catalog, &gate_words, directory, &positions, ring, |flag| learned.iter().any(|known| known == flag))
                 .into_iter()
-                .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
+                .filter_map(|address| gate_words.word_of(catalog, &address).map(str::to_string))
                 .collect()
         };
         let reach = |a: &str, b: &str| positions.distance(a, b).expect("both arches are placed");
@@ -185,16 +209,16 @@ mod tests {
     /// the chain) and an arch up the chain only once its address is learned.
     #[test]
     fn the_jungles_arches_list_only_their_neighbours_on_the_trail() {
-        let catalog = lowered_gate_network(crate::pack::shipped());
+        let (catalog, gate_words) = lowered_gate_network_and_words(crate::pack::shipped());
         let mut directory = lowered_directory(crate::pack::shipped());
         let manifest = crate::worlds::world_manifest();
         let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
         let positions = ring_positions(&catalog, &project);
         let words = |catalog: &GateNetworkCatalog, directory: &GateDirectory, ring: &str, learned: &[&str]| -> Vec<String> {
             let learned: Vec<String> = learned.iter().map(|word| gate_address_known_flag(word)).collect();
-            let mut words: Vec<String> = crate::gate_terminal::known_addresses(catalog, directory, &positions, ring, |flag| learned.iter().any(|known| known == flag))
+            let mut words: Vec<String> = crate::gate_terminal::known_addresses(catalog, &gate_words, directory, &positions, ring, |flag| learned.iter().any(|known| known == flag))
                 .into_iter()
-                .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
+                .filter_map(|address| gate_words.word_of(catalog, &address).map(str::to_string))
                 .collect();
             words.sort();
             words
@@ -214,7 +238,8 @@ mod tests {
     /// speedrun route all name them. Each reaches the ring of its place.
     #[test]
     fn the_working_addresses_reach_their_places() {
-        let catalog = lowered_gate_network(crate::pack::shipped());
+        let (catalog, words) = lowered_gate_network_and_words(crate::pack::shipped());
+        let ring_named = |word: &str| words.zone_named(word).and_then(|zone| catalog.ring(zone));
         for (address, room) in [
             ("LEGAL", "authority_concourse"),
             ("TESTING", "central_hub_complex"),
@@ -227,7 +252,7 @@ mod tests {
             ("GALACTIC", "orbital_station_gate_dock"),
             ("ALDENTE", "noodle_village_square"),
         ] {
-            let ring = catalog.ring_named(address).unwrap_or_else(|| panic!("no ring answers `{address}`"));
+            let ring = ring_named(address).unwrap_or_else(|| panic!("no ring answers `{address}`"));
             assert_eq!(ring.room, room, "`{address}`");
             assert!(!ring.hidden, "`{address}` is a public address");
         }
@@ -235,7 +260,7 @@ mod tests {
             .rings
             .iter()
             .filter(|ring| ring.hidden)
-            .filter_map(|ring| ring.address.as_deref())
+            .filter_map(|ring| words.word(&ring.zone))
             .filter(|address| address.len() <= 5)
             .collect();
         assert!(short.len() >= 2, "a few short hidden addresses: {short:?}");
@@ -246,7 +271,7 @@ mod tests {
     /// address of the catalog, spelled as a dial matches it.
     #[test]
     fn each_address_a_dialogue_teaches_is_an_address_of_the_network() {
-        let catalog = lowered_gate_network(crate::pack::shipped());
+        let words = lowered_gate_words(crate::pack::shipped());
         let prefix = gate_address_known_flag("");
         let mut taught = Vec::new();
         let mut dirs = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/dialogue")];
@@ -267,7 +292,7 @@ mod tests {
         assert!(taught.len() >= 3, "the shipped dialogue teaches a few addresses: {taught:?}");
         for (file, address) in &taught {
             assert!(
-                catalog.ring_named(address).is_some() && normalize_address(address) == *address,
+                words.zone_named(address).is_some() && normalize_address(address) == *address,
                 "`{file}` teaches `{address}`, which no ring answers"
             );
         }
@@ -282,7 +307,7 @@ mod tests {
     /// it, and its way home is the walk to its world's gate.
     #[test]
     fn every_terminal_away_from_home_posts_a_way_home() {
-        let catalog = lowered_gate_network(crate::pack::shipped());
+        let (catalog, words) = lowered_gate_network_and_words(crate::pack::shipped());
         let directory = lowered_directory(crate::pack::shipped());
         let dimension = |zone: &str| {
             let ring = catalog.ring(zone).expect("a ring");
@@ -293,8 +318,8 @@ mod tests {
                 .posted(zone)
                 .iter()
                 .filter(|address| normalize_address(address) == **address)
-                .filter_map(|address| catalog.ring_named(address))
-                .map(|far| far.zone.clone())
+                .filter_map(|address| words.zone_named(address))
+                .map(str::to_string)
                 .collect()
         };
         for ring in catalog.rings.iter().filter(|ring| ring.terminal.is_some()) {
@@ -313,15 +338,15 @@ mod tests {
     /// from the capital posts LEGAL, and the capital's posts the sandbox hub.
     #[test]
     fn legal_is_the_capitals_and_the_capital_posts_the_sandbox() {
-        let catalog = lowered_gate_network(crate::pack::shipped());
-        let legal = catalog.ring_named("LEGAL").expect("a ring answers LEGAL");
-        assert_eq!(legal.zone, "authority_concourse_gate");
-        let hub = catalog.ring("hub_public_gate_zone").expect("the sandbox hub's ring");
-        assert_ne!(hub.address.as_deref(), Some("LEGAL"), "the sandbox hub keeps its own address");
-        let sandbox = hub.address.clone().expect("the sandbox hub has an address");
+        let words = lowered_gate_words(crate::pack::shipped());
+        let legal = words.zone_named("LEGAL").expect("a ring answers LEGAL");
+        assert_eq!(legal, "authority_concourse_gate");
+        let hub = "hub_public_gate_zone";
+        let sandbox = words.word(hub).expect("the sandbox hub has an address word").to_string();
+        assert_ne!(sandbox, "LEGAL", "the sandbox hub keeps its own address");
         let directory = lowered_directory(crate::pack::shipped());
-        assert!(directory.posted(&legal.zone).contains(&sandbox), "the capital posts the sandbox hub: {:?}", directory.posted(&legal.zone));
-        assert!(directory.posted(&hub.zone).iter().any(|address| address == "LEGAL"), "the sandbox posts the capital");
+        assert!(directory.posted(legal).contains(&sandbox), "the capital posts the sandbox hub: {:?}", directory.posted(legal));
+        assert!(directory.posted(hub).iter().any(|address| address == "LEGAL"), "the sandbox posts the capital");
     }
 
     /// The directory names only rings of the network, and posts only
@@ -329,13 +354,13 @@ mod tests {
     /// directory).
     #[test]
     fn the_directory_posts_only_addresses_of_the_network() {
-        let catalog = lowered_gate_network(crate::pack::shipped());
+        let (catalog, words) = lowered_gate_network_and_words(crate::pack::shipped());
         let directory = lowered_directory(crate::pack::shipped());
         assert!(!directory.posted.is_empty(), "premise: the directory posts addresses");
         for (zone, addresses) in &directory.posted {
             assert!(catalog.ring(zone).is_some(), "the directory posts on `{zone}`, which is no ring");
             for address in addresses {
-                let spelled = catalog.spell(address).unwrap_or_else(|error| panic!("`{zone}` posts `{address}`: {error:?}"));
+                let spelled = words.spell(address).unwrap_or_else(|error| panic!("`{zone}` posts `{address}`: {error:?}"));
                 assert!(catalog.ring_at(&spelled).is_some(), "`{zone}` posts `{address}`, which no ring answers");
             }
         }
@@ -348,6 +373,7 @@ mod tests {
         let mut app = App::new();
         register(&mut app);
         assert_eq!(app.world().resource::<GateNetworkCatalog>(), &lowered_gate_network(crate::pack::shipped()));
+        assert_eq!(app.world().resource::<GateWordsResource>().0, lowered_gate_words(crate::pack::shipped()));
         let with = |from: &'static str, to: &'static str| {
             crate::pack::compile_pack_with(move |path, text| {
                 if path != "data/gate_network.ron" {

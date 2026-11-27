@@ -1746,7 +1746,7 @@ fn gate_terminals_capture_and_close_only_their_own_participants() {
     assert_ne!(contexts.for_seat(1).owner(), Some(GATE_TERMINAL_CONTEXT));
     app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(second.clone(), ring.into());
     for _ in 0..4 { app.update(); }
-    let address = app.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>().spell("TANGENT").unwrap();
+    let address = app.world().resource::<ambition_content::gate_network::GateWordsResource>().0.spell("TANGENT").unwrap();
     ambition_platformer2d::platformer::host_intents::write_host_intent(app.world_mut(),
         ambition_platformer2d::world::rooms::GateTerminalIntent {
             subject: second.clone(), ring: ring.into(),

@@ -10,6 +10,8 @@ description = "The schemas Ambition's own pack names beside the engine's. The ch
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 serde = { workspace = true }
 ambition_htn = { path = "../../crates/ambition_htn" }
+# The gate network lowers into the world capability's numbered catalog.
+ambition_platformer2d_world = { path = "../../crates/ambition_platformer2d_world" }
 
 [dev-dependencies]
 # The schema tests write their fixtures as the authored RON.

@@ -1,18 +1,16 @@
 //! The gate network: rings that a terminal dials by address.
 //!
-//! A game states its network in one authored catalog ([`GATE_NETWORK_SCHEMA`]):
-//! the ring's inscription, the facilities that hold rings, and each ring (its
-//! loading zone, room, address, terminal and status). This module owns the
-//! rules that read the catalog: addresses, the dial decision
+//! A game gives its network as one catalog resource ([`GateNetworkCatalog`]):
+//! how many chevrons a ring has, the facilities that hold rings, and each ring
+//! (its loading zone, room, address, terminal and status). This module owns
+//! the rules that read the catalog: addresses, the dial decision
 //! ([`resolve_dial`]) and the live network state ([`GateNetworkState`]),
 //! which is rollback state keyed by ring zone ids.
 //!
-//! An address is a sequence of CHEVRONS ([`Chevron`]: a place in the
-//! inscription). An important ring's address is a word, which spells into
-//! chevrons by the inscription's own rule ([`GateNetworkCatalog::spell`]):
-//! when a letter is on several chevrons, its k-th use in the word takes the
-//! k-th of them. Any other ring's address is its chevrons, as authored (a
-//! random string, not a word). A dial must enter exactly those chevrons.
+//! An address is a sequence of CHEVRONS ([`Chevron`]: a numbered place on the
+//! ring, from 0). A dial must enter exactly a ring's chevrons. What a chevron
+//! shows, and how a game writes an address (Ambition spells words into
+//! chevrons), is the game's: it lowers its own file into this catalog.
 //!
 //! Every ring has an address and a terminal (Jon, 2026-10-24): any ring can
 //! always be dialed, and dialed from.
@@ -43,11 +41,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use bevy_ecs::prelude::{Message, Resource};
 
-/// The authored FILE kind of a game's gate network. The engine's schema
-/// registry registers it (the world crate does not link the content pack).
-pub const GATE_NETWORK_SCHEMA: &str = "gate_network";
-
-fn default_gate_idle_timeout_secs() -> u32 {
+/// The idle timeout a game's file states when it states none.
+pub fn default_gate_idle_timeout_secs() -> u32 {
     30
 }
 
@@ -97,7 +92,7 @@ impl GateRingPositions {
     }
 }
 
-/// One chevron of a ring: its place in the inscription, from the first.
+/// One chevron of a ring: its place on the ring, from the first.
 pub type Chevron = u8;
 
 /// Which addresses a game's rings can be dialed by, beyond having chevrons
@@ -124,17 +119,13 @@ pub struct GateAddressLearned {
     pub ring: String,
 }
 
-/// A game's gate network, as authored.
-#[derive(Resource, Clone, Debug, PartialEq, Eq, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+/// A game's gate network, as its game lowered it.
+#[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct GateNetworkCatalog {
     /// Idle simulation seconds before an unused connection closes.
-    #[serde(default = "default_gate_idle_timeout_secs")]
     pub idle_timeout_secs: u32,
-    /// The letters on a ring's chevrons, one per chevron, in order: the
-    /// chevrons a terminal shows. A letter may stand on several chevrons;
-    /// each chevron is its own symbol.
-    pub inscription: String,
+    /// How many chevrons a ring has: an address names chevrons `0..chevrons`.
+    pub chevrons: u16,
     /// Each logistical facility that holds rings. Two rings in one facility
     /// never dial each other: that is a walk, not a gate trip.
     pub facilities: Vec<GateFacility>,
@@ -144,7 +135,7 @@ pub struct GateNetworkCatalog {
 
 impl Default for GateNetworkCatalog {
     fn default() -> Self {
-        Self { idle_timeout_secs: default_gate_idle_timeout_secs(), inscription: String::new(),
+        Self { idle_timeout_secs: default_gate_idle_timeout_secs(), chevrons: 0,
             facilities: Vec::new(), rings: Vec::new() }
     }
 }
@@ -163,8 +154,7 @@ pub struct GateFacility {
 
 /// One ring: a loading zone that a link can open, and the terminal that
 /// dials from it.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GateRing {
     /// The loading zone of the ring. A traveller goes in through it, and
     /// arrives in it from another ring. Its id is the ring's identity.
@@ -175,34 +165,22 @@ pub struct GateRing {
     pub facility: String,
     /// The room that holds the zone.
     pub room: String,
-    /// The word whose chevrons reach this ring: an important ring's address.
-    #[serde(default)]
-    pub address: Option<String>,
-    /// The chevrons that reach this ring, when its address is no word: a
-    /// ring that is not important has a random one. A ring has exactly one
-    /// of `address` and `glyphs`.
-    #[serde(default)]
-    pub glyphs: Option<Vec<Chevron>>,
+    /// The chevrons that reach this ring. Every ring has an address.
+    pub address: Vec<Chevron>,
     /// A hidden address is not in any directory. A dial reaches it the same
     /// way it reaches any other.
-    #[serde(default)]
     pub hidden: bool,
     /// The id of the terminal (`Switch` with action `GateTerminal`) that
     /// dials from this ring. Every ring has one; `None` is a catalog problem.
-    #[serde(default)]
     pub terminal: Option<String>,
     /// The ring's infrastructure state, from authored facts only.
-    #[serde(default)]
     pub status: GateStatusRule,
     /// A line the terminal shows about the ring (its upkeep, its traffic).
-    #[serde(default)]
     pub note: String,
     /// A gate (the default) or a portal arch.
-    #[serde(default)]
     pub kind: RingKind,
     /// How far a portal reaches on the flat map, in world units; `None` is
     /// [`DEFAULT_PORTAL_REACH`]. A gate states none: a gate has no reach.
-    #[serde(default)]
     pub reach: Option<u32>,
 }
 
@@ -312,14 +290,13 @@ impl GateNetworkCatalog {
         facts: &GateFacts<'_>,
     ) -> Option<Vec<super::RoomHop>> {
         let mut links = Vec::new();
-        let addresses: Vec<_> = self.rings.iter().filter_map(|ring| self.address_of(ring).map(|address| (ring, address))).collect();
         for source in &self.rings {
             let Some(from) = rooms.room_index_by_id(&source.room) else { continue };
             if source.terminal.is_none() || !rooms.has_zone(&source.room, &source.zone) { continue; }
-            for (far, address) in &addresses {
-                if resolve_dial(self, state, &source.zone, address, facts).is_err() { continue; }
+            for far in &self.rings {
+                if resolve_dial(self, state, &source.zone, &far.address, facts).is_err() { continue; }
                 let Some(to) = rooms.room_index_by_id(&far.room) else { continue };
-                links.push(super::RoomHop { from, to, zone: source.zone.clone(), dial: Some(address.clone()) });
+                links.push(super::RoomHop { from, to, zone: source.zone.clone(), dial: Some(far.address.clone()) });
             }
         }
         rooms.route_with_links(from, to, &links)
@@ -337,60 +314,12 @@ impl GateNetworkCatalog {
 
     /// The ring the chevrons `address` reach.
     pub fn ring_at(&self, address: &[Chevron]) -> Option<&GateRing> {
-        self.rings.iter().find(|ring| self.address_of(ring).as_deref() == Some(address))
-    }
-
-    /// The chevrons that reach `ring`: its word spelled, or its glyphs.
-    pub fn address_of(&self, ring: &GateRing) -> Option<Vec<Chevron>> {
-        match (&ring.address, &ring.glyphs) {
-            (Some(word), _) => self.spell(word).ok(),
-            (None, Some(glyphs)) => Some(glyphs.clone()),
-            (None, None) => None,
-        }
-    }
-
-    /// The ring whose address is the word `word` (normalized first).
-    pub fn ring_named(&self, word: &str) -> Option<&GateRing> {
-        let word = normalize_address(word);
-        self.rings.iter().find(|ring| ring.address.as_deref() == Some(word.as_str()))
-    }
-
-    /// The word of the address the chevrons spell, if a ring has it.
-    pub fn word_of(&self, address: &[Chevron]) -> Option<&str> {
-        self.ring_at(address).and_then(|ring| ring.address.as_deref())
-    }
-
-    /// The chevrons a word spells: each letter in turn takes the next chevron
-    /// that carries it, so the k-th use of a letter takes the k-th chevron of
-    /// it, round again when the word uses it more often than the ring has it
-    /// ("LEGALLY DISTINCT" spells every chevron in order). The word is
-    /// normalized first. `Err`: a letter on no chevron.
-    pub fn spell(&self, word: &str) -> Result<Vec<Chevron>, char> {
-        let mut used: BTreeMap<char, usize> = BTreeMap::new();
-        normalize_address(word)
-            .chars()
-            .map(|letter| {
-                let places: Vec<Chevron> = self
-                    .inscription
-                    .chars()
-                    .enumerate()
-                    .filter(|(_, on)| *on == letter)
-                    .map(|(at, _)| at as Chevron)
-                    .collect();
-                if places.is_empty() {
-                    return Err(letter);
-                }
-                let k = used.entry(letter).or_default();
-                let chevron = places[*k % places.len()];
-                *k += 1;
-                Ok(chevron)
-            })
-            .collect()
+        self.rings.iter().find(|ring| ring.address == address)
     }
 
     /// How many chevrons a ring has.
     pub fn chevrons(&self) -> usize {
-        self.inscription.chars().count()
+        usize::from(self.chevrons)
     }
 
     /// The facility `id`.
@@ -410,16 +339,6 @@ impl GateRing {
         }
     }
 
-    /// What the save's known flag of this ring's address is keyed by: its
-    /// word, or, for a ring whose address is glyphs, its zone.
-    pub fn address_key(&self) -> &str {
-        self.address.as_deref().unwrap_or(&self.zone)
-    }
-}
-
-/// An address word as the catalog compares it: no spaces, upper case.
-pub fn normalize_address(address: &str) -> String {
-    address.chars().filter(|c| !c.is_whitespace()).flat_map(char::to_uppercase).collect()
 }
 
 /// The ring's own state, read from authored facts.
@@ -519,16 +438,11 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
     if catalog.idle_timeout_secs == 0 {
         problems.push("the gate idle timeout must be greater than zero".into());
     }
-    for letter in catalog.inscription.chars() {
-        if !letter.is_ascii_uppercase() {
-            problems.push(format!("the inscription letter '{letter}' is not an upper-case letter"));
-        }
-    }
-    if catalog.inscription.is_empty() {
-        problems.push("the inscription is empty".to_string());
+    if catalog.chevrons == 0 {
+        problems.push("a ring has no chevrons".to_string());
     }
     if catalog.chevrons() > usize::from(Chevron::MAX) + 1 {
-        problems.push("the inscription has more chevrons than a dial can name".to_string());
+        problems.push("a ring has more chevrons than a dial can name".to_string());
     }
     let mut facilities = BTreeSet::new();
     for facility in &catalog.facilities {
@@ -541,19 +455,7 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
     }
     let mut zones = BTreeSet::new();
     let mut terminals = BTreeMap::new();
-    let mut addresses: BTreeMap<String, &str> = BTreeMap::new();
-    let address_ok = |address: &str, problems: &mut Vec<String>, at: String| {
-        let normalized = normalize_address(address);
-        if normalized.is_empty() {
-            problems.push(format!("{at} is empty"));
-        }
-        if normalized != address {
-            problems.push(format!("{at} `{address}` is not written as `{normalized}`"));
-        }
-        if let Err(letter) = catalog.spell(&normalized) {
-            problems.push(format!("{at} `{address}` has '{letter}', which is on no chevron"));
-        }
-    };
+    let mut addresses: BTreeMap<&[Chevron], &str> = BTreeMap::new();
     for ring in &catalog.rings {
         let zone = ring.zone.as_str();
         for (field, value) in [("zone", &ring.zone), ("name", &ring.name), ("room", &ring.room)] {
@@ -573,20 +475,12 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
         if !facilities.contains(ring.facility.as_str()) {
             problems.push(format!("`{zone}.facility` `{}` is not a facility", ring.facility));
         }
-        match (&ring.address, &ring.glyphs) {
-            (Some(address), None) => {
-                address_ok(address, &mut problems, format!("`{zone}.address`"));
-                if let Some(other) = addresses.insert(normalize_address(address), zone) {
-                    problems.push(format!("the address `{address}` reaches both `{other}` and `{zone}`"));
-                }
-            }
-            (None, Some(glyphs)) => {
-                if glyphs.is_empty() || glyphs.iter().any(|chevron| usize::from(*chevron) >= catalog.chevrons()) {
-                    problems.push(format!("`{zone}.glyphs` is empty or names a chevron the ring does not have"));
-                }
-            }
-            (Some(_), Some(_)) => problems.push(format!("`{zone}` has both an address word and glyphs")),
-            (None, None) => problems.push(format!("`{zone}` has no address: every ring can be dialed")),
+        if ring.address.is_empty() {
+            problems.push(format!("`{zone}` has no address: every ring can be dialed"));
+        } else if ring.address.iter().any(|chevron| usize::from(*chevron) >= catalog.chevrons()) {
+            problems.push(format!("`{zone}.address` names a chevron the ring does not have"));
+        } else if let Some(other) = addresses.insert(&ring.address, zone) {
+            problems.push(format!("`{other}` and `{zone}` answer the same chevrons"));
         }
         if ring.terminal.is_none() {
             problems.push(format!("`{zone}` has no terminal: every ring can be dialed from"));
@@ -609,18 +503,6 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
             let names_a_fact = !matches!(ring.status, GateStatusRule::Offline(_));
             if reason.trim().is_empty() || (names_a_fact && fact.trim().is_empty()) {
                 problems.push(format!("`{zone}.status` has an empty fact or reason"));
-            }
-        }
-    }
-    // No two rings answer the same chevrons, word or glyphs. Whether an
-    // address keeps the game's spelling is the game's check.
-    let mut reached: BTreeMap<Vec<Chevron>, &str> = BTreeMap::new();
-    for ring in &catalog.rings {
-        if let Some(address) = catalog.address_of(ring) {
-            if let Some(other) = reached.insert(address, ring.zone.as_str()) {
-                if ring.glyphs.is_some() || catalog.ring(other).is_some_and(|other| other.glyphs.is_some()) {
-                    problems.push(format!("`{other}` and `{}` answer the same chevrons", ring.zone));
-                }
             }
         }
     }
@@ -755,7 +637,7 @@ impl GateNetworkState {
     pub fn open_link(&mut self, catalog: &GateNetworkCatalog, ring: &str, far: &str) -> Result<(), DialRefusal> {
         let endpoint = |zone: &str| {
             let ring = catalog.ring(zone)?;
-            Some(GateEndpoint { zone: ring.zone.clone(), room: ring.room.clone(), address: catalog.address_of(ring)? })
+            Some(GateEndpoint { zone: ring.zone.clone(), room: ring.room.clone(), address: ring.address.clone() })
         };
         let source = endpoint(ring).ok_or(DialRefusal::Unknown)?;
         let far = endpoint(far).ok_or(DialRefusal::Unknown)?;
@@ -887,14 +769,13 @@ where
 mod tests {
     use super::*;
 
-    fn ring(zone: &str, facility: &str, address: Option<&str>) -> GateRing {
+    fn ring(zone: &str, facility: &str, address: &[Chevron]) -> GateRing {
         GateRing {
             zone: zone.into(),
             name: zone.into(),
             facility: facility.into(),
             room: format!("{zone}_room"),
-            address: address.map(Into::into),
-            glyphs: None,
+            address: address.to_vec(),
             hidden: false,
             terminal: Some(format!("{zone}_terminal")),
             status: GateStatusRule::Online,
@@ -910,16 +791,15 @@ mod tests {
             name: id.into(),
             dimension: dimension.into(),
         };
-        let mut ninja = ring("ninja", "ninja_shrine", Some("SILENT"));
+        let mut ninja = ring("ninja", "ninja_shrine", &[6, 7, 8, 10]);
         ninja.status = GateStatusRule::Offline("the far ring is not yet built".into());
-        let mut ring7 = ring("ring7", "home", None);
-        ring7.glyphs = Some(vec![9, 13, 2, 6, 11, 0]);
+        let mut ring7 = ring("ring7", "home", &[9, 13, 2, 6, 11, 0]);
         ring7.status = GateStatusRule::PoweredBy { switch: "breaker".into(), reason: "no power".into() };
-        let mut station = ring("station", "station", Some("GALACTIC"));
+        let mut station = ring("station", "station", &[2, 3, 0, 3, 11, 10, 7, 11]);
         station.status = GateStatusRule::BusyWhile { flag: "convoy".into(), reason: "a freight convoy".into() };
         GateNetworkCatalog {
             idle_timeout_secs: 30,
-            inscription: "LEGALLYDISTINCT".into(),
+            chevrons: 15,
             facilities: vec![
                 facility("home", "home"),
                 facility("math", "math"),
@@ -929,19 +809,20 @@ mod tests {
                 facility("trail", "science"),
             ],
             rings: vec![
-                ring("hub", "home", Some("LEGAL")),
+                ring("hub", "home", &[0, 1, 2, 3, 4]),
                 ring7,
-                ring("math", "math", Some("TANGENT")),
+                ring("math", "math", &[10, 3, 12, 2, 1, 12, 14]),
                 ninja,
-                ring("fort", "fort", Some("SENTINEL")),
+                ring("fort", "fort", &[8, 1, 12, 10, 7, 12, 1, 0]),
                 station,
-                ring("trail", "trail", Some("ASCENT")),
+                ring("trail", "trail", &[3, 8, 11, 1, 12, 10]),
             ],
         }
     }
 
-    fn spelled(catalog: &GateNetworkCatalog, word: &str) -> Vec<Chevron> {
-        catalog.spell(word).expect("every letter is on a chevron")
+    /// The chevrons that reach the ring `zone`.
+    fn at(catalog: &GateNetworkCatalog, zone: &str) -> Vec<Chevron> {
+        catalog.ring(zone).expect("the fixture has the ring").address.clone()
     }
 
     #[test]
@@ -975,9 +856,9 @@ mod tests {
         let path = catalog.route(&rooms, &state, 0, 3, &facts).expect("door, gate, door");
         assert_eq!(path.iter().map(|hop| (hop.from, hop.to)).collect::<Vec<_>>(), [(0, 1), (1, 2), (2, 3)]);
         assert!(path[0].dial.is_none() && path[2].dial.is_none());
-        assert_eq!(path[1].dial, Some(spelled(&catalog, "TANGENT")));
+        assert_eq!(path[1].dial, Some(at(&catalog, "math")));
         let reverse = catalog.route(&rooms, &state, 3, 0, &facts).expect("the reverse trip dials home");
-        assert_eq!(reverse[1].dial, Some(spelled(&catalog, "LEGAL")));
+        assert_eq!(reverse[1].dial, Some(at(&catalog, "hub")));
         catalog.rings[1].status = GateStatusRule::PoweredBy { switch: "power".into(), reason: "no power".into() };
         assert!(catalog.route(&rooms, &state, 0, 3, &facts).is_none(), "a route must not promise a refused dial");
         let powered = GateFacts { switch_on: &|id| id == "power", ..facts };
@@ -1010,41 +891,41 @@ mod tests {
         catalog.facilities.push(GateFacility { id: "grove".into(), name: "grove".into(), dimension: "science".into() });
         catalog.facilities.push(GateFacility { id: "deep".into(), name: "deep".into(), dimension: "science".into() });
         catalog.facilities.push(GateFacility { id: "glade".into(), name: "glade".into(), dimension: "math".into() });
-        let portal = |zone: &str, facility: &str, word: &str| GateRing {
+        let portal = |zone: &str, facility: &str, address: &[Chevron]| GateRing {
             kind: RingKind::Portal,
             reach: Some(5000),
-            ..ring(zone, facility, Some(word))
+            ..ring(zone, facility, address)
         };
-        catalog.rings.push(portal("grove_arch", "grove", "GLADE"));
-        catalog.rings.push(portal("deep_arch", "deep", "DENT"));
-        catalog.rings.push(portal("glade_arch", "glade", "GLEN"));
-        let at = |zone: &str| match zone {
+        catalog.rings.push(portal("grove_arch", "grove", &[2, 0, 3, 6, 1]));
+        catalog.rings.push(portal("deep_arch", "deep", &[6, 1, 12, 10]));
+        catalog.rings.push(portal("glade_arch", "glade", &[2, 0, 1, 12]));
+        let placed = |zone: &str| match zone {
             "grove_arch" => Some((0.0, 0.0)),
             "deep_arch" => Some((3000.0, 4000.0)),
             "glade_arch" => Some((100.0, 0.0)),
             _ => None,
         };
         let state = GateNetworkState::default();
-        let attempt = |from: &str, word: &str, far_at: (f32, f32)| {
+        let attempt = |from: &str, to: &str, far_at: (f32, f32)| {
             let switch_on = |_: &str| true;
             let flag = |_: &str| false;
             let zone_exists = |_: &str, _: &str| true;
             let distance = |a: &str, b: &str| {
-                let (a, b) = (at(a)?, if b == "deep_arch" { Some(far_at) } else { at(b) }?);
+                let (a, b) = (placed(a)?, if b == "deep_arch" { Some(far_at) } else { placed(b) }?);
                 Some(((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt())
             };
             let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance, fits: &|address: &[Chevron]| address.len() <= 16 };
-            resolve_dial(&catalog, &state, from, &spelled(&catalog, word), &facts).map(|ring| ring.zone.clone())
+            resolve_dial(&catalog, &state, from, &at(&catalog, to), &facts).map(|ring| ring.zone.clone())
         };
         // 5000 away, and it reaches 5000: in reach.
-        assert_eq!(attempt("grove_arch", "DENT", (3000.0, 4000.0)).as_deref(), Ok("deep_arch"));
+        assert_eq!(attempt("grove_arch", "deep_arch", (3000.0, 4000.0)).as_deref(), Ok("deep_arch"));
         // 6000 away: too far.
-        assert_eq!(attempt("grove_arch", "DENT", (6000.0, 0.0)).unwrap_err().kind(), "out_of_reach");
+        assert_eq!(attempt("grove_arch", "deep_arch", (6000.0, 0.0)).unwrap_err().kind(), "out_of_reach");
         // 100 away, but in another world: a portal does not fold another one.
-        assert_eq!(attempt("grove_arch", "GLEN", (0.0, 0.0)).unwrap_err().kind(), "other_dimension");
+        assert_eq!(attempt("grove_arch", "glade_arch", (0.0, 0.0)).unwrap_err().kind(), "other_dimension");
         // A portal reaches no gate, and a gate dials no portal.
-        assert_eq!(attempt("grove_arch", "ASCENT", (0.0, 0.0)).unwrap_err().kind(), "wrong_kind");
-        assert_eq!(attempt("trail", "DENT", (0.0, 0.0)).unwrap_err().kind(), "wrong_kind");
+        assert_eq!(attempt("grove_arch", "trail", (0.0, 0.0)).unwrap_err().kind(), "wrong_kind");
+        assert_eq!(attempt("trail", "deep_arch", (0.0, 0.0)).unwrap_err().kind(), "wrong_kind");
     }
 
     /// A gate states no reach: the catalog refuses one that does.
@@ -1056,33 +937,15 @@ mod tests {
         assert!(problems.iter().any(|problem| problem.contains("states a reach")), "{problems:?}");
     }
 
-    /// A word spells by the inscription's rule: the k-th use of a letter
-    /// takes the k-th chevron of it, round again past the last. LEGALLY
-    /// DISTINCT spells every chevron in order.
-    #[test]
-    fn a_word_spells_its_chevrons_by_the_inscriptions_rule() {
-        let catalog = catalog();
-        assert_eq!(spelled(&catalog, "LEGALLY DISTINCT"), (0..15).collect::<Vec<Chevron>>());
-        // L E G A L: the second L is the second Λ (chevron 4).
-        assert_eq!(spelled(&catalog, "legal"), [0, 1, 2, 3, 4]);
-        // T A N G E N T: one N, used twice; the second T is chevron 14.
-        assert_eq!(spelled(&catalog, "TANGENT"), [10, 3, 12, 2, 1, 12, 14]);
-        // Four L's: the fourth goes round to the first Λ.
-        assert_eq!(spelled(&catalog, "LLLL"), [0, 4, 5, 0]);
-        assert_eq!(catalog.spell("TANGENTO"), Err('O'));
-    }
-
-    /// A dial must enter the address's exact chevrons: LEGAL with the plain Λ
-    /// twice is another address, which no ring answers.
+    /// A dial must enter the address's exact chevrons: one chevron off is
+    /// another address, which no ring answers.
     #[test]
     fn a_dial_answers_the_exact_chevrons_only() {
         let catalog = catalog();
         let state = GateNetworkState::default();
-        assert_eq!(dial(&catalog, &state, "hub", &spelled(&catalog, "TANGENT"), &[]), Ok("math"));
+        assert_eq!(dial(&catalog, &state, "hub", &at(&catalog, "math"), &[]), Ok("math"));
         assert_eq!(dial(&catalog, &state, "math", &[0, 1, 2, 3, 4], &[]), Ok("hub"));
         assert_eq!(dial(&catalog, &state, "math", &[0, 1, 2, 3, 0], &[]), Err(DialRefusal::Unknown));
-        assert_eq!(catalog.word_of(&[0, 1, 2, 3, 4]), Some("LEGAL"));
-        assert_eq!(catalog.word_of(&[0, 1, 2, 3, 0]), None);
     }
 
     #[test]
@@ -1092,13 +955,13 @@ mod tests {
         let kind = |result: Result<&str, DialRefusal>| result.unwrap_err().kind();
         assert_eq!(kind(dial(&catalog, &state, "hub", &[], &[])), "empty");
         assert_eq!(dial(&catalog, &state, "hub", &[10, 15], &[]), Err(DialRefusal::NoSuchChevron(15)));
-        assert_eq!(kind(dial(&catalog, &state, "hub", &spelled(&catalog, "SAND"), &[])), "unknown");
-        assert_eq!(kind(dial(&catalog, &state, "hub", &spelled(&catalog, "SILENT"), &[])), "offline");
-        assert_eq!(kind(dial(&catalog, &state, "hub", &spelled(&catalog, "GALACTIC"), &["convoy"])), "busy");
-        let tangent = spelled(&catalog, "TANGENT");
+        assert_eq!(kind(dial(&catalog, &state, "hub", &[7, 7, 7], &[])), "unknown");
+        assert_eq!(kind(dial(&catalog, &state, "hub", &at(&catalog, "ninja"), &[])), "offline");
+        assert_eq!(kind(dial(&catalog, &state, "hub", &at(&catalog, "station"), &["convoy"])), "busy");
+        let tangent = at(&catalog, "math");
         state.open_link(&catalog, "trail", "math").unwrap();
         assert_eq!(kind(dial(&catalog, &state, "hub", &tangent, &[])), "busy");
-        assert_eq!(kind(dial(&catalog, &state, "hub", &spelled(&catalog, "ASCENT"), &[])), "busy", "a sending ring is engaged too");
+        assert_eq!(kind(dial(&catalog, &state, "hub", &at(&catalog, "trail"), &[])), "busy", "a sending ring is engaged too");
     }
 
     /// No faction refuses a dial: every working ring answers every ring, the
@@ -1107,19 +970,19 @@ mod tests {
     fn no_ring_refuses_a_dial_by_who_dials() {
         let catalog = catalog();
         let state = GateNetworkState::default();
-        assert_eq!(dial(&catalog, &state, "hub", &spelled(&catalog, "SENTINEL"), &[]), Ok("fort"));
-        assert_eq!(dial(&catalog, &state, "ring7", &spelled(&catalog, "ASCENT"), &["breaker"]), Ok("trail"));
+        assert_eq!(dial(&catalog, &state, "hub", &at(&catalog, "fort"), &[]), Ok("fort"));
+        assert_eq!(dial(&catalog, &state, "ring7", &at(&catalog, "trail"), &["breaker"]), Ok("trail"));
     }
 
     #[test]
     fn a_ring_never_dials_its_own_facility_but_may_dial_its_own_dimension() {
         let catalog = catalog();
         let state = GateNetworkState::default();
-        let legal = spelled(&catalog, "LEGAL");
+        let legal = at(&catalog, "hub");
         assert_eq!(dial(&catalog, &state, "hub", &legal, &[]), Err(DialRefusal::SameFacility));
         assert_eq!(dial(&catalog, &state, "ring7", &legal, &["breaker"]), Err(DialRefusal::SameFacility));
-        assert_eq!(dial(&catalog, &state, "station", &spelled(&catalog, "ASCENT"), &[]), Ok("trail"));
-        assert_eq!(dial(&catalog, &state, "trail", &spelled(&catalog, "GALACTIC"), &[]), Ok("station"));
+        assert_eq!(dial(&catalog, &state, "station", &at(&catalog, "trail"), &[]), Ok("trail"));
+        assert_eq!(dial(&catalog, &state, "trail", &at(&catalog, "station"), &[]), Ok("station"));
     }
 
     /// The game's spelling refuses an address before it is looked up (the
@@ -1132,21 +995,11 @@ mod tests {
         assert_ne!(dial(&catalog, &state, "hub", &[3; 16], &[]), Err(DialRefusal::Malformed));
     }
 
-    /// A ring whose address is no word is dialed by its glyphs.
-    #[test]
-    fn a_ring_without_a_word_is_dialed_by_its_glyphs() {
-        let catalog = catalog();
-        let state = GateNetworkState::default();
-        assert_eq!(dial(&catalog, &state, "math", &[9, 13, 2, 6, 11, 0], &["breaker"]), Ok("ring7"));
-        assert_eq!(catalog.ring("ring7").map(GateRing::address_key), Some("ring7"));
-        assert_eq!(catalog.word_of(&[9, 13, 2, 6, 11, 0]), None);
-    }
-
     #[test]
     fn a_powered_source_answers_by_its_breaker() {
         let catalog = catalog();
         let state = GateNetworkState::default();
-        let tangent = spelled(&catalog, "TANGENT");
+        let tangent = at(&catalog, "math");
         assert_eq!(dial(&catalog, &state, "ring7", &tangent, &[]).unwrap_err().kind(), "offline");
         assert_eq!(dial(&catalog, &state, "ring7", &tangent, &["breaker"]), Ok("math"));
     }
@@ -1162,7 +1015,7 @@ mod tests {
         let back = state.route_from("math").unwrap();
         assert_eq!(back.far, "hub");
         assert_eq!(back.far_room, catalog.ring("hub").unwrap().room);
-        assert_eq!(back.address, catalog.address_of(catalog.ring("hub").unwrap()).unwrap());
+        assert_eq!(back.address, at(&catalog, "hub"));
         state.tick(4.0, |_| false);
         state.used("hub");
         state.tick(4.0, |_| false);
@@ -1235,19 +1088,17 @@ mod tests {
         assert!(gate_network_problems(&catalog()).is_empty(), "{:?}", gate_network_problems(&catalog()));
         let mut bad = catalog();
         bad.idle_timeout_secs = 0;
-        bad.rings[2].address = Some("LEGAL".into());
-        bad.rings[3].address = Some("SILENTO".into());
+        bad.rings[2].address = vec![0, 1, 2, 3, 4];
+        bad.rings[3].address = vec![6, 15];
         bad.rings[4].facility = "nowhere".into();
         bad.rings[5].terminal = None;
-        bad.rings.push(ring("hub", "home", None));
-        let mut twin = ring("twin", "trail", None);
-        twin.glyphs = Some(vec![9, 13, 2, 6, 11, 0]);
-        bad.rings.push(twin);
+        bad.rings.push(ring("hub", "home", &[]));
+        bad.rings.push(ring("twin", "trail", &[9, 13, 2, 6, 11, 0]));
         let problems = gate_network_problems(&bad);
         for expected in [
             "the gate idle timeout must be greater than zero",
-            "the address `LEGAL` reaches both `hub` and `math`",
-            "`ninja.address` `SILENTO` has 'O', which is on no chevron",
+            "`hub` and `math` answer the same chevrons",
+            "`ninja.address` names a chevron the ring does not have",
             "`fort.facility` `nowhere` is not a facility",
             "the ring `hub` is stated twice",
             "`hub` has no address: every ring can be dialed",

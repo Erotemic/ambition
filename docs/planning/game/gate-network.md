@@ -93,7 +93,8 @@ includes that field and both connection endpoints.
 
 | what | where | kind |
 | --- | --- | --- |
-| the catalog | `GateNetworkCatalog` resource, from the pack | authored; reload replaces it |
+| the catalog | `GateNetworkCatalog` resource, lowered from the pack's `gate_network` | authored; reload replaces it |
+| the inscription and address words | `GateWordsResource` (`ambition_content::gate_network`) | authored; lowered beside the catalog |
 | terminal use and reports | `GateNetworkState` (`resource.gate_network_state`) | rollback state, keyed by `LiveBodyId` |
 | links and recent addresses | `GateNetworkState` | rollback state; one connection keyed by its dialing endpoint; recent addresses shared |
 | a terminal's dial, hangup, close | `GateTerminalIntent` host intent | stamped tick, released into the sim |
@@ -283,6 +284,17 @@ ring's `posted` addresses by zone; the engine's catalog no longer has either.
 A content reload restates it. `the_directory_posts_only_addresses_of_the_network`
 checks the file against the network, which the engine's per-file check could
 not.
+
+*Slice 4 (2026-11-27).* The words are the game's. The engine's
+`GateNetworkCatalog` is a number of chevrons and rings whose `address` is
+their chevrons (no inscription, no word, no `spell`), built in code by the
+game, and the engine registers no `gate_network` schema. Ambition's file
+(schema `gate_network`, `ambition_content_schemas::gate_network`, its own
+capability) keeps the inscription and the word or glyph addresses; its
+lowering spells each word into chevrons and keeps the words apart
+(`GateWords`, the `GateWordsResource`): what a terminal shows, the ring a
+word names, and the `gate.known.*` key. The engine's own tests now dial a
+fixture network of numbered endpoints with no inscription.
 
 ## Future expansion
 

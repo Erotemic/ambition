@@ -869,7 +869,7 @@ fn dial_gates(
     subjects: Query<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>,
     bodies: ambition_platformer2d::platformer::lifecycle::LiveBodies,
     tick: Res<ambition_platformer2d::time::SimTick>,
-    catalog: Res<ambition_platformer2d::world::rooms::GateNetworkCatalog>,
+    words: Res<ambition_content::gate_network::GateWordsResource>,
     mut network: ResMut<ambition_platformer2d::world::rooms::GateNetworkState>,
     mut intents: MessageWriter<ambition_platformer2d::world::rooms::GateTerminalIntent>,
 ) {
@@ -878,7 +878,7 @@ fn dial_gates(
     let Some(subject) = bodies.id_of(entity) else { return; };
     for (ring, address, at) in &config.gate_dials {
         if tick.get() == *at {
-            let address = catalog.spell(address).expect("the gate address must use the catalog inscription");
+            let address = words.0.spell(address).expect("the gate address must use the ring's inscription");
             network.terminals.insert(subject.clone(), ring.clone());
             intents.write(GateTerminalIntent { subject: subject.clone(), ring: ring.clone(), action: GateTerminalAction::Dial(address) });
             intents.write(GateTerminalIntent { subject: subject.clone(), ring: ring.clone(), action: GateTerminalAction::Close });

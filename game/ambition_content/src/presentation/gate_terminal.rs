@@ -284,10 +284,11 @@ fn drive_gate_terminal(
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut preview: ResMut<GateDialPreview>,
     frames: Res<ambition_input::SeatMenuFrames>,
-    (seats, environment, directory): (
+    (seats, environment, directory, words): (
         Res<ambition_input::participant::SeatInputContexts>,
         Option<Res<PresentationEnvironment>>,
         Option<Res<crate::gate_network::GateDirectoryResource>>,
+        Option<Res<crate::gate_network::GateWordsResource>>,
     ),
     widgets: TerminalWidgets,
     participants: TerminalParticipants,
@@ -356,8 +357,10 @@ fn drive_gate_terminal(
             let none = GateRingPositions::default();
             let no_directory = Default::default();
             let directory = directory.as_deref().map(|directory| &directory.0).unwrap_or(&no_directory);
-            let known = known_addresses(&catalog, directory, positions.as_deref().unwrap_or(&none), &ring, knows);
-            let mut rows = ui.list(&catalog, &state, &known);
+            let no_words = Default::default();
+            let words = words.as_deref().map(|words| &words.0).unwrap_or(&no_words);
+            let known = known_addresses(&catalog, words, directory, positions.as_deref().unwrap_or(&none), &ring, knows);
+            let mut rows = ui.list(&catalog, words, &state, &known);
             let count = catalog.chevrons();
             let mut effects = Vec::new();
             // Mouse and touch: on the wheel a moving pointer points and a press
@@ -445,7 +448,7 @@ fn drive_gate_terminal(
                 }
             }
             if tapped.is_some() {
-                rows = ui.list(&catalog, &state, &known);
+                rows = ui.list(&catalog, words, &state, &known);
             }
             // A mouse wheel or a drag over the screen scrolls the list's window,
             // not its cursor.
@@ -527,7 +530,11 @@ fn draw_gate_terminal(
     mut users: Query<(Entity, &ambition_input::participant::InputParticipant, &TerminalUi, &mut ShownTerminal)>,
     participants: TerminalParticipants,
     surface: ambition_render::ui_surface::ParticipantSurface,
-    (environment, directory): (Option<Res<PresentationEnvironment>>, Option<Res<crate::gate_network::GateDirectoryResource>>),
+    (environment, directory, words): (
+        Option<Res<PresentationEnvironment>>,
+        Option<Res<crate::gate_network::GateDirectoryResource>>,
+        Option<Res<crate::gate_network::GateWordsResource>>,
+    ),
     roots: Query<(Entity, &GateTerminalRoot, &ComputedNode)>,
     ui_fonts: Option<Res<UiFonts>>,
     mut icons: Option<ResMut<GlyphIcons>>,
@@ -545,8 +552,10 @@ fn draw_gate_terminal(
                 let none = GateRingPositions::default();
                 let no_directory = Default::default();
                 let directory = directory.as_deref().map(|directory| &directory.0).unwrap_or(&no_directory);
-                let known = known_addresses(catalog, directory, positions.as_deref().unwrap_or(&none), ring, knows);
-                Some(ui.model(catalog, &state, &known))
+                let no_words = Default::default();
+                let words = words.as_deref().map(|words| &words.0).unwrap_or(&no_words);
+                let known = known_addresses(catalog, words, directory, positions.as_deref().unwrap_or(&none), ring, knows);
+                Some(ui.model(catalog, words, &state, &known))
             }
             _ => None,
         };

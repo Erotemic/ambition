@@ -834,7 +834,7 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_gate_portals,
     },
     PackDerivedFamily {
-        domain: ambition_platformer2d::world::rooms::GATE_NETWORK_SCHEMA,
+        domain: ambition_content_schemas::gate_network::GATE_NETWORK_SCHEMA,
         publish: publish_gate_network,
     },
     PackDerivedFamily {
@@ -1261,7 +1261,9 @@ fn publish_gate_network(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
-    world.insert_resource(crate::gate_network::lowered_gate_network(pack));
+    let (catalog, words) = crate::gate_network::lowered_gate_network_and_words(pack);
+    world.insert_resource(catalog);
+    world.insert_resource(crate::gate_network::GateWordsResource(words));
 }
 
 /// What Ambition's terminals list is replaced whole, as the network is.

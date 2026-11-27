@@ -2804,14 +2804,18 @@ its dial reports `GateAddressLearned` and the game records its
 `gate.known.*` flag (and decides what a terminal lists, `knows`).
 
 Slice 3: the posted addresses and `start_known` are Ambition's own file
-(`data/gate_directory.ron`, schema `gate_directory`).
+(`data/gate_directory.ron`, schema `gate_directory`). Slice 4: the words are
+the game's: the engine's catalog is a chevron count and rings addressed by
+chevrons, the `gate_network` schema and its inscription, word addresses and
+spelling are Ambition's (`ambition_content_schemas::gate_network`, lowered
+into the catalog and `GateWordsResource`), and the engine's tests dial a
+fixture of numbered endpoints.
 
 **Next action:** the rest, one move per slice, each leaving the game
-playable: the word spelling
-(`GateNetworkCatalog::spell`, the inscription in the catalog), facilities
-and dimensions as a directory, the refusal words, and the terminal panel's
-remaining engine pieces; the engine keeps dialed passages with opaque keys
-(dial, link, idle timeout, phases, rollback, navigation).
+playable: facilities and dimensions as a directory, the refusal words, and
+the terminal panel's remaining engine pieces; the engine keeps dialed
+passages with opaque keys (dial, link, idle timeout, phases, rollback,
+navigation).
 
 **Acceptance:** no engine crate names an inscription, chevron, dimension
 directory or Ambition address; a fixture game dials numbered endpoints

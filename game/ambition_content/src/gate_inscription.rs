@@ -103,7 +103,7 @@ mod tests {
     use super::*;
 
     fn spelled(word: &str) -> Vec<Chevron> {
-        crate::gate_network::lowered_gate_network(crate::pack::shipped()).spell(word).expect("the word spells")
+        crate::gate_network::lowered_gate_words(crate::pack::shipped()).spell(word).expect("the word spells")
     }
 
     /// A chevron's grid: row k is its k-th use, the columns its place in
@@ -138,8 +138,8 @@ mod tests {
     fn every_shipped_address_keeps_the_inscription() {
         let catalog = crate::gate_network::lowered_gate_network(crate::pack::shipped());
         for ring in &catalog.rings {
-            let address = catalog.address_of(ring).expect("every ring has an address");
-            assert!(address_fits(&address), "`{}`'s address {address:?} does not fit the inscription", ring.zone);
+            let address = &ring.address;
+            assert!(address_fits(address), "`{}`'s address {address:?} does not fit the inscription", ring.zone);
         }
     }
 

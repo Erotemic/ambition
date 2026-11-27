@@ -151,7 +151,7 @@ fn a_room_that_no_zone_leads_into_has_no_route() {
 fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
     use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
     use ambition_platformer2d::scripted_input::install_autoplay;
-    use ambition_platformer2d::world::rooms::{GateNetworkCatalog, GateNetworkState};
+    use ambition_platformer2d::world::rooms::GateNetworkState;
     use crate::common::fixed_60hz_room_options;
 
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("central_hub_complex")).expect("the hub builds");
@@ -187,10 +187,10 @@ fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
     }
     assert!(went_to_trail && reached_tyrant && returned, "autoplay did not finish its trip: {visits:?}");
     let world = sim.world();
-    let catalog = world.resource::<GateNetworkCatalog>();
+    let words = world.resource::<ambition_content::gate_network::GateWordsResource>();
     let network = world.resource::<GateNetworkState>();
     let dialed = |destination: &str| {
-        let address = catalog.spell(destination).expect("the address spells");
+        let address = words.0.spell(destination).expect("the address spells");
         network.reports.values().any(|report| report.address == address && report.outcome.is_ok())
     };
     assert!(dialed("GENESIS"), "autoplay never dialed GENESIS: {network:?}; visits={visits:?}");

@@ -329,7 +329,7 @@ mod tests {
     fn catalog_of(zones: &[&str]) -> ambition_platformer2d_world::rooms::GateNetworkCatalog {
         use ambition_platformer2d_world::rooms::{GateNetworkCatalog, GateRing};
         GateNetworkCatalog {
-            inscription: "LEGALLYDISTINCT".into(),
+            chevrons: 15,
             idle_timeout_secs: 30,
             rings: zones
                 .iter().enumerate()
@@ -338,8 +338,7 @@ mod tests {
                     name: (*zone).into(),
                     facility: "facility".into(),
                     room: "room".into(),
-                    address: None,
-                    glyphs: Some(vec![(index % 15) as u8, (index / 15) as u8]),
+                    address: vec![(index % 15) as u8, (index / 15) as u8],
                     hidden: false,
                     terminal: None,
                     status: Default::default(),

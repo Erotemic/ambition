@@ -199,7 +199,7 @@ fn the_gate_deck_receives_the_arrival_and_goes_home() {
     assert!(arrival, "the gate deck has the arrival `orbital_station_gate_arrival`");
     let catalog = sim.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>();
     let ring = catalog.ring("orbital_station_gate_arrival").expect("the arrival is a ring of the gate network");
-    assert_eq!(ring.address.as_deref(), Some("GALACTIC"));
+    assert_eq!(sim.world().resource::<ambition_content::gate_network::GateWordsResource>().0.word(&ring.zone), Some("GALACTIC"));
     let directory = ambition_content::gate_network::lowered_directory(ambition_content::pack::shipped());
     assert!(ring.terminal.is_some() && directory.posted(&ring.zone).iter().any(|address| address == "LEGAL"), "its terminal posts the way home");
 }

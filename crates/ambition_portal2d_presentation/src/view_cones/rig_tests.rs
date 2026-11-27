@@ -3,6 +3,7 @@
 use super::*;
 use ambition_platformer2d_shared_tangle::camera_layers::{
     live_room_render_layer, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
+    RETIRED_ROOM_WINDOW_LAYER,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
 
@@ -111,7 +112,9 @@ fn windows_of_two_rooms(
                     .iter()
                     .filter(|layer| (LIVE_ROOM_RENDER_LAYER_BASE..=LIVE_ROOM_RENDER_LAYER_LAST).contains(layer))
                     .collect(),
-                layers.iter().filter(|layer| *layer >= PORTAL_WINDOW_SELF_LAYER_BASE).collect(),
+                layers.iter()
+                    .filter(|layer| (PORTAL_WINDOW_SELF_LAYER_BASE..RETIRED_ROOM_WINDOW_LAYER).contains(layer))
+                    .collect(),
                 rig.cone,
             )
         })

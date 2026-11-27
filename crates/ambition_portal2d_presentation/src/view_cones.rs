@@ -16,6 +16,7 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::sprite_render::AlphaMode2d;
+use std::collections::HashSet;
 use std::fmt::Write as _;
 
 use ambition_platformer2d_core::cast::{raycast_solids, SolidWorldQuery};
@@ -24,6 +25,7 @@ use ambition_portal2d::pieces::PortalAperture;
 use ambition_portal2d::view::{aperture_wedge_multi, blend_cones, view_cone, window_eye, ViewCone};
 use ambition_portal2d::{find_portal, PlacedPortal, PortalChannel};
 
+use ambition_platformer2d_shared_tangle::camera_layers::PrivateCameraLayer;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
 
 use crate::{PortalCameraContinuityHostView, PortalObserverViews, PortalViewer, PortalViewers, PortalWorldFrame};
@@ -38,19 +40,13 @@ const WORLD_RENDER_LAYER: usize = 0;
 /// other render-layer reservations, because the pass that keeps each camera
 /// to its own live room moves a stamped window off this layer.
 pub use ambition_platformer2d_shared_tangle::camera_layers::PORTAL_WINDOW_RENDER_LAYER;
-const PORTAL_CAPTURE_PARALLAX_LAYER_BASE: usize = 32;
 /// Base of the per-portal window layers. Every window mesh carries the shared
 /// [`PORTAL_WINDOW_RENDER_LAYER`] (rendered by the main camera) and its own
 /// `base + slot` layer. A capture camera can then see every other portal's
 /// window (recursion). It sees its own only when the pair looks at itself
 /// (`pair_looks_at_itself`): on a thin-wall pair a self-capture shows as a
 /// nested window with one frame of lag, and it is not correct optics.
-/// Base 512 keeps clear of the parallax layers (32 + slot, slot ≤ ~300).
 const PORTAL_WINDOW_SELF_LAYER_BASE: usize = 512;
-
-fn portal_capture_parallax_layer(channel: PortalChannel) -> usize {
-    PORTAL_CAPTURE_PARALLAX_LAYER_BASE + portal_channel_render_slot(channel)
-}
 
 /// The layers a portal's window mesh draws on.
 ///
@@ -622,7 +618,7 @@ pub struct PortalViewRig {
     /// room has the eyes of more than one observer.
     drawn_for: Option<Entity>,
     channel: PortalChannel,
-    parallax_layer: usize,
+    backdrop_slot: usize,
     parallax_anchor: Vec2,
     parallax_visible_view: Option<Vec2>,
     rebuild: RebuildKey,
@@ -685,7 +681,7 @@ impl PortalViewRig {
     /// Private `RenderLayers` index for parallax sprites that should render
     /// only into this rig's capture texture.
     pub fn parallax_layer(&self) -> usize {
-        self.parallax_layer
+        PrivateCameraLayer::PortalBackdrop.at(self.backdrop_slot)
     }
 
     /// Sticky pairwise pane-dominance winner (see `mesh::pane_z`): true when
@@ -1126,7 +1122,7 @@ pub fn sync_portal_view_cones(
         served.push((rig.room, rig.observer, rig.channel));
         layers.set_if_neq(capture_render_layers(
             effective.recursion_depth,
-            rig.parallax_layer,
+            rig.parallax_layer(),
             &windows_a_capture_may_see(all, &portal, &partner, room_band),
             room_band,
         ));
@@ -1318,6 +1314,7 @@ pub fn sync_portal_view_cones(
     }
 
     // Second pass: spawn rigs for desired pairs not yet served, room by room.
+    let mut free_backdrop_slots = None;
     for eye in &eyes {
     let RoomEye { placement, room_band, all, viewer, host_view, view, screen_scale } = eye;
     let (room_band, host_view, view, screen_scale) = (*room_band, *host_view, *view, *screen_scale);
@@ -1467,6 +1464,15 @@ pub fn sync_portal_view_cones(
         if active {
             active_captures += 1;
         }
+        // Commands release old rigs after this system. Keep their layers in
+        // use until then.
+        let backdrop_slot = free_backdrop_slots
+            .get_or_insert_with(|| {
+                let used: HashSet<_> = rigs.iter().map(|(_, rig, ..)| rig.backdrop_slot).collect();
+                (0..).filter(move |slot| !used.contains(slot))
+            })
+            .next()
+            .expect("there is always a free backdrop slot");
         commands.spawn((
             Camera2d,
             Camera {
@@ -1485,7 +1491,7 @@ pub fn sync_portal_view_cones(
             }),
             capture_render_layers(
                 effective.recursion_depth,
-                portal_capture_parallax_layer(portal.channel),
+                PrivateCameraLayer::PortalBackdrop.at(backdrop_slot),
                 &windows_a_capture_may_see(all, portal, &partner, room_band),
                 room_band,
             ),
@@ -1499,7 +1505,7 @@ pub fn sync_portal_view_cones(
                 observer,
                 drawn_for,
                 channel: portal.channel,
-                parallax_layer: portal_capture_parallax_layer(portal.channel),
+                backdrop_slot,
                 parallax_anchor: frame
                     .to_render(
                         mapped_view.map(|view| view.center)

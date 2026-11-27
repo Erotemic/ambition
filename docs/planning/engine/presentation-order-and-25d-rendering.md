@@ -803,6 +803,11 @@ shared value preparation are sufficient until source proves otherwise.
    outputs to the selected gameplay target. The live F3 panel can
    switch between the inset and 2D while the simulation is stopped.
 
+   Each portal capture draws its own backdrop from the room it serves.
+   Local views, card outputs, menus, and portal captures use separate
+   render layer families. The portal backdrop test covers two eyes in one
+   live room and a third eye in a room that uses the same portal channels.
+
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
    and a performance comparison are open.
@@ -813,6 +818,8 @@ Keep the maintainer's product order in the queue.
 
 ## Focused acceptance and cost boundaries
 
+- Compare both outputs with the intended scene behavior. Record or repair
+  defects found in either output.
 - Exercise actual visible parts/effects for Scout on the bed, another actor
   alongside, jumping inside, leaving, flashing and holding an item. Check
   same-plane bodies

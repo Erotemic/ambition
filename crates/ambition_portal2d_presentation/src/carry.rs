@@ -49,7 +49,7 @@ use bevy::render::render_resource::TextureFormat;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    portal_carry_render_layer, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
+    PrivateCameraLayer, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
 };
 
 use ae::frame::thread::{partition, partition_reaching, PieceBudget, PortalLink, VolumePiece};
@@ -561,7 +561,7 @@ pub fn carry_through_pairs(
         let centre = (carry.min + carry.max) * 0.5;
         let half = Vec2::splat(span * 0.5);
         let render_centre = carry.frame.to_render(centre, 0.0);
-        let layer = capture.as_ref().map(|(slot,_)| portal_carry_render_layer(*slot));
+        let layer = capture.as_ref().map(|(slot,_)| PrivateCameraLayer::PortalCarry.at(*slot));
         if let Some((slot,image)) = &capture {
             if let Ok((_, mut camera, mut transform, mut projection, mut target)) = cameras.carry.get_mut(atlas.slots[*slot].camera) {
                 camera.is_active = true;
@@ -743,7 +743,7 @@ fn spawn_slot(commands: &mut Commands, slot: usize) -> CarrySlot {
         clear_color: ClearColorConfig::Custom(Color::NONE), ..default()
     }, bevy::render::view::Msaa::Off,
         RenderTarget::Image(ImageRenderTarget::from(Handle::<Image>::default())),
-        RenderLayers::from_layers(&[portal_carry_render_layer(slot)]),
+        RenderLayers::from_layers(&[PrivateCameraLayer::PortalCarry.at(slot)]),
         Projection::Orthographic(OrthographicProjection::default_2d()),
         PortalCarryCamera { slot }, Name::new(format!("Portal carry camera {slot}")))).id();
     CarrySlot { camera, image: None, side: 0 }

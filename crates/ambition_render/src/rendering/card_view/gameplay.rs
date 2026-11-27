@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
+use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, PrivateCameraLayer};
 use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{CameraMainTextureUsages, ClearColorConfig, CompositingSpace, MsaaWriteback, RenderTarget, Viewport};
@@ -11,9 +11,6 @@ use bevy::render::view::Msaa;
 
 use super::{CardViewCamera, CardViewSettings, PresentedViewFrames};
 use crate::rendering::actors::rigged::AppearanceSampleCamera;
-
-// The existing private view layers end below 2048 for every LocalViewId.
-const FIRST_CARD_LAYER: usize = 2048;
 
 #[derive(Component, PartialEq, Eq)]
 pub(super) enum CardScope {
@@ -185,7 +182,7 @@ pub(super) fn isolate_cards(
         let Ok(mask) = sources.get(plane.0) else {
             continue;
         };
-        let slot = FIRST_CARD_LAYER + usize::from(id.0);
+        let slot = PrivateCameraLayer::CardOutput.at(usize::from(id.0));
         let desired = RenderLayers::none().with(slot);
         if *layers != desired {
             *layers = desired;

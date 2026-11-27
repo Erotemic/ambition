@@ -10,9 +10,9 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    live_room_window_layer, local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
+    live_room_window_layer, MainCamera, PrivateCameraLayer, LIVE_ROOM_RENDER_LAYER_BASE,
     LIVE_ROOM_RENDER_LAYER_LAST, LIVE_ROOM_WINDOW_LAYER_BASE, LIVE_ROOM_WINDOW_LAYER_LAST,
-    is_local_view_render_layer, PORTAL_WINDOW_RENDER_LAYER, RETIRED_ROOM_RENDER_LAYER,
+    PORTAL_WINDOW_RENDER_LAYER, RETIRED_ROOM_RENDER_LAYER,
     RETIRED_ROOM_WINDOW_LAYER,
 };
 
@@ -441,7 +441,7 @@ fn view_layer(
     ordered
         .iter()
         .position(|(_, candidate)| *candidate == view)
-        .map(local_view_render_layer)
+        .map(|ordinal| PrivateCameraLayer::LocalView.at(ordinal))
 }
 
 /// A camera's authored layers with the per-view band cleared: what it renders
@@ -452,7 +452,7 @@ fn view_layer(
 fn without_view_layers(layers: &RenderLayers) -> RenderLayers {
     let mut base = layers.clone();
     for layer in layers.iter() {
-        if is_local_view_render_layer(layer) {
+        if PrivateCameraLayer::LocalView.contains(layer) {
             base = base.without(layer);
         }
     }

@@ -41,15 +41,37 @@ pub const ROOM_FRONT_FIELD_LAYER: usize = 8;
 /// cards and cart meshes, and no 2D camera draws them.
 pub const CARD_VIEW_LAYER: usize = 9;
 
-/// Base of the private camera namespace. Each ordinal has a local view,
-/// a menu view and a portal carry view. These namespaces do not overlap.
-pub const PRIVATE_VIEW_RENDER_LAYER_BASE: usize = 1024;
+const PRIVATE_CAMERA_LAYER_BASE: usize = 1024;
+
+/// Render layer families for camera-specific products.
+#[derive(Clone, Copy)]
+pub enum PrivateCameraLayer {
+    LocalView,
+    MenuScene,
+    PortalCarry,
+    PortalBackdrop,
+    CardOutput,
+}
+
+impl PrivateCameraLayer {
+    const STRIDE: usize = Self::CardOutput as usize + 1;
+
+    /// Get the layer for an ordinal in this family.
+    pub fn at(self, ordinal: usize) -> usize {
+        PRIVATE_CAMERA_LAYER_BASE + Self::STRIDE * ordinal + self as usize
+    }
+
+    /// Check whether this family owns a layer.
+    pub fn contains(self, layer: usize) -> bool {
+        layer.checked_sub(PRIVATE_CAMERA_LAYER_BASE)
+            .is_some_and(|offset| offset % Self::STRIDE == self as usize)
+    }
+}
 
 /// Base of the render-layer band for live rooms. While two or more rooms are
 /// live, an entity stamped into a live room draws on its room's layer instead
 /// of the world layer, and a camera draws the room its view frames. The band
-/// is below the portal window band (512) and above the portal capture band
-/// (32 + slot).
+/// is below the portal window band (512).
 pub const LIVE_ROOM_RENDER_LAYER_BASE: usize = 256;
 
 /// The highest live-room render layer. More live rooms than the band holds
@@ -106,32 +128,9 @@ pub fn live_room_band(
     ordered.iter().position(|live| *live == room).map(live_room_render_layer)
 }
 
-/// Render layer for a live-view ordinal, not a semantic `LocalViewId`.
-///
-/// Callers sort views by id and pass the dense ordinal so render-layer allocation
-/// remains private to presentation.
-pub fn local_view_render_layer(ordinal: usize) -> usize {
-    PRIVATE_VIEW_RENDER_LAYER_BASE + 3 * ordinal
-}
-
 /// Render layer for a menu scene ordinal, separate from all local-view slots.
 pub fn menu_scene_render_layer(ordinal: usize) -> usize {
-    PRIVATE_VIEW_RENDER_LAYER_BASE + 3 * ordinal + 1
-}
-
-/// Render layer for one drawable family's private portal capture.
-pub fn portal_carry_render_layer(ordinal: usize) -> usize {
-    PRIVATE_VIEW_RENDER_LAYER_BASE + 3 * ordinal + 2
-}
-
-/// The layer belongs to a local gameplay view rather than a menu or capture.
-pub fn is_local_view_render_layer(layer: usize) -> bool {
-    layer >= PRIVATE_VIEW_RENDER_LAYER_BASE && (layer - PRIVATE_VIEW_RENDER_LAYER_BASE) % 3 == 0
-}
-
-/// The layer belongs to a portal carry rather than a local or menu view.
-pub fn is_portal_carry_render_layer(layer: usize) -> bool {
-    layer >= PRIVATE_VIEW_RENDER_LAYER_BASE && (layer - PRIVATE_VIEW_RENDER_LAYER_BASE) % 3 == 2
+    PrivateCameraLayer::MenuScene.at(ordinal)
 }
 
 /// Marks a gameplay camera for one local view; this marker is not a singleton.

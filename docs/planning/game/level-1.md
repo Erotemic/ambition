@@ -1,13 +1,10 @@
 # Level 1: Hobford
 
-**State:** OPEN. Rebuilt 2026-11-14 around a rural gate settlement. The
-eight rooms of the level are built by the generator
-(`generators/intro/make_specs.py`): the workshop and its raid, the lane and
-Alice, the meadow, the gate clearing and its ring, the freight siding fight,
-the millstream, the village and Bob in the woods. The rooms are drawn with
-the level's own looks (`hobford`, `hobford_woods`, `creator_workshop`);
-props and villagers are not made yet. A new game starts in the sandbox hub
-(D3). Queue row
+**State:** OPEN. The intro generator (`generators/intro/make_specs.py`) builds
+Hobford and its routes. The workshop, Alice, the freight raid and Bob's camp
+are part of the opening valley. The Barrows extend east of the fell. The
+High Road starts above the workshop and crosses west to Brackenford. A new
+game starts in the sandbox hub (D3). Queue row
 [LEVEL-1](../queue.md#level-1--the-lab-raid-and-the-first-level-after-it)
 holds what remains.
 
@@ -140,7 +137,9 @@ under the gate stack, outside level 1 (D5).
 | `intro_freight_yard` | THE FREIGHT SIDING | the goblins' camp: a fight in tiers of stacked freight | goblin raiders, their foreman |
 | `intro_fell` | THE FELL | the climb: the drove road up slopes, the sheepfold's wall, the scree, two crags, the top and its cairn; east from the top, the moor | the shepherd (`npc_valley_shepherd`), cloud sheep |
 | `intro_moor` | THE MOOR | the outskirts at the fell's height: heather, a peat cut with water in it, a stone row, the barrow's mound and its door | goblin scavengers in pairs (`npc_goblin_scavenger`, a gun-sword off the freight) |
-| `intro_barrow` | THE BARROW | dark: the passage down in steps, the old dead in the first chamber, a slab over a pit, the king's chamber and the scavengers' stash, his grave goods | the old dead (`npc_evil_zombie`), scavengers, the king (`decomposing_specter`) |
+| `intro_barrow` | THE KING'S BARROW | the steps, the family graves, and the passage to the tally vault | Barrow Shambler and Barrow Crawler |
+| `intro_barrow_cairnfield` | THE CAIRNFIELD | two smaller mounds and a place to set up survey equipment | the votive mound and the watch mound |
+| `intro_barrow_tally_vault`, `intro_barrow_royal_tomb` | THE TALLY VAULT, THE ROYAL TOMB | the salvage store, the king's arena, and the grave goods | Barrow Wight, Haunted Toaster, Barrow King |
 | `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (`npc_valley_miller`) |
 | `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | the trader and the innkeeper (`npc_valley_trader`, `npc_valley_innkeeper`); the knight-errant and the hedge wizard (`npc_valley_knight`, `npc_valley_wizard`) |
 | `intro_woods` | HOBFORD WOODS | roots and fallen trunks, the goblins' trail, a hollow tree | Bob; the ranger (`npc_valley_ranger`) |
@@ -286,23 +285,36 @@ the lost hen, a goblin lookout at the far end. **Bob**, `bob_woods`:
 
 East, the goblins' trail out of the trees and up the hill path.
 
-### The moor (`intro_moor`) and the barrow (`intro_barrow`)
+### The Barrows
 
-Added 2026-11-20 ([Hobford polish](hobford-polish.md), Jon's direction of
-that day: danger rises with distance from town). From the fell's top an
-edge goes east onto the moor, level with the summit. The moor is open
-heather, a peat cut with standing water (a swim and a step out), a row of
-old stones to hop, and the barrow's mound, walked over on slopes. Goblin
-scavengers work it in pairs: the raiders' look with a gun-sword taken off
-the gate's freight, which shoots swords (eight health to the raid
-goblin's five; the player's kit in level 1 has no shot, so they are the
-first enemies that fire). The barrow's door, at the mound's
-foot, goes into the grave: dark, a stepped passage down to two of the old
-dead, a stone slab over a stinging pit (fallen in, the way out is the
-chamber's side, a step of 48), and the king's chamber, where three
-scavengers stack stolen freight ("AND HIS TOASTERS"), and the king, who
-objects. His grave goods are the chest at the end. The knight-errant in the
-village is saving up for it.
+From the fell, the road crosses the peat cut on a stone causeway. The king's
+barrow opens off the moor. The road continues over the same ground level to
+the cairnfield. Its two doors lead to the votive mound and the watch mound.
+The rubble in the votive mound hides a small offering. A service passage
+joins the watch mound to the tally vault and gives the dungeon a return loop.
+
+The family graves, their inscriptions, and the guards predate the gate.
+Discarded appliances and cables appear in the tally vault. One toaster moves
+on its own. The royal tomb has room to retreat between the king's swings.
+When the vigil is clear, the grille opens to a chest with 30 coins.
+
+The watch mound has a sheltered alcove for a possible encounter with Bob.
+Bob's existing survey encounter remains in Hobford Woods. His rescue,
+possible outcomes, and effects on later scenes are open decisions.
+
+### The High Road
+
+A short stair in Hobford Lane leads to a closed grille above the workshop.
+The current map opens it when the save flag `fantasy_high_trail_open` is set.
+The opening story has no source for this flag. The room kit still withholds
+the air jump. Decide how the player earns the route before connecting it to
+Oiler or changing the opening kit.
+
+Beyond the stair the road climbs from the Workshop Ridge to the High Pass.
+A door at the divide leads into a storm shelter. The Alder Descent reaches
+Brackenford, where travelers can meet the residents. The old watch
+road leads to Bellback's pen and an optional toll box. The roads and shelter
+have return routes. The royal tomb reward is independent of the High Road.
 
 ### Choices
 

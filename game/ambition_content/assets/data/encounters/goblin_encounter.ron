@@ -116,6 +116,16 @@
             ],
         ),
     ],
+    "intro_barrow_king_vigil": [(
+        label: "The Barrow King",
+        mobs: [(
+            kind: "combatant",
+            character: Some("barrow_king"),
+            spawn: (840.0, 397.0),
+            size: (50.0, 70.0),
+            delay: 0.0,
+        )],
+    )],
     // Castle Godwin of the Evil dimension (`game/ambition_map_assets/ambition_content/generators/castle_godwin/`):
     // the muster of the great hall. `make_specs.py` prints these places.
     "castle_godwin_muster": [

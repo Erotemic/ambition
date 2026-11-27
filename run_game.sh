@@ -126,7 +126,7 @@ if ((${#launcher_config_applied[@]})); then
     printf 'run_game.sh: ambition.local.toml set %s\n' "${launcher_config_applied[@]}" >&2
 fi
 
-build_profile="release"
+build_profile=""
 clean_coverage=0
 coverage=0
 hot_reload=0
@@ -138,8 +138,7 @@ cargo_timings=0
 sweep=0
 sweep_apply=0
 print_plan=0
-# `--reuse`: run the binary this plan names as it is; never build it.
-reuse=0
+reuse_flag=""
 extra_features=()
 game_args=()
 card_view=0
@@ -276,11 +275,11 @@ Options and mode aliases:
   -j, --jobs N            Pass cargo --jobs N.
   --jobs=N                Pass cargo --jobs N.
   --timings               Pass cargo --timings.
-  --reuse, --no-build     Run the already built binary this invocation names
-                          (its package, binary and profile) and never invoke
-                          cargo: content and loaded-module edits need no
-                          engine build. Its features are the ones it was built
-                          with. If it is not built, say so and stop.
+  --no-build              Run the newest executable for the selected game.
+                          Give a profile to use only that profile. Cargo does
+                          not run. The executable keeps its build features.
+  --reuse                 Run the existing executable for the selected profile
+                          (release by default). Cargo does not run.
   --print-plan            Print the launch plan this invocation resolves to
                           (package, binary, cargo profile, target subdirectory,
                           features, and the cargo build argv) and exit without
@@ -326,10 +325,41 @@ fail() {
     exit 2
 }
 
+missing_binary() {
+    printf 'run_game.sh: %s\nRun the same command without %s to build it.\n' "$1" "$reuse_flag" >&2
+    exit 1
+}
+
 print_cmd() {
     printf '+ '
     printf '%q ' "$@"
     printf '\n'
+}
+
+profile_directory() {
+    case "$1" in
+        dev) printf '%s\n' debug ;;
+        *) printf '%s\n' "$1" ;;
+    esac
+}
+
+newest_profile_binary() {
+    local directory="$target_dir/$(profile_directory "$1")"
+    local candidate="$directory/$target_bin"
+    local newest="" marker fingerprint_dir
+    if [[ -f "$candidate" && -x "$candidate" ]]; then
+        newest="$candidate"
+    fi
+    # Find cached executables by their build markers. Test executables use different markers.
+    for marker in "$directory/.fingerprint/$target_pkg-"*/"bin-$target_bin"; do
+        [[ -s "$marker" ]] || continue
+        fingerprint_dir="${marker%/*}"
+        candidate="$directory/deps/$target_bin-${fingerprint_dir##*-}"
+        if [[ -f "$candidate" && -x "$candidate" && ( -z "$newest" || "$candidate" -nt "$newest" ) ]]; then
+            newest="$candidate"
+        fi
+    done
+    printf '%s' "$newest"
 }
 
 require_positive_integer() {
@@ -473,8 +503,11 @@ while [[ $# -gt 0 ]]; do
         --print-plan)
             print_plan=1
             ;;
-        --reuse|--no-build|reuse)
-            reuse=1
+        --reuse|reuse)
+            reuse_flag=--reuse
+            ;;
+        --no-build)
+            reuse_flag=--no-build
             ;;
         --sweep)
             sweep=1
@@ -530,6 +563,10 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+if [[ -n "$reuse_flag" && ( "$coverage" -eq 1 || "$clean_coverage" -eq 1 ) ]]; then
+    fail "$reuse_flag cannot be combined with coverage commands"
+fi
+
 # The game plays itself by navigation. Ambition boots straight into its
 # gameplay route and follows its itinerary (`game/ambition_content/src/autoplay.rs`);
 # Mary-O plays her own policy. An explicit environment value wins.
@@ -559,8 +596,26 @@ if [[ "$validate_only" -eq 1 ]]; then
     exit 0
 fi
 
+cd "$repo_root"
+target_dir="${CARGO_TARGET_DIR:-$repo_root/target}"
+binary_path=""
+if [[ "$reuse_flag" == "--no-build" ]]; then
+    if [[ -n "$build_profile" ]]; then
+        binary_path="$(newest_profile_binary "$build_profile")"
+    else
+        for profile in release dev profiling ship; do
+            candidate="$(newest_profile_binary "$profile")"
+            if [[ -n "$candidate" && ( -z "$binary_path" || "$candidate" -nt "$binary_path" ) ]]; then
+                binary_path="$candidate"
+                build_profile="$profile"
+            fi
+        done
+        [[ -n "$binary_path" ]] || missing_binary "no executable $target_bin in the desktop profiles under $target_dir."
+    fi
+fi
+build_profile="${build_profile:-release}"
+
 if [[ "$clean_coverage" -eq 1 ]]; then
-    cd "$repo_root"
     cargo llvm-cov clean --workspace
 fi
 
@@ -648,8 +703,6 @@ if [[ "${#game_args[@]}" -gt 0 ]]; then
     cargo_args+=(-- "${game_args[@]}")
 fi
 
-cd "$repo_root"
-
 # ⛔⛔ INCREMENTAL COMPILATION IS FOR THE EDIT LOOP, AND `.cargo/config.toml`
 # TURNS IT ON FOR EVERY PROFILE — including the OPTIMIZED ones nobody edits in.
 #
@@ -689,14 +742,8 @@ esac
 # wrong the moment a flag here changes -- it inspects target/debug while the
 # command launches target/profiling, and reports "no instrumentation" about a
 # binary nobody ran.
-case "$build_profile" in
-    dev) profile_dir="debug" ;;
-    release) profile_dir="release" ;;
-    ship) profile_dir="ship" ;;
-    profiling) profile_dir="profiling" ;;
-    *) fail "internal error: unknown build profile '$build_profile'" ;;
-esac
-binary_path="${CARGO_TARGET_DIR:-$repo_root/target}/$profile_dir/$target_bin"
+profile_dir="$(profile_directory "$build_profile")"
+binary_path="${binary_path:-$target_dir/$profile_dir/$target_bin}"
 if [[ "$print_plan" -eq 1 ]]; then
     plan_build=(cargo build -p "$target_pkg" --bin "$target_bin")
     skip_next=0
@@ -717,7 +764,7 @@ if [[ "$print_plan" -eq 1 ]]; then
     echo "target_kind=$target_kind"
     echo "build_profile=$build_profile"
     echo "profile_dir=$profile_dir"
-    echo "target_dir=${CARGO_TARGET_DIR:-$repo_root/target}"
+    echo "target_dir=$target_dir"
     echo "binary_path=$binary_path"
     if [[ "${#features[@]}" -gt 0 ]]; then
         IFS=,
@@ -764,22 +811,14 @@ if [[ "$print_plan" -eq 1 ]]; then
     exit 0
 fi
 
-# `--reuse`: the plan's binary, as it is. A content or loaded-module edit does
-# not need the engine rebuilt, and `cargo run` would rebuild it for any change
-# in its graph (runtime authoring audit, B02). The binary is not rebuilt here
-# even when its sources changed: building is the other command.
-if [[ "$reuse" -eq 1 ]]; then
-    [[ "$coverage" -eq 1 ]] && fail "--reuse runs a built binary; coverage builds one (drop one of them)"
-    if [[ ! -x "$binary_path" ]]; then
-        printf 'run_game.sh: no built %s for the %s profile at\n    %s\n' "$target_bin" "$build_profile" "$binary_path" >&2
-        printf 'build it once with the same choices and no --reuse (it builds, then runs), or:\n    cargo build -p %s --bin %s%s\n' \
-            "$target_pkg" "$target_bin" "$( [[ "$build_profile" == dev ]] && echo "" || echo " --profile $build_profile" | sed 's/--profile release/--release/')" >&2
-        exit 1
+# Run the selected executable directly. This also permits edits to content and loaded modules.
+if [[ -n "$reuse_flag" ]]; then
+    if [[ ! -f "$binary_path" || ! -x "$binary_path" ]]; then
+        missing_binary "no built $target_bin for the $build_profile profile at $binary_path."
     fi
     built_at="$(date -r "$binary_path" '+%Y-%m-%d %H:%M:%S')"
     printf 'reusing %s (%s profile, built %s; no build)\n' "$binary_path" "$build_profile" "$built_at" >&2
     export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
-    cd "$repo_root"
     exec "$binary_path" "${game_args[@]}"
 fi
 

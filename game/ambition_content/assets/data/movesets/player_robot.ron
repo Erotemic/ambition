@@ -2056,8 +2056,9 @@
                             id: "lunge_flurry",
                             display_name: None,
                             clip: (
-                                clip: "lunge_thrust",
+                                clip: "lunge_flurry",
                                 fallbacks: [
+                                    "lunge_thrust",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -2398,8 +2399,9 @@
                             id: "lunge_corkscrew",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "lunge_corkscrew",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -4106,8 +4108,9 @@
                             id: "crescent_return",
                             display_name: None,
                             clip: (
-                                clip: "jab",
+                                clip: "crescent_return",
                                 fallbacks: [
+                                    "jab",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -4265,8 +4268,9 @@
                             id: "crescent_rise",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "crescent_rise",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -4424,8 +4428,9 @@
                             id: "crescent_dip",
                             display_name: None,
                             clip: (
-                                clip: "attack_down",
+                                clip: "crescent_dip",
                                 fallbacks: [
+                                    "attack_down",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -4715,8 +4720,9 @@
                             id: "crescent_rise_finish",
                             display_name: None,
                             clip: (
-                                clip: "attack_up",
+                                clip: "crescent_rise_finish",
                                 fallbacks: [
+                                    "attack_up",
                                     "attack_side",
                                     "attack",
                                     "slash",
@@ -4866,8 +4872,9 @@
                             id: "crescent_flurry",
                             display_name: None,
                             clip: (
-                                clip: "lunge_thrust",
+                                clip: "crescent_flurry",
                                 fallbacks: [
+                                    "lunge_thrust",
                                     "attack_side",
                                     "attack",
                                     "slash",

@@ -232,5 +232,21 @@ themselves on a hit.
   attacker's own move clock for about 5 ticks, as a full hit does.
 - **SP4:** the look. Rows for the flurry, the corkscrew and the crescent
   branches, republished, with captures.
+  *Landed 2026-11-27.* Seven keyed v3 rows in `player_robot_v3_strikes.py`.
+  Each move names its row first and keeps its old borrowed row as the first
+  fallback.
+  - `lunge_flurry` (16 frames of 35 ms): a high stab, a low stab, then the
+    smeared push-out.
+  - `lunge_corkscrew` (10 × 50 ms): the blade held at the sky while the
+    chest turns once a pulse, then up onto the toes for the throw.
+  - Crescent second steps: `crescent_return` (over and down through the
+    front), `crescent_rise` (from low behind up through the front) and
+    `crescent_dip` (along the floor from a long step).
+  - Crescent third steps: `crescent_rise_finish` (straight up and over) and
+    `crescent_flurry` (16 × 39 ms: four stabs, alternately high and low,
+    then the low tip cut).
+  - Captured in `central_hub_complex` with `crescent_stance` worn and the
+    string pressed arc, up, down: the arc, the rising cut and the stabs
+    draw from their own rows.
 - **SP5:** a headless feel measurement against `dense_melee_pit`: hits per
   confirmed combo and juggle height, per stance.

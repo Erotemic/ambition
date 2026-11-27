@@ -366,6 +366,11 @@ On Halfway Siding's street, use the windmill's ladder bounds to place the end
 of the deck rail. Check the clearance to climb down beside the deck.
 At the Lie-Down Inn, show both gallery approaches and the talk prompts on
 the floor. Use the top of the gallery to place the upstairs doors.
+At the Halfway Trestle, show the hatches, the inspection walks, and the
+fall between the walks. Show how long a falling body stays in the exit
+zone at full fall speed so an author can check the crossing.
+Show the terrain decor on the bridge deck. Let the author use
+`TerrainKeepOut` to keep plants off the road deck and the inspection walks.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

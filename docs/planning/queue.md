@@ -455,7 +455,10 @@ value as completion of that owner's contract.
    technique now spends its move's action interval (`trigger_over`), and a
    time-scale status is its own `ClockDilation` (schema 537) that travel
    and every action clock read, apart from the relativistic proper-time
-   rate. Open: CPU-only and human-seat Smash acceptance.)
+   rate. The CPU-only and human-seat Smash acceptance landed 2026-11-27:
+   `local_hitlag_holds_only_the_struck_bodies_with_cpus_and_with_a_human_seat`
+   holds travel and move time through every whole-hitstop step, and
+   releases only the remainder at expiry, in both compositions.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves

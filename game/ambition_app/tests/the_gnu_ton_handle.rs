@@ -146,12 +146,13 @@ fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
     let mut sim = room_with("central_hub_complex", save);
     let road = ["central_hub_complex", ORCHARD, WELL, HALL, GALLERY, APPROACH, ARENA];
     for pair in road.windows(2) {
-        if pair == [ORCHARD, WELL] {
-            for (target, x, floor, direction) in [
-                (WELL, 2720.0, 704.0, 1.0),
-                (ORCHARD, 96.0, 1536.0, -1.0),
-                (WELL, 2720.0, 704.0, 1.0),
-            ] {
+        let walk_positions = match pair {
+            [ORCHARD, WELL] => Some(((2720.0, 704.0), (96.0, 1536.0))),
+            [HALL, GALLERY] => Some(((2464.0, 432.0), (96.0, 896.0))),
+            _ => None,
+        };
+        if let Some((east, west)) = walk_positions {
+            for (target, (x, floor), direction) in [(pair[1], east, 1.0), (pair[0], west, -1.0), (pair[1], east, 1.0)] {
                 stand(&mut sim, x, floor);
                 cross_edge(&mut sim, target, axis(direction, 0.0));
             }
@@ -344,7 +345,7 @@ fn the_halls_portals_lift_the_robot_and_fling_it_over_the_pit() {
 
 /// THE CONSERVATION HALL's twist. A robot that walks into the floor's last
 /// portal comes up out of the gallery's floor, falls up onto its ceiling,
-/// and walks out of the field down to the door.
+/// and walks out of the field down to the passage.
 #[test]
 fn the_gallery_is_entered_by_falling_up_out_of_its_floor() {
     let mut sim = room(HALL);
@@ -362,11 +363,17 @@ fn the_gallery_is_entered_by_falling_up_out_of_its_floor() {
             o.on_ground && o.gravity_dir.1 > 0.0 && (o.player_pos.1 - 408.0).abs() < 1.0 && o.player_pos.0 > 2304.0
         },
     );
-    assert!(done.is_some() && fell_up, "{}", trace(&mut sim, "the robot is not at the gallery's door"));
+    assert!(done.is_some() && fell_up, "{}", trace(&mut sim, "the robot did not land by the gallery passage"));
     assert_eq!(sim.observation().resets, 0);
+    cross_edge(&mut sim, GALLERY, axis(1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 872.0).abs() < 1.0);
+    cross_edge(&mut sim, HALL, axis(-1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 408.0).abs() < 1.0);
 }
 
-/// THE INVERSION GALLERY's lesson. The lever by the door turns the room
+/// THE INVERSION GALLERY's lesson. The lever by the passage turns the room
 /// over; the lever on the ceiling over it turns it back; and the first works
 /// again after that.
 #[test]

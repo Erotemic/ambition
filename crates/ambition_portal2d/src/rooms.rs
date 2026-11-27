@@ -27,6 +27,8 @@ pub struct PortalRooms<'w, 's> {
 impl PortalRooms<'_, '_> {
     pub fn of(&self, entity: Entity) -> Option<LiveRoomInstance> { self.live.of(entity) }
     pub fn stamped(&self, entity: Entity) -> Option<LiveRoomInstance> { self.live.stamped(entity) }
+    /// The sole live room, and `None` when there are none or several.
+    pub fn sole(&self) -> Option<LiveRoomInstance> { self.live.sole() }
 
     pub fn allows(&self, entity: Entity) -> bool {
         self.allows_room(self.of(entity))

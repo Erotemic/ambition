@@ -3,7 +3,7 @@
 //! on the ledge.
 //!
 //! The pair is the one Alice's and GNU-ton's up-b author
-//! (`movesets/alice.ron`, `movesets/gnu_ton.ron`: rise 190, lean 25). It is
+//! (`movesets/alice.ron`, `movesets/gnu_ton.ron`: rise 190, lean 20). It is
 //! injected, as in `the_tether_catches_a_ledge`, because the demo roster's
 //! stand-ins do not author it. The geometry is read from the live stage.
 
@@ -74,7 +74,7 @@ fn recovers_from(depth: f32) -> bool {
         close_on_transit: false,
         tilt_degrees: 0.0,
         aim_tilt_degrees: 32.0,
-        lean_degrees: 25.0,
+        lean_degrees: 20.0,
         channel_index: 8,
     };
     let request = ActionRequest::Special {

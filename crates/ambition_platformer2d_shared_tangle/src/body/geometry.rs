@@ -69,6 +69,11 @@ pub struct BodyGeometry {
     /// Links closed to a body's root crossing: the pair whose plane it cuts
     /// from behind.
     closed: Vec<(Entity, Vec<u32>)>,
+    /// The sole live room, when there is exactly one: where a caller that
+    /// names no room is, as `LiveRooms::of` places an unstamped entity. The
+    /// pairs are filed by that rule, so a body with no room stamp of its own
+    /// (a seated Smash fighter) meets the pairs of the one room it is in.
+    sole_room: Option<LiveRoomInstance>,
 }
 
 #[derive(Clone, Debug)]
@@ -95,7 +100,14 @@ impl BodyGeometry {
             straddling: Vec::new(),
             kernel_reroot: None,
             closed: Vec::new(),
+            sole_room: None,
         }
+    }
+
+    /// The sole live room (`LiveRooms::sole`), or `None` when there are none
+    /// or several: a lookup that names no room reads this one's links.
+    pub fn set_sole_room(&mut self, room: Option<LiveRoomInstance>) {
+        self.sole_room = room;
     }
 
     /// Let the movement kernel move a body's root through each admitted link
@@ -144,6 +156,7 @@ impl BodyGeometry {
     }
 
     fn room_mut(&mut self, room: Option<LiveRoomInstance>) -> &mut PassageRoom {
+        let room = room.or(self.sole_room);
         let at = match self.rooms.iter().position(|r| r.room == room) {
             Some(at) => at,
             None => {
@@ -156,6 +169,7 @@ impl BodyGeometry {
     }
 
     fn room(&self, room: Option<LiveRoomInstance>) -> Option<&PassageRoom> {
+        let room = room.or(self.sole_room);
         self.rooms.iter().find(|r| r.room == room)
     }
 

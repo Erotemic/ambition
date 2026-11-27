@@ -2525,8 +2525,10 @@ a fall loop under the ledge from 0, 80, 160 and 240 px below the lip, and
 she fell when it closed. A stick tilt turned both mouths and threw her back
 out the way she came. Now the shaft leans toward her facing
 (`lean_degrees`) and the mouths stay level, so one fall puts her up and
-over: rise 190, lean 25 hangs her on the ledge from 0, 80 and 160 (240 is
-too deep). Alice keeps the move; GNU-ton's up-b is the same pair
+over: rise 190, lean 25 hung her on the ledge from 0, 80 and 160 (240 is
+too deep). Since the kernel crosses a pair inside its step (portal M2), lean
+20 does that (re-measured 2026-11-27; 25 now sets her on the stage's corner
+from 0 and 80 and drops her past the face from 160). Alice keeps the move; GNU-ton's up-b is the same pair
 (`action_at_a_distance`, in place of `levity`). Witness:
 `smash_it::the_portal_recovery_reaches_the_ledge`.
 

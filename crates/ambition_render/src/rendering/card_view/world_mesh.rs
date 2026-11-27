@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
+#[cfg(feature = "portal_render")]
+use ambition_portal2d_presentation::PortalCarryOrder;
 use bevy::asset::AssetEventSystems;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems};
 use bevy::ecs::system::{SystemParam, SystemParamItem};
@@ -139,7 +141,7 @@ fn cards_are_visible_or_were(
 
 // The 2D and 3D material plugins each initialize their own asset storage.
 #[derive(Asset, TypePath, Clone)]
-struct CardMaterial<M: Material2d>(#[dependency] M);
+pub(super) struct CardMaterial<M: Material2d>(#[dependency] pub(super) M);
 
 impl<M: Material2d> AsBindGroup for CardMaterial<M> {
     type Data = M::Data;
@@ -311,6 +313,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     settings: Option<Res<CardViewSettings>>,
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
+    #[cfg(feature = "portal_render")] carry_orders: Query<&PortalCarryOrder>,
 ) {
     if !cards_are_visible(settings) {
         by_material.clear();
@@ -353,12 +356,19 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
                 current.0 = draw.clone();
             }
         }
+        let body_depth = depths.effect_depth(subject, global.translation().z);
+        #[cfg(feature = "portal_render")]
+        let body_depth = match carry_orders.get(source) {
+            Ok(PortalCarryOrder::Entry(root)) => depths.roots.get(root).map(|depth| depth.plane_z),
+            Ok(PortalCarryOrder::Exit) => None,
+            Err(_) => body_depth,
+        };
         let place = if terrain {
             super::sprite_card_place(
                 &global.compute_transform(),
                 TERRAIN_DEPTH + local.translation.z,
             )
-        } else if let Some(depth) = depths.effect_depth(subject, global.translation().z) {
+        } else if let Some(depth) = body_depth {
             super::sprite_card_place(&global.compute_transform(), depth)
         } else {
             effect_place(source, global, &rooms, &depths)
@@ -426,6 +436,59 @@ mod tests {
     use super::*;
     use crate::rendering::hit_flash::{HitFlashMaterial, FLASH_OVERLAY_Z_BIAS};
     use super::super::CardBodyDepth;
+
+    #[cfg(feature = "portal_render")]
+    #[test]
+    fn a_portal_entry_piece_keeps_its_sources_draw_depth() {
+        use ambition_portal2d_presentation::{PORTAL_EXIT_COPY_Z, PortalClipMaterial};
+
+        let mut app = App::new();
+        app.init_resource::<Assets<PortalClipMaterial>>()
+            .init_resource::<Assets<CardMaterial<PortalClipMaterial>>>()
+            .init_resource::<CardRootDepths>()
+            .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
+            .add_systems(Update, realize_shaded_meshes::<PortalClipMaterial>);
+        let world = app.world_mut();
+        let root = world.spawn_empty().id();
+        let depths = &mut *world.resource_mut::<CardRootDepths>();
+        depths.fronts.insert(None, 7.5);
+        depths.roots.insert(root, CardBodyDepth {
+            plane_z: 2.5,
+            source_z: 20.0,
+            order_scale: 1.0,
+            front_part: 0.0,
+            representation: CardBodyRepresentation::Sprite,
+        });
+        let material = world.resource_mut::<Assets<PortalClipMaterial>>().add(
+            PortalClipMaterial::new(Vec4::new(0.0, 0.0, 1.0, 1.0), Vec4::ZERO, Vec4::ONE, Handle::default())
+        );
+        let piece = world.spawn((
+            PortalCarryOrder::Entry(root),
+            Mesh2d::default(),
+            MeshMaterial2d(material),
+            GlobalTransform::from_translation(Vec3::new(42.0, 13.0, 20.0)),
+            InheritedVisibility::VISIBLE,
+        )).id();
+        let card = |world: &mut World| {
+            let (card, place) = world.query_filtered::<(Entity, &Transform), With<CardWorldMesh>>()
+                .single(world)
+                .expect("the piece has one card");
+            (card, place.translation)
+        };
+
+        app.update();
+        let (entry_card, entry_place) = card(app.world_mut());
+        assert_eq!(entry_place, Vec3::new(42.0, 13.0, 2.5));
+
+        app.world_mut().entity_mut(piece).insert((
+            PortalCarryOrder::Exit,
+            GlobalTransform::from_translation(Vec3::new(-36.0, 13.0, PORTAL_EXIT_COPY_Z)),
+        ));
+        app.update();
+        let (exit_card, exit_place) = card(app.world_mut());
+        assert_eq!(entry_card, exit_card);
+        assert_eq!(exit_place, Vec3::new(-36.0, 13.0, scenery_depth(PORTAL_EXIT_COPY_Z, 7.5)));
+    }
 
     #[test]
     fn a_flash_draws_on_a_whole_body_until_the_cue_ends() {

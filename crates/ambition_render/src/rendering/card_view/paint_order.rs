@@ -1,10 +1,12 @@
 //! Paint order for sprite cards in a 3D view.
 
+use std::collections::HashMap;
+
 use bevy::core_pipeline::core_3d::{Transparent3d, TransparentSortingInfo3d};
 use bevy::ecs::entity::EntityHashSet;
 use bevy::ecs::schedule::ScheduleCleanupPolicy;
 use bevy::prelude::{
-    App, Entity, IntoScheduleConfigs, Or, Query, Res, ResMut, Resource, With,
+    App, Component, Entity, IntoScheduleConfigs, Or, Query, Res, ResMut, Resource, With,
 };
 use bevy::render::render_phase::{sort_phase_system, ViewSortedRenderPhases};
 use bevy::render::view::ExtractedView;
@@ -18,8 +20,13 @@ use super::{
 #[derive(Resource, Default)]
 struct CardPaintOrder {
     cards: EntityHashSet,
+    depths: HashMap<Entity, f32>,
     views: EntityHashSet,
 }
+
+/// Paint depth for a card that lies on a different plane.
+#[derive(Component, PartialEq)]
+pub(super) struct CardPaintDepth(pub(super) f32);
 
 pub(super) fn install(app: &mut App) {
     if let Some(render) = app.get_sub_app_mut(RenderApp) {
@@ -40,7 +47,7 @@ fn extract_cards(
     cameras: Extract<Query<Entity, With<CardViewCamera>>>,
     cards: Extract<
         Query<
-            Entity,
+            (Entity, Option<&CardPaintDepth>),
             Or<(
                 With<CardPart>,
                 With<CardHeldArt>,
@@ -49,6 +56,7 @@ fn extract_cards(
                 With<CardTerrain>,
                 With<super::labels::CardLabel>,
                 With<super::world_mesh::CardWorldMesh>,
+                With<CardPaintDepth>,
             )>,
         >,
     >,
@@ -57,8 +65,14 @@ fn extract_cards(
     order.views.clear();
     order.views.extend(cameras.iter());
     order.cards.clear();
+    order.depths.clear();
     if !order.views.is_empty() {
-        order.cards.extend(cards.iter());
+        for (card, depth) in &cards {
+            order.cards.insert(card);
+            if let Some(depth) = depth {
+                order.depths.insert(card, depth.0);
+            }
+        }
     }
 }
 
@@ -82,8 +96,10 @@ fn sort_by_card_depth(
                 // the sort key. The camera distance can hide small depth gaps.
                 item.distance = match item.sorting_info {
                     TransparentSortingInfo3d::Sorted { mesh_center, depth_bias } => {
-                        if order.cards.contains(&item.entity.1.id()) {
-                            mesh_center.z * back.z + depth_bias
+                        let entity = item.entity.1.id();
+                        if order.cards.contains(&entity) {
+                            let depth = order.depths.get(&entity).copied().unwrap_or(mesh_center.z);
+                            depth * back.z + depth_bias
                         } else {
                             (mesh_center - center).dot(back) + depth_bias
                         }

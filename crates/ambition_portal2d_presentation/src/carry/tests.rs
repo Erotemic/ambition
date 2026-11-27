@@ -211,6 +211,25 @@ fn independent_bodies_keep_their_geometry_and_depth_on_the_same_link() {
 }
 
 #[test]
+fn equal_depth_families_keep_distinct_exit_depths() {
+    let mut app = warm_app();
+    let mut visuals = [
+        spawn_body(&mut app, PieceBudget::COMPOSED, 280.0, authored_entry()),
+        spawn_body(&mut app, PieceBudget::COMPOSED, 320.0, authored_entry()),
+    ];
+    visuals.sort_unstable();
+    app.update();
+    app.update();
+
+    let exit_depths = visuals.map(|visual| {
+        outcome(&mut app, visual).pieces.iter().find(|piece| {
+            piece.at.z > crate::PORTAL_EXIT_COPY_Z && piece.at.z < crate::PORTAL_EXIT_COPY_TOP
+        }).expect("the body has an exit piece").at.z
+    });
+    assert!(exit_depths[0] < exit_depths[1]);
+}
+
+#[test]
 fn each_body_keeps_its_piece_policy_with_another_body_on_the_same_link() {
     let blocked = alone(PieceBudget { max_hops: 0, ..PieceBudget::SINGLE_HOP }, 280.0);
     let single = alone(PieceBudget::SINGLE_HOP, 280.0);

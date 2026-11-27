@@ -649,3 +649,40 @@ fn two_views_of_one_room_each_see_the_window_from_their_own_eye() {
     assert_eq!(left.len(), 2, "{left:?}");
     assert!(left.iter().all(|row| row.0 == first[0].observer && row.2.is_none()), "{left:?}");
 }
+
+/// Only a captured window holds a capture target (V4). Two windows are
+/// captured; with the budget lowered to one, the window that lost it keeps
+/// its target for a moment (control: one step later there are still two
+/// images), then lets it go, so one image is left. With the budget raised
+/// again, it takes a new target and is captured.
+#[test]
+fn a_window_without_a_capture_lets_its_target_go() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let mut app = two_rooms_with_eyes(&[(room, Some(Vec2::new(300.0, 300.0)))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let step = |app: &mut App| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+    };
+    let state = |app: &mut App| -> (usize, usize, usize) {
+        let images = app.world().resource::<Assets<Image>>().len();
+        let rigs: Vec<(bool, bool)> = app.world_mut().query::<(&PortalViewRig, &Camera, &RenderTarget)>()
+            .iter(app.world())
+            .filter(|(rig, ..)| rig.room() == room)
+            .map(|(_, camera, target)| (camera.is_active, matches!(target, RenderTarget::Image(_))))
+            .collect();
+        (images, rigs.iter().filter(|(active, _)| *active).count(), rigs.iter().filter(|(_, held)| *held).count())
+    };
+    step(&mut app);
+    assert_eq!(state(&mut app), (2, 2, 2), "premise: both windows captured");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 1;
+    step(&mut app);
+    assert_eq!(state(&mut app), (2, 1, 2), "control: the window that lost the budget keeps its target for a moment");
+    for _ in 0..5 {
+        step(&mut app);
+    }
+    assert_eq!(state(&mut app), (1, 1, 1), "only the captured window holds a target");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 2;
+    step(&mut app);
+    assert_eq!(state(&mut app), (2, 2, 2), "the window takes a new target when it is captured again");
+}

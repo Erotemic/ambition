@@ -954,9 +954,15 @@ separately.
   blank opaque pane. Admission order landed the same day: rigs
   are offered the budget at the seam first, then nearest to their eye, then
   by channel slot, not in query order
-  (`the_capture_budget_goes_to_the_window_nearest_the_eye`). Still open in
-  V4: targets allocated only on demand (a rig still exists for each visible
-  paired endpoint).
+  (`the_capture_budget_goes_to_the_window_nearest_the_eye`). Targets on demand landed
+  the same day: a rig over the budget never allocated one, but a rig that
+  had captured kept its image for as long as it lived. A rig without a
+  capture for 0.5 s now removes its image and the material forgets it, so
+  a budget passing between two windows takes no new allocation and a window
+  that stays shut holds none (`a_window_without_a_capture_lets_its_target_go`,
+  with the held-for-a-moment control; a Low-tier lab capture still draws its
+  window). The rig itself (an inactive camera, no target) stays for each
+  visible paired endpoint, so its blend and shape go on. V4 is done.
 - **V5 — the card view's far-side window**, the remaining card-view item
   ([presentation order](presentation-order-and-25d-rendering.md)).
 

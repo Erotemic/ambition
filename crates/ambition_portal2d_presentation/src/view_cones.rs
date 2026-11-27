@@ -646,7 +646,16 @@ pub struct PortalViewRig {
     /// The window mesh has area. A shut window is written once with none
     /// ([`shut_window_mesh`]), not each frame.
     drawn: bool,
+    /// How long it has gone without a capture, in seconds: past
+    /// [`IDLE_TARGET_RELEASE_SECS`] its target is let go.
+    idle_secs: f32,
 }
+
+/// How long a rig keeps its capture target without capturing (V4): a window
+/// that loses its capture for a moment (the budget passing between two
+/// windows, a blink of cover) takes it up again with no new allocation; one
+/// that stays shut or over the budget holds no target.
+const IDLE_TARGET_RELEASE_SECS: f32 = 0.5;
 
 impl PortalViewRig {
     /// Portal channel served by this capture rig.
@@ -1283,6 +1292,31 @@ pub fn sync_portal_view_cones(
         }
     }
 
+    // A rig that has not captured for a while lets its target go: only a
+    // window that is captured holds one (V4). The image is removed, and the
+    // material forgets it.
+    for (_, mut rig, _, _, cam, mut target, _) in &mut rigs {
+        if cam.is_active {
+            rig.idle_secs = 0.0;
+            continue;
+        }
+        rig.idle_secs += time.delta_secs();
+        if rig.idle_secs < IDLE_TARGET_RELEASE_SECS || rig.target_size == UVec2::ZERO {
+            continue;
+        }
+        if let RenderTarget::Image(image) = &*target {
+            images.remove(image.handle.id());
+        }
+        *target = RenderTarget::None { size: UVec2::ONE };
+        if let Ok(handle) = cone_materials.get(rig.cone) {
+            if let Some(mut material) = materials.get_mut(&handle.0) {
+                material.texture = None;
+            }
+        }
+        rig.target_size = UVec2::ZERO;
+        rig.captured = None;
+    }
+
     // Second pass: spawn rigs for desired pairs not yet served, room by room.
     for eye in &eyes {
     let RoomEye { placement, room_band, all, viewer, host_view, view, screen_scale } = eye;
@@ -1484,6 +1518,7 @@ pub fn sync_portal_view_cones(
                 captured: render.as_ref().map(|r| r.capture),
                 pane_dominant,
                 drawn: active,
+                idle_secs: 0.0,
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
         ));

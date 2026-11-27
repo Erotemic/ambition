@@ -619,6 +619,9 @@
     // Wolfenstein's slab: he lies on it under his sheet until he wakes
     // (`wolfenstein` rows `bench_sleep`, `bench_wake`); it stays after.
     "wolfenstein_bench": (),
+    // The command wall and gallery decks in the War Room.
+    "war_room_command_wall": (),
+    "war_room_galleries": (),
     // The old drain under Castle Godwin: its cracked wall and the cracked
     // floor over its mouth (`LockWall` looks: each fills its wall's box), and
     // the breach left when either is broken through.

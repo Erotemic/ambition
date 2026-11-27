@@ -903,6 +903,11 @@ shared value preparation are sufficient until source proves otherwise.
    covers the bounds of that projection. The comparison inset and its
    main output share one capture for each portal and observer.
 
+   Rigged bodies use the same output coverage as portal windows. A tilted
+   view samples a body at its own screen edge. A body keeps sprite slots
+   when a 2D camera or the compositor needs them. Card draws and part
+   readers can use the sample without sprite slots.
+
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
    and a performance comparison are open.

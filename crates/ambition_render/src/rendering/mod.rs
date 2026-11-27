@@ -884,19 +884,12 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .after(actors::BossAnimation)
                     .before(actors::rigged::RiggedDriveSet),
                 actors::rigged::advance_performed_body_warps.before(actors::rigged::RiggedDriveSet),
-                actors::rigged::prepare_rigged_slots
+                actors::rigged::rigged_presentation_drive()
+                    .after(camera::ViewCameraSet)
                     .after(actors::rigged::bind_rigged_presentations)
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
                     .after(actors::animate_props)
-                    .after(actors::BossAnimation)
-                    .after(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
-                    .before(actors::rigged::RiggedDriveSet),
-                // The local sample, then the 2D driver that places and draws it
-                // (`RiggedDriveSet`: order against the stage, not one system).
-                actors::rigged::rigged_presentation_drive()
-                    .after(actors::animate_player)
-                    .after(actors::animate_characters)
                     .after(actors::BossAnimation)
                     // The hit flash reads the root's image and frame: the
                     // impostor, once this has set it. (Content overlays read it

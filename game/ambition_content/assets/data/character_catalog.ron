@@ -1639,6 +1639,11 @@
             move_style: Float,
             melee: Some(Swipe(windup_s: 0.38, active_s: 0.19, recover_s: 0.76, damage: 2, reach_px: 52.0)),
         ),
+        // A compact alkali metal creature winds up and lunges with a yellow burst.
+        "sodium_elemental_burst": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.44, active_s: 0.22, recover_s: 0.78, damage: 2, reach_px: 44.0, step_px: 0.0, rush_px: 108.0)),
+        ),
     },
 
     characters: {
@@ -17575,6 +17580,33 @@
                 provoked: ["Surprise!"],
                 on_hit: ["Oh!"],
             ),
+        ),
+        // Sodium (Na): soft solid metal, with a stylized yellow reaction.
+        "sodium_elemental": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Sodium Elemental",
+            manifest: "sprites/sodium_elemental_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(60.0),
+            composition: None,
+            default_action_set: "sodium_elemental_burst",
+            death_traits: Some((corpse: Some(Stay))),
+            locomotion: Some((run_speed: 148.0, move_style: Walk)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 380.0,
+                attack_range: 95.0,
+                patrol_effort: 0.32,
+                chase_effort: 0.87,
+                attack_cooldown_s: 0.90,
+                shares_sightings: false,
+                tactics: (notice_s: 0.38),
+            )),
+            max_health: Some(4),
+            mass: Some(1.4),
+            tags: ["enemy", "science", "elemental", "chemical_element", "sodium", "alkali_metal"],
         ),
     },
 )

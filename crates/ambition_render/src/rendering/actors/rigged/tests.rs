@@ -166,7 +166,7 @@ fn app_anchored(sprite_content: &ambition_sprite_sheet::SpriteContent, admit: bo
         .init_resource::<ComposedBodyDemand>()
         .insert_resource(Composite(true))
         .insert_resource(RiggedSpriteAdmission { admit })
-        .add_systems(Update, (animate, declare, bind_rigged_presentations, prepare_rigged_slots, rigged_presentation_drive()).chain());
+        .add_systems(Update, (animate, declare, bind_rigged_presentations, rigged_presentation_drive()).chain());
     let mut assets = GameAssets::default();
     assets.characters.declare("raider");
     assets.characters.publish(&sprite_content, "raider", sheet.clone());
@@ -356,7 +356,7 @@ fn rigged_slots_follow_view_and_image_demand() {
         area: Rect::from_center_size(Vec2::ZERO, Vec2::splat(400.0)),
         ..OrthographicProjection::default_2d()
     };
-    app.world_mut().spawn((camera, Projection::Orthographic(projection), GlobalTransform::IDENTITY));
+    app.world_mut().spawn((Camera2d, camera, Projection::Orthographic(projection), GlobalTransform::IDENTITY));
     let home = *app.world().get::<Transform>(root).unwrap();
     let away = Transform::from_xyz(8000.0, 0.0, 0.0);
     *app.world_mut().get_mut::<Transform>(root).unwrap() = away;
@@ -377,6 +377,69 @@ fn rigged_slots_follow_view_and_image_demand() {
     }
     assert!(slots(&app, owner).is_empty());
     assert_eq!(app.world().get::<Visibility>(owner), Some(&Visibility::Hidden));
+
+    app.world_mut().resource_mut::<Composite>().0 = true;
+    settle(&mut app);
+    assert!(draws_impostor(&app, root, owner));
+    assert!(slots(&app, owner).iter().any(|&(_, shown)| shown));
+}
+
+#[cfg(feature = "card_view")]
+#[test]
+fn a_tilted_output_samples_edge_bodies_and_allocates_sprite_slots_for_readers() {
+    use crate::rendering::camera::{
+        coverage::ReplacedPlaneCamera, PresentedViewFrame, PresentedViewFrames,
+    };
+    use crate::rendering::card_view::{
+        realize_card_bodies, CardBody, CardMeshes, CardRootDepths, CardViewMode, CardViewSettings,
+    };
+    use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<CardMeshes>()
+        .init_resource::<CardRootDepths>()
+        .insert_resource(CardViewSettings {
+            yaw_radians: 45.0_f32.to_radians(),
+            pitch_radians: 0.0,
+            ..CardViewSettings::for_game(CardViewMode::SideOn)
+        })
+        .add_systems(Update, realize_card_bodies.after(RiggedDriveSet));
+    app.world_mut().resource_mut::<Composite>().0 = false;
+
+    let world = app.world_mut();
+    let observer = world.spawn((LocalView, LocalViewId::FIRST)).id();
+    world.insert_resource(PresentedViewFrames::of_views(vec![(observer, PresentedViewFrame {
+        room: LiveRoomInstance::ACTIVATION,
+        plane_center: Vec2::ZERO,
+        roll_radians: 0.0,
+        orthographic_scale: 2.5,
+    })]));
+    let mut camera = Camera { is_active: false, ..default() };
+    camera.computed.target_info = Some(bevy::camera::RenderTargetInfo {
+        physical_size: UVec2::new(1280, 720),
+        ..default()
+    });
+    world.spawn((Camera2d, MainCamera, camera, ReplacedPlaneCamera, PresentsView(observer),
+        Projection::Orthographic(OrthographicProjection { scale: 2.5, ..OrthographicProjection::default_2d() })));
+    world.get_mut::<Transform>(root).unwrap().translation.x = 2100.0;
+
+    settle(&mut app);
+    let owner = owner(&app, root);
+    assert!(app.world().get::<RiggedLocalSample>(owner).unwrap().parts().is_none());
+
+    app.world_mut().resource_mut::<CardViewSettings>().mode = CardViewMode::Gameplay;
+    settle(&mut app);
+    assert!(app.world().get::<RiggedLocalSample>(owner).unwrap().parts().is_some());
+    assert!(slots(&app, owner).is_empty());
+    let world = app.world_mut();
+    assert!(world.query::<(&CardBody, &Visibility)>().iter(world)
+        .any(|(card, visibility)| card.owner == owner && *visibility != Visibility::Hidden
+            && !card.parts.is_empty()));
 
     app.world_mut().resource_mut::<Composite>().0 = true;
     settle(&mut app);
@@ -1992,6 +2055,7 @@ fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
     };
     let view = |x: f32| {
         (
+            Camera2d,
             measured(),
             Projection::Orthographic(OrthographicProjection {
                 area: Rect::new(-320.0, -180.0, 320.0, 180.0),
@@ -2222,7 +2286,7 @@ fn a_paired_opening_composites_only_the_pictures_it_can_carry() {
             "portal picture", Vec2::splat(1000.0), Vec2::ZERO, Vec::new())));
     let channel = PortalChannel::Authored(PortalChannelColor::Purple);
     app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(550.0, 500.0), -Vec2::X, 40.0).unwrap());
-    app.add_systems(Update, crate::rendering::portal_body_demand::declare_portal_body_demand.before(prepare_rigged_slots));
+    app.add_systems(Update, crate::rendering::portal_body_demand::declare_portal_body_demand.before(RiggedDriveSet));
     let composited = |app: &App| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor.is_some();
     settle(&mut app);
     assert!(!composited(&app), "an unpaired opening cannot carry the picture");

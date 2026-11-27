@@ -10,7 +10,7 @@ use bevy::prelude::{
 use bevy::render::view::Msaa;
 
 use super::{CardViewCamera, CardViewSettings, PresentedViewFrames};
-use crate::rendering::actors::rigged::AppearanceSampleCamera;
+use crate::rendering::camera::coverage::ReplacedPlaneCamera;
 use crate::screen_effects::{ScreenEffectCamera, ScreenEffectSettings};
 
 #[derive(Component, PartialEq, Eq)]
@@ -130,7 +130,7 @@ pub(super) fn route_card_outputs(
                 plane.is_active = false;
             }
             if !hidden.contains(&entity) {
-                commands.entity(entity).insert(AppearanceSampleCamera);
+                commands.entity(entity).insert(ReplacedPlaneCamera);
             }
             selected.insert(entity);
         }
@@ -139,7 +139,7 @@ pub(super) fn route_card_outputs(
     for entity in hidden.difference(&selected) {
         if let Ok((_, mut camera, ..)) = plane_cameras.get_mut(*entity) {
             camera.is_active = true;
-            commands.entity(*entity).remove::<AppearanceSampleCamera>();
+            commands.entity(*entity).remove::<ReplacedPlaneCamera>();
         }
     }
     std::mem::swap(&mut *hidden, &mut *selected);
@@ -394,7 +394,7 @@ mod tests {
         let retained = drawings(world);
         for (index, &(plane, card, model, origin, drawing)) in outputs.iter().enumerate() {
             assert!(!world.get::<Camera>(plane).unwrap().is_active);
-            assert!(world.get::<AppearanceSampleCamera>(plane).is_some());
+            assert!(world.get::<ReplacedPlaneCamera>(plane).is_some());
             let camera = world.get::<Camera>(card).unwrap();
             assert!(camera.is_active);
             assert_eq!(camera.viewport.as_ref().unwrap().physical_position, origin);
@@ -420,7 +420,7 @@ mod tests {
         world.run_schedule(PostUpdate);
         for (plane, card, model, _, drawing) in outputs {
             assert!(world.get::<Camera>(plane).unwrap().is_active);
-            assert!(world.get::<AppearanceSampleCamera>(plane).is_none());
+            assert!(world.get::<ReplacedPlaneCamera>(plane).is_none());
             assert!(world.get::<Camera>(card).is_none());
             assert!(world.get::<CardScope>(model).is_none());
             assert!(world.get::<Gizmo>(drawing).is_some());

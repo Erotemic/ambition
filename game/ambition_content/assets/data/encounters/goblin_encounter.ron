@@ -116,6 +116,21 @@
             ],
         ),
     ],
+    "intro_barrow_reliquary_watch": [
+        (
+            label: "The wardens below the shelf",
+            mobs: [
+                (kind: "combatant", character: Some("barrow_crawler"), spawn: (649.0, 446.0), size: (58.0, 30.0), delay: 0.0),
+                (kind: "combatant", character: Some("barrow_shambler"), spawn: (1070.0, 405.0), size: (30.0, 54.0), delay: 0.55),
+            ],
+        ),
+        (
+            label: "The keeper of the key",
+            mobs: [
+                (kind: "combatant", character: Some("barrow_wight"), spawn: (1128.0, 432.0), size: (36.0, 64.0), delay: 0.30),
+            ],
+        ),
+    ],
     "intro_barrow_king_vigil": [(
         label: "The Barrow King",
         mobs: [(

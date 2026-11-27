@@ -288,15 +288,25 @@ East, the goblins' trail out of the trees and up the hill path.
 ### The Barrows
 
 From the fell, the road crosses the peat cut on a stone causeway. The king's
-barrow opens off the moor. The road continues over the same ground level to
-the cairnfield. Its two doors lead to the votive mound and the watch mound.
-The rubble in the votive mound hides a small offering. A service passage
-joins the watch mound to the tally vault and gives the dungeon a return loop.
+barrow opens off the moor. The road continues to the cairnfield and its two
+burial mounds. The entrances open the same dungeon chart from the Fantasy
+Dimension map. The chart shows the passages between known rooms.
 
-The family graves, their inscriptions, and the guards predate the gate.
-Discarded appliances and cables appear in the tally vault. One toaster moves
-on its own. The royal tomb has room to retreat between the king's swings.
-When the vigil is clear, the grille opens to a chest with 30 coins.
+The Votive Mound also connects to the family graves. The Bronze Ward Key
+rests on a shelf above the offerings. Rubble hides a separate offering.
+A service passage connects the Watch Mound to the Tally Vault and makes a
+return loop. The Watch Mound has a cache above its fallen lintel.
+
+Two seals protect the way through the Tally Vault. The Bronze Ward Key
+opens the first. A side passage descends to the Wheelworks. One wheel
+moves the counterweight between the high and low passages. The other
+opens the sluice grille. The Reliquary guard protects the Crown Key,
+which opens the second seal in the Tally Vault.
+
+The family graves and the guards predate the gate. Discarded appliances
+and cables appear in the Tally Vault. One toaster moves on its own. The
+royal tomb has room to retreat between the king's swings. When the vigil
+is clear, the grille opens to a chest with 30 coins.
 
 The watch mound has a sheltered alcove for a possible encounter with Bob.
 Bob's existing survey encounter remains in Hobford Woods. His rescue,

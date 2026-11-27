@@ -1138,14 +1138,6 @@
             move_style: WalkHeavy,
             melee: Some(Slam(windup_s: 0.64, active_s: 0.16, recover_s: 0.80, damage: 2, reach_px: 48.0)),
         ),
-        "barrow_shambler_swipe": (
-            move_style: WalkHeavy,
-            melee: Some(Swipe(windup_s: 0.54, active_s: 0.14, recover_s: 0.65, damage: 1, reach_px: 38.0)),
-        ),
-        "barrow_crawler_lunge": (
-            move_style: Slither,
-            melee: Some(Lunge(windup_s: 0.74, active_s: 0.14, recover_s: 1.10, damage: 1, reach_px: 41.0, step_px: 28.0)),
-        ),
         "barrow_toaster_rush": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.50, active_s: 0.16, recover_s: 0.75, damage: 2, reach_px: 32.0, step_px: 0.0, rush_px: 66.0)),
@@ -1248,6 +1240,11 @@
             ranged: None,
             special: None,
         ),
+        // A weak burial corpse: a slow, unarmed reach, with time to evade.
+        "barrow_shambler_swipe": (
+            move_style: WalkHeavy,
+            melee: Some(Swipe(windup_s: 0.48, active_s: 0.12, recover_s: 0.55, damage: 1, reach_px: 31.0)),
+        ),
         //  THE ROBOT'S OWN KIT, lifted off the `player_robot` archetype
         // row's combat half (2026-08-11, ledger D83): the snappy player-like
         // strike and the signature projectile. The row's numbers verbatim — a
@@ -1316,6 +1313,11 @@
         // it, when he is open.
         "evil_crawler_lunge": (
             move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.8, active_s: 0.14, recover_s: 1.1, damage: 1, reach_px: 40.0, step_px: 30.0)),
+        ),
+        // A burial corpse that attacks along the ground.
+        "barrow_crawler_lunge": (
+            move_style: Slither,
             melee: Some(Lunge(windup_s: 0.8, active_s: 0.14, recover_s: 1.1, damage: 1, reach_px: 40.0, step_px: 30.0)),
         ),
         // The Fascist Swordsman's sabre thrust: a short windup (the point drawn
@@ -1544,6 +1546,11 @@
             )),
             ranged: None,
             special: None,
+        ),
+        // The crag ibex lowers its horns and makes a short charge.
+        "crag_ibex_charge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.65, active_s: 0.2, recover_s: 0.7, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 90.0)),
         ),
     },
 
@@ -7018,39 +7025,6 @@
         ),
         hall_dialogue_id: Some("hall_decomposing_specter"),
         ),
-        "barrow_shambler": (
-            display_name: "Barrow Shambler",
-            manifest: "sprites/barrow_shambler_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            standing_height: Some(58.0),
-            default_action_set: "barrow_shambler_swipe",
-            locomotion: Some((run_speed: 58.0, move_style: WalkHeavy)),
-            abilities: Some([Walk, Attack]),
-            autonomous_profile: Some((template: MeleeBrute, aggro_radius: 265.0, attack_range: 37.0,
-                patrol_effort: 0.25, chase_effort: 0.72, attack_cooldown_s: 1.1,
-                shares_sightings: false, tactics: (notice_s: 0.46, waits_its_turn: true))),
-            max_health: Some(3),
-            tags: ["enemy", "undead", "barrow"],
-            fallback_dialogue: ["The shroud smells of old grain."],
-        ),
-        "barrow_crawler": (
-            display_name: "Barrow Crawler",
-            manifest: "sprites/barrow_crawler_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Crawler,
-            standing_height: Some(30.0),
-            default_action_set: "barrow_crawler_lunge",
-            locomotion: Some((run_speed: 62.0, move_style: Slither)),
-            abilities: Some([Walk, Attack]),
-            autonomous_profile: Some((template: MeleeBrute, aggro_radius: 230.0, attack_range: 46.0,
-                patrol_effort: 0.0, chase_effort: 0.7, attack_cooldown_s: 1.2,
-                shares_sightings: false, tactics: (notice_s: 0.55, lurk_px: 32.0, waits_its_turn: true))),
-            max_health: Some(3),
-            tags: ["enemy", "undead", "barrow", "crawler"],
-            cues: (notice: Some("enemy.zombie.notice"), tell: Some("enemy.zombie_crawler.tell"), swing: Some("enemy.zombie_crawler.swing")),
-            fallback_dialogue: ["Its fingers scrape on the stone."],
-        ),
         "barrow_toaster": (
             display_name: "Haunted Toaster",
             manifest: "sprites/barrow_toaster_spritesheet.ron",
@@ -7133,6 +7107,36 @@
             idle: ["Sixty chargers... and not one fits.", "Mine. The toasters are mine."],
             hall: ["A king needs a throne. A stand will do, for now.", "They buried me with my treasure. Then they kept adding to it."],
         ),
+        ),
+        // Ordinary dead inhabitants of the valley, unarmored and easily staggered.
+        "barrow_shambler": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Barrow Shambler",
+            manifest: "sprites/barrow_shambler_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(52.0),
+            composition: None,
+            default_action_set: "barrow_shambler_swipe",
+            locomotion: Some((run_speed: 65.0, move_style: WalkHeavy)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 280.0,
+                attack_range: 29.0,
+                patrol_effort: 0.25,
+                chase_effort: 0.75,
+                attack_cooldown_s: 1.0,
+                shares_sightings: false,
+                tactics: (notice_s: 0.5, waits_its_turn: true),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "undead", "zombie", "hobford", "barrow", "minion"],
+            cues: (notice: Some("enemy.zombie.notice"), tell: Some("enemy.zombie.tell"), swing: Some("enemy.zombie.swing"), hit: Some("enemy.zombie.hit")),
+            barks: (
+                on_hit: ["*a dry rasp*"],
+                idle: ["*linen rustles*", "*a hollow groan*"],
+            ),
         ),
         // The Shift Operator: the hotel's ghostly housekeeper, who moves every
         // guest from room n to room n + 1; her shove pushes you one room along.
@@ -11029,6 +11033,37 @@
             hall: ["*it drags itself one arm's length nearer*", "Hhhh... still... on... duty..."],
         ),
         hall_dialogue_id: Some("hall_npc_evil_zombie_crawler"),
+        ),
+        // A low burial corpse. It waits for a target, then lunges.
+        "barrow_crawler": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Barrow Crawler",
+            manifest: "sprites/barrow_crawler_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Crawler,
+            standing_height: Some(26.7),
+            composition: None,
+            default_action_set: "barrow_crawler_lunge",
+            locomotion: Some((run_speed: 65.0, move_style: Slither, baseline_free_flight: Some(false))),
+            abilities: Some([Walk, Attack]),
+            contact_damage: Some((strength: 0.3, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 300.0,
+                attack_range: 44.0,
+                patrol_effort: 0.0,
+                chase_effort: 0.7,
+                attack_cooldown_s: 1.2,
+                shares_sightings: false,
+                tactics: (notice_s: 0.7, lurk_px: 40.0, waits_its_turn: true, footsies: Some((hold_px: 70.0, wait_s: 1.6))),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "undead", "zombie", "hobford", "barrow", "minion", "crawler"],
+            cues: (notice: Some("enemy.zombie.notice"), tell: Some("enemy.zombie_crawler.tell"), swing: Some("enemy.zombie_crawler.swing"), hit: Some("enemy.zombie.hit")),
+            barks: (
+                on_hit: ["*a dry rasp*"],
+                idle: ["*nails scrape on stone*", "*linen drags across the floor*"],
+            ),
         ),
         // The Shock Warden: a short, wide trooper behind an electrified riot
         // shield, with an electric baton. Slow and hard to put down; after
@@ -16989,6 +17024,33 @@
                 hall: ["Gallus talks enough for two. I listen for both of us.", "*the cage on his snout clicks as he turns to look at you*"],
             ),
             hall_dialogue_id: Some("hall_npc_peyote_lean"),
+        ),
+        // Mountain wildlife: a short horn charge with a clear recovery.
+        "crag_ibex": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Crag Ibex",
+            manifest: "sprites/crag_ibex_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(43.0),
+            composition: None,
+            default_action_set: "crag_ibex_charge",
+            locomotion: Some((run_speed: 105.0, move_style: Walk)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 280.0,
+                attack_range: 45.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.65,
+                retreat_after_swing_s: 0.3,
+                attack_cooldown_s: 1.1,
+                shares_sightings: false,
+                tactics: (notice_s: 0.5, waits_its_turn: true),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "animal", "quadruped", "fantasy", "mountain"],
+            barks: (idle: ["*it scrapes a hoof against the stone*"], provoked: ["*a sharp snort*"], on_hit: ["Maa!"]),
         ),
     },
 )

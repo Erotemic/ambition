@@ -8,9 +8,14 @@
 // the air of the room is corrupted, each at the place the parallax system
 // puts the same layer of the clean one, so a tower of one state is on the
 // same tower of the other. Then it adds the fog between the sky and the play.
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#import bevy_pbr::mesh_view_bindings::{view, globals}
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::{view, globals}
-#import ambition_content::room_look::{value_noise, look_air_state}
+#endif
+#import ambition_content::room_look::{value_noise, look_air_state, camera_on_play_plane}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -26,6 +31,14 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(6) var near_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(7) var atmosphere_texture: texture_2d<f32>;
 
+fn view_center() -> vec2<f32> {
+#ifdef AMBITION_CARD_MESH
+    return camera_on_play_plane(view.world_position, view.world_from_view[2].xyz);
+#else
+    return view.world_position.xy;
+#endif
+}
+
 /// Where the world point `w` (render coordinates) is on the panel of a layer
 /// that follows `factor` of the camera and is `scale` views wide. The rule of
 /// `sync_parallax_transform_to_camera` and `ParallaxLayerVisual::panel_size`
@@ -37,7 +50,7 @@ fn panel_uv(w: vec2<f32>, factor: f32, scale: f32) -> vec2<f32> {
     let visible = vec2<f32>(2.0 / view.clip_from_view[0][0], 2.0 / abs(view.clip_from_view[1][1]));
     let panel = max(visible.x, visible.y) * scale;
     let travel = max((vec2<f32>(panel) - visible) * 0.5, vec2<f32>(0.0));
-    let camera = view.world_position.xy;
+    let camera = view_center();
     let across = clamp(camera / max(room.xy, vec2<f32>(1.0)) + vec2<f32>(0.5), vec2<f32>(0.0), vec2<f32>(1.0)) * 2.0
         - vec2<f32>(1.0);
     let centre = camera - across * travel * factor;
@@ -57,7 +70,7 @@ fn corrupt_sky(w: vec2<f32>) -> vec3<f32> {
 }
 
 fn camera_engine() -> vec2<f32> {
-    let c = view.world_position.xy;
+    let c = view_center();
     return vec2<f32>(c.x + room.x * 0.5, room.y * 0.5 - c.y);
 }
 

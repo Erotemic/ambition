@@ -3860,8 +3860,8 @@ owner), the old completed-endpoint road is deleted, and the crossing reads
 the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
 P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26,
 the rider beside the cut, S2's clipped deforming cast and S3's
-curve-carried cast 2026-11-27; a line on an aperture's plane and a round
-body in a cut cell still read the rigid fit). Host admission landed the same
+curve-carried cast 2026-11-27, with a round body in a cut cell; a line on
+an aperture's plane still reads the rigid fit). Host admission landed the same
 day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 and its shared projectile source leg 2026-11-27 (receipts in the
 owner's P4 section); exact cell dependencies remain. P3 removes

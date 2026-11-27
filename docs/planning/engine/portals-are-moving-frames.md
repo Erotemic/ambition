@@ -318,7 +318,10 @@ agree at pace 1: the far-side projectile bounce still gives −26.5, and the
 guard's portal rebound tests pass unchanged.
 
 Still open in M3:
-- SUP1's changing-support input through a portal. Without portals the
+- SUP1's changing-support input through a portal. (Status 2026-11-27:
+  landed for a cut cell, a cell beyond one, a curve-carried cell and a round
+  body in a cut cell; see S1–S3 below. Only a line on an aperture's own
+  plane still reads the rigid fit.) Without portals the
   kernel's contact already reads SUP1's per-point travel (`displacement_at`
   on a deforming line, landed with SUP1). A cell cut by a portal still reads
   the published rigid fit, because the deforming cast does not admit portal
@@ -351,9 +354,9 @@ Still open in M3:
   Core lib (942), runtime with `portal` (306) and the app's portal tests
   (53) pass.
   A cell cut by a portal or beyond one landed as S2's clipped cast, and a
-  curve-carried cell as S3 (2026-11-27). Still open: a line on an
-  aperture's plane (the portal's own host), which needs the deforming
-  `line_parts` split, and a round body in a cut cell.
+  curve-carried cell and a round body in a cut cell as S3 (2026-11-27).
+  Still open: a line on an aperture's plane (the portal's own host), which
+  needs the deforming `line_parts` split.
 
 ## Required motion operation
 
@@ -878,8 +881,8 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   600 random cut cells, also run at 6000); a cut root cell meets a stretching
   end half way through the tick where the rigid fit arrived at its end
   (`a_cut_root_cell_reads_a_stretching_line_by_its_shape_motion`). Still on
-  the rigid fit: a line on a portal's plane, and a round body in a cut cell
-  (a curve-carried cell landed under S3).
+  the rigid fit: a line on a portal's plane (a curve-carried cell and a
+  round body in a cut cell landed under S3).
 - **S3 — a curve-carried cell** (a curved support on a moving host)
   through a portal. Test: the GNU hump's material place survives a crossing.
   *Cast landed 2026-11-27.* A cell carried on a curve (beyond a turning
@@ -900,9 +903,19 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   Core lib (973), runtime with `portal` (311) and the app's portal tests
   (52) pass. Not run: the GNU hump
   itself crossing a portal in the game; this is the cast the world's chain
-  contact calls (`World` → `against_deforming_where`). Still on the rigid
-  fit: a line on an aperture's plane and a round body in a cut (affine)
-  cell.
+  contact calls (`World` → `against_deforming_where`).
+  *Round body in a cut cell, same day.* A circle in a cut affine cell goes
+  through the same search (`a_round_body_reads_a_deforming_line_in_and_out_of_a_cut`:
+  300 random segments, uncut ones against the exact deforming cast,
+  cut ones with equal end motion against the cut translation cast). Its
+  first run found the translation cast itself wrong for circles. A circle
+  met on a segment's interior was rejected, because the contact lies on
+  the segment's other side by construction and the one-instant window
+  test refused it by a rounding step. The cast then reported the cut point
+  or an end, about 1e-3 of a tick later (t 0.05096 against the true
+  0.05005). Every rigid round body meeting a line in a cut cell took that
+  road. A face contact on a segment's side now skips its twin plane. Still
+  on the rigid fit: a line on an aperture's plane.
 
 **P5/P6 — observer and capture** ([view/capture
 contract](portals-one-transit-for-every-mover.md)). Keep the current

@@ -394,7 +394,14 @@ fn cast_region(
             let center = center.as_dvec2();
             let radius = f64::from(*radius);
             // A face contact is on its line and inside every other half plane.
+            // A segment's two sides are one line: a contact on one lies on
+            // the other by construction, and testing it there over the
+            // one-instant window rejects it by a rounding step, so a circle
+            // met mid-segment was reported at a later cut point or end.
+            let segment_sides = obstacle.len() == 2 && constraints.len() >= 4
+                && constraints[2].inward == -constraints[3].inward && !constraints[2].cell && !constraints[3].cell;
             for (index, plane) in constraints.iter().enumerate() {
+                let twin = match index { 2 | 3 if segment_sides => 5 - index, _ => index };
                 let length = plane.inward.length();
                 let outward = -plane.inward / length;
                 let speed = delta.dot(plane.inward) - plane.rate;
@@ -418,7 +425,7 @@ fn cast_region(
                         hi: time,
                         normal: DVec2::ZERO,
                     },
-                    Some((index, index)),
+                    Some((index, twin)),
                 )?
                 .is_some()
                 {

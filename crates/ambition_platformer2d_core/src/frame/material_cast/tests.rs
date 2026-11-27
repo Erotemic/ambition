@@ -1515,3 +1515,57 @@ fn a_curve_carried_cell_reads_a_stretching_line_by_its_shape_motion() {
     assert!(rigid.as_ref().is_none_or(|rigid| (rigid.toi - shaped.toi).abs() > 1e-3),
         "premise: the rigid fit reads another time: {:?} against {}", rigid.map(|hit| hit.toi), shaped.toi);
 }
+
+/// SUP1: a round body in a cut cell is read by the deforming search. Its
+/// answer agrees with the exact cast where nothing is cut (a stretching
+/// segment against a circle), and with the cut translation cast where the
+/// ends move together.
+#[test]
+fn a_round_body_reads_a_deforming_line_in_and_out_of_a_cut() {
+    let body = CombatVolume::circle(Vec2::new(1.0, -2.0), 3.0);
+    let mut cells = MaterialCast::new(MaterialPrimitive::world(&body), Vec2::new(1.0, -2.0), Vec2::ZERO, 0.0..1.0)
+        .cells(None).unwrap();
+    let mut seed = 0x6a09_e667_f3bc_c909_u64;
+    let mut number = || { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed >> 11) as f64 / (1u64 << 53) as f64 };
+    let (mut met, mut missed, mut cut_met) = (0, 0, 0);
+    for case in 0..300 {
+        let mut point = |r: f64| DVec2::new(number() * 2.0 * r - r, number() * 2.0 * r - r);
+        let (a, b) = (point(14.0), point(14.0));
+        if primitive_cast(&body, DVec2::ZERO, &[a, b]).is_some() { continue; }
+        let cut = case % 2 == 1;
+        let motion = if cut { let m = point(12.0); [m, m] } else { [point(12.0), point(12.0)] };
+        let planes = if cut {
+            let angle = number() * std::f64::consts::TAU;
+            vec![translation::MovingPlane { plane: MaterialPlane { inward: DVec2::new(angle.cos(), angle.sin()), offset: number() * 4.0 - 2.0 }, rate: 0.0 }]
+        } else { Vec::new() };
+        whole_cell_mut(&mut cells).planes = planes.clone();
+        let part = &cells.parts()[0];
+        let searched = curved::deforming_cast(&body, part, [a, b], [a + motion[0], b + motion[1]], 0.0..1.0,
+            InitialOverlap::AllowSeparation, |_| true);
+        let Ok(searched) = searched else { continue; };
+        let exact = if cut {
+            translation::cast(&body, DVec2::ZERO, &[a, b], motion[0], planes.iter().copied(), InitialOverlap::AllowSeparation).unwrap()
+        } else {
+            deforming_segment_cast(&body, [a, b], motion, InitialOverlap::AllowSeparation).unwrap()
+        };
+        match (exact, searched) {
+            (None, None) => missed += 1,
+            (Some(e), Some(s)) => {
+                met += 1;
+                cut_met += usize::from(cut);
+                assert!((e.time - s.time).abs() < 1e-6, "time {} against {} for {a:?} {b:?} {motion:?} {planes:?}", e.time, s.time);
+            }
+            (e, s) => panic!("exact {:?} against searched {:?} for {a:?} {b:?} {motion:?} {planes:?}", e.map(|h| h.time), s.map(|h| h.time)),
+        }
+    }
+    assert!(met > 30 && missed > 30 && cut_met > 10, "the sample must meet and miss: {met}, {missed}, {cut_met} cut");
+    // The wiring: a cut round cell now asks the search, not the rigid fit.
+    whole_cell_mut(&mut cells).planes = vec![translation::MovingPlane { plane: MaterialPlane { inward: DVec2::X, offset: -10.0 }, rate: 0.0 }];
+    let from = [Vec2::new(-8.0, 6.0), Vec2::new(10.0, 6.0)];
+    let to = [Vec2::new(-8.0, 6.0), Vec2::new(10.0, -6.0)];
+    let fit = (Vec2::new(0.0, -6.0), 0.0, Vec2::ZERO);
+    let hit = cells.against_deforming_where(&cells.parts()[0], from, to, fit, |_| true).unwrap().expect("the swinging end meets the circle");
+    let exact = deforming_segment_cast(&body, from.map(Vec2::as_dvec2), [DVec2::ZERO, DVec2::new(0.0, -12.0)], InitialOverlap::AllowSeparation)
+        .unwrap().expect("a contact");
+    assert!((hit.toi - exact.time).abs() < 1e-6, "the shape motion, not the fit: {} against {}", hit.toi, exact.time);
+}

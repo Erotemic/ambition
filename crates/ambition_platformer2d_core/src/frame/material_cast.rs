@@ -588,10 +588,10 @@ impl MaterialCastCells<'_> {
     ///
     /// A cell cut by a portal, and a cell beyond one, sees the part of the
     /// segment its planes keep ([`clipped_deforming_segment_cast`]). A cell
-    /// carried on a curve follows the ends through the curved interval
-    /// search ([`curved::deforming_cast`]). A line on a portal's plane (which
-    /// the rigid path splits into the pieces each cell sees) and a round body
-    /// in a cut cell are not admitted here; they read the rigid fit `fit`
+    /// carried on a curve, and a round body in a cut cell, follow the ends
+    /// through the curved interval search ([`curved::deforming_cast`]). A
+    /// line on a portal's plane (which the rigid path splits into the pieces
+    /// each cell sees) is not admitted here; it reads the rigid fit `fit`
     /// names, as every reader did before the shape was published.
     pub(crate) fn against_deforming_where(
         &self, part: &MaterialCell, from: [Vec2; 2], to: [Vec2; 2],
@@ -601,9 +601,11 @@ impl MaterialCastCells<'_> {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
         let on_a_plane = self.scene.as_ref().is_some_and(|scene| scene.may_split_line([&from, &to]));
-        if part.curve.is_some() && !on_a_plane {
-            // A cell carried on a curve: the interval search the rigid cast
-            // uses there, following each end's own travel.
+        let round_in_a_cut = matches!(self.material.domain, CombatVolume::Circle { .. }) && !part.planes.is_empty();
+        if (part.curve.is_some() || round_in_a_cut) && !on_a_plane {
+            // A cell carried on a curve, or a round body in a cut cell: the
+            // interval search the rigid cast uses there, following each
+            // end's own travel.
             let (mut selected, mut failed) = (None, None);
             curved::deforming_cast(self.material.domain, part, from.map(Vec2::as_dvec2), to.map(Vec2::as_dvec2),
                 self.time.clone(), self.initial_overlap, |contact| match self.contact(part, contact) {
@@ -618,8 +620,7 @@ impl MaterialCastCells<'_> {
             return match failed { Some(reason) => Err(reason), None => Ok(selected) };
         }
         let unbounded_beyond = !part.path.is_empty() && part.planes.is_empty();
-        let round_in_a_cut = matches!(self.material.domain, CombatVolume::Circle { .. }) && !part.planes.is_empty();
-        if on_a_plane || unbounded_beyond || round_in_a_cut {
+        if on_a_plane || unbounded_beyond {
             let (displacement, turn, pivot) = fit;
             return self.against_rigid_where(part, &to, displacement, turn, pivot, accepts);
         }

@@ -774,6 +774,12 @@ shared value preparation are sufficient until source proves otherwise.
    the tint changes. An offscreen fixture shows all four effects in
    2D and side-on 2.5D at Medium and High. In-game captures are pending.
 
+   Sheet-drawn actors use the same damage flash and gate scanline shader
+   in both renderers. The card renderer draws the effect above the actor's
+   sheet card and removes it when the cue ends. A Medium offscreen test
+   scene shows both cues in 2D, side-on 2.5D, and oblique 2.5D. Rigged
+   cards still use a flat tint for the gate cue.
+
    World-space sprite producers mark their art with `WorldSprite`. The card
    renderer reads this marker and uses the sprite's world transform and
    visibility. Ladders, vines, water, and lock walls use this path, including

@@ -36,7 +36,8 @@
 //!
 //! A body with no rigged presentation (an actor or a player the 2D view
 //! draws from a sheet cell) is one card of the cell it draws, ranked with the
-//! rigged bodies on its depth by the same logical order.
+//! rigged bodies on its depth by the same logical order. It uses the shared
+//! flash material for combat and gate transit cues.
 //!
 //! # The room's terrain
 //!
@@ -284,6 +285,10 @@ pub struct CardRootDepths {
 }
 
 impl CardRootDepths {
+    fn representation_of(&self, subject: Option<&PresentationOf>) -> Option<CardBodyRepresentation> {
+        self.roots.get(&subject?.0).map(|depth| depth.representation)
+    }
+
     fn effect_depth(&self, subject: Option<&PresentationOf>, source_z: f32) -> Option<f32> {
         let depth = self.roots.get(&subject?.0)?;
         let bias = source_z - depth.source_z;
@@ -299,12 +304,20 @@ impl CardRootDepths {
     }
 }
 
+/// How the card renderer draws an actor's body.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CardBodyRepresentation {
+    Sprite,
+    Rigged,
+}
+
 #[derive(Clone, Copy, Debug)]
 struct CardBodyDepth {
     plane_z: f32,
     source_z: f32,
     order_scale: f32,
     front_part: f32,
+    representation: CardBodyRepresentation,
 }
 
 /// The card view: install it beside the 2D presentation.
@@ -953,7 +966,13 @@ pub(super) fn realize_card_bodies(
                 }
                 (depth, scale)
             };
-            rank_of.insert(owner, CardBodyDepth { plane_z, source_z, order_scale, front_part: 0.0 });
+            rank_of.insert(owner, CardBodyDepth {
+                plane_z,
+                source_z,
+                order_scale,
+                front_part: 0.0,
+                representation: CardBodyRepresentation::Sprite,
+            });
         }
     }
     if let Some(depths) = root_depths.as_deref_mut() {
@@ -998,7 +1017,11 @@ pub(super) fn realize_card_bodies(
             let front_part = sample.parts()
                 .filter(|_| baked.is_none())
                 .map_or(0.0, |parts| parts.len().saturating_sub(1) as f32 * CARD_PART_STEP);
-            depths.roots.insert(of.0, CardBodyDepth { front_part, ..*depth });
+            depths.roots.insert(of.0, CardBodyDepth {
+                front_part,
+                representation: CardBodyRepresentation::Rigged,
+                ..*depth
+            });
         }
         if let Some(baked) = baked {
             let opacity = if composited.is_some() { 1.0 } else { sample.frame_opacity };
@@ -1235,6 +1258,7 @@ pub(super) fn realize_card_sprite_bodies(
     for (entity, sprite, anchor, place) in &bodies {
         // Ranked only when it is a shown body with no rigged presentation.
         let drawn = depths.roots.get(&entity)
+            .filter(|depth| depth.representation == CardBodyRepresentation::Sprite)
             .and_then(|depth| Some((depth.plane_z, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
         let Some((depth, (frame, page_size))) = drawn else {
             if let Some(card) = by_body.get(&entity) {
@@ -1654,6 +1678,7 @@ mod tests {
         let no_card = app.world_mut().spawn_empty().id();
         app.world_mut().resource_mut::<CardRootDepths>().roots.insert(root, CardBodyDepth {
             plane_z: -20.0, source_z: 5.0, order_scale: 1.0, front_part: 0.0,
+            representation: CardBodyRepresentation::Sprite,
         });
         let item = |at: Vec3, holder| {
             (

@@ -21,7 +21,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 use bevy::transform::TransformSystems;
 
 use super::{CARD_BODY_STEP, TERRAIN_DEPTH, scenery_depth};
-use super::{CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
+use super::{CardBodyRepresentation, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
 use crate::folded_mesh::{AddedLightMaterial, FoldedMesh};
 use crate::rendering::terrain_skin::TerrainSkinMesh;
 
@@ -58,7 +58,10 @@ pub(super) fn install(app: &mut App) {
         install_card_mesh_material::<crate::rendering::daylight::DaylightMaterial>(app);
         install_card_mesh_material::<crate::rendering::daylight::LampGlowMaterial>(app);
         #[cfg(not(target_os = "android"))]
-        install_card_mesh_material::<crate::rendering::actor_glow::ActorGlowMaterial>(app);
+        {
+            install_card_mesh_material::<crate::rendering::actor_glow::ActorGlowMaterial>(app);
+            install_card_mesh_material::<crate::rendering::hit_flash::HitFlashMaterial>(app);
+        }
         #[cfg(feature = "portal_render")]
         {
             install_card_mesh_material::<ambition_portal2d_presentation::PortalGlowMaterial>(app);
@@ -72,6 +75,12 @@ pub trait CardMaterialSource: Material2d + PartialEq {
     /// A blend state other than the material's alpha mode.
     fn card_blend() -> Option<BlendState> {
         None
+    }
+
+    /// Check whether this material needs a card for the current subject.
+    /// A material such as a terrain skin can have no body as its subject.
+    fn draws_on_card(&self, _body: Option<CardBodyRepresentation>) -> bool {
+        true
     }
 }
 
@@ -310,13 +319,17 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     let Some(source_materials) = source_materials else {
         return;
     };
+    let in_view = |material: &MeshMaterial2d<M>, subject: Option<&PresentationOf>| {
+        source_materials.get(&material.0)
+            .filter(|draw| draw.draws_on_card(depths.representation_of(subject)))
+    };
     products
         .retained
         .reconcile(&mut products.commands, |entity| {
             sources
                 .get(*entity)
-                .is_ok_and(|(_, _, material, _, _, visible, ..)| {
-                    visible.get() && source_materials.contains(&material.0)
+                .is_ok_and(|(_, _, material, _, _, visible, _, _, subject)| {
+                    visible.get() && in_view(material, subject).is_some()
                 })
         });
     used.clear();
@@ -324,7 +337,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         if !visible.get() {
             continue;
         }
-        let Some(draw) = source_materials.get(&material.0) else {
+        let Some(draw) = in_view(material, subject) else {
             continue;
         };
         let id = material.0.id();
@@ -405,5 +418,61 @@ fn realize_folded_meshes(
             effect_place(source, global, &rooms, &depths),
             true,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rendering::hit_flash::{HitFlashMaterial, FLASH_OVERLAY_Z_BIAS};
+    use super::super::CardBodyDepth;
+
+    #[test]
+    fn a_flash_draws_on_its_sheet_body_until_the_cue_ends() {
+        let mut app = App::new();
+        app.init_resource::<Assets<HitFlashMaterial>>()
+            .init_resource::<Assets<CardMaterial<HitFlashMaterial>>>()
+            .init_resource::<CardRootDepths>()
+            .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
+            .add_systems(Update, realize_shaded_meshes::<HitFlashMaterial>);
+        let world = app.world_mut();
+        let material = world.resource_mut::<Assets<HitFlashMaterial>>().add(HitFlashMaterial {
+            uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0),
+            control: Vec4::new(0.8, 0.0, 0.7, 1.0),
+            color_texture: Handle::default(),
+            tint: Vec4::ONE,
+        });
+        let mut sources = Vec::new();
+        for representation in [CardBodyRepresentation::Sprite, CardBodyRepresentation::Rigged] {
+            let actor = world.spawn_empty().id();
+            world.resource_mut::<CardRootDepths>().roots.insert(actor, CardBodyDepth {
+                plane_z: 2.5, source_z: 20.0, order_scale: 1.0, front_part: 0.0, representation,
+            });
+            sources.push(world.spawn((
+                PresentationOf(actor),
+                Mesh2d::default(),
+                MeshMaterial2d(material.clone()),
+                GlobalTransform::from_translation(Vec3::Z * (20.0 + FLASH_OVERLAY_Z_BIAS)),
+                InheritedVisibility::VISIBLE,
+            )).id());
+        }
+        let flash_cards = |world: &mut World| {
+            world.query_filtered::<(&CardScope, &Transform), With<CardWorldMesh>>()
+                .iter(world)
+                .filter_map(|(scope, place)| match scope {
+                    CardScope::Source(source) => Some((*source, place.translation.z)),
+                    CardScope::Camera(_) => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        app.update();
+        let shown = flash_cards(app.world_mut());
+        assert_eq!(shown.len(), 1);
+        assert_eq!(shown[0].0, sources[0]);
+        assert!(shown[0].1 > 2.5);
+
+        app.world_mut().resource_mut::<Assets<HitFlashMaterial>>().get_mut(&material).unwrap().control.x = 0.0;
+        app.update();
+        assert!(flash_cards(app.world_mut()).is_empty());
     }
 }

@@ -110,7 +110,8 @@ use ambition_sprite_sheet::character::rigged::PartDraw;
 
 use super::retained_entities::RetainedEntities;
 use super::actors::rigged::{
-    part_color, BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
+    part_color, root_shows, BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation,
+    RiggedPresentationOf,
 };
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
@@ -933,7 +934,8 @@ pub(super) fn realize_card_bodies(
     roots: Query<
         (
             &Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>,
-            Option<&PresentedFlash>, Option<&MovingPlatformVisual>, Has<PropVisual>, Option<&Visibility>,
+            Option<&PresentedFlash>, Option<&MovingPlatformVisual>, Has<PropVisual>,
+            (Option<&Visibility>, Option<&InheritedVisibility>, Has<ChildOf>),
         ),
         (Without<CardBody>, Without<CardPart>),
     >,
@@ -950,7 +952,10 @@ pub(super) fn realize_card_bodies(
     mut root_depths: Option<ResMut<CardRootDepths>>,
     // Bodies drawn from a sheet, ranked with these on each depth.
     sprite_bodies: Query<
-        (Entity, &Transform, Option<&SeatedInVessel>, Option<&BoundFeatureKind>, Option<&Visibility>),
+        (
+            Entity, &Transform, Option<&SeatedInVessel>, Option<&BoundFeatureKind>,
+            (Option<&Visibility>, Option<&InheritedVisibility>, Has<ChildOf>),
+        ),
         SpriteBodyFilter,
     >,
     rooms: LiveRooms,
@@ -975,9 +980,12 @@ pub(super) fn realize_card_bodies(
         if !drawable {
             continue;
         }
-        let Ok((root, seated, .., platform, prop, _)) = roots.get(of.0) else {
+        let Ok((root, seated, .., platform, prop, visibility)) = roots.get(of.0) else {
             continue;
         };
+        if !root_shows(visibility) {
+            continue;
+        }
         if let Some(platform) = platform {
             let part_count = sample.parts().map_or(1, <[PartDraw]>::len).max(1);
             placements.insert(owner, CardBodyDepth {
@@ -993,8 +1001,7 @@ pub(super) fn realize_card_bodies(
     }
     for (entity, place, seated, kind, visibility) in &sprite_bodies {
         let body = kind.is_none_or(|kind| kind.kind == FeatureVisualKind::Actor);
-        let shown = visibility.is_none_or(|visibility| *visibility != Visibility::Hidden);
-        if body && shown && !rigged_roots.contains(&entity) {
+        if body && root_shows(visibility) && !rigged_roots.contains(&entity) {
             ranked.push((rooms.of(entity), place.translation.z, entity, seated.map(|seat| seat.slot)));
         }
     }
@@ -1058,8 +1065,12 @@ pub(super) fn realize_card_bodies(
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
+        if !root_shows(visibility) {
+            body_visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        }
         let depth = placements.get(&owner).copied().or_else(|| {
-            if !prop || visibility == Some(&Visibility::Hidden) || (sample.baked.is_none() && sample.feet.is_none()) {
+            if !prop || (sample.baked.is_none() && sample.feet.is_none()) {
                 return None;
             }
             let source_z = root.translation.z;

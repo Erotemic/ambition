@@ -26,6 +26,7 @@ pub struct MorphBallSprite {
 /// Marker on a morph-ball sprite. Each one draws exactly one body, named by
 /// its `PresentationOf`, and follows that body's own pose.
 #[derive(Component)]
+#[require(super::primitives::WorldSprite)]
 pub struct MorphBallVisual;
 
 const MORPH_BALL_TEXTURE_SIZE: u32 = 64;

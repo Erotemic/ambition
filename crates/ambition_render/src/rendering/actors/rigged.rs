@@ -876,7 +876,9 @@ fn seen_by_a_view(views: &[(Rect, RenderLayers)], transform: &Transform, sprite:
 /// in `PostUpdate`), so parts that followed it appeared a frame after the body
 /// and outlived its hiding by one. A parented root has only the propagated
 /// answer.
-fn root_shows((visibility, inherited, parented): (Option<&Visibility>, Option<&InheritedVisibility>, bool)) -> bool {
+pub(in crate::rendering) fn root_shows(
+    (visibility, inherited, parented): (Option<&Visibility>, Option<&InheritedVisibility>, bool),
+) -> bool {
     if visibility == Some(&Visibility::Hidden) {
         return false;
     }

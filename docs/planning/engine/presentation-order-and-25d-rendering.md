@@ -779,6 +779,8 @@ shared value preparation are sufficient until source proves otherwise.
    The shield keeps its card mesh and material as its size and color change.
    Medium captures show these fixes in Castle Godwin, the blueprint room,
    the military gate annex, Gravity Lab, Portal Lab, and the central hub.
+   The Clean / corrupted exhibit uses the same sky, fog, and front effects
+   in both renderers. Medium captures show the front in all three views.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,

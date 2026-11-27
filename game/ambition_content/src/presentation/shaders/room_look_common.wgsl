@@ -7,6 +7,11 @@
 //
 // All positions are in engine world coordinates (y down).
 
+// Find the intersection of the camera axis and the play plane in render coordinates.
+fn camera_on_play_plane(position: vec3<f32>, back: vec3<f32>) -> vec2<f32> {
+    return position.xy - back.xy * (position.z / back.z);
+}
+
 fn hash_u32(value: u32) -> u32 {
     var h = value;
     h = h ^ (h >> 16u);

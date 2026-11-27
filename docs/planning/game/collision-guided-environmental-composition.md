@@ -401,6 +401,8 @@ spans and props. Keep each arena's doors and encounter IDs in its room.
 In the War Room, show the uplink arrival points and the height of each
 firing line with the deck surfaces. Use the collision cells for the deck
 tops. The editor can move an authored top to a grid boundary.
+At Eureka's Gate Court, show where the street and raised walk meet the
+quad. Show the gate and dialer clearance beside the first step.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

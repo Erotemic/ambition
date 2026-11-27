@@ -7,30 +7,6 @@ use ambition_platformer2d_shared_tangle::construction::RootScope;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::*;
 
-fn pickup_kind_from_spec(
-    kind: &ambition_platformer2d_world::rooms::PickupKind,
-) -> ambition_interaction::PickupKind {
-    match kind {
-        ambition_platformer2d_world::rooms::PickupKind::Health { amount } => {
-            ambition_interaction::PickupKind::Health { amount: *amount }
-        }
-        ambition_platformer2d_world::rooms::PickupKind::Currency { amount } => {
-            ambition_interaction::PickupKind::Currency { amount: *amount }
-        }
-        ambition_platformer2d_world::rooms::PickupKind::Ability { ability_id } => {
-            ambition_interaction::PickupKind::Ability {
-                ability_id: ability_id.clone(),
-            }
-        }
-        ambition_platformer2d_world::rooms::PickupKind::StoryFlag { flag } => {
-            ambition_interaction::PickupKind::StoryFlag { flag: flag.clone() }
-        }
-        ambition_platformer2d_world::rooms::PickupKind::Custom(value) => {
-            ambition_interaction::PickupKind::Custom(value.clone())
-        }
-    }
-}
-
 fn pickup_from_authored(
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::PickupSpec,
@@ -38,7 +14,7 @@ fn pickup_from_authored(
 ) -> ambition_interaction::Pickup {
     ambition_interaction::Pickup {
         id: authored.id.clone(),
-        kind: pickup_kind_from_spec(&authored.payload.kind),
+        kind: authored.payload.kind.clone(),
         respawn: authored.payload.respawn,
     }
 }
@@ -54,7 +30,7 @@ fn chest_from_authored(
     // `spawn_chest_into`, which is what the runtime gates on.
     ambition_interaction::Chest {
         id: authored.id.clone(),
-        reward: authored.payload.reward.as_ref().map(pickup_kind_from_spec),
+        reward: authored.payload.reward.clone(),
     }
 }
 

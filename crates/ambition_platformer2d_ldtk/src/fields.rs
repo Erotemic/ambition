@@ -151,9 +151,9 @@ pub(super) fn parse_pickup_kind(value: &str) -> ambition_platformer2d_world::roo
         .and_then(|text| text.parse::<i32>().ok())
     {
         ambition_platformer2d_world::rooms::PickupKind::Currency { amount }
-    } else if let Some(ability_id) = value.strip_prefix("ability:") {
-        ambition_platformer2d_world::rooms::PickupKind::Ability {
-            ability_id: ability_id.to_string(),
+    } else if let Some(item_id) = value.strip_prefix("item:").or_else(|| value.strip_prefix("ability:")) {
+        ambition_platformer2d_world::rooms::PickupKind::Item {
+            item_id: item_id.to_string(),
         }
     } else if let Some(flag) = value.strip_prefix("flag:") {
         ambition_platformer2d_world::rooms::PickupKind::StoryFlag {

@@ -293,8 +293,8 @@ pub fn drop_ability_pickup(
             CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
             PickupFeature::new(ambition_interaction::Pickup::new(
                 format!("ability_drop:{boss_id}"),
-                ambition_interaction::PickupKind::Ability {
-                    ability_id: ability_id.to_string(),
+                ambition_interaction::PickupKind::Item {
+                    item_id: ability_id.to_string(),
                 },
             )),
         ),

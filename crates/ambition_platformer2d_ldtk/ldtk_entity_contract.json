@@ -440,6 +440,7 @@
           "patterns": [
             "^health:-?[0-9]+$",
             "^currency:-?[0-9]+$",
+            "^item:.+$",
             "^ability:.+$",
             "^flag:.+$"
           ],
@@ -492,6 +493,7 @@
           "patterns": [
             "^health:-?[0-9]+$",
             "^currency:-?[0-9]+$",
+            "^item:.+$",
             "^ability:.+$",
             "^flag:.+$"
           ],

@@ -68,7 +68,7 @@ pub fn entity_sprite_for_runtime_pickup(
     Some(match kind {
         K::Health { .. } => EntitySprite::PickupHealth,
         K::Currency { .. } => EntitySprite::PickupCurrency,
-        K::Ability { .. } => EntitySprite::PickupAbility,
+        K::Item { .. } => EntitySprite::PickupAbility,
         // StoryFlag and Custom use the ability look until they get their own
         // art, as the authored twin does.
         K::StoryFlag { .. } | K::Custom(_) => EntitySprite::PickupAbility,
@@ -159,7 +159,7 @@ fn pickup_sprite(kind: &ambition_platformer2d_world::rooms::PickupKind) -> Entit
         ambition_platformer2d_world::rooms::PickupKind::Currency { .. } => {
             EntitySprite::PickupCurrency
         }
-        ambition_platformer2d_world::rooms::PickupKind::Ability { .. } => {
+        ambition_platformer2d_world::rooms::PickupKind::Item { .. } => {
             EntitySprite::PickupAbility
         }
         // StoryFlag and Custom fall back to the ability look until they

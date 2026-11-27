@@ -849,6 +849,19 @@ shared value preparation are sufficient until source proves otherwise.
    output takes its room mask from the plane camera and uses the depth of
    the field's art. Inactive cameras release their passes.
 
+   Mary-O's fire glow, cosmic aura, barrier, quasar, and room shimmer use
+   the same materials in both views. The shimmer, room sky, and blueprint
+   shaders use the card camera axis at the play plane. An Ultra fixture
+   checks the five Mary-O materials with the published art.
+
+   The fire glow and cosmic aura keep their subject's position in depth.
+   Their paint order follows their source depth between the bodies of the
+   same room. A light can overlap another body without moving to its plane.
+
+   Both renderers draw emitted trails and retained debug lines from the same
+   line buffers. Each card camera draws the lines for its room and local
+   view. Switching to 2D removes the card draws and keeps the line buffers.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same
@@ -884,6 +897,21 @@ shared value preparation are sufficient until source proves otherwise.
    Local views, card outputs, menus, and portal captures use separate
    render layer families. The portal backdrop test covers two eyes in one
    live room and a third eye in a room that uses the same portal channels.
+
+   Portal windows use the final view pose, zoom, and pixel dimensions.
+   A tilted view projects its viewport onto the play plane. Its capture
+   covers the bounds of that projection. The comparison inset and its
+   main output share one capture for each portal and observer.
+
+   Rigged bodies use the same output coverage as portal windows. A tilted
+   view samples a body at its own screen edge. A body keeps sprite slots
+   when a 2D camera or the compositor needs them. Card draws and part
+   readers can use the sample without sprite slots.
+
+   Card placement and paint order use separate values. Free bodies stay on
+   the play plane. Riders stay inside the cart. Parts and attachments use
+   the body's plane and keep their own paint order. A body keeps its place
+   when another body enters the view.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,

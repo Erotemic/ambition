@@ -224,6 +224,49 @@ fn captures_allocate_only_for_visible_windows_and_preserve_pixel_density() {
         .iter(app.world()).all(|camera| !camera.is_active));
 }
 
+#[test]
+fn the_window_uses_its_outputs_coverage_and_pixel_density() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let center = Vec2::new(300.0, 300.0);
+    let mut app = two_rooms_with_eyes(&[(room, Some(center))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let observer = app.world().resource::<PortalViewers>().iter().next().unwrap().observer.unwrap();
+    let offscreen = center + Vec2::Y * 900.0;
+    let mut samples = app.world_mut().resource_mut::<crate::PortalObserverViews>();
+    samples.of_mut(observer)
+        .capture(offscreen, offscreen, offscreen, Vec2::new(800.0, 450.0), 0.0, 0, None);
+    let world = app.world_mut();
+    world.resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+    app.update();
+    assert!(app.world_mut().query_filtered::<&Camera, With<PortalViewRig>>()
+        .iter(app.world()).all(|camera| !camera.is_active));
+
+    let extent = Vec2::new(300.0, 250.0);
+    let pixels = Vec2::new(600.0, 500.0);
+    app.world_mut().resource_mut::<crate::PortalObserverViews>().set_windows([(
+        observer, crate::PortalWindowView {
+            center_world: center,
+            visible_view: extent,
+            axis: Vec2::X,
+            output_pixels: pixels,
+        },
+    )]);
+    app.update();
+    app.update();
+    let world = app.world_mut();
+    let mut cameras = world.query::<(&PortalViewRig, &Camera, &RenderTarget)>();
+    let captures: Vec<_> = cameras.iter(world).filter(|(_, camera, _)| camera.is_active).collect();
+    assert!(!captures.is_empty());
+    for (rig, _, target) in captures {
+        let RenderTarget::Image(image) = target else { panic!("Missing capture image") };
+        let size = world.resource::<Assets<Image>>().get(&image.handle).unwrap().size();
+        let density = size.as_vec2() / rig.captured.unwrap().size;
+        let expected = pixels / extent;
+        assert_eq!(rig.rebuild.tex, pixels.as_uvec2());
+        assert!(density.abs_diff_eq(expected, 1e-4), "{density:?} vs {expected:?}");
+    }
+}
+
 /// A window draws only a current capture (V4). With both windows captured,
 /// then the budget lowered to one, the window that lost its capture shows
 /// no view rather than its last picture.

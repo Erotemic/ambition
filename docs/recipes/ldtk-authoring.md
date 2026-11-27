@@ -9,6 +9,12 @@ related_docs:
 
 # LDtk authoring
 
+> [!IMPORTANT]
+> **Join rooms with edge exits. The Sandbox may use doors between rooms.
+> Use platforms for climbs.** Read the
+> [level connection rules](../concepts/level-connections.md) before you
+> add rooms or loading zones.
+
 LDtk is Ambition's spatial source of truth. Use the editor or
 `ambition_ldtk_tools`; do not hand-edit `.ldtk` JSON.
 

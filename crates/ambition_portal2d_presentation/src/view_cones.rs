@@ -756,8 +756,12 @@ impl GameplayScreenDensity<'_, '_> {
         };
         // Below 1.0 too: a view zoomed out past one pixel a world unit has
         // fewer pixels than units, and a capture with more is resampled.
-        (physical / view.visible_view).clamp(Vec2::splat(0.05), Vec2::splat(4.0))
+        screen_texel_density(physical, view.visible_view)
     }
+}
+
+fn screen_texel_density(physical: Vec2, extent: Vec2) -> Vec2 {
+    (physical / extent).clamp(Vec2::splat(0.05), Vec2::splat(4.0))
 }
 
 /// How far past the viewer's own extent a portal still counts as "at the seam"
@@ -781,18 +785,17 @@ fn portal_window_view(
     frame: &PortalWorldFrame,
     host_view: Option<&PortalCameraContinuityHostView>,
 ) -> geometry::CaptureCameraFrame {
-    if let Some(host_view) = host_view
-        .filter(|view| view.initialized && view.visible_view.x > 0.0 && view.visible_view.y > 0.0)
-    {
-        geometry::CaptureCameraFrame {
-            center: host_view.current_center_world,
-            size: host_view.visible_view,
-            axis: host_view.view_axis(),
-            shown: host_view.visible_view,
-        }
-    } else {
-        geometry::CaptureCameraFrame::aligned(Vec2::ZERO, frame.size)
-    }
+    host_window_frame(host_view).unwrap_or_else(|| geometry::CaptureCameraFrame::aligned(Vec2::ZERO, frame.size))
+}
+
+fn host_window_frame(host_view: Option<&PortalCameraContinuityHostView>) -> Option<geometry::CaptureCameraFrame> {
+    let view = host_view.filter(|view| view.initialized && view.visible_view.cmpge(Vec2::ONE).all())?;
+    Some(geometry::CaptureCameraFrame {
+        center: view.current_center_world,
+        size: view.visible_view,
+        axis: view.view_axis(),
+        shown: view.visible_view,
+    })
 }
 
 /// How fast a window's drawn area may change, in views per second: it opens
@@ -866,19 +869,17 @@ fn portal_capture_camera_frame(
     exit: &PortalAperture,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> Option<geometry::CaptureCameraFrame> {
-    mapped_camera_frame(host_view, enter, exit, convention)
+    mapped_camera_frame(host_window_frame(host_view), enter, exit, convention)
         .filter(|_| config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot)
 }
 
 fn mapped_camera_frame(
-    host_view: Option<&PortalCameraContinuityHostView>,
+    view: Option<geometry::CaptureCameraFrame>,
     enter: &PortalAperture,
     exit: &PortalAperture,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> Option<geometry::CaptureCameraFrame> {
-    let host_view = host_view.filter(|view| {
-        view.initialized && view.visible_view.x >= 1.0 && view.visible_view.y >= 1.0
-    })?;
+    let view = view?;
     // Map the whole host-view rect, not only its centre: a 90° pair rotates
     // the viewport and swaps width and height. With the unrotated size, mapped
     // cone vertices fell outside the capture rect and the window smeared.
@@ -894,12 +895,12 @@ fn mapped_camera_frame(
     // A scaling pair maps the view's rect to one the pair's scale times as
     // large: a window into a smaller exit shows the far side magnified, so the
     // far mouth's ends meet the near mouth's.
-    let center = ambition_portal2d::pieces::map_through(host_view.current_center_world, enter, exit, convention);
+    let center = ambition_portal2d::pieces::map_through(view.center, enter, exit, convention);
     // A rolled view's rect is turned: its own `+x` is mapped.
-    let axis = ambition_portal2d::pieces::portal_map_vec(host_view.view_axis(), enter.frame.normal, exit.frame.normal, convention)
+    let axis = ambition_portal2d::pieces::portal_map_vec(view.axis, enter.frame.normal, exit.frame.normal, convention)
         .normalize_or(Vec2::X);
-    let size = host_view.visible_view * ambition_portal2d::pieces::scale_through(enter, exit);
-    Some(geometry::CaptureCameraFrame { center, size, axis, shown: host_view.visible_view })
+    let size = view.size * ambition_portal2d::pieces::scale_through(enter, exit);
+    Some(geometry::CaptureCameraFrame { center, size, axis, shown: view.size })
 }
 
 mod geometry;
@@ -1006,15 +1007,26 @@ pub fn sync_portal_view_cones(
             continue;
         };
         let host_view = observer_views.as_deref().and_then(|views| views.of(viewer.observer));
-        let view = portal_window_view(&placement.frame, host_view);
+        let window = observer_views.as_deref().and_then(|views| views.window_of(viewer.observer));
+        let mapped_from = window.map(|window| geometry::CaptureCameraFrame {
+            center: window.center_world,
+            size: window.visible_view,
+            axis: window.axis,
+            shown: window.visible_view,
+        }).or_else(|| host_window_frame(host_view));
+        let view = mapped_from.unwrap_or_else(|| geometry::CaptureCameraFrame::aligned(Vec2::ZERO, placement.frame.size));
+        let screen_scale = window.map_or_else(
+            || screen_density.texels_per_world(host_view),
+            |window| screen_texel_density(window.output_pixels, window.visible_view),
+        );
         eyes.push(RoomEye {
             placement,
             room_band: frames.band(placement.room),
             all: by_room.in_room(Some(placement.room)).to_vec(),
             viewer,
-            host_view,
+            mapped_from,
             view,
-            screen_scale: screen_density.texels_per_world(host_view),
+            screen_scale,
         });
     }
     if eyes.is_empty() {
@@ -1081,8 +1093,8 @@ pub fn sync_portal_view_cones(
             };
             rig.drawn_for = drawn_for;
         }
-        let RoomEye { placement: _, room_band, all, viewer, host_view, view, screen_scale } = eye;
-        let (room_band, host_view, view, screen_scale) = (*room_band, *host_view, *view, *screen_scale);
+        let RoomEye { placement: _, room_band, all, viewer, mapped_from, view, screen_scale } = eye;
+        let (room_band, mapped_from, view, screen_scale) = (*room_band, *mapped_from, *view, *screen_scale);
         let viewer = Some(*viewer);
         let frame = eye.placement.frame;
         // A room with no size yet: leave its rigs as they are.
@@ -1099,7 +1111,7 @@ pub fn sync_portal_view_cones(
             continue;
         };
         let (enter, exit) = (portal.aperture(), partner.aperture());
-        let mapped_view = mapped_camera_frame(host_view, &enter, &exit, convention);
+        let mapped_view = mapped_camera_frame(mapped_from, &enter, &exit, convention);
         let capture_frame = mapped_view.filter(|_| {
             config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot
         });
@@ -1316,8 +1328,8 @@ pub fn sync_portal_view_cones(
     // Second pass: spawn rigs for desired pairs not yet served, room by room.
     let mut free_backdrop_slots = None;
     for eye in &eyes {
-    let RoomEye { placement, room_band, all, viewer, host_view, view, screen_scale } = eye;
-    let (room_band, host_view, view, screen_scale) = (*room_band, *host_view, *view, *screen_scale);
+    let RoomEye { placement, room_band, all, viewer, mapped_from, view, screen_scale } = eye;
+    let (room_band, mapped_from, view, screen_scale) = (*room_band, *mapped_from, *view, *screen_scale);
     let viewer = Some(*viewer);
     let frame = placement.frame;
     if frame.size == Vec2::ZERO {
@@ -1331,7 +1343,7 @@ pub fn sync_portal_view_cones(
             continue;
         }
         let (enter, exit) = (portal.aperture(), partner.aperture());
-        let mapped_view = mapped_camera_frame(host_view, &enter, &exit, convention);
+        let mapped_view = mapped_camera_frame(mapped_from, &enter, &exit, convention);
         let capture_frame = mapped_view.filter(|_| {
             config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot
         });
@@ -1562,7 +1574,7 @@ struct RoomEye<'a> {
     all: Vec<PlacedPortal>,
     viewer: &'a PortalViewer,
     /// The camera sample of the observer the eye is for.
-    host_view: Option<&'a PortalCameraContinuityHostView>,
+    mapped_from: Option<geometry::CaptureCameraFrame>,
     /// What the observer's camera shows, the rect its windows are clipped to.
     view: geometry::CaptureCameraFrame,
     screen_scale: Vec2,

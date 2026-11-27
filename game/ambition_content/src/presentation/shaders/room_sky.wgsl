@@ -11,11 +11,12 @@
 #ifdef AMBITION_CARD_MESH
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
+#import ambition_render::card_view::camera_on_play_plane
 #else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::{view, globals}
 #endif
-#import ambition_content::room_look::{value_noise, look_air_state, camera_on_play_plane}
+#import ambition_content::room_look::{value_noise, look_air_state}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif

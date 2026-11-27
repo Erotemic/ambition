@@ -14,8 +14,9 @@ use bevy::prelude::{
 use bevy::sprite::Anchor;
 use bevy::text::{TextBounds, TextLayoutInfo};
 
-use super::{CardMeshes, CardRootDepths, CardScope, RetainedEntities, TextureQuad, CARD_BODY_STEP};
-use crate::rendering::actors::rigged::AppearanceSampleCamera;
+use super::paint_order::CardPaintDepth;
+use super::{CardMeshes, CardRootDepths, CardScope, RetainedEntities, TextureQuad};
+use crate::rendering::camera::coverage::ReplacedPlaneCamera;
 use crate::rendering::label_layout::WorldLabel;
 
 #[derive(Component)]
@@ -27,7 +28,7 @@ pub(super) fn prepare_label_layout(
     mut commands: Commands,
     plane: Query<
         (Entity, &Camera, &Transform, &Projection, &RenderLayers),
-        (With<AppearanceSampleCamera>, Without<LabelLayoutCamera>),
+        (With<ReplacedPlaneCamera>, Without<LabelLayoutCamera>),
     >,
     mut preparation: Query<
         (
@@ -37,7 +38,7 @@ pub(super) fn prepare_label_layout(
             &mut RenderTarget,
             &mut RenderLayers,
         ),
-        (With<LabelLayoutCamera>, Without<AppearanceSampleCamera>),
+        (With<LabelLayoutCamera>, Without<ReplacedPlaneCamera>),
     >,
     mut retained: Local<RetainedEntities<Entity>>,
 ) {
@@ -117,6 +118,7 @@ pub(super) fn realize_card_labels(
             &mut Mesh3d,
             &mut MeshMaterial3d<StandardMaterial>,
             &mut Transform,
+            &mut CardPaintDepth,
         ),
         With<CardLabel>,
     >,
@@ -156,13 +158,8 @@ pub(super) fn realize_card_labels(
                 pages.push(page);
             }
         }
-        let front = depths
-            .fronts
-            .get(&rooms.of(source))
-            .copied()
-            .unwrap_or(CARD_BODY_STEP);
-        let mut place = place.compute_transform();
-        place.translation.z = super::scenery_depth(place.translation.z, front);
+        let depth = depths.scenery(place.translation().z, rooms.of(source));
+        let place = depth.place(&place.compute_transform());
         let color = color.0.to_srgba().to_u8_array();
         for &page in &*pages {
             let Some(page_size) = images.get(page).map(|image| image.size().as_vec2()) else {
@@ -174,7 +171,7 @@ pub(super) fn realize_card_labels(
             let material = cache.textured_material(&texture, color, &mut materials);
             let key = (source, page);
             if let Some(&entity) = retained.get(&key) {
-                let Ok((mut mesh, mut tint, mut transform)) = cards.get_mut(entity) else {
+                let Ok((mut mesh, mut tint, mut transform, mut paint)) = cards.get_mut(entity) else {
                     continue;
                 };
                 if layout.is_changed() || bounds.is_changed() || anchor.is_changed() {
@@ -185,6 +182,7 @@ pub(super) fn realize_card_labels(
                     tint.0 = material;
                 }
                 transform.set_if_neq(place);
+                paint.set_if_neq(depth.paint);
             } else {
                 let card = commands
                     .spawn((
@@ -193,6 +191,7 @@ pub(super) fn realize_card_labels(
                         Mesh3d(meshes.add(label_mesh(&layout, *bounds, *anchor, page, page_size))),
                         MeshMaterial3d(material),
                         place,
+                        depth.paint,
                         RenderLayers::layer(CARD_VIEW_LAYER),
                     ))
                     .id();

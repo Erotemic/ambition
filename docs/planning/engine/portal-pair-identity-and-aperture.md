@@ -100,6 +100,30 @@ Sources: [`BodyGeometry`](../../../crates/ambition_platformer2d_shared_tangle/sr
 
 ### T3 refinement — a publication replaces only its declared population
 
+**Landed 2026-11-27 (bounded fix: scoped replacement inside the owner).**
+`BodyGeometry::reset_apertures_except` replaces only the population a
+publication covers. The portal publishers (`passages.rs`) read the run's
+scope through `Publication`:
+- A full live run replaces everything, as before.
+- A run inside `RoomReplay` replaces the replayed room's links and the
+  entries of the bodies it can see.
+- It keeps each other room's links, and the budget, closed links and
+  straddle of each hidden (`Disabled`) body.
+- `AdmittedPortals` keeps the hidden rooms' portals the same way.
+- The sole room is not rewritten from the one room a replay can see.
+
+A room or body that is gone is not hidden, so its entries go. An
+intentionally portal-disabled room is visible and is still cleared.
+
+Measured with a temporary publisher probe (deleted): two rooms, each with a
+pair and a straddling body that has its own budget. Hiding B and running the
+publishers with no replay scope reproduced the defect: B lost its 2 links,
+its straddle and its budget. Running them as a replay of A, then reading
+before another full tick, kept all of B and refreshed A.
+
+The scoped replacement is the owner's own retention, not a whole-resource
+save and restore.
+
 **Source follow-up at `00bf92c22142`, 2026-11-22.** The body and portal
 publishers clear global `BodyGeometry` maps, then refill them from ordinary
 queries. Hosted `replay_room` hides every foreign room with `Disabled`.

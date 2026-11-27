@@ -29,6 +29,12 @@ use ambition_sim_view::camera_snapshot::{CameraPresentationInputs, ResolvedCamer
 use ambition_sim_view::camera_snapshot::CameraChartTransit;
 use ambition_sim_view::LocalView;
 
+pub(super) mod coverage;
+#[cfg(feature = "portal_render")]
+mod portal_windows;
+#[cfg(feature = "portal_render")]
+pub(super) use portal_windows::publish_portal_window_views;
+
 // Re-exported from `ambition_sim_view`; see that module for why it is
 // per-view state.
 pub use ambition_sim_view::CameraViewState;

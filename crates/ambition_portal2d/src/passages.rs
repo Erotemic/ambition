@@ -53,6 +53,8 @@ pub fn publish_portal_apertures(
     mut passages: ResMut<BodyGeometry>,
     // The rings last said, by room, so each is said once.
     mut rings_said: Local<Vec<(crate::rooms::PortalRoom, Vec<u32>)>>,
+    publication: Publication,
+    admitted: Option<Res<AdmittedPortals>>,
 ) {
     // This publisher runs when the transit set sleeps. A disabled room must
     // release its old portal state before body integration and input guards.
@@ -65,11 +67,17 @@ pub fn publish_portal_apertures(
         }
     }
     let tuning = tuning.as_deref().copied().unwrap_or_default();
-    passages.reset_apertures(tuning.convention.map_convention(), tuning.geometry.budget());
+    passages.reset_apertures_except(
+        tuning.convention.map_convention(), tuning.geometry.budget(),
+        |room| publication.keeps_room(room), |body| publication.keeps_body(body),
+    );
     // The pairs are filed by the room `live.of` gives each portal, which is
     // the sole live room for an unstamped one; a body read with no room is
-    // placed by the same rule.
-    passages.set_sole_room(live.sole());
+    // placed by the same rule. A replay sees one room of several: the sole
+    // room stays what the live rooms make it.
+    if publication.replayed.is_none() {
+        passages.set_sole_room(live.sole());
+    }
     for (body, own) in &own_policies {
         passages.set_body_budget(body, own.0);
     }
@@ -110,8 +118,33 @@ pub fn publish_portal_apertures(
             .filter(|link| ends.contains(&link.enter)).map(|link| link.key).collect();
         if !keys.is_empty() { passages.close_for(body, keys); }
     }
-    write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
+    write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect(), &publication);
+    let mut by_room = by_room;
+    if let Some(previous) = admitted.as_deref() {
+        by_room.keep_from(&previous.0, |room| publication.keeps_room(room));
+    }
     commands.insert_resource(AdmittedPortals(by_room));
+}
+
+/// What one run of the publishers covers. A full run covers every live room.
+/// A room's replay hides the other rooms while it runs (portal T3): it covers
+/// only the replayed room, and keeps the publication of each hidden room and
+/// body as the live run left it. A room or body that is gone (retired,
+/// despawned) is not hidden, so its entries go.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct Publication<'w, 's> {
+    replayed: Option<Res<'w, ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
+    hidden: Query<'w, 's, (), With<bevy::ecs::entity_disabling::Disabled>>,
+}
+
+impl Publication<'_, '_> {
+    fn keeps_room(&self, room: crate::rooms::PortalRoom) -> bool {
+        self.replayed.as_deref().is_some_and(|replay| room.is_some() && room != Some(replay.room))
+    }
+
+    fn keeps_body(&self, body: Entity) -> bool {
+        self.replayed.is_some() && self.hidden.contains(body)
+    }
 }
 
 /// Refresh body occupancy after transit without changing the admitted apertures.
@@ -120,17 +153,19 @@ pub fn publish_portal_passages(
     transits: Query<(Entity, &PortalTransit)>,
     live: PortalRooms,
     mut passages: ResMut<BodyGeometry>,
+    publication: Publication,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
-    write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
+    write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect(), &publication);
 }
 
 fn write_straddlers(
     passages: &mut BodyGeometry,
     by_room: &PortalsByRoom,
     mut straddlers: Vec<(Entity, crate::rooms::PortalRoom, PortalTransit)>,
+    publication: &Publication,
 ) {
-    passages.clear_straddlers();
+    passages.retain_straddlers(|body| publication.keeps_body(body));
     straddlers.sort_by_key(|(body, _, _)| *body);
     for (body, room, transit) in straddlers {
         let all = by_room.in_room(room);
@@ -222,4 +257,5 @@ mod capability_isolation_tests {
         assert!(!body.contains::<crate::PortalEmission>());
         assert!(!body.contains::<crate::PortalInputWarp>());
     }
+
 }

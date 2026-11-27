@@ -56,7 +56,7 @@ pub(super) fn realize_portal_windows(
         place.translation.z = PORTAL_DEPTH - 0.01;
         // The window stays at the seam. Its picture replaces the scene under
         // the wedge after the bodies and their portal pieces draw.
-        let depth = CardPaintDepth(depths.scenery_depth(transform.translation.z, rooms.of(source)));
+        let depth = depths.scenery(transform.translation.z, rooms.of(source)).paint;
         if let Some((mut polygon, image, mut position, mut visibility, mut order)) = product {
             if polygon.0 != mesh.0 {
                 polygon.0 = mesh.0.clone();

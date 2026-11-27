@@ -215,7 +215,7 @@ where
         Name::new("panel"),
         rect_layout(rect),
         plane_depth(depth, active),
-        UiMeshPlane3d,
+        super::PanelQuad,
         MeshMaterial3d(material),
         KaleidoscopeFade { base_alpha },
     ));

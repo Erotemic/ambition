@@ -146,6 +146,44 @@ fn texts(app: &mut App) -> Vec<String> {
     found
 }
 
+#[test]
+fn a_room_label_keeps_its_entity_when_a_marker_leaves_the_view() {
+    let mut map = MenuPageModel::<Page, Action>::new(Page::System, "Map", MenuColor::BLUE_PANEL);
+    map.panel(MenuRect::new(10.0, 12.0, 3.0, 4.0), MenuColor::WHITE, None);
+    map.text(20.0, 22.0, 2.0, "Station", MenuTextAlign::Center, MenuColor::WHITE);
+    let mut app = test_app(map.clone());
+    let label = node_entity(&mut app, 1);
+
+    map.nodes.clear();
+    map.text(30.0, 22.0, 2.0, "Station", MenuTextAlign::Center, MenuColor::WHITE);
+    publish(&mut app, map);
+    assert_eq!(node_entity(&mut app, 0), label);
+    assert_eq!(app.world().get::<Text3d>(label).unwrap().get_single(), Some("Station"));
+}
+
+#[test]
+fn resized_panels_keep_the_mesh_they_share_with_other_faces() {
+    use bevy_lunex::prelude::Dimension;
+    use super::{resize_panel_quads, PanelQuad};
+
+    let mut app = App::new();
+    app.add_plugins(AssetPlugin::default());
+    app.init_asset::<Mesh>();
+    app.add_systems(Update, resize_panel_quads);
+    let a = app.world_mut().spawn((PanelQuad, Dimension::from((8.0, 5.0)), Transform::default())).id();
+    let b = app.world_mut().spawn((PanelQuad, Dimension::from((12.0, 6.0)), Transform::default())).id();
+    app.update();
+    let mesh = app.world().get::<Mesh3d>(a).unwrap().0.clone();
+    assert_eq!(app.world().get::<Mesh3d>(b).unwrap().0, mesh);
+
+    app.world_mut().entity_mut(a).insert(Dimension::from((4.0, 3.0)));
+    app.update();
+    assert_eq!(app.world().get::<Mesh3d>(a).unwrap().0, mesh);
+    assert_eq!(app.world().get::<Mesh3d>(b).unwrap().0, mesh);
+    assert_eq!(app.world().get::<Transform>(a).unwrap().scale, Vec3::new(4.0, 3.0, 1.0));
+    assert_eq!(app.world().get::<Transform>(b).unwrap().scale, Vec3::new(12.0, 6.0, 1.0));
+}
+
 /// Scrolling the list one row rewrites the title, every row label and the thumb
 /// on the entities already drawing them. Nothing is despawned or spawned.
 #[test]

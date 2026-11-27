@@ -7,6 +7,47 @@
 
 pub mod bevy_ui;
 
+/// Match existing page nodes to the next model. Keep text when other nodes move or disappear.
+#[doc(hidden)]
+pub fn match_page_nodes<Action: PartialEq>(
+    previous: &[Option<&crate::MenuNode<Action>>],
+    next: &[crate::MenuNode<Action>],
+) -> Vec<Option<usize>> {
+    use crate::MenuNode;
+    use std::collections::{HashMap, VecDeque};
+
+    let mut matches = vec![None; next.len()];
+    let mut used = vec![false; previous.len()];
+    for (index, (before, after)) in previous.iter().zip(next).enumerate() {
+        if *before == Some(after) {
+            matches[index] = Some(index);
+            used[index] = true;
+        }
+    }
+    let mut lines: HashMap<&str, VecDeque<usize>> = HashMap::new();
+    for (index, node) in previous.iter().enumerate() {
+        if let Some(MenuNode::Text { text, .. }) = node.filter(|_| !used[index]) {
+            lines.entry(text).or_default().push_back(index);
+        }
+    }
+    for (index, node) in next.iter().enumerate() {
+        if matches[index].is_none() {
+            if let MenuNode::Text { text, .. } = node {
+                if let Some(before) = lines.get_mut(text.as_str()).and_then(VecDeque::pop_front) {
+                    matches[index] = Some(before);
+                    used[before] = true;
+                }
+            }
+        }
+    }
+    for (index, matched) in matches.iter_mut().enumerate() {
+        if matched.is_none() && previous.get(index).is_some_and(Option::is_some) && !used[index] {
+            *matched = Some(index);
+        }
+    }
+    matches
+}
+
 /// Host systems that place menu surfaces before camera projection updates.
 #[derive(bevy::prelude::SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MenuSurfaceLayout;

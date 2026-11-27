@@ -15,7 +15,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::menu::render::bevy_ui::{
     install_bevy_ui_menu_actions, install_bevy_ui_menu_tabs, BevyUiMenuInteractionSet,
-    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
+    BevyUiMenuPageBodies, BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_platformer2d::menu::{
     ActiveMenuPages, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect, MenuTabActivated,
@@ -603,6 +603,7 @@ pub(crate) fn grid_menu_republish_view(
     >,
     assets: Option<Res<AssetServer>>,
     menu_font: Option<Res<ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
+    mut bodies: BevyUiMenuPageBodies<MenuPageAction>,
     mut commands: Commands,
 ) {
     for (
@@ -617,7 +618,8 @@ pub(crate) fn grid_menu_republish_view(
         cache,
     ) in &mut menus
     {
-        let has_root = roots.iter().any(|(_, owner)| owner.0 == menu_entity);
+        let root = roots.iter().find_map(|(entity, owner)| (owner.0 == menu_entity).then_some(entity));
+        let has_root = root.is_some();
         let active = backend.effective() == InventoryUiBackend::Grid && overlay.visible;
         if !active {
             // Tear the tree down when not the active+open backend, and forget the key so
@@ -690,6 +692,9 @@ pub(crate) fn grid_menu_republish_view(
         if tab_state.last_key == Some(key) && has_root && !state_changed {
             continue;
         }
+        let retain_map_body = active_page == MenuPage::Map
+            && tab_state.rendered_font.as_ref() == font
+            && tab_state.last_key.is_some_and(|last| last.tab == key.tab && last.zone == key.zone);
         tab_state.last_key = Some(key);
         tab_state.rendered_font = font.cloned();
         let built = build_inventory_pages_with_quality_prompt(
@@ -739,11 +744,6 @@ pub(crate) fn grid_menu_republish_view(
             )
         });
 
-        // Despawn the previous tree, then respawn ON THE SAME command buffer so both land in the same
-        // flush. Spawning directly with the system's own `Commands` closes that gap.)
-        for (e, _) in roots.iter().filter(|(_, owner)| owner.0 == menu_entity) {
-            commands.entity(e).despawn();
-        }
         let tabs = tab_specs();
         // Fix 4: when focus is on the tab bar, tell the renderer which tab to ring; when
         // in the body, no tab is focused (only the active tab is highlighted).
@@ -759,6 +759,14 @@ pub(crate) fn grid_menu_republish_view(
             focused,
             focused_tab,
         };
+        if retain_map_body && root.is_some_and(|root| {
+            bodies.update(&mut commands, root, &view, assets.as_deref(), font)
+        }) {
+            continue;
+        }
+        for (entity, _) in roots.iter().filter(|(_, owner)| owner.0 == menu_entity) {
+            commands.entity(entity).despawn();
+        }
         // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
         // sprite ICONS (the model's per-cell icon path), like the cube does.
         let root = ambition_platformer2d::menu::render::bevy_ui::spawn_bevy_ui_menu_with_font(

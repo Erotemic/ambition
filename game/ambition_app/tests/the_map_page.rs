@@ -87,6 +87,12 @@ fn the_fantasy_overworld_opens_the_barrows_as_a_separate_map() {
     assert_eq!(dungeon.entries.len(), 7);
     assert!(dungeon.entries.iter().any(|entry| entry.title == "THE WHEELWORKS"));
     assert!(dungeon.links.len() >= 6);
+
+    browser.apply(&atlas, access, 1.7, MapAction::Up);
+    let returned = browser.view(&atlas, access, 1.7);
+    let focused = returned.entries.iter().find(|entry| entry.id == entrance.id).unwrap();
+    assert!(focused.selected);
+    assert!(focused.pieces.iter().any(|piece| piece.width() > entrance.pieces[0].width()));
 }
 
 #[test]

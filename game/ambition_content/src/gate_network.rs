@@ -4,8 +4,44 @@
 //! The catalog is one App resource. A content reload replaces it whole: the
 //! network is one game's, and no other provider adds rings to it.
 
-use ambition_platformer2d::world::rooms::{GateNetworkCatalog, GateRingPositions, RingPosition, GATE_NETWORK_SCHEMA};
-use bevy::prelude::{App, Commands, DetectChanges, IntoScheduleConfigs, PreUpdate, Res};
+use ambition_platformer2d::world::rooms::{
+    GateAddressLearned, GateNetworkCatalog, GateRing, GateRingPositions, GateStartKnowledge, RingPosition,
+    GATE_NETWORK_SCHEMA,
+};
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+use bevy::prelude::{App, Commands, DetectChanges, IntoScheduleConfigs, MessageReader, PreUpdate, Res, ResMut};
+
+/// The save flag that records that the player knows `address` (its word). A
+/// dial that answers sets it (the engine reports [`GateAddressLearned`]); a
+/// sign, a person or a document can set it too (Yarn `world.set_flag`).
+/// Knowledge changes what a terminal lists, never what a dial does.
+pub fn gate_address_known_flag(address: &str) -> String {
+    format!("gate.known.{address}")
+}
+
+/// Whether a traveller knows the address of `ring`: under
+/// [`GateStartKnowledge::All`] every address, else the ones whose known flag
+/// `flag` reads as set.
+pub fn knows(catalog: &GateNetworkCatalog, ring: &GateRing, flag: impl Fn(&str) -> bool) -> bool {
+    matches!(catalog.start_known, GateStartKnowledge::All) || flag(&gate_address_known_flag(ring.address_key()))
+}
+
+/// Record each address the network taught this tick as its known flag.
+fn remember_learned_addresses(
+    catalog: Option<Res<GateNetworkCatalog>>,
+    mut learned: MessageReader<GateAddressLearned>,
+    mut save: ResMut<ambition_platformer2d::persistence::save::AmbitionGameSave>,
+) {
+    let Some(catalog) = catalog else {
+        learned.clear();
+        return;
+    };
+    for learned in learned.read() {
+        if let Some(ring) = catalog.ring(&learned.ring) {
+            save.data_mut().set_flag(gate_address_known_flag(ring.address_key()), true);
+        }
+    }
+}
 
 /// The gate network a pack states.
 pub(crate) fn lowered_gate_network(pack: &ambition_content_pack::PreparedContentPack) -> GateNetworkCatalog {
@@ -24,6 +60,15 @@ pub(super) fn register(app: &mut App) {
     app.insert_resource(crate::gate_inscription::address_rule());
     app.init_resource::<GateRingPositions>();
     app.add_systems(PreUpdate, place_gate_rings.run_if(the_rings_or_the_worlds_changed));
+    // In the tick the network taught it, right after the dial.
+    let sim = app.sim_schedule();
+    app.add_message::<GateAddressLearned>();
+    app.add_systems(
+        sim,
+        remember_learned_addresses
+            .after(ambition_platformer2d::session::rooms::gate_network::run_gate_network)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::ProgressionSet::WorldSync),
+    );
 }
 
 fn the_rings_or_the_worlds_changed(
@@ -101,13 +146,12 @@ mod tests {
     /// heights' arch, posted on the keep's terminal, is listed from the start.
     #[test]
     fn magicals_arches_list_only_the_arches_they_reach() {
-        use ambition_platformer2d::world::rooms::GateStartKnowledge;
         let mut catalog = lowered_gate_network(crate::pack::shipped());
         let manifest = crate::worlds::world_manifest();
         let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
         let positions = ring_positions(&catalog, &project);
         let words = |catalog: &GateNetworkCatalog, ring: &str, learned: &[&str]| -> Vec<String> {
-            let learned: Vec<String> = learned.iter().map(|word| ambition_platformer2d::world::rooms::gate_address_known_flag(word)).collect();
+            let learned: Vec<String> = learned.iter().map(|word| gate_address_known_flag(word)).collect();
             crate::gate_terminal::known_addresses(catalog, &positions, ring, |flag| learned.iter().any(|known| known == flag))
                 .into_iter()
                 .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
@@ -129,13 +173,12 @@ mod tests {
     /// the chain) and an arch up the chain only once its address is learned.
     #[test]
     fn the_jungles_arches_list_only_their_neighbours_on_the_trail() {
-        use ambition_platformer2d::world::rooms::GateStartKnowledge;
         let mut catalog = lowered_gate_network(crate::pack::shipped());
         let manifest = crate::worlds::world_manifest();
         let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
         let positions = ring_positions(&catalog, &project);
         let words = |catalog: &GateNetworkCatalog, ring: &str, learned: &[&str]| -> Vec<String> {
-            let learned: Vec<String> = learned.iter().map(|word| ambition_platformer2d::world::rooms::gate_address_known_flag(word)).collect();
+            let learned: Vec<String> = learned.iter().map(|word| gate_address_known_flag(word)).collect();
             let mut words: Vec<String> = crate::gate_terminal::known_addresses(catalog, &positions, ring, |flag| learned.iter().any(|known| known == flag))
                 .into_iter()
                 .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
@@ -191,7 +234,7 @@ mod tests {
     #[test]
     fn each_address_a_dialogue_teaches_is_an_address_of_the_network() {
         let catalog = lowered_gate_network(crate::pack::shipped());
-        let prefix = ambition_platformer2d::world::rooms::gate_address_known_flag("");
+        let prefix = gate_address_known_flag("");
         let mut taught = Vec::new();
         let mut dirs = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/dialogue")];
         while let Some(dir) = dirs.pop() {

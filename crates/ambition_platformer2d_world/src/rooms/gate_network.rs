@@ -114,12 +114,14 @@ impl Default for GateAddressRule {
     }
 }
 
-/// The save flag that records that the player knows `address` (its word). A dial that
-/// succeeds sets it; a sign, a person or a document can set it too (Yarn
-/// `world.set_flag`). Knowledge changes what a terminal lists, never what a
-/// dial does.
-pub fn gate_address_known_flag(address: &str) -> String {
-    format!("gate.known.{address}")
+/// A ring's address became known: the ring answered a dial, or a portal's
+/// terminal was opened at it (standing at a portal attunes it). The engine
+/// keeps no knowledge; a game records what it means (Ambition: a save flag
+/// its terminals list by), read in the same tick after the dial.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct GateAddressLearned {
+    /// The zone of the ring whose address became known.
+    pub ring: String,
 }
 
 /// A game's gate network, as authored.
@@ -154,8 +156,8 @@ impl Default for GateNetworkCatalog {
 /// Which addresses a traveller knows before learning any.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
 pub enum GateStartKnowledge {
-    /// Only what the traveller learned: a dial that answered, a sign, a
-    /// person, a document (each sets [`gate_address_known_flag`]).
+    /// Only what the traveller learned: a dial that answered
+    /// ([`GateAddressLearned`]), a sign, a person, a document.
     #[default]
     Discovered,
     /// Every address of the network, hidden ones too: a development game that
@@ -414,13 +416,6 @@ impl GateNetworkCatalog {
     /// The facility `id`.
     pub fn facility(&self, id: &str) -> Option<&GateFacility> {
         self.facilities.iter().find(|facility| facility.id == id)
-    }
-
-    /// Whether a traveller knows the address of `ring`: under
-    /// [`GateStartKnowledge::All`] every address, else the ones whose known
-    /// flag `flag` reads as set.
-    pub fn knows(&self, ring: &GateRing, flag: impl Fn(&str) -> bool) -> bool {
-        matches!(self.start_known, GateStartKnowledge::All) || flag(&gate_address_known_flag(ring.address_key()))
     }
 }
 
@@ -912,6 +907,10 @@ where
     registrar.clear_message_on_rollback::<GateTerminalIntent>(
         super::GATE_PORTAL_ROLLBACK_OWNER,
         "message.gate_terminal_intent",
+    );
+    registrar.clear_message_on_rollback::<GateAddressLearned>(
+        super::GATE_PORTAL_ROLLBACK_OWNER,
+        "message.gate_address_learned",
     );
 }
 

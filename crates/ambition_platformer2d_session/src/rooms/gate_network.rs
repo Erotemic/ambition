@@ -11,7 +11,7 @@ use bevy::prelude::{Query, Res, ResMut, With, Without};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_world::rooms::{
-    gate_address_known_flag, resolve_dial, GateFacts, GateNetworkCatalog, GateNetworkState, GateRingPositions,
+    resolve_dial, GateAddressLearned, GateFacts, GateNetworkCatalog, GateNetworkState, GateRingPositions,
     GateTerminalAction, GateTerminalIntent, RingKind,
 };
 
@@ -33,7 +33,10 @@ pub fn run_gate_network(
     mut state: ResMut<GateNetworkState>,
     switches: Option<Res<ambition_encounter::switches::ResolvedSwitchActivations>>,
     mut intents: ReplayMessageReader<GateTerminalIntent>,
-    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    (save, mut learned): (
+        Res<ambition_persistence::save::AmbitionGameSave>,
+        bevy::prelude::MessageWriter<GateAddressLearned>,
+    ),
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     world_time: Res<ambition_time::WorldTime>,
     positions: Option<Res<GateRingPositions>>,
@@ -59,7 +62,7 @@ pub fn run_gate_network(
                     state.terminals.insert(subject.clone(), ring.zone.clone());
                 }
                 if ring.kind == RingKind::Portal {
-                    save.data_mut().set_flag(gate_address_known_flag(ring.address_key()), true);
+                    learned.write(GateAddressLearned { ring: ring.zone.clone() });
                 }
             }
             None => bevy::log::warn_once!(
@@ -101,7 +104,6 @@ pub fn run_gate_network(
                 match resolve_dial(&catalog, &state, &intent.ring, address, &facts) {
                     Ok(far) => {
                         let far_zone = far.zone.clone();
-                        let known = gate_address_known_flag(far.address_key());
                         if let Err(refusal) = state.open_link(&catalog, &intent.ring, &far_zone) {
                             state.report(&intent.subject, &intent.ring, address.clone(), Err(refusal));
                             continue;
@@ -110,9 +112,9 @@ pub fn run_gate_network(
                         if leads_to.as_ref().is_some_and(|before| *before != far_zone) {
                             state.open_after_close(&intent.ring);
                         }
-                        state.report(&intent.subject, &intent.ring, address.clone(), Ok(far_zone));
+                        state.report(&intent.subject, &intent.ring, address.clone(), Ok(far_zone.clone()));
                         // A dial that answers teaches the address.
-                        save.data_mut().set_flag(known, true);
+                        learned.write(GateAddressLearned { ring: far_zone.clone() });
                     }
                     Err(refusal) => state.report(&intent.subject, &intent.ring, address.clone(), Err(refusal)),
                 }

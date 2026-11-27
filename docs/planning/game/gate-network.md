@@ -269,6 +269,14 @@ presentation turns the address being entered (`GateDialPreview`, moved to
 content) or sent into `GateRingOverlays`, and the engine draws each
 overlay's row and place of the ring's glyph sheet.
 
+*Slice 2 (2026-11-27).* Knowledge is the game's. The engine's dial writes
+no save: it reports `GateAddressLearned { ring }` when a ring answers or a
+portal's terminal is opened at it, and Ambition's
+`remember_learned_addresses` (in the same tick, after the dial) sets
+`gate.known.<ADDRESS>`. The flag's spelling and `knows` (what a terminal
+lists) are `ambition_content::gate_network`'s. The catalog still parses
+`start_known` and the posted addresses; they move with the directory.
+
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).

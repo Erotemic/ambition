@@ -244,7 +244,7 @@ pub fn known_addresses(
         let Some(address) = catalog.address_of(candidate) else {
             continue;
         };
-        if candidate.zone != ring && reachable(candidate) && catalog.knows(candidate, &flag) && !listed.contains(&address) {
+        if candidate.zone != ring && reachable(candidate) && crate::gate_network::knows(catalog, candidate, &flag) && !listed.contains(&address) {
             listed.push(address);
         }
     }
@@ -732,7 +732,8 @@ mod tests {
     /// known (the development default), each gate is listed.
     #[test]
     fn a_terminal_lists_its_posted_address_and_what_the_save_knows() {
-        use ambition_platformer2d::world::rooms::{gate_address_known_flag, GateStartKnowledge};
+        use crate::gate_network::gate_address_known_flag;
+        use ambition_platformer2d::world::rooms::GateStartKnowledge;
         let mut catalog = catalog();
         let all = known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
         if catalog.start_known == GateStartKnowledge::All {

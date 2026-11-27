@@ -94,6 +94,8 @@ impl Plugin for ProgressionSchedulePlugin {
         // (`HostIntentPlugin`); it is named here too so a composition without
         // the ledger still builds this system. `add_message` is idempotent.
         app.add_message::<ambition_platformer2d_world::rooms::GateTerminalIntent>();
+        // What a dial taught, for a game's own record of known addresses.
+        app.add_message::<ambition_platformer2d_world::rooms::GateAddressLearned>();
         // The gate network: a terminal opens at its switch's press, a dial
         // opens a link, and the link commands its rings' portal phases. After
         // the switch drain (it reads the press) and before the portal tick (it

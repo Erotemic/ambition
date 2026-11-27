@@ -354,13 +354,27 @@ Still open in M3:
   a pair admitted beside the body gives the cast a scene. The stretching
   line meets the body at t 0.5, where its end arrives, with that end's
   travel (+10). Before, it read the rigid fit, a contact at once. Its
-  control, a mouth on the line's own plane, still reads the rigid fit.
+  second case, a mouth on the line's own plane, read the rigid fit until
+  the on-plane split below landed; it is now met at t 0.5 too.
   Core lib (942), runtime with `portal` (306) and the app's portal tests
   (53) pass.
   A cell cut by a portal or beyond one landed as S2's clipped cast, and a
   curve-carried cell and a round body in a cut cell as S3 (2026-11-27).
-  Still open: a line on an aperture's plane (the portal's own host), which
-  needs the deforming `line_parts` split.
+  **Landed (2026-11-27): a line on an aperture's own plane.** A
+  deforming line that lies on an aperture's plane, each of its ends
+  crossing that plane's normal exactly as the (translating) plane moves
+  (`Scene::plane_carrying_line`), is split by the rigid path's
+  `line_parts` from its end pose; the split holds through the tick, and
+  each piece is read by its ends' own travel (`deforming_in`: the clipped
+  cast, or the curved search for a curve-carried piece or a round body).
+  A line that leaves the plane, or lies on a turning one, still reads the
+  rigid fit. Witness
+  `a_deforming_line_on_a_portals_plane_is_read_by_its_shape_motion`: a
+  wall flush with a static entry, above the opening, its lower end sliding
+  down onto a body that straddles the opening's end, is met at t 2/3, as
+  the same wall with no portal. The rigid fit met it at t 1/3, and so did
+  the old dispatch (control run with the old `material_cast.rs`: 0.333).
+  Core lib (976) and portal2d lib (145) pass.
 
 ## Required motion operation
 
@@ -884,9 +898,9 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   (`a_clipped_deforming_cast_with_equal_end_motion_is_the_cut_translation_cast`,
   600 random cut cells, also run at 6000); a cut root cell meets a stretching
   end half way through the tick where the rigid fit arrived at its end
-  (`a_cut_root_cell_reads_a_stretching_line_by_its_shape_motion`). Still on
-  the rigid fit: a line on a portal's plane (a curve-carried cell and a
-  round body in a cut cell landed under S3).
+  (`a_cut_root_cell_reads_a_stretching_line_by_its_shape_motion`). A line
+  on a portal's plane landed 2026-11-27 (S1's receipt above); a
+  curve-carried cell and a round body in a cut cell landed under S3.
 - **S3 — a curve-carried cell** (a curved support on a moving host)
   through a portal. Test: the GNU hump's material place survives a crossing.
   *Cast landed 2026-11-27.* A cell carried on a curve (beyond a turning
@@ -918,8 +932,9 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   test refused it by a rounding step. The cast then reported the cut point
   or an end, about 1e-3 of a tick later (t 0.05096 against the true
   0.05005). Every rigid round body meeting a line in a cut cell took that
-  road. A face contact on a segment's side now skips its twin plane. Still
-  on the rigid fit: a line on an aperture's plane.
+  road. A face contact on a segment's side now skips its twin plane. A line
+  on an aperture's plane landed the same day (S1's receipt above); only a
+  line that leaves the plane, or lies on a turning one, reads the rigid fit.
 
 **P5/P6 — observer and capture** ([view/capture
 contract](portals-one-transit-for-every-mover.md)). Keep the current

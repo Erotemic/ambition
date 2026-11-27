@@ -177,6 +177,32 @@ impl Scene {
         })
     }
 
+    /// The displacement of a translating aperture plane that a deforming line
+    /// stays on through the tick: its ends lie on the plane where the tick
+    /// ends, and each crosses the plane's normal exactly as the plane moves.
+    /// Then the pieces [`CurveCell::line_parts`] splits its end pose into
+    /// hold over the whole interval, and each piece is read by its ends' own
+    /// travel. `None` for a line any end of which leaves the plane.
+    pub(super) fn plane_carrying_line(&self, from: [crate::Vec2; 2], to: [crate::Vec2; 2]) -> Option<crate::Vec2> {
+        self.links.iter()
+            .flat_map(|link| [(link.enter, link.enter_step), (link.exit, link.exit_step)])
+            .find_map(|(aperture, step)| {
+                if step.turn != 0.0 {
+                    return None;
+                }
+                let normal = aperture.frame.normal.as_dvec2().normalize();
+                let origin = aperture.frame.origin.as_dvec2();
+                let shift = normal.dot(step.displacement.as_dvec2());
+                let near = |value: f64, scale: f64| value.abs() <= LINE_ON_PLANE * (1.0 + scale);
+                (0..2).all(|i| {
+                    let (start, end) = (from[i].as_dvec2(), to[i].as_dvec2());
+                    near(normal.dot(end - origin), normal.abs().dot(end.abs() + origin.abs()))
+                        && near(normal.dot(end - start) - shift,
+                            normal.abs().dot(end.abs() + start.abs()) + shift.abs())
+                }).then_some(step.displacement)
+            })
+    }
+
     pub(super) fn admission(&self) -> MotionAdmission<'_> {
         MotionAdmission { span: Default::default(), links: &self.links, first: self.first, budget: self.budget, convention: self.convention }
     }

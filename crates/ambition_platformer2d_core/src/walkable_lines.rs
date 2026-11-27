@@ -599,9 +599,10 @@ mod tests {
     /// SUP1 through a portal scene: a pair admitted beside the body gives
     /// the cast a scene, and the body's uncut cell still meets the stretching
     /// line when its end arrives. Its plane (x 37) does not hold the line, so
-    /// no cell sees a piece of it. Control: a mouth on the line's own plane
-    /// (y 5) is the case the rigid path splits, and it still reads the
-    /// line's rigid fit, a contact at once.
+    /// no cell sees a piece of it. A mouth on the line's own plane (y 5) is
+    /// the case the rigid path splits; the line stays on that plane, so each
+    /// piece is read by the line's shape motion and it is met when its end
+    /// arrives there too. Its rigid fit met it at once.
     #[test]
     fn a_stretching_line_beside_a_portal_is_met_when_its_end_arrives() {
         use crate::frame::{
@@ -627,7 +628,8 @@ mod tests {
         let travel = hit.collider.displacement_at(hit.contact.world_point, hit.contact.world_time);
         assert!((travel - Vec2::new(10.0, 0.0)).length() < 1e-3, "the surface there goes with its end: {travel:?}");
         let on_the_line = first(aperture(Vec2::new(22.0, 5.0), Vec2::Y));
-        assert!(on_the_line.contact.world_time < 1e-6, "the rigid fit: {}", on_the_line.contact.world_time);
+        assert!((on_the_line.contact.world_time - 0.5).abs() < 1e-6, "split, and read by its shape: {}",
+            on_the_line.contact.world_time);
     }
 
     #[test]

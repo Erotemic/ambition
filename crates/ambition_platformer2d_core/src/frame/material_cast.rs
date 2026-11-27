@@ -589,10 +589,14 @@ impl MaterialCastCells<'_> {
     /// A cell cut by a portal, and a cell beyond one, sees the part of the
     /// segment its planes keep ([`clipped_deforming_segment_cast`]). A cell
     /// carried on a curve, and a round body in a cut cell, follow the ends
-    /// through the curved interval search ([`curved::deforming_cast`]). A
-    /// line on a portal's plane (which the rigid path splits into the pieces
-    /// each cell sees) is not admitted here; it reads the rigid fit `fit`
-    /// names, as every reader did before the shape was published.
+    /// through the curved interval search ([`curved::deforming_cast`]).
+    ///
+    /// A line on a portal's plane is split, as the rigid path splits it, into
+    /// the pieces each cell sees. When each end crosses the plane's normal
+    /// exactly as a translating plane moves (`Scene::plane_carrying_line`),
+    /// the split holds through the tick and each piece is read by its ends'
+    /// own travel. A line that leaves the plane, or lies on a turning one,
+    /// reads the rigid fit `fit` names.
     pub(crate) fn against_deforming_where(
         &self, part: &MaterialCell, from: [Vec2; 2], to: [Vec2; 2],
         fit: (Vec2, f32, Vec2), mut accepts: impl FnMut(&MaterialCastHit) -> bool,
@@ -600,9 +604,32 @@ impl MaterialCastCells<'_> {
         if from.iter().chain(&to).any(|point| !point.is_finite()) {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
-        let on_a_plane = self.scene.as_ref().is_some_and(|scene| scene.may_split_line([&from, &to]));
+        let Some(scene) = self.scene.as_ref().filter(|scene| scene.may_split_line([&from, &to])) else {
+            return self.deforming_in(part, from, to, fit, accepts);
+        };
+        let (displacement, turn, pivot) = fit;
+        let Some(shift) = scene.plane_carrying_line(from, to) else {
+            return self.against_rigid_where(part, &to, displacement, turn, pivot, accepts);
+        };
+        let scopes = self.obstacle_scopes(part, &to, shift, 0.0, pivot)?;
+        let mut selected: Option<MaterialCastHit> = None;
+        for scope in scopes.iter() {
+            if let Some(hit) = self.deforming_in(scope, from, to, fit, &mut accepts)? {
+                if selected.as_ref().is_none_or(|old| hit.toi < old.toi) {
+                    selected = Some(hit);
+                }
+            }
+        }
+        Ok(selected)
+    }
+
+    /// [`Self::against_deforming_where`] in one cell no plane splits the line in.
+    fn deforming_in(
+        &self, part: &MaterialCell, from: [Vec2; 2], to: [Vec2; 2],
+        fit: (Vec2, f32, Vec2), mut accepts: impl FnMut(&MaterialCastHit) -> bool,
+    ) -> Result<Option<MaterialCastHit>, Refusal> {
         let round_in_a_cut = matches!(self.material.domain, CombatVolume::Circle { .. }) && !part.planes.is_empty();
-        if (part.curve.is_some() || round_in_a_cut) && !on_a_plane {
+        if part.curve.is_some() || round_in_a_cut {
             // A cell carried on a curve, or a round body in a cut cell: the
             // interval search the rigid cast uses there, following each
             // end's own travel.
@@ -620,7 +647,7 @@ impl MaterialCastCells<'_> {
             return match failed { Some(reason) => Err(reason), None => Ok(selected) };
         }
         let unbounded_beyond = !part.path.is_empty() && part.planes.is_empty();
-        if on_a_plane || unbounded_beyond {
+        if unbounded_beyond {
             let (displacement, turn, pivot) = fit;
             return self.against_rigid_where(part, &to, displacement, turn, pivot, accepts);
         }

@@ -80,15 +80,16 @@ marks the upper door, and an arrow at the foot points to the terraces.
 
 ## Narthex
 
-The doors to the central hub, the Pilgrims' Way, and the nave have different
-crests. Ramen-nujan stands in the alcove under the lamp. Two small ledges
-lead to the alms balcony. The Pesto Key opens its seal.
+The doors to the central hub and the Pilgrims' Way have different crests.
+The east passage continues into the nave on the same floor. Ramen-nujan
+stands in the alcove under the lamp. Two small ledges lead to the alms
+balcony. The Pesto Key opens its seal.
 
 ## Nave
 
 A bell, a wheel, a vessel, and a colander mark the four upper routes.
-Stone alcoves mark the doors at the ends of those routes and the door to
-the scullery at the end of the main floor.
+Stone alcoves mark the doors at the ends of those routes. Walk east
+from the nave into the scullery on the same floor.
 
 ## Scullery
 

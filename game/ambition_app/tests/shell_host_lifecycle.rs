@@ -2858,6 +2858,7 @@ fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
             vfx: VfxMessage::CoinPop { pos: MARK },
         });
         sounds.write(OwnedSfxMessage {
+            group: None,
             owner: Some(AudioContextOwner::Frontend(u64::MAX)),
             source: PresentationSourceId::new("test.a_sound_the_host_wrote"),
             request: SfxMessage::Hit { pos: MARK },

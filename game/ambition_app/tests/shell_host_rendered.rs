@@ -633,6 +633,7 @@ fn play_owned_sfx_from(
     let wanted = source.clone();
     app.world_mut()
         .write_message(ambition_platformer2d::sfx::OwnedSfxMessage {
+            group: None,
             owner,
             source,
             request,
@@ -853,6 +854,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .rejected_wrong_owner;
     app.world_mut().write_message(OwnedSfxMessage {
+        group: None,
         owner: Some(first_sanic_owner),
         source: "sanic".into(),
         request: SfxMessage::Dash { pos: Vec2::ZERO },
@@ -1797,9 +1799,10 @@ fn a_world_sound_uses_the_live_listener_and_a_menu_sound_does_not() {
     let context = app.world().resource::<SfxEmissionContext>();
     let owner = context.owner();
     let source = context.source().clone();
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(60)));
     for (emitter, expected) in [(SfxEmitter::point(at), 1.0),
         (SfxEmitter::point(at + Vec2::splat(5000.0)), 0.0), (SfxEmitter::Global, 1.0)] {
-        app.world_mut().write_message(OwnedSfxMessage { owner, source: source.clone(),
+        app.world_mut().write_message(OwnedSfxMessage { group: None, owner, source: source.clone(),
             request: SfxMessage::Play { id: ids::UI_MENU_MOVE, emitter }, space: None });
         app.update();
         let record = app.world().resource::<SfxPlaybackState>().played_this_pass.iter()

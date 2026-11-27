@@ -4,11 +4,12 @@
 //! process-global "current bank": it resolves through the active audio
 //! context's provider and the request's captured owner.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
 use ambition_sfx::{
-    AudioContextOwner, BankProvider, OwnedSfxMessage, PresentationSourceId, SfxError, SfxId, SfxProvider,
+    AudioContextOwner, BankProvider, OwnedSfxMessage, PresentationSourceId, SfxEmitter, SfxError,
+    SfxGroup, SfxId, SfxMessage, SfxProvider,
 };
 use bevy::asset::{
     io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext, LoadState,
@@ -27,6 +28,7 @@ use crate::render::{
     ProviderSfxHandleCache, ResolvedSfxHandle, SfxPlaybackRecord, SfxPlaybackState, SfxSourceMiss,
 };
 use crate::selection::ActiveAudioSelection;
+use crate::spatial::{OneShotFamily, OneShotGroup, OneShotScope, SfxOneShots, SfxVoiceOutput};
 use crate::spec::SfxRegistry;
 use crate::web_unlock::AUDIO_LOG_TARGET;
 
@@ -503,23 +505,36 @@ impl SfxSourceResolver<'_> {
         source: &PresentationSourceId,
         id: SfxId,
     ) -> Option<AcceptedSfx> {
+        let owner = self.authorize(owner, source, id)?;
+        self.resolve(owner, source, id)
+    }
+
+    fn authorize(
+        &mut self,
+        owner: Option<AudioContextOwner>,
+        source: &PresentationSourceId,
+        id: SfxId,
+    ) -> Option<AudioContextOwner> {
         let playback = &mut *self.playback;
-        if !self.selection.accepts_request_owner(owner) {
-            playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
-            return None;
-        }
-        let Some(owner) = owner else {
+        let Some(owner) = owner.filter(|owner| self.selection.accepts_request_owner(Some(*owner))) else {
             playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
             return None;
         };
-        let Some(provider_id) = self.selection.sfx_provider_for_source(source) else {
-            playback.rejected_unauthorized = playback.rejected_unauthorized.saturating_add(1);
-            return None;
-        };
-        if !self.selection.sfx_authority_for_source(source).allows(id) {
+        if !self.selection.authorizes_sfx(source, id) {
             playback.rejected_unauthorized = playback.rejected_unauthorized.saturating_add(1);
             return None;
         }
+        Some(owner)
+    }
+
+    fn resolve(
+        &mut self,
+        owner: AudioContextOwner,
+        source: &PresentationSourceId,
+        id: SfxId,
+    ) -> Option<AcceptedSfx> {
+        let provider_id = self.selection.sfx_provider_for_source(source)?;
+        let playback = &mut *self.playback;
         let source_registry = self.selection.sfx_for_source(source);
         // A borrowed bank does not replace a cue the provider authored itself.
         let own_voice = self
@@ -584,14 +599,45 @@ impl SfxSourceResolver<'_> {
     }
 }
 
+struct OneShotCandidate<'a> {
+    owned: &'a OwnedSfxMessage,
+    owner: AudioContextOwner,
+    id: SfxId,
+    emitter: SfxEmitter,
+    gain: f32,
+    priority: u8,
+}
+
+impl OneShotCandidate<'_> {
+    fn group(&self) -> OneShotGroup {
+        let group = self.owned.group.or_else(|| {
+            matches!(self.owned.request, SfxMessage::Hit { .. }).then_some(SfxGroup {
+                id: SfxGroup::IMPACT,
+                priority: 0,
+            })
+        });
+        let scope = match self.emitter {
+            SfxEmitter::Global => OneShotScope::Global,
+            SfxEmitter::Spatial { space, .. } => OneShotScope::Spatial(space),
+        };
+        let family = match group {
+            Some(group) => OneShotFamily::Named(group.id),
+            None => OneShotFamily::Cue(self.owned.source.clone(), self.id),
+        };
+        OneShotGroup { scope, family }
+    }
+}
+
 pub fn audio_play_sfx_messages(
     mut messages: MessageReader<OwnedSfxMessage>,
     mut resolver: SfxSourceResolver,
-    output: crate::spatial::SfxVoiceOutput,
-    mut shots: ResMut<crate::spatial::SfxOneShots>,
+    output: SfxVoiceOutput,
+    mut shots: ResMut<SfxOneShots>,
     mut first_play_logged: Local<bool>,
 ) {
     resolver.playback.played_this_pass.clear();
+    shots.expire_starts(resolver.selection().owner(), output.now());
+    let mut candidates = Vec::new();
     for owned in messages.read() {
         if !*first_play_logged {
             info!(
@@ -602,15 +648,41 @@ pub fn audio_play_sfx_messages(
             *first_play_logged = true;
         }
         let id = sfx_message_target_id(owned.request);
-        let Some(accepted) = resolver.accept(owned.owner, &owned.source, id) else {
+        let Some(owner) = resolver.authorize(owned.owner, &owned.source, id) else {
             continue;
         };
         // In the space it was made in: only that room's listeners hear it.
         let emitter = owned.request.emitter().in_space(owned.space);
+        candidates.push(OneShotCandidate {
+            owned, owner, id, emitter,
+            gain: output.gain(emitter) * owned.request.gain(),
+            priority: owned.group.map_or(0, |group| group.priority),
+        });
+    }
+    // Put audible cues first, then priority and gain. Keep the order of equal cues.
+    candidates.sort_by(|a, b| (b.gain > 0.0).cmp(&(a.gain > 0.0))
+        .then_with(|| b.priority.cmp(&a.priority))
+        .then_with(|| b.gain.total_cmp(&a.gain)));
+
+    let mut missing = HashSet::new();
+    for candidate in candidates {
+        let group = candidate.group();
+        let OneShotCandidate { owned, owner, id, emitter, .. } = candidate;
+        if !shots.can_start(owner, &group) {
+            resolver.playback.suppressed_playbacks = resolver.playback.suppressed_playbacks.saturating_add(1);
+            continue;
+        }
+        if missing.contains(&(&owned.source, id)) {
+            continue;
+        }
+        let Some(accepted) = resolver.resolve(owner, &owned.source, id) else {
+            missing.insert((&owned.source, id));
+            continue;
+        };
         let duration = resolver.duration(&accepted.resolved.handle);
         let voice = output.start(accepted.owner, accepted.resolved.handle, emitter, duration, None, owned.request.gain());
         let gain = voice.gain;
-        shots.0.push(voice);
+        shots.track(voice, group);
         let playback = &mut *resolver.playback;
         playback.accepted_playbacks = playback.accepted_playbacks.saturating_add(1);
         let record = SfxPlaybackRecord {
@@ -763,6 +835,7 @@ mod tests {
             BTreeSet::new(),
         );
         let stale = OwnedSfxMessage {
+            group: None,
             owner: Some(AudioContextOwner::Gameplay(1)),
             source: "sanic".into(),
             request: SfxMessage::Dash { pos: Vec2::ZERO },

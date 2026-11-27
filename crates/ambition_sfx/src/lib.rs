@@ -38,7 +38,7 @@ mod message;
 #[cfg(feature = "bevy")]
 pub use message::{
     AudioContextOwner, BodyPresentationSource, BodySfxWriter, DerivedPresentationSource,
-    OwnedSfxLoopMessage, OwnedSfxMessage, PresentationSourceId, SfxEmissionContext, SfxLoopKey,
+    OwnedSfxLoopMessage, OwnedSfxMessage, PresentationSourceId, SfxEmissionContext, SfxGroup, SfxLoopKey,
     SfxLoopRequest, SfxLoopWriter, SfxMessage, SfxWriter, SfxInSpace, BodySfxInSpace,
 };
 

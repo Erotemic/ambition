@@ -715,6 +715,12 @@ impl ActiveAudioSelection {
         self.sfx_authority_for_source(source)
     }
 
+    pub(crate) fn authorizes_sfx(&self, source: &PresentationSourceId, id: SfxId) -> bool {
+        self.current.as_ref()
+            .and_then(|authority| authority.sfx_sources.get(source))
+            .is_some_and(|source| source.authorized.contains(&id))
+    }
+
     pub fn sfx_authority_for_source(&self, source: &PresentationSourceId) -> SfxAuthority {
         self.current
             .as_ref()

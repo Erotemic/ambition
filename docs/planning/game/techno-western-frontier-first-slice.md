@@ -47,7 +47,7 @@ whose west side is now an edge.
 
 | room | what |
 | --- | --- |
-| `frontier_siding_station` | the gate `SIDING` and its terminal, the rail halt's platform and station house, Augusta Pell the agent |
+| `frontier_siding_station` | The gate `SIDING` and its terminal. Ramps connect the apron and the town to the platform. The baggage awning and the trunk stack give access to the station roof. Augusta Pell is at the ticket window. |
 | `frontier_siding_street` | Halfway Siding: the Lie-Down Inn (a door), the mercantile, the windmill, the telegraph office |
 | `frontier_lie_down_inn` | the recovery inn: Pearl Featherstone, Alice and Bob on cots |
 | `frontier_siding_trestle` | the trestle's road deck over the gulch; its loose planks (a one-way floor: press down) drop onto the freight |

@@ -360,6 +360,8 @@ At Bell's Livery, show the ladder cells beside the crate and the loft
 edge. Use the ledge bounds to set where the boards and bales end.
 At Saddle Lookout, use the ledge bounds to place the tops of the survey
 decks. Use the slope profile to set the length of each support.
+At Halfway Siding Station, show both ramps and the trunk stack. Use the
+collision grid to place the lids after the tool rounds the ledge bounds.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

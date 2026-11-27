@@ -92,6 +92,8 @@ conscript starts on the wall. The spectral wolf starts on the road.
 - In Lower Godwin, the flour bin and rack lead to the bakery loft. The
   crier's platform leads to the east landing. Jump between the landings
   or take the ladder up to Gallows Hill.
+- Inside Crumb's bakery, the loading shelf connects the ovens and the
+  flour rack. The floor continues to the press behind the sacks.
 - In the Crooked Lantern, the map shows the road, the ridge, and the
   crypt. Climb from the wood box or the bar to read it. Tobias and
   Gudrun meet visitors on the floor.

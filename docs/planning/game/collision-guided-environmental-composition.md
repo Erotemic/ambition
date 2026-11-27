@@ -426,6 +426,9 @@ with Up and where the footpath continues below it.
 In Lower Godwin, show where a body can leave the bell tower ladder to
 reach each landing. Show the bakery door and the two talk prompts
 below the loft in the same view.
+In Crumb's bakery, show the floor route past the flour sacks and the
+raised route above them. Show how much of the press the sacks hide
+from each approach.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

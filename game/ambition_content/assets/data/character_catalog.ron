@@ -1611,6 +1611,11 @@
             move_style: Slither,
             melee: Some(Swipe(windup_s: 0.54, active_s: 0.16, recover_s: 0.68, damage: 2, reach_px: 65.0)),
         ),
+        // Bromine gathers its liquid body and lashes forward.
+        "bromine_elemental_lash": (
+            move_style: Slither,
+            melee: Some(Swipe(windup_s: 0.60, active_s: 0.18, recover_s: 0.72, damage: 2, reach_px: 62.0)),
+        ),
         "bismuth_elemental_strike": (
             move_style: WalkHeavy,
             melee: Some(Swipe(windup_s: 0.66, active_s: 0.18, recover_s: 0.82, damage: 3, reach_px: 58.0)),
@@ -1633,6 +1638,19 @@
         "surprise_elemental_pop": (
             move_style: Float,
             melee: Some(Swipe(windup_s: 0.38, active_s: 0.19, recover_s: 0.76, damage: 2, reach_px: 52.0)),
+        ),
+        // The Element of Truth: a focused, straight geometric bolt.
+        "truth_elemental_revelation": (
+            move_style: Float,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 480.0,
+                damage: 2,
+                visual: Some("polygon_bolt"),
+                flight: Some((gravity: 0.0, bounces: 0, bounce_on_world_contact: false, max_lifetime: 0.85, half_extent: (10.0, 5.0), boomerang_return_s: None)),
+                discharge: Some((muzzle: Offset(x: 0.36, y: -0.023), recoil: 0.0)),
+                refire_s: 1.0,
+            ))),
         ),
     },
 
@@ -17411,6 +17429,33 @@
             mass: Some(5.5),
             tags: ["enemy", "science", "elemental", "chemical_element", "mercury", "liquid_metal", "no_hands"],
         ),
+        // Bromine (Br, 35): a red-brown liquid with a reddish vapor.
+        "bromine_elemental": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Bromine Elemental",
+            manifest: "sprites/bromine_elemental_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(66.0),
+            composition: None,
+            default_action_set: "bromine_elemental_lash",
+            death_traits: Some((corpse: Some(Stay))),
+            locomotion: Some((run_speed: 106.0, move_style: Slither)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 380.0,
+                attack_range: 62.0,
+                patrol_effort: 0.32,
+                chase_effort: 0.83,
+                attack_cooldown_s: 1.0,
+                shares_sightings: false,
+                tactics: (notice_s: 0.45),
+            )),
+            max_health: Some(5),
+            mass: Some(3.0),
+            tags: ["enemy", "science", "elemental", "chemical_element", "bromine", "halogen", "liquid", "no_hands"],
+        ),
         "bismuth_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Bismuth Elemental",
@@ -17542,6 +17587,34 @@
             barks: (
                 provoked: ["Surprise!"],
                 on_hit: ["Oh!"],
+            ),
+        ),
+        // A living True glyph whose parentheses frame a unique witness.
+        "truth_elemental": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Truth Elemental",
+            manifest: "sprites/truth_elemental_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(66.0),
+            composition: None,
+            default_action_set: "truth_elemental_revelation",
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 106.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 460.0,
+                attack_range: 240.0,
+                patrol_effort: 0.30,
+                chase_effort: 0.78,
+                ranged_volley: Some((windup_s: 0.68, firing_s: 0.18, recovery_s: 0.90)),
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "math", "elemental", "truth", "logic", "proof"],
+            barks: (
+                idle: ["Trivial."],
+                provoked: ["Truth hurts."],
+                on_hit: ["I stand corrected."],
             ),
         ),
     },

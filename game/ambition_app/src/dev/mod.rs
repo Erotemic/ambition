@@ -17,6 +17,8 @@ pub mod frame_step;
 pub mod frame_data;
 #[cfg(feature = "dev_tools")]
 pub mod presentation_probe;
+#[cfg(all(feature = "dev_tools", not(any(target_arch = "wasm32", target_os = "android"))))]
+mod renderer_panel;
 pub mod gamepad_probe;
 pub mod portal_inspector;
 #[cfg(feature = "dev_tools")]
@@ -304,6 +306,8 @@ fn install_egui_inspectors(app: &mut App) {
         .add_plugins(frame_data::FrameDataPanelPlugin)
         .add_plugins(presentation_probe::PresentationProbePlugin);
 
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+    renderer_panel::install(app);
     app.add_plugins(WorldInspectorPlugin::new().run_if(world_inspector_visible));
 }
 

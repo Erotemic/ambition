@@ -174,6 +174,21 @@ fn owner(app: &App, root: Entity) -> Entity {
         .owner()
 }
 
+#[test]
+fn a_prop_sheet_binds_its_parts_without_a_character_sheet() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
+    let sheet = app.world().resource::<GameAssets>().characters.sheet("raider").unwrap().clone();
+    let mut assets = GameAssets::default();
+    assets.characters.props.insert("platform".into(), sheet);
+    app.insert_resource(assets);
+
+    settle(&mut app);
+
+    let owner = owner(&app, root);
+    assert!(app.world().get::<RiggedLocalSample>(owner).unwrap().parts().is_some());
+}
+
 /// `(translation, visible)` of every slot, in draw order: sheet pixels from
 /// the feet, +y up, in the body's private cell.
 fn slots(app: &App, owner: Entity) -> Vec<(Vec2, bool)> {

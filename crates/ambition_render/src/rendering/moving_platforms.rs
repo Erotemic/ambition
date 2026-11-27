@@ -565,6 +565,7 @@ pub fn sync_moving_platform_visuals(
                             Transform::from_translation(world_to_bevy(world, sheet_point(platform, drawn_at[slot][index]), z)),
                             Name::new(format!("Moving platform {index}: {} ({kind}{layer})", platform.name)),
                             MovingPlatformVisual { room, index, sheet: Some(kind.to_string()), front },
+                            super::actors::BoundSpriteQuality::of(asset),
                             RoomVisual,
                         ),
                     );

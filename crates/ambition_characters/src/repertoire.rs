@@ -89,10 +89,11 @@ pub fn effective_repertoire(
     };
     let melee_selected = weapon_in_hand || granted(|grant| matches!(grant, EquipmentGrant::Melee(_)));
     let ranged_selected = holding || granted(|grant| matches!(grant, EquipmentGrant::Ranged(_)));
+    let kit = stance_kit(&identity.moveset, worn);
     let moveset = if !melee_selected && !ranged_selected {
-        identity.moveset.clone()
+        kit
     } else {
-        let mut base = identity.moveset.clone();
+        let mut base = kit;
         if weapon_in_hand {
             release_verbs(&mut base, is_melee_verb);
         }
@@ -111,6 +112,19 @@ pub fn effective_repertoire(
         action_set,
         moveset,
     }
+}
+
+/// The body's own moveset with each worn row's verb rebinds applied, in the
+/// worn order. A rebinding to a move the table does not author is skipped,
+/// so a stance row on a body without its moves changes nothing.
+fn stance_kit(own: &MovesetContract, worn: Option<&WornEquipment>) -> MovesetContract {
+    let mut kit = own.clone();
+    for (verb, id) in worn.into_iter().flat_map(|worn| &worn.rows).flat_map(|row| &row.rebinds) {
+        if own.move_by_id(id).is_some() {
+            kit.verbs.insert(verb.clone(), id.clone());
+        }
+    }
+    kit
 }
 
 /// Unbind every verb in `family`, and drop the moves only those verbs used.
@@ -145,6 +159,7 @@ mod tests {
             on_hit: None,
             withholds: vec![],
             lends: Vec::new(),
+            rebinds: Default::default(),
         }])
     }
 
@@ -190,5 +205,42 @@ mod tests {
         let live = effective_repertoire(&identity, Some(&wearing(EquipmentGrant::Ranged(same))), Hand::Empty);
         assert!(live.moveset.move_for_verb(RANGED_VERB).is_some(), "an equal grant was read as no grant");
         assert_eq!(live.moveset.verbs.get(ATTACK_VERB).map(String::as_str), Some("authored_jab"));
+    }
+
+    fn stance(rebinds: &[(&str, &str)]) -> WornEquipment {
+        WornEquipment::new(vec![EquipmentRow {
+            exclusive_slot: Some("stance".into()),
+            id: "stance".into(),
+            rebinds: rebinds.iter().map(|(verb, id)| (verb.to_string(), id.to_string())).collect(),
+            ..Default::default()
+        }])
+    }
+
+    /// A brawler whose table also authors a lunge no verb names.
+    fn brawler_with_a_lunge() -> IdentityKit {
+        let mut identity = charging_brawler();
+        let mut lunge = identity.moveset.move_by_id("authored_jab").unwrap().clone();
+        lunge.id = "lunge".into();
+        identity.moveset.moves.push(lunge);
+        identity
+    }
+
+    /// A worn stance binds a verb to another move of the body's own table; a
+    /// rebinding to a move the table lacks changes nothing; off, the verb is
+    /// the body's own again.
+    #[test]
+    fn a_worn_stance_rebinds_the_kit_and_gives_it_back() {
+        let identity = brawler_with_a_lunge();
+        let worn = stance(&[(ATTACK_VERB, "lunge"), ("attack_up", "no_such_move")]);
+        let live = effective_repertoire(&identity, Some(&worn), Hand::Empty);
+        assert_eq!(live.moveset.verbs.get(ATTACK_VERB).map(String::as_str), Some("lunge"));
+        assert_eq!(live.moveset.verbs.get("attack_up"), identity.moveset.verbs.get("attack_up"), "a missing move was bound");
+        assert!(live.moveset.move_for_verb(ATTACK_VERB).is_some());
+
+        let bare = effective_repertoire(&identity, Some(&WornEquipment::default()), Hand::Empty);
+        assert_eq!(bare.moveset.verbs.get(ATTACK_VERB).map(String::as_str), Some("authored_jab"));
+        let elsewhere = effective_repertoire(&charging_brawler(), Some(&worn), Hand::Empty);
+        assert_eq!(elsewhere.moveset.verbs, charging_brawler().moveset.verbs, "a stance changed a body without its moves");
+        assert!(!worn.rows[0].changes_nothing());
     }
 }

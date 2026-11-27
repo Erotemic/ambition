@@ -39,9 +39,9 @@ fn item_meta_table_is_index_aligned() {
         (Item::Fireball, "Fireball"),
         (Item::EyeLaser, "Eye Laser"),
         (Item::Lightning, "Lightning"),
-        (Item::SwordStance, "Sword Stance"),
-        (Item::AxeStance, "Axe Stance"),
-        (Item::WhipStance, "Whip Stance"),
+        (Item::SwordStance, "Stance I"),
+        (Item::LungeStance, "Stance II"),
+        (Item::CrescentStance, "Stance III"),
         (Item::PrecisionBlink, "Precision Blink"),
         (Item::ContextualBlink, "Contextual Blink"),
         (Item::Dash, "Dash"),
@@ -319,11 +319,8 @@ fn the_starter_bag_unlocks_every_real_item() {
             assert_eq!(catalog.is_real(item), catalog.wears(item).is_some(), "{item:?}");
         }
     }
-    for item in [Item::EyeLaser, Item::Lightning, Item::ContextualBlink, Item::PortalGun, Item::GunSword, Item::Grapple] {
+    for item in [Item::EyeLaser, Item::Lightning, Item::LungeStance, Item::CrescentStance, Item::ContextualBlink, Item::PortalGun, Item::GunSword, Item::Grapple] {
         assert!(owned.has(item), "{item:?} is unlocked");
-    }
-    for placeholder in [Item::AxeStance, Item::WhipStance] {
-        assert!(!owned.has(placeholder), "{placeholder:?} is a placeholder");
     }
     for quest_item in [Item::FieldSurvey] {
         assert!(!owned.has(quest_item), "{quest_item:?} is given by the intro quest");
@@ -363,5 +360,5 @@ fn a_load_keeps_the_unlocks_of_the_starting_bag() {
     assert_eq!(loaded.count(Item::SpareBattery), 1, "a key item stays as the save says");
     assert_eq!(loaded.count(Item::Bomb), 0, "a stack stays as the save says");
     assert_eq!(loaded.count(Item::HealthCell), 1, "a stack stays as the save says");
-    assert!(!loaded.has(Item::AxeStance), "a placeholder is not in the starting bag");
+    assert!(loaded.has(Item::LungeStance), "a stance is an unlock of the starting bag");
 }

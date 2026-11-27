@@ -124,6 +124,7 @@ impl MaryOForms {
             exclusive_slot: Some(self.slot.clone()),
             withholds: Vec::new(),
             lends: Vec::new(),
+            rebinds: Default::default(),
         }
     }
 

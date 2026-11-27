@@ -67,9 +67,14 @@
             ))],
         )),
     ),
+    // The three combat stances share the slot `stance`: wearing one takes it
+    // from the others. Each rebinds the whole home hit kit (attacks, air
+    // attacks, smashes) to moves of the robot's own table
+    // (`data/movesets/player_robot.ron`); specials, grabs and the taunt stay.
+    // Every stance has a pogo on its down-air. docs/planning/game/combat-stances.md
     (
-        display_name: "Sword Stance",
-        description: "Fight with the blade.",
+        display_name: "Stance I",
+        description: "Edge: the knight's 1-2. Short, safe swings that root no one, and a straight pogo.",
         category: Ability,
         held_item_id: None,
         dialog_id: "swordstance",
@@ -77,18 +82,54 @@
         wears: Some((id: "sword_stance", exclusive_slot: Some("stance"))),
     ),
     (
-        display_name: "Axe Stance",
-        description: "Fight with heavy cleaving swings. Not yet found.",
+        display_name: "Stance II",
+        description: "Lunge: thrusts that carry you forward, a whirl in the air, and a diving pogo.",
         category: Ability,
         held_item_id: None,
-        dialog_id: "axestance",
+        dialog_id: "lungestance",
+        wears: Some((
+            id: "lunge_stance",
+            exclusive_slot: Some("stance"),
+            rebinds: {
+                "attack": "lunge_thrust",
+                "attack_forward": "lunge_thrust",
+                "attack_up": "lunge_corkscrew",
+                "attack_down": "lunge_slide",
+                "attack_air": "lunge_whirl",
+                "attack_air_forward": "lunge_air_thrust",
+                "attack_air_back": "lunge_back_kick",
+                "attack_air_up": "lunge_corkscrew",
+                "attack_air_down": "lunge_plunge",
+                "smash_forward": "lunge_smash_forward",
+                "smash_up": "lunge_smash_up",
+                "smash_down": "lunge_smash_down",
+            },
+        )),
     ),
     (
-        display_name: "Whip Stance",
-        description: "Fight at long reach with a whip. Not yet found.",
+        display_name: "Stance III",
+        description: "Crescent: wide arcs that hit hardest at the tip, a three-step string, and a sweeping pogo.",
         category: Ability,
         held_item_id: None,
-        dialog_id: "whipstance",
+        dialog_id: "crescentstance",
+        wears: Some((
+            id: "crescent_stance",
+            exclusive_slot: Some("stance"),
+            rebinds: {
+                "attack": "crescent_arc",
+                "attack_forward": "crescent_arc",
+                "attack_up": "crescent_overhead",
+                "attack_down": "crescent_low",
+                "attack_air": "crescent_air",
+                "attack_air_forward": "crescent_air",
+                "attack_air_back": "crescent_air_back",
+                "attack_air_up": "crescent_air_up",
+                "attack_air_down": "crescent_pogo",
+                "smash_forward": "crescent_smash_forward",
+                "smash_up": "crescent_smash_up",
+                "smash_down": "crescent_smash_down",
+            },
+        )),
     ),
     // ---- Row 2: movement abilities (blink, then the three dashes), then a movement gauntlet. ----
     (

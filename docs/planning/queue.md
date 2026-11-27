@@ -2846,9 +2846,11 @@ wall; a body is whipped toward the wielder, a loose item reeled to the hand.
 
 **Owner:** [combat stances](game/combat-stances.md).
 
-**State:** asked by Jon 2026-11-27; planned.
+**State:** asked by Jon 2026-11-27; S1–S3 landed the same day (the
+mechanism, the three items, Stance II and III authored and witnessed).
 
-**Next action:** S1, `EquipmentRow.rebinds` and the three stance items.
+**Next action:** S4, the look: bespoke rows for the lunge, whirl, plunge and
+crescents in the v3 generator.
 
 **Acceptance:** [combat stances](game/combat-stances.md#stages) S1–S5.
 

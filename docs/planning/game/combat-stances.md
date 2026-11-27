@@ -1,7 +1,7 @@
 # Combat stances
 
-**Status:** asked by Jon 2026-11-27; S1–S5 below, in order. Queue:
-COMBAT-STANCES.
+**Status:** asked by Jon 2026-11-27; S1–S3 landed the same day; S4–S5 below.
+Queue: COMBAT-STANCES.
 
 Jon (2026-11-27): *"I was wondering if you could implement variants of the
 players kit (if you don't have space in inventory you can remove any item that
@@ -38,14 +38,16 @@ Each has a pogo: its down-air bounces on what it strikes (`pogo_bounce`).
 | --- | --- | --- | --- |
 | Feel | The knight: a 1-2 that roots no one, short and safe. | Hornet's momentum, Scout's own: thrusts that carry the body, reach over width. | Marth/Lucina spacing: wide arcs with a sweet spot at the tip. |
 | Attack | Rise, fall, thrust (or rise-fall-rise-fall held forward). | A thrust that carries the body forward; a second press is a longer lunge. | A three-step string: a level arc, then up or down by the stick, then a finishing sweep. |
-| Up | Overhead. | A rising corkscrew thrust (some lift in the air). | A tall crescent overhead, tip at the apex. |
+| Up | Overhead. | A corkscrew thrust straight up, tall and narrow (no lift: a lift on a move that repeats in the air is a climb). | A tall crescent overhead, tip at the apex. |
 | Down (ground) | Low. | A sliding low stab. | A low sweep, tip far out. |
 | Air | Rise / overhead / behind. | A whirl (hits on both sides), a rising thrust, a back-kick thrust. | A wide forward crescent, an overhead crescent, a back crescent. |
 | Pogo (down-air) | Straight down slash. | A diagonal plunge that dives forward and down, and bounces. | A sweeping crescent beneath, wide, and bounces. |
 | Smashes | Forward, up, down. | Forward: a charged lunge across the floor. Up: a pillar thrust. Down: a stab to both sides. | Forward: a big tipper arc (the kill). Up: a crescent column. Down: a two-sided sweep. |
 
 The tip: in Stance III a move's farthest volume deals more and launches
-harder than its root (a hit takes the strongest volume it overlaps).
+harder than its root. A victim takes the first-authored volume that reaches it
+(`StrikeRank`, as `authoring::tipper` builds one), so each Crescent strike
+lists its tip first.
 
 ## Stages
 
@@ -54,10 +56,25 @@ harder than its root (a hit takes the strongest volume it overlaps).
   made by removing items that do nothing interactive if the grid is full.
   Core tests: a worn row rebinds, a missing target is inert, taking it off
   restores.
+  *Landed:* `EquipmentRow.rebinds` (verb → move id), folded first in
+  `effective_repertoire` (`stance_kit`) so a held weapon still releases the
+  melee verbs over it; a rebinding to a move the table lacks is skipped.
+  The placeholder Axe and Whip Stance cells became Stance II and III (dialog
+  ids `lungestance`, `crescentstance`), so no cell was removed; all three are
+  in the starting bag. Core test `a_worn_stance_rebinds_the_kit_and_gives_it_back`.
 - **S2 — Stance II authored.** Its moves on existing rows (`slash`,
   `attack_side`, `dash_attack`, `air_*`, `meteor`); app witness that each verb
   plays the stance's move and the pogo bounces.
 - **S3 — Stance III authored**, with the tip; the same witnesses.
+  *Landed (S2, S3):* `lunge_*` and `crescent_*` in `player_robot.ron`, on the
+  published rows (`dash_attack`, `slide`, `slash`, `jab`, `attack_*`, `air_*`,
+  `smash_*`). A Lunge carry is `SetSide` with `HoldVelocity`, a step ground
+  friction does not eat; the strings are named successors (`lunge_thrust` →
+  `lunge_long`, `crescent_arc` → `crescent_return` → `crescent_sweep`).
+  Witnesses `ambition_app/tests/combat_stances.rs`: in each stance, attack, up,
+  down, forward smash and the pogo play the stance's own move, every pogo
+  bounces off an orb, the Lunge thrust carries the body where the Edge's swing
+  does not, and the Crescent string is three steps.
 - **S4 — the look.** Bespoke rows in the v3 generator for the lunge, whirl,
   plunge and crescents (as the dash's smear was), republished; captures of
   each stance.

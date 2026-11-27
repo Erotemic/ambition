@@ -57,16 +57,24 @@ pub struct EquipmentRow {
     /// so a lent style is only ever a way to do what the body can already do.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lends: Vec<String>,
+    /// Verbs of the body's moveset bound to other moves of the same table
+    /// while the row is worn (`"attack": "lunge_thrust"`): a combat stance.
+    /// The moves are the body's own, so a rebinding to a move its table does
+    /// not author changes nothing, and taking the row off gives the verbs
+    /// their own moves back.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub rebinds: std::collections::BTreeMap<String, String>,
 }
 
 impl EquipmentRow {
     /// True when wearing this row changes nothing on the body: it has no
-    /// modifier, no grant, no hit rule, and withholds and lends no verb.
+    /// modifier, no grant, no hit rule, and withholds, lends and rebinds no
+    /// verb.
     ///
     /// Such a row in an exclusive slot is the body's own action on that slot.
     /// To wear it is only to take the slot from the row that held it.
     pub fn changes_nothing(&self) -> bool {
-        self.modifiers.is_empty() && self.grants.is_empty() && self.on_hit.is_none() && self.withholds.is_empty() && self.lends.is_empty()
+        self.modifiers.is_empty() && self.grants.is_empty() && self.on_hit.is_none() && self.withholds.is_empty() && self.lends.is_empty() && self.rebinds.is_empty()
     }
 }
 
@@ -354,6 +362,7 @@ mod tests {
             exclusive_slot: None,
             withholds: Vec::new(),
             lends: Vec::new(),
+            rebinds: Default::default(),
         }
     }
 

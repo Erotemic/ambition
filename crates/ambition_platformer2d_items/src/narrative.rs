@@ -676,6 +676,7 @@ mod tests {
                         on_hit: None,
                         withholds: Vec::new(),
                         lends: Vec::new(),
+                        rebinds: Default::default(),
                     };
                     meta.wears = Some(row("blink_1"));
                     meta.levels = vec![row("blink_2"), row("blink_3")];

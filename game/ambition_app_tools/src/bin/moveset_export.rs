@@ -163,7 +163,7 @@ fn window_json(
         // Keep the threshold in the tag string. Plain `"armor"` would read as
         // super armor.
         WindowTag::ArmorUnder { damage } => (format!("armor_under:{damage}"), Vec::new()),
-        WindowTag::Cancelable { into, condition } => (
+        WindowTag::Cancelable { into, condition, .. } => (
             format!("cancelable:{condition:?}").to_lowercase(),
             into.clone(),
         ),

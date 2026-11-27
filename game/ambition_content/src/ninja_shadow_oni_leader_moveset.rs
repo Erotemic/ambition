@@ -32,7 +32,7 @@ mod answer_tests {
             .windows
             .iter()
             .find_map(|w| match &w.tag {
-                WindowTag::Cancelable { into, condition } => Some((w, into, condition)),
+                WindowTag::Cancelable { into, condition, .. } => Some((w, into, condition)),
                 _ => None,
             })
             .expect("the answer has a second half");

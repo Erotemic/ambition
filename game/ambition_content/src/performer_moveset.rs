@@ -170,7 +170,7 @@ mod tests {
                 .filter(|m| m.clip.clip == clip)
                 .flat_map(|m| m.windows.iter())
                 .filter_map(|w| match &w.tag {
-                    WindowTag::Cancelable { into, condition } => Some((into.clone(), *condition)),
+                    WindowTag::Cancelable { into, condition, .. } => Some((into.clone(), *condition)),
                     _ => None,
                 })
                 .collect()

@@ -122,7 +122,7 @@ use ambition_sprite_sheet::character::rigged::{
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
 
-use super::BoundSpriteQuality;
+use super::{sprite_mirror, BoundSpriteQuality};
 
 /// Depth between two part slots of one body: the draw order of the flipbook.
 const SLOT_DEPTH_STEP: f32 = 1.0e-4;
@@ -1412,14 +1412,13 @@ pub fn sample_rigged_presentations(
             let margin = impostor_margin(&flipbook);
             let cell = frame_size.max_element() + 2.0 * margin;
             let (size, anchor) = body_quad(animator, basis, root_sprite, root_anchor, frame_size, margin, cell);
-            sample.feet = Some(feet_place(
-                &Transform::IDENTITY,
+            sample.feet = Some(feet_in_root(
                 &flipbook,
                 size,
                 anchor,
                 cell,
                 margin,
-                root_sprite.flip_x,
+                sprite_mirror(root_sprite),
             ));
         }
         if sample.state == LocalSampleState::Baked {
@@ -1675,6 +1674,7 @@ pub fn drive_rigged_presentations(
         let impostor = presentation
             .impostor
             .filter(|impostor| !fresh_pages.contains(&(impostor.class, impostor.page)));
+        let feet_in_world = || sample.feet.map_or(*root_transform, |feet| root_transform.mul_transform(feet));
         let Some(impostor) = impostor else {
             // Drawn directly, the root shows no image at all.
             if frame_in_sprite.is_some() {
@@ -1683,7 +1683,7 @@ pub fn drive_rigged_presentations(
             let root_visible = root_shows(root_visibility);
             // The sample's feet (the body's own frame) carried by the root's
             // scene placement.
-            let place = sample.feet.map_or(*root_transform, |feet| root_transform.mul_transform(feet));
+            let place = feet_in_world();
             if let Some((request, answer)) = asked.as_mut() {
                 part_set::answer(request, answer, &presentation, draws, place);
             }
@@ -1760,11 +1760,7 @@ pub fn drive_rigged_presentations(
             atlas.cell_size(),
         );
         if let Some((request, answer)) = asked.as_mut() {
-            // Where its parts would be in the world: the root draws its cell
-            // there, and a reader of its parts draws there also.
-            let place =
-                feet_place(root_transform, &flipbook, size, anchor, atlas.cell_size(), margin, root_sprite.flip_x);
-            part_set::answer(request, answer, &presentation, draws, place);
+            part_set::answer(request, answer, &presentation, draws, feet_in_world());
         }
         if root_sprite.image != atlas.image {
             root_sprite.image = atlas.image.clone();
@@ -2022,40 +2018,21 @@ pub(in crate::rendering) fn part_color(draw: &PartDraw, root: LinearRgba) -> Col
     ))
 }
 
-/// The body's feet in the world, for a body whose quad (`body_quad`) is
-/// `size` at `anchor` over a cell `cell` sheet pixels square: one unit a sheet
-/// pixel, +y up, mirrored when the root is flipped.
-///
-/// ⛔ THROUGH THE ROOT'S WHOLE TRANSFORM. The baked quad is drawn through it,
-/// so the root's turn (the gravity of its room, a somersault, a crawler on a
-/// wall) turns the frame about the root. A body drawn directly draws nothing
-/// at its root, so its owner carries the turn: the feet offset and the mirror
-/// are in the root's own frame, and the root's transform is applied after
-/// them. An owner that took only the root's translation drew the player level
-/// in a room with sideways gravity (2026-10-05).
-fn feet_place(
-    root_transform: &Transform,
+/// Place the parts in the root's frame. Flip the feet offset and the parts
+/// together. The scene applies the root transform after this transform.
+fn feet_in_root(
     flipbook: &RiggedSpriteAsset,
     size: Vec2,
     anchor: Vec2,
     cell: f32,
     margin: f32,
-    flip_x: bool,
+    mirror: Vec2,
 ) -> Transform {
-    // The frame's feet pixel in that cell, in the quad's normalized space
-    // (+y up, mirrored with the image), carried to the world.
     let feet_in_cell = (Vec2::splat(margin) + flipbook.feet_pixel) / cell;
-    let mut feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
-    if flip_x {
-        feet.x = -feet.x;
-    }
-    let feet = (feet - anchor) * size;
-    let world_per_pixel = size / cell;
-    let flip = if flip_x { -1.0 } else { 1.0 };
-    root_transform.mul_transform(
-        Transform::from_translation(feet.extend(0.0))
-            .with_scale(Vec3::new(flip * world_per_pixel.x, world_per_pixel.y, 1.0)),
-    )
+    let feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
+    let offset = (feet * mirror - anchor) * size;
+    Transform::from_translation(offset.extend(0.0))
+        .with_scale((mirror * size / cell).extend(1.0))
 }
 
 /// The quad a body's frame is drawn on this frame, in a cell `cell` sheet
@@ -2072,7 +2049,8 @@ fn body_quad(
 ) -> (Vec2, Vec2) {
     // The squash of a sheet with no compact row is read off the root as the
     // animator drew it, before it is replaced.
-    let squash = stance_squash(animator, root_sprite, Some(root_anchor));
+    let mirror = sprite_mirror(root_sprite);
+    let squash = stance_squash(animator, root_sprite, root_anchor.0.y * mirror.y);
     // ⛔ A MIRROR ROW stands on the MIRRORED feet anchor. A body facing
     // left on a sheet drawn from both sides draws its mirror row unflipped
     // (`CharacterAnimator::face`), and the baked road places that frame at
@@ -2086,10 +2064,7 @@ fn body_quad(
     if let Some((ratio, held_y)) = squash {
         (size.y, anchor.y) = squashed_about(size.y, anchor.y, ratio, held_y);
     }
-    if root_sprite.flip_x {
-        anchor.x = -anchor.x;
-    }
-    (size, anchor)
+    (size, anchor * mirror)
 }
 
 /// The size and anchor of a body's cell quad (a cell `cell` sheet pixels
@@ -2142,10 +2117,10 @@ fn squashed_about(height: f32, anchor_y: f32, ratio: f32, held_y: f32) -> (f32, 
 /// `StanceSquash` (the anchor, or the quad's foot edge) need no copy here. For
 /// a quad of height `h0` and anchor `a0` drawn at `h1` and `a1`, the
 /// normalized height `t` that holds still is `(a0 h0 - a1 h1) / (h0 - h1)`.
-fn stance_squash(animator: &CharacterAnimator, root: &Sprite, anchor: Option<&Anchor>) -> Option<(f32, f32)> {
+fn stance_squash(animator: &CharacterAnimator, root: &Sprite, unflipped_anchor_y: f32) -> Option<(f32, f32)> {
     let (unsquashed, unsquashed_anchor) = animator.current_render()?;
     let (h0, a0) = (unsquashed.y, unsquashed_anchor.y);
-    let (h1, a1) = (root.custom_size?.y, anchor?.0.y);
+    let (h1, a1) = (root.custom_size?.y, unflipped_anchor_y);
     if h0 <= f32::EPSILON || (h0 - h1).abs() <= 1.0e-4 * h0 {
         return None;
     }

@@ -796,6 +796,12 @@ shared value preparation are sufficient until source proves otherwise.
    keeps its material as the tint or opacity changes. An Ultra offscreen
    fixture shows these changes on Scout's direct parts in both renderers.
 
+   Flips on either axis apply to the frame and its anchor. The sheet
+   animator keeps the mirrored trim as the frame advances. Both views and
+   readers of composed rigs use the same sampled placement for the parts.
+   The frame and part tests cover both axes. An Ultra offscreen fixture
+   shows the upside-down shark as direct parts and as a composed frame.
+
    World-space sprite producers mark their art with `WorldSprite`. The card
    renderer reads this marker and uses the sprite's world transform and
    visibility. Ladders, vines, water, and lock walls use this path, including

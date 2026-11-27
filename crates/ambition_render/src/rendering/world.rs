@@ -400,14 +400,7 @@ pub(crate) fn prop_sprite_bundle(
     }
     // Which way the prop points is authored data, not a second sheet.
     sprite.flip_y = flip_y;
-    if flip_y {
-        // A packed sheet trims each frame, and the anchor places the trimmed
-        // rect in its frame. A flip mirrors the frame, so it mirrors that
-        // placement also, as the facing flip does for x
-        // (`draw_animator_frame`). Without this the art of a pipe head that
-        // hangs from a ceiling stood off its shaft by the trim.
-        anchor.0.y = -anchor.0.y;
-    }
+    anchor.0 *= super::actors::sprite_mirror(&sprite);
     (sprite, anchor, animator)
 }
 
@@ -2602,8 +2595,11 @@ mod prop_geometry_tests {
         let authored = BVec2::new(64.0, 32.0);
         // `(top, bottom)` of the drawn art about the middle of its box, +y up.
         let drawn = |flip_y: bool| {
-            let (sprite, anchor, _) = prop_sprite_bundle(PropDraw::Enclosure, flip_y, &asset, authored);
+            let (mut sprite, mut anchor, mut animator) = prop_sprite_bundle(PropDraw::Enclosure, flip_y, &asset, authored);
             assert_eq!(sprite.flip_y, flip_y);
+            let built_anchor = anchor;
+            super::super::actors::draw_held_frame(&mut sprite, &mut animator, &mut anchor, false);
+            assert_eq!(anchor, built_anchor, "a frame update keeps the mirrored trim");
             let size = sprite.custom_size.expect("a sized sprite");
             let middle = -anchor.0.y * size.y;
             (middle + size.y * 0.5, middle - size.y * 0.5)

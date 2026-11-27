@@ -998,14 +998,9 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
     let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2_tall").expect("a published flipbook");
     let frame = flipbook.frame_size.as_vec2();
     let spec = try_load_spec_for_character_id(&sprite_content, "mary_o_v2_tall").unwrap();
-    // Where a quad of `size` at `anchor` draws the point at `uv` of itself
-    // (0..1, +y down), mirrored about the origin when `flip`.
-    let local = |size: Vec2, anchor: Vec2, uv: Vec2, flip: bool| {
-        let mut at = (Vec2::new(uv.x - 0.5, 0.5 - uv.y) - anchor) * size;
-        if flip {
-            at.x = -at.x;
-        }
-        at
+    // Map a point in the source frame to the quad with the specified axis signs.
+    let local = |size: Vec2, anchor: Vec2, uv: Vec2, signs: Vec2| {
+        (Vec2::new(uv.x - 0.5, 0.5 - uv.y) * signs - anchor) * size
     };
     // The anchors the game builds bodies with, from the builder the game uses
     // (`character_render_basis`): an NPC's (no authored quad) and a player's
@@ -1017,27 +1012,24 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
         crate::rendering::actors::character_render_basis(&spec, collision, Some(Vec2::new(61.0, 73.0)), Some(Vec2::ZERO)).1;
     assert_ne!(npc.0, player.0, "premise: the two conventions differ");
     for built_at in [npc, player] {
-        for flip in [false, true] {
+        for signs in [Vec2::ONE, Vec2::new(-1.0, 1.0), Vec2::new(1.0, -1.0), -Vec2::ONE] {
             let (mut app, root) = app_anchored(&sprite_content, true, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())), built_at);
-            app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
+            let mut sprite = app.world_mut().get_mut::<Sprite>(root).unwrap();
+            sprite.flip_x = signs.x < 0.0;
+            sprite.flip_y = signs.y < 0.0;
             settle(&mut app);
             let owner = owner(&app, root);
             assert!(draws_impostor(&app, root, owner));
             let size = app.world().get::<Sprite>(root).unwrap().custom_size.unwrap();
-            let mut anchor = app.world().get::<Anchor>(root).unwrap().0;
-            if flip {
-                // The drawn anchor is mirrored with the quad; unmirror it to
-                // read the quad in its own frame, as `local` mirrors after.
-                anchor.x = -anchor.x;
-            }
+            let anchor = app.world().get::<Anchor>(root).unwrap().0;
             let basis = app.world().get::<CharacterAnimator>(root).unwrap().render_basis.unwrap();
-            let base_anchor = basis.feet_anchor;
+            let base_anchor = basis.feet_anchor * signs;
             for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
-                let baked = local(basis.render_size, base_anchor, pixel / frame, flip);
-                let cell = local(size, anchor, (pixel + Vec2::splat(impostor_margin(&flipbook))) / IMPOSTOR_CELL, flip);
+                let baked = local(basis.render_size, base_anchor, pixel / frame, signs);
+                let cell = local(size, anchor, (pixel + Vec2::splat(impostor_margin(&flipbook))) / IMPOSTOR_CELL, signs);
                 assert!(
                     close(cell, baked),
-                    "{built_at:?} flip {flip}: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
+                    "{built_at:?} signs {signs}: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
                 );
             }
         }
@@ -1547,10 +1539,12 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
     assert_ne!(npc.0, player.0, "premise: the two conventions differ");
     for built_at in [npc, player] {
         for physical_scale in [Vec3::new(0.5, 0.5, 1.0), Vec3::new(-0.5, 0.5, 1.0), Vec3::new(2.0, 2.0, 1.0)] {
-        for flip in [false, true] {
+        for signs in [Vec2::ONE, Vec2::new(-1.0, 1.0), Vec2::new(1.0, -1.0), -Vec2::ONE] {
             for turn in [0.0, std::f32::consts::FRAC_PI_2, 0.6] {
                 let (mut app, root) = app_direct(&sprite_content, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())), built_at);
-                app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
+                let mut sprite = app.world_mut().get_mut::<Sprite>(root).unwrap();
+                sprite.flip_x = signs.x < 0.0;
+                sprite.flip_y = signs.y < 0.0;
                 let root_place =
                     Transform::from_translation(Vec3::new(40.0, -12.0, 3.0)).with_rotation(Quat::from_rotation_z(turn)).with_scale(physical_scale);
                 *app.world_mut().get_mut::<Transform>(root).unwrap() = root_place;
@@ -1562,10 +1556,7 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
                     // The baked frame: a quad of the basis size at its anchor,
                     // mirrored about the root when flipped, then drawn through
                     // the root's transform.
-                    let mut baked = (Vec2::new(pixel.x / frame.x - 0.5, 0.5 - pixel.y / frame.y) - basis.feet_anchor) * basis.render_size;
-                    if flip {
-                        baked.x = -baked.x;
-                    }
+                    let baked = (Vec2::new(pixel.x / frame.x - 0.5, 0.5 - pixel.y / frame.y) - basis.feet_anchor) * basis.render_size * signs;
                     let baked = root_place.transform_point(baked.extend(0.0)).truncate();
                     // The same pixel from the parts: sheet pixels from the feet,
                     // +y up, through the owner.
@@ -1573,7 +1564,7 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
                     let direct = place.transform_point(from_feet.extend(0.0)).truncate();
                     assert!(
                         close(direct, baked),
-                        "{built_at:?} flip {flip} turn {turn}: frame pixel {pixel} draws at {direct} directly, {baked} baked"
+                        "{built_at:?} signs {signs} turn {turn}: frame pixel {pixel} draws at {direct} directly, {baked} baked"
                     );
                 }
             }

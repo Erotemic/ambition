@@ -246,6 +246,7 @@ pub fn follow_limb_twins(
             }
         }
         sprite.flip_x = root_sprite.flip_x;
+        sprite.flip_y = root_sprite.flip_y;
         sprite.color = root_sprite.color;
         // ⛔ THE SIZE AS THE ANIMATOR DREW IT. The rigged driver reads a
         // root's size against its animator's frame as a stance squash, and

@@ -91,7 +91,8 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                     let animator = world.get::<CharacterAnimator>(root)?;
                     let row = animator.drawn_row().and_then(|slot| animator.spec.row_name(slot))?;
                     Some(json!({"impostor":format!("{:?}",p.impostor),"row":row,"frame":animator.frame,
-                        "opacity":p.pages.flipbook.frame_opacity(row,animator.frame),"shown":p.shown.as_ref().map(|(_,at,generation)|format!("{at:?} {generation}"))}))
+                        "opacity":p.pages.flipbook.frame_opacity(row,animator.frame),
+                        "shown":p.atlas_draw_stamp().map(|(at, generation)| format!("{at:?} {generation}"))}))
                 }),
                 "target": entity.get::<bevy::camera::RenderTarget>().map(|v| format!("{v:?}")),
                 "target_image": entity.get::<bevy::camera::RenderTarget>().and_then(|target| {

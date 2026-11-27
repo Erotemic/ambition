@@ -662,6 +662,14 @@ enum PartDrawTarget {
 }
 
 impl RiggedPresentation {
+    /// Get the position and generation of the last draw to the atlas.
+    pub fn atlas_draw_stamp(&self) -> Option<(Vec3, u64)> {
+        match self.shown.as_ref()?.target {
+            PartDrawTarget::Atlas { place, generation } => Some((place, generation)),
+            PartDrawTarget::World(_) => None,
+        }
+    }
+
     fn update_draws(&mut self, draws: &[PartDraw], target: PartDrawTarget) -> bool {
         match &mut self.shown {
             Some(shown) if shown.target == target && shown.draws == draws => false,

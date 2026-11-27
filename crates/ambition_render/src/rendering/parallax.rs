@@ -882,19 +882,22 @@ pub fn sync_portal_capture_parallax_layers(
             continue;
         };
         live.insert((copy.rig, copy.source));
+        let (placed, panel_size) =
+            portal_backdrop_layout(source_layer, source_sprite.custom_size, rig);
         // Each written only when it changes: a written sprite is extracted
         // again, a written transform propagated, and these layers (one per
         // capture, numbered past 64) are a heap allocation to build.
         if source_sprite.is_changed() {
-            *sprite = (*source_sprite).clone();
+            *sprite = Sprite {
+                custom_size: panel_size,
+                ..(*source_sprite).clone()
+            };
+        } else if sprite.custom_size != panel_size {
+            sprite.custom_size = panel_size;
         }
         if !render_layers.iter().eq([rig.parallax_layer()]) {
             *render_layers = RenderLayers::none().with(rig.parallax_layer());
         }
-        // Anchor at the mapped host camera viewpoint, not the capture camera's frame
-        // center. A tight cone-rect frame would give the wrong viewpoint.
-        let mut placed = *transform;
-        sync_parallax_transform_to_camera(&mut placed, source_layer, rig.parallax_anchor());
         transform.set_if_neq(placed);
     }
 
@@ -903,12 +906,15 @@ pub fn sync_portal_capture_parallax_layers(
             if live.contains(&(rig_entity, source_entity)) || !seen_through_a_portal(source_layer) {
                 continue;
             }
-            let mut transform = Transform::default();
-            sync_parallax_transform_to_camera(&mut transform, source_layer, rig.parallax_anchor());
+            let (transform, panel_size) =
+                portal_backdrop_layout(source_layer, source_sprite.custom_size, rig);
             commands.spawn_session_scoped(
                 session_scope,
                 (
-                    (*source_sprite).clone(),
+                    Sprite {
+                        custom_size: panel_size,
+                        ..(*source_sprite).clone()
+                    },
                     transform,
                     *source_layer,
                     PortalCaptureParallaxLayerVisual {
@@ -926,6 +932,26 @@ pub fn sync_portal_capture_parallax_layers(
             );
         }
     }
+}
+
+/// Size and place the backdrop for the full mapped view. A capture crop
+/// changes which part of the panel is drawn, with the same size and travel.
+#[cfg(feature = "portal_render")]
+fn portal_backdrop_layout(
+    source: &ParallaxLayerVisual,
+    source_size: Option<Vec2>,
+    rig: &ambition_portal2d_presentation::PortalViewRig,
+) -> (Transform, Option<Vec2>) {
+    let mut layer = *source;
+    let panel_size = if let Some(visible) = rig.parallax_visible_view() {
+        layer.travel = layer.travel_in(visible);
+        Some(layer.panel_size(visible))
+    } else {
+        source_size
+    };
+    let mut transform = Transform::default();
+    sync_parallax_transform_to_camera(&mut transform, &layer, rig.parallax_anchor());
+    (transform, panel_size)
 }
 
 /// Is a panel part of what a portal shows? The backdrop is behind the play, on
@@ -979,6 +1005,112 @@ fn sync_parallax_transform_from(
 #[cfg(all(test, feature = "portal_render"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_scaling_portal_keeps_the_backdrops_screen_size_and_offset() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, LiveRoomInstance,
+        };
+        use ambition_portal2d_presentation as portal;
+
+        let world_size = Vec2::new(1000.0, 600.0);
+        let visible = Vec2::new(800.0, 450.0);
+        let left = portal::PortalChannel::Authored(portal::PortalChannelColor::Purple);
+        let right = portal::PortalChannel::Authored(portal::PortalChannelColor::Yellow);
+        let mut layer = ParallaxLayerVisual {
+            factor: Vec2::new(0.5, 0.4),
+            z: -17.0,
+            panel_scale: 1.3,
+            travel: Vec2::ZERO,
+            world_size,
+        };
+        layer.travel = layer.travel_in(visible);
+
+        for (channel, eye_x, scale) in [(left, 460.0, 0.5), (right, 570.0, 2.0)] {
+            let mut app = App::new();
+            insert_live_room_component(
+                app.world_mut(),
+                ae::RoomGeometry(ae::World::new("scaling door", world_size, Vec2::ZERO, vec![])),
+            );
+            let eye = Vec2::new(eye_x, 265.0);
+            let observer = app.world_mut().spawn_empty().id();
+            let mut observers = portal::PortalObserverViews::default();
+            observers
+                .of_mut(observer)
+                .capture(eye, eye, eye, visible, 0, None);
+            app.insert_resource(observers)
+                .insert_resource(portal::PortalViewers::one(portal::PortalViewer {
+                    present: true,
+                    observer: Some(observer),
+                    eye,
+                    room: Some(LiveRoomInstance::ACTIVATION),
+                    half_size: Vec2::splat(12.0),
+                    ..default()
+                }))
+                .insert_resource(portal::PortalEffectSelection {
+                    active: portal::PortalVisualEffect::ViewCones,
+                })
+                .insert_resource(portal::PortalViewConeConfig {
+                    mode: portal::PortalViewConeMode::Static,
+                    ..default()
+                })
+                .init_resource::<portal::PortalCaptureQualityBudget>()
+                .init_resource::<Assets<Image>>()
+                .init_resource::<Assets<Mesh>>()
+                .init_resource::<Assets<ColorMaterial>>()
+                .init_resource::<Time>()
+                .add_systems(
+                    Update,
+                    (portal::sync_portal_view_cones, sync_portal_capture_parallax_layers).chain(),
+                );
+            let world = app.world_mut();
+            world
+                .resource_mut::<Time>()
+                .advance_by(std::time::Duration::from_millis(100));
+            for (channel, x, normal, half_length) in [
+                (left, 500.0, Vec2::NEG_X, 48.0),
+                (right, 532.0, Vec2::X, 24.0),
+            ] {
+                world.spawn(
+                    portal::PlacedPortal::fixed(channel, Vec2::new(x, 300.0), normal, half_length)
+                        .unwrap(),
+                );
+            }
+            world.spawn((
+                Sprite {
+                    custom_size: Some(layer.panel_size(visible)),
+                    ..default()
+                },
+                layer,
+            ));
+
+            for _ in 0..2 {
+                app.update();
+                let world = app.world_mut();
+                let mut copies = world.query::<(&PortalCaptureParallaxLayerVisual, &Sprite, &Transform)>();
+                let (rig, sprite, transform) = copies
+                    .iter(world)
+                    .find_map(|(copy, sprite, transform)| {
+                        let rig = world.get::<portal::PortalViewRig>(copy.rig)?;
+                        let camera = world.get::<Camera>(copy.rig)?;
+                        (rig.channel() == channel && camera.is_active)
+                            .then_some((rig, sprite, transform))
+                    })
+                    .expect("the portal draws a backdrop");
+                let anchor = rig.parallax_anchor();
+                let mapped_visible = visible * scale;
+                assert_eq!(rig.parallax_visible_view(), Some(mapped_visible));
+                let preview_size = sprite.custom_size.unwrap() / mapped_visible;
+                assert!(preview_size.abs_diff_eq(layer.panel_size(visible) / visible, 1.0e-5));
+
+                let mut ordinary = Transform::default();
+                sync_parallax_transform_to_camera(&mut ordinary, &layer, anchor);
+                let preview_offset = (transform.translation.truncate() - anchor) / mapped_visible;
+                let ordinary_offset = (ordinary.translation.truncate() - anchor) / visible;
+                assert!(preview_offset.abs_diff_eq(ordinary_offset, 1.0e-5));
+            }
+        }
+    }
 
     #[test]
     fn portal_capture_parallax_system_params_are_disjoint() {

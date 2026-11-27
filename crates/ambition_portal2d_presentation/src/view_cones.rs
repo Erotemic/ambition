@@ -610,6 +610,7 @@ pub struct PortalViewRig {
     channel: PortalChannel,
     parallax_layer: usize,
     parallax_anchor: Vec2,
+    parallax_visible_view: Option<Vec2>,
     rebuild: RebuildKey,
     /// Temporal blend state, 0 = minimum cone, 1 = full visible wedge;
     /// approaches the 4-corner visibility fraction at `blend_rate`/s and is
@@ -674,6 +675,11 @@ impl PortalViewRig {
     /// a tight cone-rect frame).
     pub fn parallax_anchor(&self) -> Vec2 {
         self.parallax_anchor
+    }
+
+    /// Extent of the full mapped view in world units, before any capture crop.
+    pub fn parallax_visible_view(&self) -> Option<Vec2> {
+        self.parallax_visible_view
     }
 }
 
@@ -743,19 +749,6 @@ fn portal_at_seam(viewer: Option<&PortalViewer>, portal_pos: Vec2) -> bool {
     viewer
         .filter(|v| v.present)
         .is_some_and(|v| v.eye.distance(portal_pos) <= v.half_size.length() + PORTAL_SEAM_REACH)
-}
-
-/// World-space viewpoint the rig's parallax should be evaluated at: the host
-/// camera center mapped through the pair. `None` when no host view exists.
-fn portal_parallax_anchor_world(
-    host_view: Option<&PortalCameraContinuityHostView>,
-    enter: &PortalAperture,
-    exit: &PortalAperture,
-    convention: ambition_portal2d::pieces::MapConvention,
-) -> Option<Vec2> {
-    host_view.filter(|v| v.initialized).map(|v| {
-        ambition_portal2d::pieces::map_through(v.current_center_world, enter, exit, convention)
-    })
 }
 
 fn portal_window_clip_rect(
@@ -849,9 +842,16 @@ fn portal_capture_camera_frame(
     exit: &PortalAperture,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> Option<geometry::CaptureCameraFrame> {
-    if config.capture_camera_mode != PortalCaptureCameraMode::MappedCameraSnapshot {
-        return None;
-    }
+    mapped_camera_frame(host_view, enter, exit, convention)
+        .filter(|_| config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot)
+}
+
+fn mapped_camera_frame(
+    host_view: Option<&PortalCameraContinuityHostView>,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
+    convention: ambition_portal2d::pieces::MapConvention,
+) -> Option<geometry::CaptureCameraFrame> {
     let host_view = host_view.filter(|view| {
         view.initialized && view.visible_view.x >= 1.0 && view.visible_view.y >= 1.0
     })?;
@@ -1037,8 +1037,10 @@ pub fn sync_portal_view_cones(
             continue;
         };
         let (enter, exit) = (portal.aperture(), partner.aperture());
-        let capture_frame =
-            portal_capture_camera_frame(&config, host_view, &enter, &exit, convention);
+        let mapped_view = mapped_camera_frame(host_view, &enter, &exit, convention);
+        let capture_frame = mapped_view.filter(|_| {
+            config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot
+        });
         let rebuild = RebuildKey {
             world_size: frame.size,
             tex: capture_dims(
@@ -1205,18 +1207,9 @@ pub fn sync_portal_view_cones(
                     apply_mesh(&mut mesh, &r);
                     rig.drawn = true;
                 }
-                rig.parallax_anchor = frame
-                    .to_render(
-                        portal_parallax_anchor_world(
-                            host_view,
-                            &enter,
-                            &exit,
-                            convention,
-                        )
-                        .unwrap_or(uncropped_center),
-                        0.0,
-                    )
-                    .truncate();
+                let anchor = mapped_view.map_or(uncropped_center, |view| view.center);
+                rig.parallax_anchor = frame.to_render(anchor, 0.0).truncate();
+                rig.parallax_visible_view = mapped_view.map(|view| view.size);
                 if let Ok(mut ctf) = cones.get_mut(rig.cone) {
                     ctf.translation = r.centroid;
                 }
@@ -1249,8 +1242,10 @@ pub fn sync_portal_view_cones(
             continue;
         }
         let (enter, exit) = (portal.aperture(), partner.aperture());
-        let capture_frame =
-            portal_capture_camera_frame(&config, host_view, &enter, &exit, convention);
+        let mapped_view = mapped_camera_frame(host_view, &enter, &exit, convention);
+        let capture_frame = mapped_view.filter(|_| {
+            config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot
+        });
         let rebuild = RebuildKey {
             world_size: frame.size,
             tex: capture_dims(
@@ -1409,17 +1404,13 @@ pub fn sync_portal_view_cones(
                 parallax_layer: portal_capture_parallax_layer(portal.channel),
                 parallax_anchor: frame
                     .to_render(
-                        portal_parallax_anchor_world(
-                            host_view,
-                            &enter,
-                            &exit,
-                            convention,
-                        )
+                        mapped_view.map(|view| view.center)
                         .or_else(|| render.as_ref().map(|r| r.capture.center))
                         .unwrap_or(exit.frame.origin),
                         0.0,
                     )
                     .truncate(),
+                parallax_visible_view: mapped_view.map(|view| view.size),
                 rebuild,
                 blend,
                 shown,

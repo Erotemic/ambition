@@ -18,13 +18,12 @@
 
 use bevy::{
     asset::embedded_asset,
-    camera::visibility::RenderLayers,
     prelude::*,
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
 };
 
 use crate::screen_pass::{view_in_target, ScreenPass, ScreenPassPlugin, ScreenPassStage};
-use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
+use crate::screen_pass::fields::{FieldSite, FieldViews, nearest};
 
 /// The most auras one camera draws. The nearest to the middle of its view win.
 pub const MAX_VOID_SOURCES: usize = 8;
@@ -74,7 +73,11 @@ impl Plugin for VoidFieldPlugin {
         app.add_plugins(ScreenPassPlugin::<VoidFieldSettings>::default())
             .add_systems(
                 PostUpdate,
-                sync_void_fields.run_if(a_void_or_its_field_stands).after(bevy::transform::TransformSystems::Propagate),
+                sync_void_fields
+                    .run_if(a_void_or_its_field_stands)
+                    .after(bevy::transform::TransformSystems::Propagate)
+                    .after(bevy::camera::CameraUpdateSystems)
+                    .after(crate::rendering::view_isolation::isolate_live_rooms),
             );
     }
 }
@@ -111,39 +114,6 @@ impl ScreenPass for VoidFieldSettings {
     const STAGE: ScreenPassStage = ScreenPassStage::Void;
 }
 
-/// One aura as a camera sees it: its middle in the view (0 to 1, y down),
-/// its radius in view heights, its strength. `None` when no part of it is in
-/// the view.
-pub(crate) fn source_in_view(view_px: Vec2, middle_px: Vec2, radius_px: f32, strength: f32) -> Option<Vec4> {
-    if view_px.x <= 0.0 || view_px.y <= 0.0 || radius_px <= 0.0 || strength <= 0.0 {
-        return None;
-    }
-    let outside = middle_px.x < -radius_px
-        || middle_px.y < -radius_px
-        || middle_px.x > view_px.x + radius_px
-        || middle_px.y > view_px.y + radius_px;
-    if outside {
-        return None;
-    }
-    Some(Vec4::new(
-        middle_px.x / view_px.x,
-        middle_px.y / view_px.y,
-        radius_px / view_px.y,
-        strength.clamp(0.0, 1.0),
-    ))
-}
-
-/// The `N` of `seen` that are nearest to the middle of the view, and how many
-/// they are.
-pub(crate) fn nearest<const N: usize>(mut seen: Vec<Vec4>) -> ([Vec4; N], usize) {
-    let from_middle = |source: &Vec4| (source.truncate().truncate() - Vec2::splat(0.5)).length_squared();
-    seen.sort_by(|a, b| from_middle(a).total_cmp(&from_middle(b)));
-    seen.truncate(N);
-    let mut packed = [Vec4::ZERO; N];
-    packed[..seen.len()].copy_from_slice(&seen);
-    (packed, seen.len())
-}
-
 /// Pack the sources and the wards of one camera: the nearest to the middle
 /// of the view first, and no more than the shader has places for. `None`
 /// with no source: a ward has nothing to stop.
@@ -161,77 +131,30 @@ fn pack_sources(seen: Vec<Vec4>, wards: Vec<Vec4>, aspect: f32, view: Vec4) -> O
     })
 }
 
-/// Does a camera on `camera` draw a thing on `thing`? The rule of the
-/// renderer: no `RenderLayers` is layer 0. `RenderLayers` does not go down to
-/// children, so the layers of a thing are its own.
-///
-/// ⛔ A field the camera does not draw is not in its picture. Two live rooms
-/// can be at the same world place on different layers: with no layer test,
-/// the void of one room took the colour out of the picture of the other, and
-/// a ward of one room stopped the void of the other.
-pub(crate) fn drawn_through(camera: Option<&RenderLayers>, thing: Option<&RenderLayers>) -> bool {
-    match (camera, thing) {
-        (None, None) => true,
-        (Some(camera), None) => camera.intersects(&RenderLayers::default()),
-        (None, Some(thing)) => thing.intersects(&RenderLayers::default()),
-        (Some(camera), Some(thing)) => camera.intersects(thing),
-    }
-}
-
 /// Give each gameplay camera the field of the auras in its view, and take the
 /// pass away from a camera that sees none.
 fn sync_void_fields(
     mut commands: Commands,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    auras: Query<(&GlobalTransform, &VoidAura, Option<&InheritedVisibility>, Option<&RenderLayers>)>,
-    wards: Query<(&GlobalTransform, &VoidWard, Option<&InheritedVisibility>, Option<&RenderLayers>)>,
-    mut cameras: Query<
-        (Entity, &Camera, &GlobalTransform, Option<&RenderLayers>, Option<&mut VoidFieldSettings>),
-        With<MainCamera>,
-    >,
+    auras: Query<(&VoidAura, FieldSite)>,
+    wards: Query<(&VoidWard, FieldSite)>,
+    views: FieldViews,
+    mut settings: Query<&mut VoidFieldSettings>,
 ) {
     // A visual that is hidden has no field. A visual that is only out of the
     // view keeps its field: the field is wider than the visual.
     let in_budget = quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders());
-    for (entity, camera, camera_at, camera_layers, current) in &mut cameras {
-        let next = camera
-            .logical_viewport_rect()
-            .filter(|_| in_budget)
-            .and_then(|view_rect| {
-                let view_px = view_rect.size();
-                // One thing with a radius, as this camera sees it.
-                //
-                // ⛔ `world_to_viewport` gives a place in the TARGET: it adds
-                // the top left of the view. The sources are in the view, so
-                // it is taken away here. With it left in, a camera with bars
-                // at its sides had the field one bar to the side of each void
-                // thing, and the field went across the screen at another
-                // speed than the thing (Jon, 2026-10-16: "the void shader lags
-                // behind the void entity"). A capture has no bars and did not
-                // show it.
-                let in_view = |at: &GlobalTransform, radius: f32, strength: f32| {
-                    let middle = at.translation();
-                    let middle_px = camera.world_to_viewport(camera_at, middle).ok()?;
-                    let edge_px = camera.world_to_viewport(camera_at, middle + Vec3::X * radius).ok()?;
-                    source_in_view(view_px, middle_px - view_rect.min, middle_px.distance(edge_px), strength)
-                };
-                let seen = auras
-                    .iter()
-                    .filter(|(_, _, visible, layers)| {
-                        visible.is_none_or(|visible| visible.get()) && drawn_through(camera_layers, *layers)
-                    })
-                    .filter_map(|(at, aura, ..)| in_view(at, aura.radius, aura.strength))
-                    .collect();
-                let wards = wards
-                    .iter()
-                    .filter(|(_, _, visible, layers)| {
-                        visible.is_none_or(|visible| visible.get()) && drawn_through(camera_layers, *layers)
-                    })
-                    .filter_map(|(at, ward, ..)| in_view(at, ward.radius, ward.strength))
-                    .collect();
-                pack_sources(seen, wards, view_px.x / view_px.y, view_in_target(camera))
-            });
-        match (next, current) {
+    for (entity, view) in views.iter() {
+        let next = view.filter(|_| in_budget).and_then(|view| {
+            let seen = auras.iter()
+                .filter_map(|(aura, site)| views.project(&view, site, aura.radius, aura.strength))
+                .collect();
+            let wards = wards.iter()
+                .filter_map(|(ward, site)| views.project(&view, site, ward.radius, ward.strength))
+                .collect();
+            pack_sources(seen, wards, view.aspect(), view_in_target(view.camera))
+        });
+        match (next, settings.get_mut(entity).ok()) {
             (Some(next), Some(mut current)) => {
                 if *current != next {
                     *current = next;
@@ -251,7 +174,10 @@ fn sync_void_fields(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::screen_pass::fields::source_in_view;
     use crate::screen_pass::WHOLE_TARGET;
+    use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
+    use bevy::camera::visibility::RenderLayers;
     use bevy::camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy::ecs::system::RunSystemOnce;
 
@@ -342,6 +268,44 @@ mod tests {
         at_the_middle(&mut world, AURA, Some(RenderLayers::layer(6)));
         world.run_system_once(sync_void_fields).unwrap();
         assert_eq!(field(&world, camera_a), None);
+    }
+
+    #[cfg(feature = "card_view")]
+    #[test]
+    fn a_card_output_projects_the_field_in_its_view_and_keeps_the_room_mask() {
+        use crate::rendering::card_view::{CardViewCamera, PlaneCameraForCard};
+        let mut world = World::new();
+        let room_layer = RenderLayers::layer(5);
+        let plane = camera(&mut world, Some(room_layer.clone()));
+        let card = camera(&mut world, Some(RenderLayers::layer(7)));
+        world.get_mut::<Camera>(plane).unwrap().is_active = false;
+        let at = GlobalTransform::from(Transform::from_rotation(Quat::from_rotation_y(0.4)));
+        world.entity_mut(card).remove::<MainCamera>().insert((CardViewCamera, PlaneCameraForCard(plane), at));
+        world.get_mut::<Camera>(card).unwrap().viewport = Some(bevy::camera::Viewport {
+            physical_position: UVec2::new(80, 20),
+            physical_size: UVec2::new(480, 320),
+            ..default()
+        });
+        at_the_middle(&mut world, AURA, Some(RenderLayers::layer(6)));
+        world.run_system_once(sync_void_fields).unwrap();
+        assert_eq!(field(&world, card), None);
+
+        let site = Vec3::new(80.0, 20.0, 10.0);
+        world.spawn((AURA, GlobalTransform::from_translation(site), room_layer));
+        world.run_system_once(sync_void_fields).unwrap();
+        let camera = world.get::<Camera>(card).unwrap();
+        let settings = world.get::<VoidFieldSettings>(card).unwrap();
+        let rect = camera.logical_viewport_rect().unwrap();
+        let expected = (camera.world_to_viewport(&at, site).unwrap() - rect.min) / rect.size();
+        assert_eq!(settings.sources[0].truncate().truncate(), expected);
+        assert_eq!(field(&world, card), Some((1, 0)));
+        assert_eq!(field(&world, plane), None);
+
+        world.get_mut::<Camera>(card).unwrap().is_active = false;
+        world.get_mut::<Camera>(plane).unwrap().is_active = true;
+        world.run_system_once(sync_void_fields).unwrap();
+        assert_eq!(field(&world, card), None);
+        assert_eq!(field(&world, plane), Some((1, 0)));
     }
 
     /// An aura with no part in the view is not a source: a camera that sees

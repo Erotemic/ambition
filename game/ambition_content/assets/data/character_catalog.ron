@@ -1611,6 +1611,11 @@
             move_style: Slither,
             melee: Some(Swipe(windup_s: 0.54, active_s: 0.16, recover_s: 0.68, damage: 2, reach_px: 65.0)),
         ),
+        // Bromine gathers its liquid body and lashes forward.
+        "bromine_elemental_lash": (
+            move_style: Slither,
+            melee: Some(Swipe(windup_s: 0.60, active_s: 0.18, recover_s: 0.72, damage: 2, reach_px: 62.0)),
+        ),
         "bismuth_elemental_strike": (
             move_style: WalkHeavy,
             melee: Some(Swipe(windup_s: 0.66, active_s: 0.18, recover_s: 0.82, damage: 3, reach_px: 58.0)),
@@ -1637,6 +1642,19 @@
         "surprise_elemental_pop": (
             move_style: Float,
             melee: Some(Swipe(windup_s: 0.38, active_s: 0.19, recover_s: 0.76, damage: 2, reach_px: 52.0)),
+        ),
+        // The Element of Truth: a focused, straight geometric bolt.
+        "truth_elemental_revelation": (
+            move_style: Float,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 480.0,
+                damage: 2,
+                visual: Some("polygon_bolt"),
+                flight: Some((gravity: 0.0, bounces: 0, bounce_on_world_contact: false, max_lifetime: 0.85, half_extent: (10.0, 5.0), boomerang_return_s: None)),
+                discharge: Some((muzzle: Offset(x: 0.36, y: -0.023), recoil: 0.0)),
+                refire_s: 1.0,
+            ))),
         ),
     },
 
@@ -1754,6 +1772,7 @@
         ),
         "npc_busy_beaver": (
             display_name: "Busy Beaver",
+            cast: (importance: Tertiary, roles: {"service": ["foreman"]}),
             manifest: "sprites/busy_beaver_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2705,6 +2724,7 @@
         "imperfect_cellular_automaton": (
             sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
             display_name: "Imperfect Cellular Automaton",
+            cast: (importance: Tertiary, roles: {"story": ["foil"]}),
             manifest: "sprites/imperfect_cellular_automaton_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -2747,6 +2767,7 @@
         "npc_pirate_heavy_broadside_bess": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Broadside Bess",
+            cast: (importance: Tertiary, roles: {"story": ["pirate"]}),
             manifest: "sprites/pirate_heavy_broadside_bess_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -3156,6 +3177,7 @@
         "npc_full_stack": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Full Stack",
+            cast: (importance: Secondary, roles: {"story": ["enforcer"], "encounter": ["boss-mount"]}),
             manifest: "sprites/full_stack_giant_spritesheet.ron",
             tier: Giant,
             body_kind: Wide,
@@ -3724,6 +3746,7 @@
         ),
         "npc_creator": (
             display_name: "Dennis",
+            cast: (importance: Secondary, roles: {"story": ["mentor"], "service": ["robot-builder"]}),
             manifest: "sprites/creator_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4213,6 +4236,7 @@
         ),
         "npc_flying_spaghetti_monster_boss": (
             display_name: "Flying Spaghetti Monster",
+            cast: (importance: Secondary, roles: {"story": ["deity"], "encounter": ["boss"]}),
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -4321,6 +4345,7 @@
         ),
         "npc_girdle": (
             display_name: "Girdle",
+            cast: (importance: Secondary, roles: {"service": ["logician"]}),
             manifest: "sprites/girdle_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4583,6 +4608,7 @@
         ),
         "npc_mockingbird_boss": (
             display_name: "Mockingbird",
+            cast: (importance: Secondary, roles: {"encounter": ["boss"]}),
             manifest: "sprites/mockingbird_boss_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -5239,6 +5265,7 @@
         ),
         "npc_davy_hylbert": (
             display_name: "Davy Hylbert",
+            cast: (importance: Secondary, roles: {"service": ["hotelier"]}),
             manifest: "sprites/davy_hylbert_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -5439,6 +5466,7 @@
         // its fight builds at its arena box, so the Hall shows it at that size.
         "npc_marshal_gallus": (
             display_name: "Marshal Gallus",
+            cast: (importance: Secondary, roles: {"story": ["outlaw"], "encounter": ["boss"]}),
             manifest: "sprites/marshal_gallus_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -5481,6 +5509,7 @@
         ),
         "npc_gram_reaper": (
             display_name: "Gram Reaper",
+            cast: (importance: Secondary, roles: {"encounter": ["boss", "dungeon-guardian"]}),
             manifest: "sprites/gram_reaper_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -6286,6 +6315,7 @@
         ),
         "special_patent_clerk": (
             display_name: "Patent Clerk",
+            cast: (importance: Tertiary, roles: {"service": ["patent-clerk"]}),
             manifest: "sprites/patent_clerk_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -6523,6 +6553,7 @@
         ),
         "npc_hunny_horror_boss": (
             display_name: "Hunny Horror",
+            cast: (importance: Tertiary, roles: {"encounter": ["boss"]}),
             manifest: "sprites/hunny_horror_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -7151,6 +7182,7 @@
         "barrow_wight": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Barrow Wight",
+            cast: (importance: Tertiary, roles: {"encounter": ["dungeon-guardian"]}),
             manifest: "sprites/barrow_wight_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -10797,6 +10829,7 @@
         // place in the hall (at the END of the catalog: see the flock above).
         "npc_wolfenstein_boss": (
             display_name: "Wolfenstein",
+            cast: (importance: Secondary, roles: {"encounter": ["boss"]}),
             manifest: "sprites/wolfenstein_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -10845,6 +10878,7 @@
         // the hall. His fight is `supreme_leader` (`data/boss_profiles.ron`).
         "npc_supreme_leader": (
             display_name: "The Supreme Leader",
+            cast: (importance: Secondary, roles: {"story": ["ruler"], "encounter": ["boss"]}),
             manifest: "sprites/supreme_leader_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -11667,6 +11701,7 @@
         ),
         "npc_port_jory": (
             display_name: "Jory",
+            cast: (importance: Background, roles: {"service": ["fisherman"]}),
             // A fisherman who mends nets on the pier.
             manifest: "sprites/port_jory_spritesheet.ron",
             tier: MainHall,
@@ -11685,6 +11720,7 @@
         ),
         "npc_port_bram": (
             display_name: "Bram",
+            cast: (importance: Tertiary, roles: {"service": ["harbour-master"]}),
             // The harbour master.
             manifest: "sprites/port_bram_spritesheet.ron",
             tier: MainHall,
@@ -11703,6 +11739,7 @@
         ),
         "npc_port_wren": (
             display_name: "Lark",
+            cast: (importance: Tertiary, roles: {"service": ["innkeeper"]}),
             // The keeper of the waterfront tavern.
             manifest: "sprites/port_wren_spritesheet.ron",
             tier: MainHall,
@@ -12030,6 +12067,7 @@
         ),
         "npc_station_pell": (
             display_name: "Gus Pell",
+            cast: (importance: Background, roles: {"service": ["cook"]}),
             manifest: "sprites/station_pell_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -12070,6 +12108,7 @@
         // built yet.
         "npc_science_nikobolt": (
             display_name: "Nikobolt Tesseract",
+            cast: (importance: Secondary, roles: {"service": ["inventor"]}),
             manifest: "sprites/science_nikobolt_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -12090,6 +12129,7 @@
         // hand-made overlay `data/overlays/coulomba_tesseract.overlay.svg`).
         "npc_science_coulomba": (
             display_name: "Coulomba Tesseract",
+            cast: (importance: Secondary, roles: {"story": ["collaborator"]}),
             manifest: "sprites/science_coulomba_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17103,6 +17143,7 @@
         // it. Placement says where he stands and whose side he is on.
         "npc_peyote_lean": (
             display_name: "Peyote Lean",
+            cast: (importance: Secondary, roles: {"story": ["outlaw"]}),
             manifest: "sprites/peyote_lean_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17415,6 +17456,33 @@
             mass: Some(5.5),
             tags: ["enemy", "science", "elemental", "chemical_element", "mercury", "liquid_metal", "no_hands"],
         ),
+        // Bromine (Br, 35): a red-brown liquid with a reddish vapor.
+        "bromine_elemental": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Bromine Elemental",
+            manifest: "sprites/bromine_elemental_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(66.0),
+            composition: None,
+            default_action_set: "bromine_elemental_lash",
+            death_traits: Some((corpse: Some(Stay))),
+            locomotion: Some((run_speed: 106.0, move_style: Slither)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 380.0,
+                attack_range: 62.0,
+                patrol_effort: 0.32,
+                chase_effort: 0.83,
+                attack_cooldown_s: 1.0,
+                shares_sightings: false,
+                tactics: (notice_s: 0.45),
+            )),
+            max_health: Some(5),
+            mass: Some(3.0),
+            tags: ["enemy", "science", "elemental", "chemical_element", "bromine", "halogen", "liquid", "no_hands"],
+        ),
         "bismuth_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Bismuth Elemental",
@@ -17633,6 +17701,34 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["townsfolk", "science", "mine", "peaceful"],
+        ),
+        // A living True glyph whose parentheses frame a unique witness.
+        "truth_elemental": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Truth Elemental",
+            manifest: "sprites/truth_elemental_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(66.0),
+            composition: None,
+            default_action_set: "truth_elemental_revelation",
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 106.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 460.0,
+                attack_range: 240.0,
+                patrol_effort: 0.30,
+                chase_effort: 0.78,
+                ranged_volley: Some((windup_s: 0.68, firing_s: 0.18, recovery_s: 0.90)),
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "math", "elemental", "truth", "logic", "proof"],
+            barks: (
+                idle: ["Trivial."],
+                provoked: ["Truth hurts."],
+                on_hit: ["I stand corrected."],
+            ),
         ),
     },
 )

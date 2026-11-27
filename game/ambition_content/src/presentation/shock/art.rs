@@ -37,7 +37,14 @@ impl Skeleton {
         }
     }
 
-    pub(super) fn parts(self, center: Vec2, size: Vec2, forward: Vec2, down: Vec2) -> Vec<Bone> {
+    pub(super) fn parts(
+        self,
+        skull: u32,
+        center: Vec2,
+        size: Vec2,
+        forward: Vec2,
+        down: Vec2,
+    ) -> Vec<Bone> {
         let h = size.y;
         let neck = self.head + down * (0.075 * h);
         let hip = center + down * (0.10 * h);
@@ -85,7 +92,7 @@ impl Skeleton {
                     trunk_down,
                 ));
                 parts.push(Bone::upright(
-                    Tile::Skull,
+                    Tile::Skull(skull),
                     self.head - down * (0.035 * h),
                     Vec2::splat(0.47 * h),
                     forward,
@@ -97,18 +104,124 @@ impl Skeleton {
     }
 }
 
+pub(super) fn quadruped(
+    skull: u32,
+    center: Vec2,
+    size: Vec2,
+    forward: Vec2,
+    down: Vec2,
+    joint: impl Fn(Landmark) -> Option<Vec2>,
+) -> Vec<Bone> {
+    let h = size.y;
+    let at = |x, y| center + forward * (x * size.x) + down * (y * h);
+    let head = joint(Landmark::Head).unwrap_or_else(|| at(0.43, -0.30));
+    let hind = at(-0.29, -0.09);
+    let fore = at(0.25, -0.14);
+    let tail_tip = hind - forward * (0.23 * size.x) - down * (0.16 * h);
+    let tail = tail_tip - hind;
+    let mut bones = Vec::with_capacity(17);
+
+    for far in [true, false] {
+        let start = bones.len();
+        for (root, x, bend) in [(hind, -0.30, -0.13), (fore, 0.26, 0.07)] {
+            let foot = at(x + if far { -0.09 } else { 0.035 }, 0.49);
+            let knee = root.lerp(foot, 0.53) + forward * (bend * h);
+            bones.extend(Bone::limb(root, knee, foot, 0.60 * h));
+            bones.push(Bone::upright(
+                Tile::Paw,
+                foot,
+                Vec2::splat(0.52 * h),
+                forward,
+                down,
+            ));
+        }
+        if far {
+            for bone in &mut bones[start..] {
+                bone.far = true;
+            }
+            bones.push(Bone::aimed(
+                Tile::Tail,
+                hind.midpoint(tail_tip),
+                Vec2::new(tail.length() * TILE_OVER_JOINTS, 0.49 * h),
+                tail,
+            ));
+            bones.push(Bone::upright(
+                Tile::AnimalTrunk,
+                hind.midpoint(fore) + down * (0.075 * h),
+                Vec2::new(hind.distance(fore) * TILE_OVER_JOINTS, 1.02 * h),
+                forward,
+                down,
+            ));
+            let neck_base = fore - down * (0.025 * h);
+            let neck_top = head - forward * (0.12 * h) + down * (0.10 * h);
+            bones.push(Bone::aimed(
+                Tile::Tail,
+                neck_base.midpoint(neck_top),
+                Vec2::new(neck_base.distance(neck_top) * TILE_OVER_JOINTS, 0.77 * h),
+                neck_top - neck_base,
+            ));
+            bones.push(Bone::upright(
+                Tile::Skull(skull),
+                head,
+                Vec2::splat(0.78 * h),
+                forward,
+                down,
+            ));
+        }
+    }
+    bones
+}
+
+pub(super) fn skull_only(
+    skull: u32,
+    center: Vec2,
+    size: Vec2,
+    forward: Vec2,
+    down: Vec2,
+    joint: impl Fn(Landmark) -> Option<Vec2>,
+) -> Vec<Bone> {
+    let head =
+        joint(Landmark::Head).unwrap_or(center + forward * size.x * 0.22 - down * size.y * 0.17);
+    vec![Bone::upright(
+        Tile::Skull(skull),
+        head,
+        Vec2::splat(0.63 * size.y),
+        forward,
+        down,
+    )]
+}
+
 // The atlas cells are 64 pixels across. A shaft or trunk spans 40 pixels between joints.
 const CELL: f32 = 64.0;
 const TILE_OVER_JOINTS: f32 = CELL / 40.0;
 
 #[derive(Clone, Copy)]
 enum Tile {
-    Skull,
+    Skull(u32),
     Trunk,
     Shaft,
     Pair,
     Hand,
     Foot,
+    AnimalTrunk,
+    Paw,
+    Tail,
+}
+
+impl Tile {
+    fn index(self) -> u32 {
+        match self {
+            Self::Skull(index) => index,
+            Self::Trunk => 1,
+            Self::Shaft => 2,
+            Self::Pair => 3,
+            Self::Hand => 4,
+            Self::Foot => 5,
+            Self::AnimalTrunk => 6,
+            Self::Paw => 7,
+            Self::Tail => 8,
+        }
+    }
 }
 
 pub(super) struct Bone {
@@ -122,7 +235,7 @@ pub(super) struct Bone {
 
 impl Bone {
     pub fn rect(&self) -> bevy::math::Rect {
-        let index = self.tile as u32;
+        let index = self.tile.index();
         let min = Vec2::new((index % 4) as f32, (index / 4) as f32) * CELL;
         bevy::math::Rect {
             min,

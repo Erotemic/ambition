@@ -54,6 +54,8 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
   heights. Two walks cross the shaft between the ladders.
 - In the great hall, steps from both sides connect the floor to the
   galleries and the central balcony. The muster also uses the dais.
+- In the throne arena, steps beside the coils and the east gate connect
+  the floor, the two lower galleries, and the high gallery.
 - **Lower floor:** a stair down through the gatehouse's floor into the kitchens, then east through the Complaints Department and the cells into the tower lower down (y 1344). The whole castle is a loop.
 - **Shortcut:** the lever in the cells opens the cracked trapdoor in the barracks' floor.
 - **Secret:** the kitchens' west wall is false at the floor, and the Guild's room is behind it.

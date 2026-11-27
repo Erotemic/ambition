@@ -2,8 +2,10 @@
 //! (`items.ron`, `docs/planning/game/combat-stances.md`). Equipped through the
 //! menu's road, each stance plays its own move for each attack verb, every
 //! stance's pogo bounces off what it strikes, a Lunge thrust carries the body
-//! where the Edge's swing roots no one, and the Crescent's string is three
-//! steps.
+//! where the Edge's swing roots no one, the Crescent's string is three
+//! steps and turns with the stick, and a Lunge thrust that lands becomes a
+//! flurry that strikes again and again (`docs/planning/game/combat-stances.md`,
+//! "Second pass").
 
 #![cfg(feature = "rl_sim")]
 
@@ -157,4 +159,104 @@ fn the_crescent_string_is_three_steps() {
         }
     }
     assert_eq!(seen, ["crescent_arc", "crescent_return", "crescent_sweep"], "the string");
+}
+
+/// The moves `body` plays over `ticks`, each once, in order, while `drive`
+/// gives the action for each tick.
+fn moves_over(sim: &mut Platformer2dSimHarness, body: Entity, ticks: usize, drive: impl Fn(usize) -> AgentAction) -> Vec<String> {
+    let mut seen: Vec<String> = Vec::new();
+    for tick in 0..ticks {
+        sim.step(drive(tick));
+        if let Some(id) = playing(sim, body) {
+            if seen.last() != Some(&id) {
+                seen.push(id);
+            }
+        }
+    }
+    seen
+}
+
+/// The Crescent's string branches by the stick at each step: up then down is
+/// the rise into the flurry, down then level is the dip into the sweep, and
+/// a level string is unchanged.
+#[test]
+fn the_crescent_string_turns_with_the_stick() {
+    let mut sim = open_sim();
+    sim.step_n(base(), 120);
+    let body = primary(&mut sim);
+    equip(&mut sim, Item::CrescentStance);
+    let mut string = |steps: [f32; 3]| {
+        sim.step_n(base(), 60);
+        moves_over(&mut sim, body, 90, |tick| match tick {
+            0 => attack(steps[0]),
+            20 => attack(steps[1]),
+            40 => attack(steps[2]),
+            _ => base(),
+        })
+    };
+    assert_eq!(string([0.0, -1.0, 1.0]), ["crescent_arc", "crescent_rise", "crescent_flurry"], "up, then down");
+    assert_eq!(string([0.0, 1.0, 0.0]), ["crescent_arc", "crescent_dip", "crescent_sweep"], "down, then level");
+    assert_eq!(string([0.0, -1.0, -1.0]), ["crescent_arc", "crescent_rise", "crescent_rise_finish"], "up, then up");
+}
+
+/// A Lunge thrust that lands opens the needle flurry, and with the button
+/// held the flurry strikes the same foe again and again: one press, several
+/// hits. A thrust that whiffs is followed by the long lunge instead.
+#[test]
+fn a_lunge_thrust_that_lands_becomes_a_flurry() {
+    let mut sim = open_sim();
+    sim.step_n(base(), 120);
+    let body = primary(&mut sim);
+    equip(&mut sim, Item::LungeStance);
+    sim.step_n(base(), 60);
+    let facing = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(body).expect("a live body").facing.signum();
+    let at = sim.observation().player_pos;
+
+    // Control: nobody in front. Holding Attack after a whiff is the long lunge.
+    let whiffed = moves_over(&mut sim, body, 60, |tick| AgentAction { attack: tick == 0, attack_held: true, ..base() });
+    assert_eq!(whiffed.get(..2), Some(&["lunge_thrust".to_string(), "lunge_long".to_string()][..]), "a whiff: {whiffed:?}");
+
+    sim.step_n(base(), 60);
+    sim.teleport_player(at);
+    sim.step_n(base(), 10);
+    sim.spawn_enemy_character_at(
+        "stance_flurry_foe",
+        "Target",
+        (at.0 + facing * 40.0, at.1),
+        (12.0, 16.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+        "npc_puppy_slug",
+    );
+    let foe = {
+        let world = sim.world_mut();
+        world
+            .query::<(Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+            .iter(world)
+            .find(|(_, id)| id.0 == "stance_flurry_foe")
+            .expect("the foe was spawned")
+            .0
+    };
+    // A spawned actor joins the room it is told it is in: the player's.
+    let room = *sim.world().get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(body).expect("the player is in a room");
+    sim.world_mut().entity_mut(foe).insert(room);
+    sim.step_n(base(), 2);
+    let health = |sim: &Platformer2dSimHarness| {
+        sim.world().get::<ambition_platformer2d::characters::actor::BodyHealth>(foe).expect("the foe has health").health.current
+    };
+    sim.world_mut().get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(foe).expect("health").health.current = 99;
+    // The foe strikes back when provoked; the witness is the stance, so the
+    // robot takes no hit that would cut its string short.
+    sim.world_mut()
+        .get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(body)
+        .expect("the robot has health")
+        .health
+        .invulnerable
+        .set(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
+    sim.step_n(base(), 30);
+    let before = health(&sim);
+    let landed = moves_over(&mut sim, body, 70, |tick| AgentAction { attack: tick == 0, attack_held: true, ..base() });
+    let dealt = before - health(&sim);
+    assert_eq!(landed.get(..2), Some(&["lunge_thrust".to_string(), "lunge_flurry".to_string()][..]), "a landed thrust: {landed:?}");
+    // The thrust, two laps of two holding stabs, and the push-out.
+    assert!(dealt >= 5, "one press and a held button struck {dealt} times");
 }

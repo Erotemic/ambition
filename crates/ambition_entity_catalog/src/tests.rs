@@ -244,6 +244,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
             tag: WindowTag::Cancelable {
                 into: vec!["jump".to_string(), "dash".to_string()],
                 condition: CancelCondition::default(),
+                press: None,
             },
             volumes: vec![],
             sustain_effect: None,
@@ -1770,6 +1771,7 @@ fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
         tag: WindowTag::Cancelable {
             into: vec!["polygon_tilt_up".to_string(), "any_attack".to_string()],
             condition: CancelCondition::default(),
+            press: None,
         },
         volumes: vec![],
         sustain_effect: None,

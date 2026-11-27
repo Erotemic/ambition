@@ -798,9 +798,12 @@ The owner also records a smaller late-input edge disposition correction.
 
 **State:** IN PROGRESS (Jon 2026-11-27: "stance 3 and stance 2 ... feel
 slapdash"). **Owner:** [combat stances](game/combat-stances.md#second-pass-combos-and-identities-stance-polish).
-**Next action:** SP1, a directed successor in the cancel table
-(`Cancelable.press`); then SP2 (Lunge), SP3 (Crescent), SP4 (the look) and SP5
-(the headless feel measurement).
+**Next action:** SP1 (directed successors), SP1b (a move's pulses no
+longer arm the actor repeat guard), SP2 (Lunge) and SP3 (Crescent) landed
+2026-11-27. Next is SP4: rows for the flurry, the corkscrew and the
+Crescent branches, which borrow Edge rows today. Then SP5: the headless
+feel measurement, including the hold a holding pulse puts on the attacker's
+move clock.
 
 ### GNUTON-POLISH — the GNU-ton fight, presentable (Jon 2026-11-21)
 

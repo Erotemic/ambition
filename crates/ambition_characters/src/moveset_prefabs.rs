@@ -531,6 +531,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
                         "any_attack".to_string(),
                     ],
                     condition: ambition_entity_catalog::CancelCondition::Always,
+                    press: None,
                 },
                 volumes: vec![],
                 sustain_effect: None,

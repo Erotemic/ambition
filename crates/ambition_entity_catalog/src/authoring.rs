@@ -240,6 +240,7 @@ pub fn cancelable(
         tag: WindowTag::Cancelable {
             into: into.iter().map(|s| (*s).to_string()).collect(),
             condition,
+            press: None,
         },
         volumes: Vec::new(),
         motion_scale: 1.0,

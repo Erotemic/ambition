@@ -83,7 +83,7 @@
     ),
     (
         display_name: "Stance II",
-        description: "Lunge: thrusts that carry you forward, a whirl in the air, and a diving pogo.",
+        description: "Lunge: thrusts that carry you in and drills that hold what they strike. Land the thrust, then keep pressing.",
         category: Ability,
         held_item_id: None,
         dialog_id: "lungestance",
@@ -108,7 +108,7 @@
     ),
     (
         display_name: "Stance III",
-        description: "Crescent: wide arcs that hit hardest at the tip, a three-step string, and a sweeping pogo.",
+        description: "Crescent: wide arcs that hit hardest at the tip, and a string that turns up or down with the stick.",
         category: Ability,
         held_item_id: None,
         dialog_id: "crescentstance",
@@ -121,7 +121,7 @@
                 "attack_up": "crescent_overhead",
                 "attack_down": "crescent_low",
                 "attack_air": "crescent_air",
-                "attack_air_forward": "crescent_air",
+                "attack_air_forward": "crescent_air_forward",
                 "attack_air_back": "crescent_air_back",
                 "attack_air_up": "crescent_air_up",
                 "attack_air_down": "crescent_pogo",

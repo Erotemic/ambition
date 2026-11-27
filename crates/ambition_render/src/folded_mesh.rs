@@ -111,11 +111,26 @@ pub struct FoldedMesh {
 }
 
 /// The material of an added mesh: its colours, added to what is under them.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct AddedLightMaterial {
     /// Multiplies every colour.
     #[uniform(0)]
     pub strength: Vec4,
+}
+
+impl AddedLightMaterial {
+    pub(crate) const BLEND: BlendState = BlendState {
+        color: BlendComponent {
+            src_factor: BlendFactor::SrcAlpha,
+            dst_factor: BlendFactor::One,
+            operation: BlendOperation::Add,
+        },
+        alpha: BlendComponent {
+            src_factor: BlendFactor::Zero,
+            dst_factor: BlendFactor::One,
+            operation: BlendOperation::Add,
+        },
+    };
 }
 
 impl Material2d for AddedLightMaterial {
@@ -132,21 +147,9 @@ impl Material2d for AddedLightMaterial {
         _layout: &MeshVertexBufferLayoutRef,
         _key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let add = BlendState {
-            color: BlendComponent {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
-            alpha: BlendComponent {
-                src_factor: BlendFactor::Zero,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
-        };
         if let Some(fragment) = descriptor.fragment.as_mut() {
             for target in fragment.targets.iter_mut().flatten() {
-                target.blend = Some(add);
+                target.blend = Some(Self::BLEND);
             }
         }
         Ok(())

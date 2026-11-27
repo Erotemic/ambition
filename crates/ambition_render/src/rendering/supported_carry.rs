@@ -27,11 +27,22 @@ const FOOT_TRACKS: [&str; 6] = [
 ];
 
 #[derive(Component)]
+#[require(super::AnimatedWorldSpriteTint)]
 pub(super) struct SlingString {
     holder: Entity,
     room: LiveRoomInstance,
     arm: usize,
     released: f32,
+    #[cfg(feature = "card_view")]
+    pub(super) span: SlingSpan,
+}
+
+#[cfg(feature = "card_view")]
+#[derive(Clone, Copy)]
+pub(super) struct SlingSpan {
+    pub(super) root: Entity,
+    pub(super) foot_part: Option<usize>,
+    pub(super) load: Option<(Entity, f32)>,
 }
 
 pub(super) fn sync_strings(
@@ -45,6 +56,15 @@ pub(super) fn sync_strings(
     posed: Query<&PartSetDraws>,
     requests: Query<(Entity, &PartSetRequest)>,
     mut strings: Query<(Entity, &mut SlingString, &mut Transform, &mut Sprite)>,
+    #[cfg(feature = "card_view")] loads: Query<
+        (
+            &ambition_platformer2d_shared_tangle::lifecycle::PresentationOf,
+            &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
+            &super::posed_hand::HeldArtOf,
+            &Transform,
+        ),
+        Without<SlingString>,
+    >,
 ) {
     let Some(scope) = SessionSpawnScope::for_optional_active_session(session.as_deref()) else {
         for (entity, ..) in &strings {
@@ -82,6 +102,14 @@ pub(super) fn sync_strings(
             forget_parts(&mut commands, root, FOOT_READER);
         }
     }
+    #[cfg(feature = "card_view")]
+    let load_draws = if supports.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        loads.iter().map(|(owner, room, art, transform)| {
+            ((owner.0, room.0), (art.0, transform.translation.z))
+        }).collect::<std::collections::HashMap<_, _>>()
+    };
     let wanted: Vec<_> = supports
         .into_iter()
         .flat_map(|(holder, room, support)| {
@@ -101,17 +129,14 @@ pub(super) fn sync_strings(
             let root = roots.of(body.body, body.feature.as_deref());
             // The holder's own depth: a seated holder's string is in its seat.
             let holder_z = roots.drawn_z(body.body, body.feature.as_deref()).unwrap_or(WORLD_Z_PLAYER);
-            let a = posed
+            let foot = posed
                 .get(root)
                 .ok()
-                .and_then(|draws| {
-                    let foot = draws.parts(FOOT_READER).last()?;
-                    Some(
-                        (draws.place.to_matrix() * foot.local.to_matrix())
-                            .transform_point3(Vec3::ZERO),
-                    )
-                })
-                .unwrap_or_else(|| world_to_bevy(&geometry.0, end, holder_z));
+                .and_then(|draws| Some((draws.place, draws.parts(FOOT_READER).last()?)));
+            let a = foot.map_or_else(
+                || world_to_bevy(&geometry.0, end, holder_z),
+                |(place, foot)| (place.to_matrix() * foot.local.to_matrix()).transform_point3(Vec3::ZERO),
+            );
             let b = world_to_bevy(&geometry.0, load, a.z);
             let delta = b - a;
             let mut centre = (a + b) * 0.5;
@@ -123,11 +148,19 @@ pub(super) fn sync_strings(
                 Transform::from_translation(centre)
                     .with_rotation(Quat::from_rotation_z(delta.y.atan2(delta.x))),
                 Vec2::new(delta.truncate().length(), 1.5),
+                #[cfg(feature = "card_view")]
+                SlingSpan {
+                    root,
+                    foot_part: foot.map(|(_, foot)| foot.paint_index),
+                    load: load_draws.get(&(holder, room)).copied(),
+                },
+                #[cfg(not(feature = "card_view"))]
+                (),
             ))
         })
         .collect();
     for (entity, mut string, mut transform, mut sprite) in &mut strings {
-        if let Some((_, _, _, at, size)) = wanted.iter().find(|(holder, room, arm, ..)| {
+        if let Some((_, _, _, at, size, _span)) = wanted.iter().find(|(holder, room, arm, ..)| {
             *holder == string.holder && *room == string.room && *arm == string.arm
         }) {
             if string.released > 0.0 {
@@ -136,6 +169,8 @@ pub(super) fn sync_strings(
                 );
             }
             string.released = 0.0;
+            #[cfg(feature = "card_view")]
+            { string.span = *_span; }
             *transform = *at;
             sprite.custom_size = Some(*size);
             sprite.color.set_alpha(1.0);
@@ -152,7 +187,7 @@ pub(super) fn sync_strings(
             }
         }
     }
-    for (holder, room, arm, at, size) in wanted {
+    for (holder, room, arm, at, size, _span) in wanted {
         if strings.iter().any(|(_, string, ..)| {
             string.holder == holder && string.room == room && string.arm == arm
         }) {
@@ -166,6 +201,8 @@ pub(super) fn sync_strings(
                     room,
                     arm,
                     released: 0.0,
+                    #[cfg(feature = "card_view")]
+                    span: _span,
                 },
                 ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(holder),
                 Sprite::from_color(Color::srgb(0.9, 0.83, 0.65), size),

@@ -396,6 +396,11 @@ shared value preparation are sufficient until source proves otherwise.
    is drawn just under the foot it hangs from (`UNDER_HOLDER`), or under the
    holder's root when no foot is posed.
 
+   The card view draws the same string sprite and fade. Each end uses the
+   depth of the art it touches. The foot uses its body part. The load
+   uses the held item. The string keeps its side-view position when its
+   ends have different depths.
+
    **One part-rank law (2026-11-25).** A body's own slots
    (`write_slots`) and a reader's placed parts (`part_set::answer`) each
    rebuilt a part's local transform and its rank `index × SLOT_DEPTH_STEP`.
@@ -833,6 +838,11 @@ shared value preparation are sufficient until source proves otherwise.
    cut. Its card uses the item's visibility. The item and its entry piece
    use the same draw depth. An Ultra fixture shows a split helmet and held
    items with independent cuts in all three views.
+
+   Both views use the same additive material for folded lights on devices
+   that support it. Blended folded meshes, such as electric shock, use the
+   color-mesh path. An Ultra fixture checks light strength, vertex colors,
+   and the world sprite that shows a body's countdown.
 
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.

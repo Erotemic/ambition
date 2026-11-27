@@ -2,7 +2,11 @@
 // scaled by `strength`. The material's blend adds them to what is under
 // them. It draws no shape: the shape is the mesh.
 
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#endif
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif

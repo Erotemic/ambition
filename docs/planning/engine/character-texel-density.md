@@ -1,8 +1,7 @@
 # Character texel density
 
-Status: the mechanism is built; only Wolfenstein uses it. Rolling it out to
-the cast is ON HOLD (Jon, 2026-10-17: "Hold off on the density for the entire
-cast. Document it in docs/planning.").
+Status: Wolfenstein and Scout use denser textures. The rest of the cast is
+on hold.
 
 ## The problem
 
@@ -30,6 +29,9 @@ magnified, and it looks soft.
   output grows.
 - Wolfenstein is the worked example. He is a 320 logical frame with a 165 px
   body standing 100 world units tall, published at 660 px.
+- Scout renders the gameplay parts at twice the original texel density.
+  The frame size, feet position, and pose coordinates in the sheet stay in
+  logical pixels. Each quality tier uses its own raster scale for the parts.
 
 ## What a rollout costs
 

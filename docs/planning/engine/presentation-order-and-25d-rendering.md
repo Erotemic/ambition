@@ -849,6 +849,11 @@ shared value preparation are sufficient until source proves otherwise.
    output takes its room mask from the plane camera and uses the depth of
    the field's art. Inactive cameras release their passes.
 
+   Mary-O's fire glow, cosmic aura, barrier, quasar, and room shimmer use
+   the same materials in both views. The shimmer, room sky, and blueprint
+   shaders use the card camera axis at the play plane. An Ultra fixture
+   checks the five Mary-O materials with the published art.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

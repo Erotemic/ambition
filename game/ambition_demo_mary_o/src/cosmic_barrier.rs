@@ -72,7 +72,7 @@ pub struct BarrierUniform {
 }
 
 /// The material of the barrier.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct MaryOCosmicBarrierMaterial {
     #[uniform(0)]
     pub barrier: BarrierUniform,
@@ -80,6 +80,9 @@ pub struct MaryOCosmicBarrierMaterial {
     #[sampler(2)]
     pub page: Handle<Image>,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOCosmicBarrierMaterial {}
 
 impl Material2d for MaryOCosmicBarrierMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -124,6 +127,8 @@ pub fn install(app: &mut App) {
     ambition_platformer2d::content_asset!(app, "src/shaders/cosmic_barrier.wgsl");
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOCosmicBarrierMaterial>::default());
+        #[cfg(feature = "card_view")]
+        ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOCosmicBarrierMaterial>(app);
     }
     if let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() {
         let quad = meshes.add(Rectangle::new(1.0, 1.0));
@@ -254,6 +259,7 @@ fn raise_her_barrier(
                     Mesh2d(quad.0.clone()),
                     MeshMaterial2d(material),
                     place,
+                    ambition_platformer2d::platformer::lifecycle::PresentationOf(body),
                     Name::new("mary-o cosmic barrier"),
                 ));
                 // Where she is drawn: a room that is not live, a view of one seat.

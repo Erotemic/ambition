@@ -55,7 +55,7 @@ desktop_player = [
 # Swap the game binary's global allocator to mimalloc. Opt-in so profiling
 # can A/B it: `./run_game.sh --features mimalloc_alloc`.
 mimalloc_alloc = ["dep:mimalloc"]
-card_view = ["render", "ambition_platformer2d/card_view", "ambition_content/card_view"]
+card_view = ["render", "ambition_platformer2d/card_view", "ambition_content/card_view", "ambition_demo_mary_o/card_view"]
 
 # What draws: the engine renderer, the portal presentation, and each
 # provider's looks. Both drawing personas include it; `rl_sim` alone does not,

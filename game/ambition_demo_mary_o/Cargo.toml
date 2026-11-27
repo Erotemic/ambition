@@ -21,6 +21,7 @@ content_check = ["ambition_platformer2d/content_check"]
 # that draws turns it on; a simulation or a pack check builds without the
 # renderer.
 render = ["ambition_platformer2d/ambition_render"]
+card_view = ["render", "ambition_platformer2d/card_view"]
 
 [build-dependencies]
 ambition_sprite_part_format = { path = "../../crates/ambition_sprite_part_format" }

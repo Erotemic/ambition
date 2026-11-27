@@ -130,7 +130,7 @@ fn style_of(theme: ParallaxTheme) -> Option<ShimmerStyle> {
 }
 
 /// The material of a shimmer. Its fields are the uniforms of `shimmer.wgsl`.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct MaryOShimmerMaterial {
     #[uniform(0)]
     pub room: Vec4,
@@ -148,6 +148,9 @@ pub struct MaryOShimmerMaterial {
     #[sampler(7)]
     pub shimmer: Handle<Image>,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOShimmerMaterial {}
 
 impl Material2d for MaryOShimmerMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -196,6 +199,8 @@ pub fn install(app: &mut App) {
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOShimmerMaterial>::default());
+        #[cfg(feature = "card_view")]
+        ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOShimmerMaterial>(app);
     }
     // The quad is made now and not with the first room: Bevy does not try
     // again to draw a quad whose mesh came late.

@@ -101,6 +101,8 @@ pub fn install(app: &mut App) {
     // precondition of `content_asset!`, and it is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOQuasarMaterial>::default());
+        #[cfg(feature = "card_view")]
+        ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOQuasarMaterial>(app);
     }
     app.init_resource::<MaryOQuasarShaderSettings>();
     app.register_type::<MaryOQuasarShaderSettings>();
@@ -150,7 +152,7 @@ pub fn install(app: &mut App) {
 /// - `detail`: local-frame texel size, reserved pulse channel, overlay alpha.
 /// - `frame_rect`: her frame inside that image (`FrameInSprite`), so the
 ///   effect centres on her and not on a composited body's square cell.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct MaryOQuasarMaterial {
     #[uniform(0)]
     pub uv_rect: Vec4,
@@ -164,6 +166,9 @@ pub struct MaryOQuasarMaterial {
     #[uniform(5)]
     pub frame_rect: Vec4,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOQuasarMaterial {}
 
 impl Material2d for MaryOQuasarMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -295,6 +300,7 @@ fn attach_quasar_overlays(
                         source: source_entity,
                     },
                     RoomVisual,
+                    ambition_platformer2d::platformer::lifecycle::PresentationOf(source_entity),
                     Name::new("Mary-O Invincible Rainbow Quasar Overlay"),
                 ),
             )

@@ -56,7 +56,7 @@ pub use surface_momentum::{
 };
 
 pub use abilities::{
-    resolve_burst_maneuver, resolve_shield, spend_out_of_shield, BurstManeuver, OutOfShieldAction,
+    resolve_burst_maneuver, DashStyle, resolve_shield, spend_out_of_shield, BurstManeuver, OutOfShieldAction,
     OutOfShieldGate,
 };
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
@@ -776,6 +776,18 @@ fn update_body_simulation_inner(
         tuning,
         &mut events,
     );
+    // A jump out of a surge ends the burst and keeps its speed: the gravity
+    // the burst held off comes back, and the jump carries the dash's speed
+    // along the run (the air law keeps speed past the run while the stick
+    // holds it).
+    if state.dash_timer > 0.0
+        && abilities::DashStyle::of(&clusters.abilities.abilities) == abilities::DashStyle::Surge
+        && events.operations[ops_before_jump..].iter().any(|op| {
+            matches!(op, MovementOp::Jump | MovementOp::DoubleJump | MovementOp::WallJump | MovementOp::Footstool)
+        })
+    {
+        state.dash_timer = 0.0;
+    }
     // ⭐ ACT1 step 4, the jump half: a tumble whose control has come back
     // ends on the jump the body SPENT, not on the press. A press the body
     // cannot spend (no air jump left, flying, no jump ability) leaves the

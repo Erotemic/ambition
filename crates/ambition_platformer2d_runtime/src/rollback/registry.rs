@@ -411,7 +411,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // that made it (`tick`), so a reader can tell a skipped step's record from
 // this step's travel (portal M1a). The codec-shape baseline is re-recorded
 // here; 548 had changed the motion codec's shape without recording it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 550;
+// 550 -> 551: `AbilitySet` encodes the dash styles `surge_dash` and
+// `phase_dash` (Dash II and III). The codec-shape baseline is re-recorded
+// here; 90dfa7a6d had changed `ambition_characters`' snapshot shape without
+// recording it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 551;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

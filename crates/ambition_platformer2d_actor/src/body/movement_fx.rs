@@ -278,14 +278,16 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Dust,
                 });
             }
+            // The dash's purple (its smear and afterimages): a ring of streaks
+            // thrown off where it set out.
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
                 sfx.write_for_body(source, SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Burst {
                     pos,
-                    count: 10,
-                    speed: 330.0,
-                    color: [1.0, 0.86, 0.38, 0.90],
-                    kind: ParticleKind::Spark,
+                    count: 12,
+                    speed: 420.0,
+                    color: [0.74, 0.5, 1.0, 0.92],
+                    kind: ParticleKind::Streak,
                 });
             }
             ae::MovementOp::DodgeRoll => {

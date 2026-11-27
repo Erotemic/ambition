@@ -48,6 +48,8 @@ snapshot_pod!(crate::AbilitySet {
     morph: bool,
     ranged: bool,
     blink_slow: bool,
+    surge_dash: bool,
+    phase_dash: bool,
 }, exact);
 
 /// The host-code playable kit is derived from this component. Registering the

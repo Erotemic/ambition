@@ -40,6 +40,22 @@ pub struct AbilitySet {
     pub dash: bool,
     /// Upgrade that gives two dash charges before refresh.
     pub double_dash: bool,
+    /// The dash's SURGE style (Dash II): it starts faster than the plain dash
+    /// and eases out into a speed it keeps, the body's own speed past its run
+    /// bleeds off slowly while it holds the way it is going, and a jump out of
+    /// it ends the burst and keeps the speed. A style of [`Self::dash`], which
+    /// it does nothing without; worn equipment lends it.
+    ///
+    /// `serde` default false: authored data that predates the field dashes as
+    /// it did.
+    #[serde(default)]
+    pub surge_dash: bool,
+    /// The dash's PHASE style (Dash III): shorter and much faster, the body
+    /// cannot be hit for its length, and it stops at its run instead of
+    /// sliding. Outranks [`Self::surge_dash`] when a body has both. A style of
+    /// [`Self::dash`]; worn equipment lends it.
+    #[serde(default)]
+    pub phase_dash: bool,
     /// Free-flight movement capability. When the body is in flight mode,
     /// movement input applies acceleration toward a terminal velocity instead
     /// of normal ground/air platformer steering.
@@ -237,6 +253,8 @@ impl AbilitySet {
             wall_climb,
             dash,
             double_dash,
+            surge_dash,
+            phase_dash,
             fly,
             fly_toggle,
             blink,
@@ -274,6 +292,8 @@ impl AbilitySet {
             "wall_climb" => wall_climb,
             "dash" => dash,
             "double_dash" => double_dash,
+            "surge_dash" => surge_dash,
+            "phase_dash" => phase_dash,
             "fly" => fly,
             "fly_toggle" => fly_toggle,
             "blink" => blink,
@@ -358,6 +378,9 @@ impl AbilitySet {
             wall_climb: _,
             dash: _,
             double_dash: _,
+            // A rider dashes not at all.
+            surge_dash: _,
+            phase_dash: _,
             fly: _,
             fly_toggle: _,
             blink: _,
@@ -399,6 +422,8 @@ impl AbilitySet {
             wall_climb: false,
             dash: false,
             double_dash: false,
+            surge_dash: false,
+            phase_dash: false,
             fly: false,
             fly_toggle: false,
             blink: false,
@@ -441,6 +466,8 @@ impl AbilitySet {
             wall_climb: false,
             dash: false,
             double_dash: false,
+            surge_dash: false,
+            phase_dash: false,
             fly: false,
             fly_toggle: false,
             blink: false,
@@ -496,6 +523,8 @@ impl AbilitySet {
             wall_climb: true,
             dash: true,
             double_dash: true,
+            surge_dash: false,
+            phase_dash: false,
             fly: true,
             fly_toggle: true,
             blink: true,
@@ -542,6 +571,8 @@ impl AbilitySet {
             wall_climb: true,
             dash: true,
             double_dash: true,
+            surge_dash: false,
+            phase_dash: false,
             fly: true,
             fly_toggle: true,
             blink: true,
@@ -591,6 +622,8 @@ impl AbilitySet {
         wall_climb: false,
         dash: false,
         double_dash: false,
+        surge_dash: false,
+        phase_dash: false,
         fly: false,
         fly_toggle: false,
         blink: false,
@@ -634,6 +667,8 @@ impl AbilitySet {
         wall_climb: true,
         dash: true,
         double_dash: true,
+        surge_dash: true,
+        phase_dash: true,
         fly: true,
         fly_toggle: true,
         blink: true,
@@ -681,6 +716,8 @@ impl AbilitySet {
             wall_climb: self.wall_climb || other.wall_climb,
             dash: self.dash || other.dash,
             double_dash: self.double_dash || other.double_dash,
+            surge_dash: self.surge_dash || other.surge_dash,
+            phase_dash: self.phase_dash || other.phase_dash,
             fly: self.fly || other.fly,
             fly_toggle: self.fly_toggle || other.fly_toggle,
             blink: self.blink || other.blink,
@@ -729,6 +766,8 @@ impl AbilitySet {
             wall_climb: self.wall_climb && mask.wall_climb,
             dash: self.dash && mask.dash,
             double_dash: self.double_dash && mask.double_dash,
+            surge_dash: self.surge_dash && mask.surge_dash,
+            phase_dash: self.phase_dash && mask.phase_dash,
             fly: self.fly && mask.fly,
             fly_toggle: self.fly_toggle && mask.fly_toggle,
             blink: self.blink && mask.blink,

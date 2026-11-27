@@ -60,18 +60,18 @@ pub enum Item {
     SwordStance = 3,
     AxeStance = 4,
     WhipStance = 5,
-    // Row 2 — movement ability variants, then the movement gauntlets.
+    // Row 2 — movement ability variants, then a movement gauntlet.
     PrecisionBlink = 6,
     ContextualBlink = 7,
     Dash = 8,
     DashTwo = 9,
-    Grapple = 10,
+    DashThree = 10,
     MarkRecall = 11,
     // Row 3 — held weapons and tools.
     PortalGun = 12,
-    /// An empty slot of the grid: no item. The Javelin was here (removed
-    /// 2026-11-10 at the maintainer's request of 2026-10-30).
-    Empty3 = 13,
+    /// The Grapple Hook. The Javelin was here (removed 2026-11-10); the hook
+    /// moved here from slot 10 for Dash III (2026-11-26).
+    Grapple = 13,
     GunSword = 14,
     PuppySlugGun = 15,
     Bomb = 16,
@@ -369,10 +369,10 @@ impl Item {
         Item::ContextualBlink,
         Item::Dash,
         Item::DashTwo,
-        Item::Grapple,
+        Item::DashThree,
         Item::MarkRecall,
         Item::PortalGun,
-        Item::Empty3,
+        Item::Grapple,
         Item::GunSword,
         Item::PuppySlugGun,
         Item::Bomb,

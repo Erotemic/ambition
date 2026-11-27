@@ -51,16 +51,22 @@ pub struct EquipmentRow {
     /// body's abilities, so taking the row off gives them back.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub withholds: Vec<String>,
+    /// Verbs (`AbilitySet` field names) the row adds to the body's abilities
+    /// while it is worn: a style of an ability the kit has (the dash's
+    /// `surge_dash`). A verb whose base the body lacks does nothing on its own,
+    /// so a lent style is only ever a way to do what the body can already do.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lends: Vec<String>,
 }
 
 impl EquipmentRow {
     /// True when wearing this row changes nothing on the body: it has no
-    /// modifier, no grant, no hit rule and withholds no verb.
+    /// modifier, no grant, no hit rule, and withholds and lends no verb.
     ///
     /// Such a row in an exclusive slot is the body's own action on that slot.
     /// To wear it is only to take the slot from the row that held it.
     pub fn changes_nothing(&self) -> bool {
-        self.modifiers.is_empty() && self.grants.is_empty() && self.on_hit.is_none() && self.withholds.is_empty()
+        self.modifiers.is_empty() && self.grants.is_empty() && self.on_hit.is_none() && self.withholds.is_empty() && self.lends.is_empty()
     }
 }
 
@@ -347,6 +353,7 @@ mod tests {
             on_hit: None,
             exclusive_slot: None,
             withholds: Vec::new(),
+            lends: Vec::new(),
         }
     }
 

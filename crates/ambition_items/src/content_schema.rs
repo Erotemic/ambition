@@ -304,17 +304,19 @@ fn declare_wears<'a>(
                 .fix(format!("the level is the bag's count: use `stack: {}`", 1 + row.levels.len())),
         );
     }
-    // A withheld verb is a field of the body's ability set, or the row would
-    // withhold nothing and say it withholds something.
+    // A withheld or lent verb is a field of the body's ability set, or the row
+    // would withhold or lend nothing and say it does something.
     for worn_row in std::iter::once(worn).chain(&row.levels) {
-        for verb in &worn_row.withholds {
+        let named = worn_row.withholds.iter().map(|verb| ("withholds", verb))
+            .chain(worn_row.lends.iter().map(|verb| ("lends", verb)));
+        for (how, verb) in named {
             let mut probe = ambition_platformer2d_core::AbilitySet::ALL;
             if probe.verb_mut(verb).is_none() {
                 out.report(
                     facet
                         .diagnostic(
                             DiagnosticCode::MalformedProviderBinding,
-                            format!("ability `{dialog_id}`'s row `{}` withholds `{verb}`, which is no verb", worn_row.id),
+                            format!("ability `{dialog_id}`'s row `{}` {how} `{verb}`, which is no verb", worn_row.id),
                         )
                         .about(id.clone())
                         .at_field("wears")

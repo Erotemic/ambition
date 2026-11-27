@@ -144,6 +144,7 @@ mod tests {
             grants: vec![grant],
             on_hit: None,
             withholds: vec![],
+            lends: Vec::new(),
         }])
     }
 

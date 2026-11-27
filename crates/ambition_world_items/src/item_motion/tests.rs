@@ -12,6 +12,7 @@ fn row() -> EquipmentRow {
         on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
         exclusive_slot: None,
         withholds: Vec::new(),
+        lends: Vec::new(),
     }
 }
 

@@ -1223,8 +1223,10 @@ and letting go blinks behind it. The slow is a technique request
 **Next action:** the laser's own sound waits for an SFX bank republish.
 Then Precision Blink's quick press and double press (open 2; what the
 single press does is [Q179](awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)), and the
-stance and Dash II placeholders through the same technique/equipment seam,
-not named engine branches.
+stance placeholders through the same technique/equipment seam, not named
+engine branches. Dash II and Dash III were built on 2026-11-26 as dash styles
+lent by their rows (`EquipmentRow.lends`); see
+[the dash styles](game/ability-loadout.md#the-dash-styles-built-2026-11-26).
 
 **Acceptance:** each real variant changes its declared slot on any supported
 body. Replacing or removing equipment restores the prepared intrinsic kit.

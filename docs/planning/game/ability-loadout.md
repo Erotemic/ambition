@@ -45,8 +45,8 @@ demo, every ability is unlocked.
 | Row | Cells |
 |---|---|
 | 1 | Fireball, Eye Laser, Lightning°, Sword Stance, Axe Stance°, Whip Stance° |
-| 2 | Precision Blink, Contextual Blink, Dash, Dash II°, Grapple, Mark / Recall |
-| 3 | Portal Gun, (empty), Gun-Sword, Puppy-Slug Gun, Bomb, (empty) |
+| 2 | Precision Blink, Contextual Blink, Dash, Dash II, Dash III, Mark / Recall |
+| 3 | Portal Gun, Grapple, Gun-Sword, Puppy-Slug Gun, Bomb, (empty) |
 | 4 | Health Cell, Mana Cell, (Spare Battery\*), (empty), (Field Survey\*), (empty) |
 
 ° = a placeholder (no row yet). \* = a key item: its cell is blank (see
@@ -56,8 +56,10 @@ Sealed Note on 2026-11-10; each slot is an "Empty" reserved cell, so no other
 item's index moved. Alice now sends Bob a Spare Battery for his survey lamp
 in place of the note. Exclusive groups: `projectile` (Fireball,
 Eye Laser, Lightning), `stance` (Sword, Axe, Whip), `blink` (Precision,
-Contextual), `burst` (Dash, Dash II). Grapple and Mark / Recall are held
-gauntlets.
+Contextual), `burst` (Dash, Dash II, Dash III). Grapple and Mark / Recall are
+held gauntlets. Grapple moved from slot 10 to slot 13 (the Javelin's) on
+2026-11-26 so the dashes share row 2; saves name items by `dialog_id`, so no
+save moved with it.
 
 ## Equipment, and the QUEST page (built, 2026-10-30)
 
@@ -78,6 +80,37 @@ page, they can be stored in the quest page". The menu page that was called
   bag holds, with its count and description, under "CARRIED".
 - Key items are not in the demo bag: the quests give them.
 - Witness: `a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid`.
+
+## The dash styles (built, 2026-11-26)
+
+Jon asked for a better dash for Scout: keep the old one, try new ones, and
+promote whichever feels best. The burst slot holds three rows, one at a time:
+
+| Item | Lends | What the burst does |
+|---|---|---|
+| Dash (`dash_1`) | nothing | The old dash, unchanged in the kernel. |
+| Dash II (`dash_2`) | `surge_dash` | Leaves at 1.4× dash speed and eases down over 1.35× the dash time. It ends at 0.55× past the run, and that carry bleeds off at 650 u/s² while the stick holds the way. A jump during the burst ends it and keeps its speed in the air. |
+| Dash III (`dash_3`) | `phase_dash` | 2× dash speed for 0.6× the time, unhittable for the burst plus 60 ms, and capped at the run when it ends (no slide). |
+
+The mechanics live in the kernel: `DashStyle` and `shape_dash` in
+`crates/ambition_platformer2d_core/src/movement/abilities.rs`, with witnesses in
+`movement/tests/dash_styles.rs`. A style outranks the dodge for the burst
+press, so with Dash II or III worn the grounded burst dashes. A row lends
+its verb through the new `EquipmentRow.lends` (the `equipment.lent_verbs`
+contribution), the counterpart of `withholds`.
+
+All three share the new look:
+
+- The v3 sheet's `dash_startup` and `dash` rows are re-authored as a low kick
+  into a head-first lunge (`player_robot_v3_dash.py` in the renderer).
+- The sheet draws a purple smear on those frames: a wash, trailing ghosts and
+  speed streaks.
+- At runtime, afterimages of the drawn part slots are left every two sim ticks
+  (`ambition_render::rendering::dash_afterimage`), and a purple streak burst
+  plays at the start.
+
+Open: Jon plays II and III and picks one to promote to slot 8 (or keeps the
+old one). Tuning lives in the `SURGE_*` and `PHASE_*` constants.
 
 ## Eye Laser (built)
 
@@ -249,7 +282,7 @@ tests (bounce, one-way landing, strike rules).
    blink at full speed. Level 3 (`precision_blink_3`) is the whole blink.
    Schema 485. The quick-press "intuitive thing" and the double press are
    item 2's.
-4. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
+4. **Placeholders:** Lightning, Axe Stance, Whip Stance. A stance
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.
 5. **A laser sound of its own.** The recipe is authored and rendered

@@ -47,6 +47,8 @@ pub struct EditableAbilitySet {
     pub morph: bool,
     pub ranged: bool,
     pub blink_slow: bool,
+    pub surge_dash: bool,
+    pub phase_dash: bool,
 }
 
 impl EditableAbilitySet {
@@ -87,6 +89,8 @@ impl EditableAbilitySet {
             morph: self.morph,
             ranged: self.ranged,
             blink_slow: self.blink_slow,
+            surge_dash: self.surge_dash,
+            phase_dash: self.phase_dash,
         }
     }
 }
@@ -133,6 +137,8 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             morph,
             ranged,
             blink_slow,
+            surge_dash,
+            phase_dash,
         } = value;
         Self {
             unlock_all_abilities: true,
@@ -171,6 +177,8 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             morph,
             ranged,
             blink_slow,
+            surge_dash,
+            phase_dash,
         }
     }
 }

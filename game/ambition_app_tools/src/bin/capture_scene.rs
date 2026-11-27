@@ -413,7 +413,7 @@ OPTIONS:
     --player-holds NAMES[@TICK]
                         the player holds the controls NAMES from sim tick TICK
                         [default: 60]: up, down, left, right, walk, jump,
-                        attack, special, shield, blink, confirm, projectile
+                        attack, special, shield, blink, dash, confirm, projectile
                         (the fire button, held to charge), joined with `+`,
                         or `none`.
                         A button the hold before did not have down is pressed
@@ -959,6 +959,7 @@ struct HeldControls {
     shield: bool,
     projectile: bool,
     blink: bool,
+    dash: bool,
 }
 
 impl HeldControls {
@@ -981,10 +982,11 @@ impl HeldControls {
                 "shield" => held.shield = true,
                 "projectile" => held.projectile = true,
                 "blink" => held.blink = true,
+                "dash" => held.dash = true,
                 other => {
                     return Err(format!(
                         "--player-holds does not know '{other}'. Known: up, down, left, right, walk, \
-                         jump, attack, special, shield, projectile, blink, confirm, none"
+                         jump, attack, special, shield, projectile, blink, dash, confirm, none"
                     ))
                 }
             }
@@ -1019,6 +1021,7 @@ impl HeldControls {
             projectile_pressed: pressed(self.projectile, |held| held.projectile),
             // A charged shot fires on the release edge.
             projectile_released: !self.projectile && before.is_some_and(|before| before.projectile),
+            burst_pressed: pressed(self.dash, |held| held.dash),
             ..Default::default()
         }
     }

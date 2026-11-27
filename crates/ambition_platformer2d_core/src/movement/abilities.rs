@@ -67,7 +67,9 @@ fn available_dodge(
     state: &AxisManeuverState,
     tuning: AxisSweptParams,
 ) -> Option<BurstManeuver> {
-    if !abilities.abilities.dodge {
+    // A dash STYLE takes the burst: a body that wears Dash II or III asked
+    // for its dash on that press, on the ground as in the air.
+    if !abilities.abilities.dodge || DashStyle::of(&abilities.abilities) != DashStyle::Classic {
         return None;
     }
     if ground.on_ground {
@@ -839,6 +841,106 @@ pub(super) fn short_hop_at_takeoff(
     }
 }
 
+/// Which dash a body makes. The style verbs of its ability set choose it
+/// ([`crate::AbilitySet::surge_dash`], [`crate::AbilitySet::phase_dash`]); a
+/// body with neither makes the plain dash, and phase outranks surge.
+///
+/// Every style is the same verb on the same press, charges and cooldown: a
+/// style is how the burst MOVES, so it is read off the body each tick of the
+/// burst rather than remembered from the press.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DashStyle {
+    /// Dash I: a constant speed for the dash time, then the body's own laws.
+    Classic,
+    /// Dash II: starts faster, eases out to a speed it keeps.
+    Surge,
+    /// Dash III: short, very fast, unhittable, and stops at the run.
+    Phase,
+}
+
+/// The surge's speed at its start and at its end, as multiples of the dash
+/// speed, and its length as a multiple of the dash time. Eased out between
+/// (quadratic), it covers about what the plain dash and its slide do, front
+/// loaded, and hands the body a speed past its run instead of a stop.
+pub const SURGE_PEAK: f32 = 1.4;
+pub const SURGE_CARRY: f32 = 0.55;
+pub const SURGE_TIME: f32 = 1.35;
+/// How fast a surging body sheds its own speed past its run while it holds the
+/// way it is going on the ground (px/s²). The run's own acceleration would
+/// take it in two ticks; this takes about a quarter of a second.
+pub const SURGE_CARRY_DECEL: f32 = 650.0;
+/// The phase's speed and length, as multiples of the dash's: the same ground
+/// in about half the time.
+pub const PHASE_SPEED: f32 = 2.0;
+pub const PHASE_TIME: f32 = 0.6;
+/// How long past its end a phase dash stays unhittable (seconds): the body is
+/// still coming out of it.
+pub const PHASE_GRACE: f32 = 0.06;
+
+impl DashStyle {
+    pub fn of(abilities: &crate::AbilitySet) -> Self {
+        if abilities.phase_dash {
+            Self::Phase
+        } else if abilities.surge_dash {
+            Self::Surge
+        } else {
+            Self::Classic
+        }
+    }
+
+    /// The burst's whole length.
+    pub fn burst_time(self, tuning: AxisSweptParams) -> f32 {
+        tuning.abilities.dash_time
+            * match self {
+                Self::Classic => 1.0,
+                Self::Surge => SURGE_TIME,
+                Self::Phase => PHASE_TIME,
+            }
+    }
+
+    /// The burst's speed with `left` seconds of it to go.
+    pub fn speed(self, left: f32, tuning: AxisSweptParams) -> f32 {
+        let base = tuning.abilities.dash_speed;
+        match self {
+            Self::Classic => base,
+            Self::Surge => {
+                let total = self.burst_time(tuning).max(1.0e-4);
+                let ahead = (left / total).clamp(0.0, 1.0);
+                base * (SURGE_CARRY + (SURGE_PEAK - SURGE_CARRY) * ahead * ahead)
+            }
+            Self::Phase => base * PHASE_SPEED,
+        }
+    }
+}
+
+/// One tick of a running burst, after its clock has been spent: the surge
+/// eases its speed down its curve and the phase stops at the run as it ends.
+/// The plain dash keeps the velocity it was given.
+///
+/// ⭐ THE DIRECTION IS THE VELOCITY'S, NOT THE PRESS'S: a surge that met the
+/// floor on a diagonal has lost the part going into it, and slides on along
+/// the floor at the curve's speed.
+pub(super) fn shape_dash(
+    kinematics: &mut BodyKinematics,
+    style: DashStyle,
+    left: f32,
+    tuning: AxisSweptParams,
+) {
+    let speed = kinematics.vel.length();
+    if speed <= 1.0e-3 {
+        return;
+    }
+    let direction = kinematics.vel / speed;
+    match style {
+        DashStyle::Classic => {}
+        DashStyle::Surge => kinematics.vel = direction * style.speed(left, tuning),
+        DashStyle::Phase if left <= 0.0 => {
+            kinematics.vel = direction * speed.min(tuning.locomotion.max_run_speed);
+        }
+        DashStyle::Phase => {}
+    }
+}
+
 /// Dash: a buffered, charge-gated burst that REPLACES the velocity vector and
 /// opens a timed window during which the integrator skips normal physics (see
 /// `integrate_velocity_clusters`'s `dash.timer > 0` branch). Picks Dash vs
@@ -864,8 +966,15 @@ pub(super) fn apply_dash(
     if state.buffer_burst > 0.0 && dash_available(abilities, dash) {
         let fallback = bevy_math::Vec2::new(kinematics.facing, 0.0);
         let aim = input.local_axis().normalize_or(fallback);
-        kinematics.vel = frame.to_world(aim) * tuning.abilities.dash_speed;
-        state.dash_timer = tuning.abilities.dash_time;
+        let style = DashStyle::of(&abilities.abilities);
+        state.dash_timer = style.burst_time(tuning);
+        kinematics.vel = frame.to_world(aim) * style.speed(state.dash_timer, tuning);
+        if style == DashStyle::Phase {
+            // The evade clock, so whatever reads a body that cannot be hit
+            // (combat, the i-frame blink) reads this one. Never shortened: a
+            // phase out of a roll keeps the roll's window if it is longer.
+            state.evade_invuln_timer = state.evade_invuln_timer.max(state.dash_timer + PHASE_GRACE);
+        }
         state.phased_jump.clear();
         dash.cooldown = tuning.abilities.dash_cooldown;
         state.buffer_burst = 0.0;

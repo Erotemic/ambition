@@ -675,6 +675,7 @@ mod tests {
                         grants: Vec::new(),
                         on_hit: None,
                         withholds: Vec::new(),
+                        lends: Vec::new(),
                     };
                     meta.wears = Some(row("blink_1"));
                     meta.levels = vec![row("blink_2"), row("blink_3")];

@@ -1,5 +1,5 @@
 //! The verbs a body's worn equipment withholds, as a ceiling on its abilities
-//! (ABILITY-VARIANTS 3).
+//! (ABILITY-VARIANTS 3), and the verbs it lends.
 //!
 //! A row can stand for a lower level of an ability the body's own kit has
 //! whole: Precision Blink's level 1 is the quick blink without the aimed one.
@@ -32,17 +32,43 @@ pub fn worn_ceiling(worn: &WornEquipment) -> Option<AbilitySet> {
     withholds.then_some(ceiling)
 }
 
-/// Each wearer's body takes the ceiling of what it wears.
+/// The worn equipment's lent verbs' key in a body's `AbilityContributions`.
+pub const EQUIPMENT_LENT_VERBS: &str = "equipment.lent_verbs";
+
+/// The verbs the rows of `worn` lend a body (a style of an ability its kit
+/// has: Dash II's `surge_dash`), or `None` when no row lends one. As with
+/// [`worn_ceiling`], a word that is no verb lends nothing.
+pub fn worn_lends(worn: &WornEquipment) -> Option<AbilitySet> {
+    // Not `NONE` as it is: that keeps the permissions every kit has, and a
+    // row lends only what it names.
+    let mut lent = AbilitySet { ranged: false, blink_slow: false, ..AbilitySet::NONE };
+    let mut lends = false;
+    for verb in worn.rows.iter().flat_map(|row| &row.lends) {
+        if let Some(granted) = lent.verb_mut(verb) {
+            *granted = true;
+            lends = true;
+        }
+    }
+    lends.then_some(lent)
+}
+
+/// Each wearer's body takes the ceiling of what it wears, and the verbs it
+/// lends.
 pub fn withhold_the_worn_verbs(mut bodies: Query<(&WornEquipment, &mut AbilityContributions)>) {
     for (worn, mut contributions) in &mut bodies {
-        let wanted = worn_ceiling(worn).map(AbilityContribution::AccessCeiling);
-        if contributions.get(EQUIPMENT_WITHHELD_VERBS) == wanted {
-            continue;
-        }
-        match wanted {
-            Some(ceiling) => contributions.set(EQUIPMENT_WITHHELD_VERBS, ceiling),
-            None => contributions.clear(EQUIPMENT_WITHHELD_VERBS),
-        }
+        settle(&mut contributions, EQUIPMENT_WITHHELD_VERBS, worn_ceiling(worn).map(AbilityContribution::AccessCeiling));
+        settle(&mut contributions, EQUIPMENT_LENT_VERBS, worn_lends(worn).map(AbilityContribution::Lend));
+    }
+}
+
+/// Write `wanted` under `key`, touching the component only on a change.
+fn settle(contributions: &mut Mut<AbilityContributions>, key: &'static str, wanted: Option<AbilityContribution>) {
+    if contributions.get(key) == wanted {
+        return;
+    }
+    match wanted {
+        Some(contribution) => contributions.set(key, contribution),
+        None => contributions.clear(key),
     }
 }
 

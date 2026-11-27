@@ -288,6 +288,7 @@ mod tests {
             on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
             exclusive_slot: None,
             withholds: Vec::new(),
+            lends: Vec::new(),
         }
     }
 
@@ -558,6 +559,7 @@ mod tests {
             on_hit: None,
             exclusive_slot: None,
             withholds: Vec::new(),
+            lends: Vec::new(),
         };
         app.world_mut().spawn(WorldItem::equipping(
             row,
@@ -678,6 +680,7 @@ mod tests {
                 on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
                 exclusive_slot: None,
                 withholds: Vec::new(),
+                lends: Vec::new(),
             }
         }
 

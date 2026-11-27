@@ -90,7 +90,7 @@
         held_item_id: None,
         dialog_id: "whipstance",
     ),
-    // ---- Row 2: movement abilities (blink, then dash), then the movement gauntlets. ----
+    // ---- Row 2: movement abilities (blink, then the three dashes), then a movement gauntlet. ----
     (
         display_name: "Precision Blink",
         description: "Teleport a short distance in the direction you aim.",
@@ -156,18 +156,22 @@
     ),
     (
         display_name: "Dash II",
-        description: "Another way to dash. Not yet found.",
+        description: "A surge: it starts faster and keeps its speed. Jump out of it to carry the speed into the air. The burst dashes on the ground too.",
         category: Ability,
         held_item_id: None,
         dialog_id: "dashtwo",
+        // The surge style of the robot's dash. A body with a dash style
+        // answers the burst with its dash on the ground too, not the dodge.
+        wears: Some((id: "dash_2", exclusive_slot: Some("burst"), lends: ["surge_dash"])),
     ),
     (
-        display_name: "Grapple Hook",
-        description: "Pull yourself toward anchor points. (planned)",
-        category: Held,
-        held_item_id: Some("grapple"),
-        dialog_id: "grapple",
-        icon: Some("sprites/props/gauntlet_grapple.png"),
+        display_name: "Dash III",
+        description: "A phase: a short, very fast dash that nothing can hit, stopping at a run. The burst dashes on the ground too.",
+        category: Ability,
+        held_item_id: None,
+        dialog_id: "dashthree",
+        // The phase style of the robot's dash (see Dash II).
+        wears: Some((id: "dash_3", exclusive_slot: Some("burst"), lends: ["phase_dash"])),
     ),
     (
         display_name: "Mark / Recall",
@@ -186,13 +190,15 @@
         dialog_id: "portalgun",
         icon: Some("sprites/props/portal_gun_blue.png"),
     ),
-    // An empty slot (the Javelin was here; removed 2026-11-10).
+    // The Grapple Hook, a held tool. (The Javelin was here, removed 2026-11-10;
+    // the hook moved here from the movement row on 2026-11-26 for Dash III.)
     (
-        display_name: "Empty",
-        description: "",
-        category: Reserved,
-        held_item_id: None,
-        dialog_id: "empty3",
+        display_name: "Grapple Hook",
+        description: "Pull yourself toward anchor points. (planned)",
+        category: Held,
+        held_item_id: Some("grapple"),
+        dialog_id: "grapple",
+        icon: Some("sprites/props/gauntlet_grapple.png"),
     ),
     (
         display_name: "Gun-Sword",

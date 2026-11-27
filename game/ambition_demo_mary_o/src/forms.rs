@@ -123,6 +123,7 @@ impl MaryOForms {
             on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: below }),
             exclusive_slot: Some(self.slot.clone()),
             withholds: Vec::new(),
+            lends: Vec::new(),
         }
     }
 

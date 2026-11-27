@@ -139,6 +139,7 @@ pub mod label_layout;
 pub mod knockout;
 pub mod launch_trail;
 pub mod locomotion_dust;
+pub mod dash_afterimage;
 pub mod mark_beacon;
 pub mod morph_ball;
 pub mod body_visibility;
@@ -892,6 +893,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             (
                 launch_trail::emit_launch_trails.run_if(launch_trail::a_body_is_launched),
                 locomotion_dust::emit_locomotion_dust,
+                dash_afterimage::leave_dash_afterimages,
+                dash_afterimage::fade_dash_afterimages,
                 knockout::emit_knockout_beat
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::vfx::KnockoutBeatRequested>),
                 body_cues::emit_smash_charge_cues,

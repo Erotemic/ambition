@@ -158,6 +158,12 @@ pub(super) fn integrate_velocity_clusters(
         integrate_wire_clusters(clusters.kinematics, state, input, dt, frame);
     } else if state.dash_timer > 0.0 {
         state.dash_timer = dec(state.dash_timer, dt);
+        super::abilities::shape_dash(
+            clusters.kinematics,
+            super::abilities::DashStyle::of(&clusters.abilities.abilities),
+            state.dash_timer,
+            tuning,
+        );
     } else if climbing {
         integrate_climb_clusters(
             clusters.kinematics,
@@ -772,6 +778,7 @@ pub(super) fn integrate_normal_clusters(
             crouching: body_mode.body_mode == crate::player_state::BodyMode::Crouching,
             initial_dash_dir,
             running: state.running,
+            keeps_momentum: abilities.abilities.surge_dash,
             // ⛔ A GROUNDED BODY HOLDING SHIELD DOES NOT WALK. Jon, 2026-08-23:
             // *"If the player is holding shield... they should not be let the
             // control move them left or right."* That is the genre's rule and it
@@ -847,6 +854,10 @@ pub struct NormalSpineCtx {
     pub initial_dash_dir: f32,
     /// Is the body in a committed run (`AxisManeuverState::running`)?
     pub running: bool,
+    /// Does this body keep its speed past its run on the ground while it holds
+    /// the way it is going, shedding it at [`super::abilities::SURGE_CARRY_DECEL`]
+    /// instead of its run's acceleration (`AbilitySet::surge_dash`)?
+    pub keeps_momentum: bool,
     /// This body is PLANTED: grounded, not steering, and nothing else is
     /// driving its ground speed — so it should shed that speed to friction.
     ///
@@ -998,6 +1009,7 @@ impl NormalSpineCtx {
             // road, and a bare actor walks the continuum.
             initial_dash_dir: 0.0,
             running: false,
+            keeps_momentum: false,
             // A bare actor is never refused horizontal control, so it never
             // reaches the settling branch.
             settling: false,
@@ -1204,7 +1216,14 @@ pub fn integrate_normal_spine(
                         } else {
                             run * stance * tuning.locomotion.max_run_speed
                         };
-                        approach(along, target, accel * dt)
+                        // A surging body's speed past its run, held the way it
+                        // is going, bleeds off rather than snapping to the run.
+                        let carrying = ctx.keeps_momentum
+                            && run.abs() > 0.1
+                            && along.signum() == run.signum()
+                            && along.abs() > target.abs();
+                        let rate = if carrying { super::abilities::SURGE_CARRY_DECEL } else { accel };
+                        approach(along, target, rate * dt)
                     };
                     if run.abs() <= 0.1 {
                         v = approach(v, 0.0, tuning.locomotion.ground_friction * dt);

@@ -46,10 +46,10 @@ fn item_meta_table_is_index_aligned() {
         (Item::ContextualBlink, "Contextual Blink"),
         (Item::Dash, "Dash"),
         (Item::DashTwo, "Dash II"),
-        (Item::Grapple, "Grapple Hook"),
+        (Item::DashThree, "Dash III"),
         (Item::MarkRecall, "Mark / Recall"),
         (Item::PortalGun, "Portal Gun"),
-        (Item::Empty3, "Empty"),
+        (Item::Grapple, "Grapple Hook"),
         (Item::GunSword, "Gun-Sword"),
         (Item::PuppySlugGun, "Puppy-Slug Gun"),
         (Item::Bomb, "Bomb"),
@@ -88,7 +88,7 @@ fn held_item_ids_round_trip_for_every_wired_item() {
         .collect();
     assert_eq!(
         wired,
-        [Item::Grapple, Item::MarkRecall, Item::PortalGun, Item::GunSword, Item::PuppySlugGun, Item::Bomb],
+        [Item::MarkRecall, Item::PortalGun, Item::Grapple, Item::GunSword, Item::PuppySlugGun, Item::Bomb],
         "wired held-items"
     );
 }
@@ -322,7 +322,7 @@ fn the_starter_bag_unlocks_every_real_item() {
     for item in [Item::EyeLaser, Item::Lightning, Item::ContextualBlink, Item::PortalGun, Item::GunSword, Item::Grapple] {
         assert!(owned.has(item), "{item:?} is unlocked");
     }
-    for placeholder in [Item::AxeStance, Item::WhipStance, Item::DashTwo] {
+    for placeholder in [Item::AxeStance, Item::WhipStance] {
         assert!(!owned.has(placeholder), "{placeholder:?} is a placeholder");
     }
     for quest_item in [Item::FieldSurvey] {
@@ -335,7 +335,7 @@ fn the_starter_bag_unlocks_every_real_item() {
     // The lantern is found under Hobford, not given.
     assert_eq!(catalog.category(Item::Lantern), Some(ItemCategory::KeyItem));
     assert!(!owned.has(Item::Lantern), "the lantern is found in the salt run");
-    for empty in [Item::Empty1, Item::Empty2, Item::Empty3] {
+    for empty in [Item::Empty1, Item::Empty2] {
         assert!(!owned.has(empty), "{empty:?} is no item");
     }
 }

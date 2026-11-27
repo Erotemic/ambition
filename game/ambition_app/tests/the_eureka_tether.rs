@@ -81,6 +81,12 @@ fn the_tether_carries_a_rider_from_the_ground_to_the_station() {
         app.update();
     }
     assert_eq!(live_room(&mut app), TERMINUS, "the rider fell back down the tether");
+    let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(app.world())
+    .expect("the session has a room set");
+    let terminus = room_set.definition_by_id(TERMINUS).expect("the terminus is in the room set");
+    assert!(room_set.transition_through(terminus, "terminus_from_climb").is_none(), "the tether has no downward link");
 
     // The station, through the terminus's west side. The tether only goes
     // up: the way home is the station's gate.

@@ -119,6 +119,7 @@ use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
 use super::primitives::{AnimatedWorldSpriteTint, PropVisual, WorldSprite};
+use super::worn_gear_visuals::{GearLayer, WornGearOrder, WornGearVisual};
 
 /// The distance from the play plane to a vessel's far sprite layer.
 pub const VESSEL_DEPTH: f32 = 40.0;
@@ -300,6 +301,21 @@ impl CardRootDepths {
             // and the flash layer.
             let fraction = (bias / super::hit_flash::FLASH_OVERLAY_Z_BIAS).min(1.0);
             depth.front_part + fraction * FLASH_STEP
+        };
+        Some(depth.plane_z + offset * depth.order_scale)
+    }
+
+    fn gear_depth(&self, order: WornGearOrder, layer: GearLayer) -> Option<f32> {
+        let depth = self.roots.get(&order.root)?;
+        let offset = match layer {
+            GearLayer::Back => -FLASH_STEP,
+            GearLayer::Front => {
+                let part = match (depth.representation, order.anchor_part) {
+                    (CardBodyRepresentation::RiggedParts, Some(index)) => index as f32 * CARD_PART_STEP,
+                    _ => depth.front_part,
+                };
+                part + FLASH_STEP * 0.5
+            }
         };
         Some(depth.plane_z + offset * depth.order_scale)
     }
@@ -1423,7 +1439,7 @@ pub(super) fn realize_card_scenery(
         (
             Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
             &InheritedVisibility, Option<&MovingPlatformVisual>, Has<AnimatedWorldSpriteTint>,
-            Option<&PresentationOf>,
+            Option<&PresentationOf>, Option<&WornGearVisual>,
         ),
         (ScenerySource, Without<CardScenery>),
     >,
@@ -1447,9 +1463,11 @@ pub(super) fn realize_card_scenery(
         return;
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
-    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject) in &scenery {
+    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject, gear) in &scenery {
+        let gear_depth = gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer));
         let shown = visibility.get()
             && sprite.color.alpha() > 0.0
+            && (gear.is_none() || gear_depth.is_some())
             && !depths.roots.contains_key(&entity);
         let Some((mut frame, page_size)) =
             sprite_frame(sprite, anchor, &images, layouts.as_deref()).filter(|_| shown)
@@ -1465,7 +1483,7 @@ pub(super) fn realize_card_scenery(
         } else {
             let place = global.compute_transform();
             let z = place.translation.z;
-            let depth = depths.effect_depth(subject, z).unwrap_or_else(|| {
+            let depth = gear_depth.or_else(|| depths.effect_depth(subject, z)).unwrap_or_else(|| {
                 let room = if z >= ambition_platformer2d_core::config::WORLD_Z_PLAYER {
                     rooms.stamped(entity)
                         .or_else(|| parents.iter_ancestors(entity).find_map(|parent| rooms.stamped(parent)))
@@ -1705,6 +1723,35 @@ mod tests {
         assert_eq!(places[0], Vec3::new(0.0, 0.0, -20.0 + HELD_ART_REACH), "held to the body's band");
         assert!((places[1] - Vec3::new(30.0, 40.0, -20.0 + 3.0 * CARD_PART_STEP)).length() < 1e-4, "three part steps in front");
         let _ = (in_hand, at_no_hand, hidden, unheld);
+    }
+
+    #[test]
+    fn worn_gear_uses_the_wearers_back_and_anchor_slots() {
+        let mut world = World::new();
+        let wearer = world.spawn_empty().id();
+        let order = WornGearOrder { root: wearer, anchor_part: Some(2) };
+        let mut depths = CardRootDepths::default();
+        let mut body = CardBodyDepth {
+            plane_z: -2.0,
+            order_scale: 0.5,
+            source_z: 20.0,
+            front_part: 5.0 * CARD_PART_STEP,
+            representation: CardBodyRepresentation::RiggedParts,
+        };
+        depths.roots.insert(wearer, body);
+        let part = |index| body.plane_z + index as f32 * CARD_PART_STEP * body.order_scale;
+        let back = depths.gear_depth(order, GearLayer::Back).unwrap();
+        let front = depths.gear_depth(order, GearLayer::Front).unwrap();
+        assert!(back < part(0) && part(2) < front && front < part(3));
+
+        body.front_part = 0.0;
+        body.representation = CardBodyRepresentation::RiggedFrame;
+        depths.roots.insert(wearer, body);
+        let front = depths.gear_depth(order, GearLayer::Front).unwrap();
+        assert!(back < body.plane_z && body.plane_z < front);
+        assert!(front < body.plane_z + CARD_PART_STEP * body.order_scale);
+        depths.roots.remove(&wearer);
+        assert!(depths.gear_depth(order, GearLayer::Front).is_none());
     }
 
     /// RV3: a body drawn from a sheet (no rigged presentation) is one card of

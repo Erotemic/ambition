@@ -822,6 +822,12 @@ shared value preparation are sufficient until source proves otherwise.
    and that exiting morph shows it again. An Ultra fixture shows the
    replacement sprites and effects in 2D, side-on 2.5D, and oblique 2.5D.
 
+   Worn gear fits use the published sheet target. The fit works for both
+   loose assets and library assets. The card view draws the back picture
+   behind the wearer and the front picture above its anchor part.
+   An Ultra fixture shows Scout's helmet on a rig drawn from parts and
+   Kagero's talismans on the Inugami drawn as one image.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

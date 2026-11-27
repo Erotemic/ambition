@@ -113,6 +113,8 @@ impl PartSetDraws {
 /// One part of a [`PartSetDraws`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlacedPart {
+    /// The draw's index in the full pose.
+    pub paint_index: usize,
     /// The page the part is on.
     pub image: Handle<Image>,
     /// The part on its page, in texels of the page.
@@ -152,6 +154,7 @@ pub(super) fn answer(
             continue;
         };
         let placed = PlacedPart {
+            paint_index: index,
             image: image.clone(),
             rect: Rect::new(
                 part.rect.min.x as f32,
@@ -206,6 +209,7 @@ mod tests {
         assert_eq!(request.tracks_of("trail"), Some(&["hands".to_owned(), "weapon".to_owned()][..]));
         // The driver has answered both.
         let part = PlacedPart {
+            paint_index: 0,
             image: Handle::default(),
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             size: Vec2::ONE,

@@ -151,13 +151,15 @@ scope = "game"
 kind = "dependency-allowlist"
 owners = ["ambition_app"]
 watch_paths = ["game/ambition_app/Cargo.toml"]
-rationale = "ambition_app uses the umbrella plus app-local content/extension crates, the reusable game providers it hosts, and the reusable programmatic sim harness (below the shell) that it binds to Ambition's content. Build scripts use the pack compiler and the shared sprite schema; normal engine dependencies still use the facade."
+rationale = "The app uses the engine facade and selects input and menu opinions in the host. It also selects the game providers, content, and simulation harness. Build scripts use the pack compiler and shared sprite schema."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 allow = [
     "ambition_platformer2d",
     "ambition_content",
     "ambition_menu_kaleidoscope",
+    "ambition_menu_opinions",
+    "ambition_input_opinions",
     "ambition_demo_sanic",
     "ambition_demo_pocket",
     "ambition_demo_mary_o",

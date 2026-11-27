@@ -21,12 +21,13 @@
 | [`presets`](src/presets.rs) | Default binding presets: the selectable keyboard layouts (`PresetId` / `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad bindings that seed leafwing's input map for `InputAction`. |
 | [`press_all_action_update`](src/press_all_action_update.rs) | Leafwing's `update_action_state`, without the clash pass where it does nothing. |
 | [`rebind`](src/rebind.rs) | Pure capture of physical input into persisted binding overrides. |
+| [`rebind_capture`](src/rebind_capture.rs) | Capture state for menus that assign a physical control to an action. |
 | [`seating`](src/seating.rs) | Where a session's local seats come from, and who decides. |
 | [`semantic`](src/semantic.rs) | Open semantic action vocabulary between physical bindings and consumers. |
 | [`settings`](src/settings.rs) | Controls / input settings. |
 | [`sources`](src/sources.rs) | Physical input-source identity and participant assignment policy. |
 
-_19 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

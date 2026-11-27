@@ -28,7 +28,7 @@ static_content = ["ambition_demo_sanic/static_content"]
 # engine's capture module + its PNG encoder. Off by default so nothing that ships
 # links an encoder.
 capture = ["visible", "ambition_platformer2d/capture"]
-visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "ambition_platformer2d/portal_render", "input", "dep:bevy_kira_audio"]
+visible = ["dep:ambition_menu_opinions", "ambition_platformer2d/frame_pacing", "ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "ambition_platformer2d/portal_render", "input", "dep:bevy_kira_audio"]
 # Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
 # Wraps the global allocator (see `src/lib.rs`).
 perf_probe = ["ambition_platformer2d/perf_probe"]
@@ -37,6 +37,7 @@ perf_probe = ["ambition_platformer2d/perf_probe"]
 input = ["ambition_platformer2d/input"]
 
 [dependencies]
+ambition_menu_opinions = { path = "../../opinions/ambition_menu_opinions", optional = true, features = ["video", "rebind"] }
 ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 # The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
 # depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.

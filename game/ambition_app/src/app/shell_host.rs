@@ -87,6 +87,20 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     }
 
     app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
+    #[cfg(feature = "shell_settings_pages")]
+    {
+        use ambition_menu_opinions::{RebindPausePage, VideoMenuOption, VideoPausePage};
+        app.add_plugins((
+            VideoPausePage(vec![
+                VideoMenuOption::ViewShape,
+                #[cfg(not(target_arch = "wasm32"))]
+                VideoMenuOption::Vsync,
+                #[cfg(all(feature = "frame_pacing", not(target_arch = "wasm32")))]
+                VideoMenuOption::FramePacing,
+            ]),
+            RebindPausePage,
+        ));
+    }
     // The normal visible-app composition already installed contributor-neutral
     // load presentation for direct and room-transition use. Keep this host
     // composer valid in isolation as well, then add only the shell adapter.

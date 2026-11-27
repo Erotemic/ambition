@@ -49,6 +49,7 @@ bevy = { version = "0.19.1", default-features = false, features = [
 ] }
 leafwing-input-manager = { version = "0.21", optional = true }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bevy_framepace = { version = "0.22", default-features = false, optional = true }
 
 [features]
@@ -74,7 +75,7 @@ dialogue = ["dep:ambition_dialog", "ambition_platformer2d_runtime/dialogue"]
 # `ambition_sprite_sheet` ride here because nothing outside this feature's own
 # code names them — the menu only to hand across the font `ambition_render`
 # resolved, sprite metadata only for the projectile passes.
-render = ["dep:ambition_render", "dep:ambition_menu", "dep:ambition_sprite_sheet"]
+render = ["dep:ambition_render", "dep:ambition_menu", "dep:ambition_sprite_sheet", "bevy/bevy_window"]
 # The leafwing input bindings + the device→ControlFrame bridge
 # (HostInputBindingsPlugin). Mirrors the app's `input` persona feature.
 input = [

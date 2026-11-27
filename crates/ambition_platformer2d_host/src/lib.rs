@@ -21,6 +21,9 @@ mod framepace;
 #[cfg(all(feature = "frame_pacing", not(target_arch = "wasm32")))]
 pub use framepace::FramePacePlugin;
 
+#[cfg(feature = "render")]
+pub mod vsync;
+
 pub mod developer_keys;
 pub mod gameplay_presentation;
 #[cfg(feature = "portal_render")]

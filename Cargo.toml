@@ -60,6 +60,7 @@ members = [
     "crates/ambition_platformer2d_core",
     "crates/ambition_input",
     "opinions/ambition_input_opinions",
+    "opinions/ambition_menu_opinions",
     "crates/ambition_interaction",
     "crates/ambition_items",
     "crates/ambition_world_items",

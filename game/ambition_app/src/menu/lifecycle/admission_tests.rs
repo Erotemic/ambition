@@ -120,7 +120,7 @@ fn rebind_capture_owns_its_menu_shortcuts_and_leaves_the_other_menu_usable() {
     app.world_mut().get_mut::<InventoryUiState>(menus[&1]).unwrap().visible = true;
     app.world_mut().get_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>(menus[&1]).unwrap()
         .active = Some(MenuPage::System);
-    app.world_mut().get_mut::<RebindCapture>(menus[&1]).unwrap().arm(0);
+    app.world_mut().get_mut::<RebindCapture>(menus[&1]).unwrap().arm(ambition_platformer2d::input::InputAction::Jump);
     {
         let mut frames = app.world_mut().resource_mut::<SeatMenuFrames>();
         frames.for_seat_mut(0).inventory = true;

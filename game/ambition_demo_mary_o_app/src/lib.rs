@@ -170,6 +170,24 @@ pub fn build_windowed_demo_app_entering(
     // The provider installs Mary-O's content definitions before the shared asset
     // catalog is assembled below.
     compose_mary_o_shell(&mut app, home_route);
+    if matches!(render, RenderMode::Windowed) {
+        use ambition_platformer2d::persistence::{
+            settings::platform_paths::data_dir_root, PersistenceRoot, UserSettingsPersistencePlugin,
+        };
+        app.insert_resource(PersistenceRoot::at(data_dir_root().join("mary_o")))
+            .add_plugins(UserSettingsPersistencePlugin);
+    }
+    use ambition_menu_opinions::{RebindPausePage, VideoMenuOption, VideoPausePage};
+    let video_options = vec![
+        VideoMenuOption::ViewShape,
+        #[cfg(not(target_arch = "wasm32"))]
+        VideoMenuOption::Vsync,
+        #[cfg(not(target_arch = "wasm32"))]
+        VideoMenuOption::FramePacing,
+    ];
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(ambition_platformer2d::host::vsync::VsyncPlugin);
+    app.add_plugins((VideoPausePage(video_options), RebindPausePage));
     #[cfg(feature = "web")]
     app.add_plugins(ambition_platformer2d::touch_input::TouchControlsPlugin);
     // The provider prepares the room data. The catalog needs no world-file rows.

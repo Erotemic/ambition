@@ -42,9 +42,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     };
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
-        CameraAspectPolicy, CameraFramingPreset, GameplayViewShape, ColorblindMode, FlashIntensity, FramePaceCap,
+        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
         LocalViewLayout, PortalWindowLook,
-        SerializableDisplayMode, VisualQualityProfile, VsyncMode,
+        SerializableDisplayMode, VisualQualityProfile,
     };
 
     // Cycle helper: dir<0 -> prev, otherwise next (confirm advances like next).
@@ -81,14 +81,14 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::CameraFraming => {
             cyc!(settings.video.camera_framing, CameraFramingPreset)
         }
-        SettingsOptionId::ViewShape => cyc!(settings.video.view_shape, GameplayViewShape),
+        SettingsOptionId::ViewShape => VideoMenuOption::ViewShape.adjust(&mut settings.video, dir),
         SettingsOptionId::LocalViewLayout => cyc!(settings.video.local_view_layout, LocalViewLayout),
         SettingsOptionId::Flashes => cyc!(settings.video.flashes, FlashIntensity),
         SettingsOptionId::PortalWindows => cyc!(settings.video.portal_windows, PortalWindowLook),
         SettingsOptionId::Colorblind => cyc!(settings.video.colorblind, ColorblindMode),
         SettingsOptionId::ShowFps => tog!(settings.video.show_fps),
-        SettingsOptionId::FramePacing => cyc!(settings.video.frame_cap, FramePaceCap),
-        SettingsOptionId::Vsync => cyc!(settings.video.vsync, VsyncMode),
+        SettingsOptionId::FramePacing => VideoMenuOption::FramePacing.adjust(&mut settings.video, dir),
+        SettingsOptionId::Vsync => VideoMenuOption::Vsync.adjust(&mut settings.video, dir),
         SettingsOptionId::VisualQuality => {
             cyc!(settings.video.quality.profile, VisualQualityProfile)
         }

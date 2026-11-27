@@ -2770,25 +2770,14 @@ fn arming_a_rebind_does_not_capture_the_key_that_armed_it() {
     ));
     app.update();
 
-    // The row order is the projection's canonical order, which is what the
-    // screen was built from.
-    let (row, action) = {
-        let bindings = app.world().resource::<SeatBindings>();
-        let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
-        let (index, (name, _)) = bindings
-            .for_seat(seat)
-            .all()
-            .enumerate()
-            .find(|(_, (name, _))| *name == "Jump")
-            .expect("Jump is bound");
-        (index, name.to_string())
-    };
+    let jump = ambition_platformer2d::input::InputAction::Jump;
+    let action = ambition_platformer2d::input::action_name(&jump);
 
     // Arm the row WITH the confirm key still down, exactly as a real select does.
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .press(KeyCode::Enter);
-    crate::menu::test_support::menu_component_mut::<RebindCapture>(app.world_mut()).arm(row);
+    crate::menu::test_support::menu_component_mut::<RebindCapture>(app.world_mut()).arm(jump);
     app.update();
     assert!(
         app.world()

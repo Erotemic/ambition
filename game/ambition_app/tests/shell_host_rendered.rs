@@ -1138,6 +1138,29 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
     );
 }
 
+#[cfg(feature = "shell_settings_pages")]
+#[test]
+fn sanic_pause_shows_the_optional_settings_pages() {
+    use ambition_platformer2d::game_shell::{PauseRequested, ShellPauseMenu};
+    use ambition_platformer2d::persistence::PersistenceRoot;
+
+    let mut app = rendered_app();
+    app.insert_resource(PersistenceRoot::isolated());
+    settle(&mut app);
+    app.world_mut().write_message(ShellCommand::GoTo("sanic_gameplay".into()));
+    settle(&mut app);
+    assert_eq!(active_route(&app).as_deref(), Some("sanic_gameplay"));
+
+    app.world_mut().write_message(PauseRequested);
+    app.update();
+    assert!(app.world().resource::<ShellPauseMenu>().open);
+
+    let mut texts = app.world_mut().query::<&Text>();
+    for label in ["Video", "Rebind Controls"] {
+        assert!(texts.iter(app.world()).any(|text| text.0 == label), "{label}");
+    }
+}
+
 /// The FPS counter is drawn IN FRONT OF the launcher, not merely present.
 ///
 /// ⛔⛔ "AN FPS ENTITY EXISTS" IS NOT THE PROPERTY. The counter's whole job is to

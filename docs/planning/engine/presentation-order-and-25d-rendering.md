@@ -184,6 +184,13 @@ member/owner presented pose, scene placement, relevant generation or
 projection changes. Resolve affected assemblies that are visible or explicitly
 demanded by a consumer. Ordinary objects keep a direct scene-order path.
 
+When a room has more than one vessel, both render phases use its room
+instance and platform identity to order the assemblies. Each assembly has
+rear, rider, and near slots. Held art and body effects with a visual root
+follow that root's slot. The card view keeps the physical depth of each
+slot. A headless test checks rider selection when two beds overlap. Ultra
+captures of two occupied carts show the same overlap in 2D and side-on 2.5D.
+
 ## One shared sample, two concrete Bevy renderers
 
 The existing foundation is useful: `BodyPoseView`, `FeatureViewIndex`,

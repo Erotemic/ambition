@@ -218,6 +218,14 @@ Use the narrowest command that actually covers the change. Full matrix:
   python3 scripts/checks/check_quality_variants_are_fresh.py
   ```
 
+### Visual diagnostics
+
+Use `AMBITION_QUALITY_PROFILE=medium` for visual diagnostics unless the
+maintainer requests a different preset. Check the active preset in the log
+and name it with the images. Use the same preset for each image in a
+comparison. Never send Potato renders as visual diagnostics. Potato is an
+explicit option for performance measurements.
+
 ### Generated assets
 
 **Do not commit binary files to any repository or submodule.** This includes

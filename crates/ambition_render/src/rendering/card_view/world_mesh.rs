@@ -1,16 +1,21 @@
 use std::collections::{HashMap, HashSet};
 
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
+use bevy::asset::AssetEventSystems;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems};
 use bevy::ecs::system::{SystemParam, SystemParamItem};
 use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::pbr::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy::prelude::*;
+use bevy::render::erased_render_asset::prepare_erased_assets;
+use bevy::render::render_asset::prepare_assets;
 use bevy::render::render_resource::{
     AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BlendState, RenderPipelineDescriptor,
     SpecializedMeshPipelineError, UnpreparedBindGroup,
 };
 use bevy::render::renderer::RenderDevice;
+use bevy::render::texture::GpuImage;
+use bevy::render::{Render, RenderApp};
 use bevy::shader::ShaderRef;
 use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 use bevy::transform::TransformSystems;
@@ -26,12 +31,16 @@ pub(super) struct CardWorldMesh;
 #[derive(SystemSet, Debug, Clone, Eq, PartialEq, Hash)]
 pub(super) struct CardWorldMeshSet;
 
+#[derive(SystemSet, Debug, Clone, Eq, PartialEq, Hash)]
+struct CardTextureBindings;
+
 pub(super) fn install(app: &mut App) {
     app.configure_sets(
         PostUpdate,
         CardWorldMeshSet
             .after(TransformSystems::Propagate)
             .after(VisibilitySystems::VisibilityPropagate)
+            .before(AssetEventSystems)
             .before(VisibilitySystems::CheckVisibility),
     );
     app.add_systems(
@@ -40,7 +49,8 @@ pub(super) fn install(app: &mut App) {
             .in_set(CardWorldMeshSet)
             .run_if(cards_are_visible),
     );
-    if app.get_sub_app(bevy::render::RenderApp).is_some() {
+    if app.get_sub_app(RenderApp).is_some() {
+        prepare_card_material_after_image::<StandardMaterial>(app);
         install_card_mesh_material::<ambition_sprite_fx::SpriteFxMaterial>(app);
         install_card_mesh_material::<crate::rendering::darkness::DarknessMaterial>(app);
         install_card_mesh_material::<crate::bubble_shield_fx::BubbleShieldFxMaterial>(app);
@@ -83,6 +93,23 @@ where
                 .in_set(CardWorldMeshSet)
                 .run_if(cards_are_visible_or_were),
         );
+    prepare_card_material_after_image::<CardMaterial<M>>(app);
+}
+
+fn prepare_card_material_after_image<M: Material>(app: &mut App)
+where
+    M::Data: PartialEq + Eq + std::hash::Hash + Clone,
+{
+    if let Some(render) = app.get_sub_app_mut(RenderApp) {
+        // Order the two Bevy systems through an empty set. A capture image and
+        // its material can arrive in the same frame.
+        render.configure_sets(
+            Render,
+            CardTextureBindings
+                .after(prepare_assets::<GpuImage>)
+                .before(prepare_erased_assets::<MeshMaterial3d<M>>),
+        );
+    }
 }
 
 fn cards_are_visible(settings: Option<Res<CardViewSettings>>) -> bool {
@@ -258,6 +285,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
             &GlobalTransform,
             &InheritedVisibility,
             Has<TerrainSkinMesh>,
+            Has<NoFrustumCulling>,
         ),
         Without<CardWorldMesh>,
     >,
@@ -282,12 +310,12 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         .reconcile(&mut products.commands, |entity| {
             sources
                 .get(*entity)
-                .is_ok_and(|(_, _, material, _, _, visible, _)| {
+                .is_ok_and(|(_, _, material, _, _, visible, ..)| {
                     visible.get() && source_materials.contains(&material.0)
                 })
         });
     used.clear();
-    for (source, mesh, material, local, global, visible, terrain) in &sources {
+    for (source, mesh, material, local, global, visible, terrain, skip_culling) in &sources {
         if !visible.get() {
             continue;
         }
@@ -315,7 +343,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         } else {
             effect_place(source, global, &rooms, &depths)
         };
-        products.show(source, &mesh.0, card, place, false);
+        products.show(source, &mesh.0, card, place, skip_culling);
     }
     by_material.retain(|id, _| used.contains(id));
 }

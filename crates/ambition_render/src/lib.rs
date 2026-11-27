@@ -23,7 +23,7 @@ pub mod gameplay_surround;
 pub mod hud;
 pub mod lines;
 mod attack_marks;
-pub mod mesh2d_late_meshes;
+mod late_mesh_specialization;
 /// The presentation face a demo can add. See its module docs.
 pub mod platformer_presentation;
 pub mod quality;

@@ -783,11 +783,17 @@ shared value preparation are sufficient until source proves otherwise.
    in both renderers. Medium captures show the front in all three views.
 
    `capture_scene --renderer` fills the image with the selected renderer.
-   Each camera uses the same presented frame. An exact-tick Portal Lab
-   film at Medium shows an open gap. The floor opening and Scout are visible
-   in 2D at tick 74 and appear in the card views by tick 78. Use
-   `--at-tick 70 --frames 8 --stride 2 --player-at 1450,884@72:0,100`
-   with focus `1450,850` and size `1280x800` to inspect the gap.
+   Each camera uses the same presented frame. The card view keeps each
+   closed portal mesh and uses the 2D clip warm-up. It prepares bindings
+   after the capture image is ready. Both renderers now request
+   specialization again when a delayed mesh reaches the GPU.
+
+   To inspect the first frame of the floor opening in Portal Lab, use
+   `--at-tick 73 --player-at 1450,884@72:0,100` with focus `1450,850`,
+   size `1280x800`, and Medium quality. Scout, the portal picture, the
+   channel label, and the ground pickup are visible at tick 73 in 2D,
+   side-on 2.5D, and oblique 2.5D. To inspect the approach and exit, use
+   `--at-tick 70 --frames 8 --stride 2` for the same player movement.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,

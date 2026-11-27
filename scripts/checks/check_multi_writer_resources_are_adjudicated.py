@@ -1029,7 +1029,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_sim_view/src/presented_pose.rs",
     ),
     "DirtySpecializations": (
-        "crates/ambition_render/src/mesh2d_late_meshes.rs",
+        "crates/ambition_render/src/late_mesh_specialization.rs",
         "crates/ambition_render/src/quality.rs",
     ),
     "PortalCameraContinuityHostView": (
@@ -1197,7 +1197,7 @@ ADJUDICATED: dict[str, str] = {
         "CORRECT — TWO INSERTERS INTO BEVY'S OWN PER-FRAME DIRTY SETS, ON TWO "
         "FIELDS. The type is Bevy's (`bevy::render::camera`), in the render "
         "world, and Bevy's specialize step consumes it. "
-        "`respecialize_meshes_that_arrived` (mesh2d_late_meshes) only inserts "
+        "`respecialize_meshes_that_arrived` (late_mesh_specialization) only inserts "
         "into `changed_renderables`; `respecialize_views_after_an_msaa_change` "
         "(quality) only inserts into `views`. Both run before "
         "`RenderSystems::Specialize`. Insertion commutes and no field is "

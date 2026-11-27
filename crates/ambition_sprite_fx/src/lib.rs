@@ -419,7 +419,7 @@ pub fn restore_sprites_without_following_effects(
 ///
 /// Bindings follow the WebGL2-friendly convention the other overlays in this
 /// workspace use: plain `vec4` uniforms, no struct UBOs, no arrays.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct SpriteFxMaterial {
     /// Current atlas frame as a normalized UV rect `(min.x, min.y, max.x, max.y)`.
     #[uniform(0)]

@@ -18,6 +18,7 @@ default = []
 # `ambition.portal.light_line`).
 portal = ["ambition_platformer2d_actor/portal", "ambition_platformer2d_runtime/portal"]
 portal_render = ["portal", "render", "dep:ambition_portal2d_presentation"]
+card_view = ["render", "ambition_render/card_view"]
 # Ambition's looks, on the renderer's presentation seams: the room skies and
 # overlays, the area cards, daylight, platform and prop looks, the wielded
 # item art and the gate terminal. Off, the provider declares and simulates the

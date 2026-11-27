@@ -94,8 +94,11 @@
 mod gameplay;
 mod labels;
 mod paint_order;
+mod world_mesh;
 #[cfg(feature = "portal_render")]
 mod portal_windows;
+
+pub use world_mesh::install_card_mesh_material;
 
 use gameplay::CardScope;
 use std::collections::HashMap;
@@ -122,7 +125,7 @@ use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
 use super::chain_skin::{ChainEarth, ChainTurfPiece};
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
-use super::primitives::PropVisual;
+use super::primitives::{BlockVisual, FeatureVisual, LoadingZoneVisual, PropVisual};
 use super::terrain_skin::TerrainSkinMesh;
 
 /// The distance from the play plane to a vessel's far sprite layer.
@@ -309,6 +312,7 @@ impl Plugin for CardViewPlugin {
         app.init_resource::<CardMeshes>();
         app.init_resource::<CardRootDepths>();
         paint_order::install(app);
+        world_mesh::install(app);
         app.add_systems(
             Update,
             (
@@ -363,6 +367,7 @@ impl Plugin for CardViewPlugin {
             gameplay::isolate_cards
                 .after(super::view_isolation::isolate_live_rooms)
                 .after(gameplay::select_gameplay_cameras)
+                .after(world_mesh::CardWorldMeshSet)
                 .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility)
                 .run_if(card_outputs_enabled),
         );
@@ -545,6 +550,7 @@ pub fn card_body_depth(seated: bool, rank: usize) -> f32 {
 #[derive(Resource, Default)]
 pub struct CardMeshes {
     meshes: HashMap<QuadKey, Handle<Mesh>>,
+    tiled: HashMap<(QuadKey, [bool; 2], u32), Handle<Mesh>>,
     materials: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
     /// Silhouettes, by page and the cue's colour and strength in bytes.
     flashes: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
@@ -653,18 +659,73 @@ impl TextureQuad {
     }
 
     fn mesh(self) -> Mesh {
-        let (positions, uvs) = self.vertices();
-        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions.to_vec())
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 4])
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs.to_vec())
-            .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]))
+        mesh_for_quads([(self, Vec2::ZERO)])
     }
+
+    fn tiled_mesh(self, [tile_x, tile_y]: [bool; 2], stretch: f32) -> Mesh {
+        let slices = bevy::sprite::TextureSlice {
+            texture_rect: self.rect,
+            draw_size: self.size,
+            offset: Vec2::ZERO,
+        }
+        .tiled(stretch, (tile_x, tile_y));
+        let flip = Vec2::from_array(self.flip.map(|flip| if flip { -1.0 } else { 1.0 }));
+        mesh_for_quads(slices.into_iter().map(|slice| {
+            let tile = Self { rect: slice.texture_rect, size: slice.draw_size, anchor: Vec2::ZERO, ..self };
+            (tile, slice.offset * flip - self.anchor * self.size)
+        }))
+    }
+}
+
+fn mesh_for_quads(quads: impl IntoIterator<Item = (TextureQuad, Vec2)>) -> Mesh {
+    let mut positions = Vec::new();
+    let mut uvs = Vec::new();
+    let mut indices = Vec::new();
+    for (quad, offset) in quads {
+        let first = positions.len() as u32;
+        let (corners, quad_uvs) = quad.vertices();
+        positions.extend(corners.map(|[x, y, z]| [x + offset.x, y + offset.y, z]));
+        uvs.extend(quad_uvs);
+        indices.extend([0, 1, 2, 0, 2, 3].map(|i| first + i));
+    }
+    let normals = vec![[0.0, 0.0, 1.0]; positions.len()];
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+}
+
+#[cfg(test)]
+#[test]
+fn a_tiled_sprite_card_repeats_and_crops_its_last_tile() {
+    use bevy::mesh::VertexAttributeValues::{Float32x2, Float32x3};
+
+    let tile_size = Vec2::splat(8.0);
+    let quad = TextureQuad {
+        rect: Rect::from_corners(Vec2::ZERO, tile_size),
+        page: tile_size,
+        size: Vec2::new(20.0, 8.0),
+        anchor: Vec2::ZERO,
+        flip: [false, false],
+    };
+    let mesh = quad.tiled_mesh([true, false], 1.0);
+    let Some(Float32x3(positions)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) else { panic!("missing positions") };
+    let Some(Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) else { panic!("missing UVs") };
+    assert_eq!(positions.len(), 12);
+    assert_eq!((positions[0][0], positions[9][0]), (-10.0, 10.0));
+    assert_eq!((uvs[1][0], uvs[5][0], uvs[9][0]), (1.0, 1.0, 0.5));
 }
 
 impl CardMeshes {
     fn quad(&mut self, quad: TextureQuad, meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
         self.meshes.entry(quad.key()).or_insert_with(|| meshes.add(quad.mesh())).clone()
+    }
+
+    fn tiled_quad(&mut self, quad: TextureQuad, axes: [bool; 2], stretch: f32, meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
+        self.tiled.entry((quad.key(), axes, stretch.to_bits()))
+            .or_insert_with(|| meshes.add(quad.tiled_mesh(axes, stretch)))
+            .clone()
     }
 
     fn textured_material(
@@ -676,7 +737,7 @@ impl CardMeshes {
         self.materials.entry((texture.id(), color)).or_insert_with(|| {
             materials.add(StandardMaterial {
                 base_color: Color::srgba_u8(color[0], color[1], color[2], color[3]),
-                base_color_texture: Some(texture.clone()),
+                base_color_texture: (*texture != Handle::default()).then(|| texture.clone()),
                 unlit: true,
                 cull_mode: None,
                 double_sided: true,
@@ -1043,7 +1104,11 @@ fn sprite_frame(
     images: &Assets<Image>,
     layouts: Option<&Assets<TextureAtlasLayout>>,
 ) -> Option<(BakedFrame, Vec2)> {
-    let page_size = images.get(&sprite.image)?.size().as_vec2();
+    let page_size = if sprite.image == Handle::default() {
+        Vec2::ONE
+    } else {
+        images.get(&sprite.image)?.size().as_vec2()
+    };
     let frame_rect = if let Some(cell) = &sprite.texture_atlas {
         layouts?.get(&cell.layout)?.textures.get(cell.index)?.as_rect()
     } else {
@@ -1072,7 +1137,13 @@ fn sprite_card(
     materials: &mut Assets<StandardMaterial>,
     cache: &mut CardMeshes,
 ) -> (Handle<Mesh>, Handle<StandardMaterial>) {
-    let mesh = cache.quad(TextureQuad::baked(frame, page_size), meshes);
+    let quad = TextureQuad::baked(frame, page_size);
+    let mesh = match sprite.image_mode {
+        bevy::sprite::SpriteImageMode::Tiled { tile_x, tile_y, stretch_value } => {
+            cache.tiled_quad(quad, [tile_x, tile_y], stretch_value, meshes)
+        }
+        _ => cache.quad(quad, meshes),
+    };
     let color = sprite.color.to_srgba().to_u8_array();
     let material = cache.textured_material(&frame.image, color, materials);
     (mesh, material)
@@ -1275,6 +1346,14 @@ pub(super) fn realize_card_scenery(
                 With<super::item_visuals::GroundItemVisual>,
                 With<super::item_visuals::WorldItemVisual>,
                 With<super::projectile_visuals::ProjectileVisual>,
+                With<BlockVisual>,
+                With<FeatureVisual>,
+                With<LoadingZoneVisual>,
+                With<super::gate_portal_visuals::GateRingLitGlyph>,
+                With<super::slash_visuals::SlashVisual>,
+                With<crate::fx::BlinkPreviewVisual>,
+                With<crate::fx::EffectVisual>,
+                With<crate::fx::ImpactVisual>,
             )>,
             Without<CardScenery>,
         ),
@@ -1301,7 +1380,7 @@ pub(super) fn realize_card_scenery(
         let shown = visibility.is_none_or(|visibility| visibility.get())
             && sprite.color.alpha() > 0.0
             && !depths.roots.contains_key(&entity);
-        let Some((frame, page_size)) =
+        let Some((mut frame, page_size)) =
             sprite_frame(sprite, anchor, &images, layouts.as_deref()).filter(|_| shown)
         else {
             if let Some((.., mut card_visibility)) = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
@@ -1309,15 +1388,19 @@ pub(super) fn realize_card_scenery(
             }
             continue;
         };
-        let (mesh, material) =
-            sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
-        let card_place = if let Some(platform) = platform {
+        let mut card_place = if let Some(platform) = platform {
             sprite_card_place(local, platform_depth(platform, platform_looks.as_deref()))
         } else {
             let place = global.compute_transform();
             let front = depths.fronts.get(&rooms.of(entity)).copied().unwrap_or(CARD_BODY_STEP);
             sprite_card_place(&place, scenery_depth(place.translation.z, front))
         };
+        if frame.image == Handle::default() {
+            card_place.scale *= frame.size.extend(1.0);
+            frame.size = Vec2::ONE;
+        }
+        let (mesh, material) =
+            sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
         match by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
                 if card_mesh.0 != mesh {

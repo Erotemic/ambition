@@ -8,8 +8,13 @@
 //
 // All work is in engine world coordinates (y down).
 
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#import bevy_pbr::mesh_view_bindings::globals
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::globals
+#endif
 #import ambition_content::room_look::{rand_cell, look_field, look_is_corrupt_in, look_is_settled}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb

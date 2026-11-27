@@ -732,7 +732,7 @@ shared value preparation are sufficient until source proves otherwise.
    windmills and the triangle gate behind the shepherd, the sheep and
    Scout, where before it was black.
 
-   **Desktop rollout.** `./run_game.sh --card-view` starts in oblique 2.5D.
+   **Desktop rollout.** `./run_game.sh --card-view` starts in side-on 2.5D.
    A build with `card_view` can switch outputs during a session. The card
    camera takes its view's viewport and target. The comparison inset and
    the gameplay camera read the same observer frame. The plane camera
@@ -752,6 +752,12 @@ shared value preparation are sufficient until source proves otherwise.
    its far layer stays behind them. Sprite cards blend texture alpha and
    use plane depth for paint order in tilted views. Card quads use a
    geometry key with region, page size, anchor, and flips.
+
+   The card view uses the hub skin and sprite-effect shaders through their
+   3D fragment inputs. It also draws tiled blocks, doors, gate glyphs, blink
+   markers, slash sprites, and folded line meshes. Medium captures show the
+   hub floor, doors, switches, and an open gate in side-on view. Wolfenstein's
+   throne-room lightning uses the same line mesh in both views.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,

@@ -32,6 +32,30 @@ fn renderer_panel(
                     settings.mode = mode;
                     info!("Gameplay renderer: {:?}", mode);
                 }
+                if matches!(mode, CardViewMode::Gameplay | CardViewMode::Inset) {
+                    let mut yaw = settings.yaw_radians.to_degrees();
+                    let mut pitch = settings.pitch_radians.to_degrees();
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut yaw, -45.0..=45.0)
+                                .text("Yaw")
+                                .suffix("°"),
+                        )
+                        .changed()
+                    {
+                        settings.yaw_radians = yaw.to_radians();
+                    }
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut pitch, -25.0..=25.0)
+                                .text("Pitch")
+                                .suffix("°"),
+                        )
+                        .changed()
+                    {
+                        settings.pitch_radians = pitch.to_radians();
+                    }
+                }
                 return;
             }
 

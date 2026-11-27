@@ -303,6 +303,7 @@ pub fn spawn_room_visuals(
             label.payload.position,
             &text,
             14.0,
+            None,
         );
         if let Some(legend) = legend {
             commands.entity(sign).insert(legend);
@@ -1349,35 +1350,43 @@ pub fn spawn_loading_zone(
     if one_way.is_some() {
         visual.insert(OneWayZone(way));
     }
+    let edge_exit = zone.activation == LoadingZoneActivation::EdgeExit;
+    let bounds = edge_exit.then(|| {
+        let size = BVec2::new(world.size.x, world.size.y);
+        Rect::from_center_size(BVec2::ZERO, (size - BVec2::splat(16.0)).max(BVec2::ONE))
+    });
+    let ceiling_exit = edge_exit && size.x >= size.y && zone.aabb.top() <= 1.0;
+    let label_position = |gap| {
+        let offset = zone.aabb.half_size().y + gap;
+        zone.aabb.center() + ae::Vec2::new(0.0, if ceiling_exit { offset } else { -offset })
+    };
     if let Some((warning, _)) = one_way {
-        // Over the zone and over its nameplate, big: read from across the
-        // room, not at the threshold.
-        let over = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 52.0);
         let sign = spawn_world_label(
             commands,
             session_scope,
             world,
             format!("fixture:zone_way:{}", zone.id),
             WorldLabelFamily::Fixture,
-            over,
+            label_position(52.0),
             warning,
             20.0,
+            bounds,
         );
         // Hidden with the zone's picture where a portal or a game draws it
         // (`hide_portal_loading_zone_visuals`).
         commands.entity(sign).insert(crate::rendering::primitives::LoadingZoneVisual { id: zone.id.clone() });
     }
     if !matches!(zone.activation, LoadingZoneActivation::Door) {
-        let label_pos = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 18.0);
         spawn_world_label(
             commands,
             session_scope,
             world,
             format!("fixture:zone:{}", zone.id),
             WorldLabelFamily::Fixture,
-            label_pos,
+            label_position(18.0),
             &zone.name,
             13.0,
+            bounds,
         );
     }
 }
@@ -1574,6 +1583,7 @@ fn spawn_chest_label(
         aabb.center() + ae::Vec2::new(0.0, -half_h - 22.0),
         name,
         14.0,
+        None,
     );
 }
 

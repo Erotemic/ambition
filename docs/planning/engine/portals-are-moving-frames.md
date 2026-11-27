@@ -350,9 +350,10 @@ Still open in M3:
   control, a mouth on the line's own plane, still reads the rigid fit.
   Core lib (942), runtime with `portal` (306) and the app's portal tests
   (53) pass.
-  Still open: a cell cut by a portal or beyond one, and a line on an
-  aperture's plane (the portal's own host). Those need the deforming
-  `line_parts` split and the clipped cast described above.
+  A cell cut by a portal or beyond one landed as S2's clipped cast, and a
+  curve-carried cell as S3 (2026-11-27). Still open: a line on an
+  aperture's plane (the portal's own host), which needs the deforming
+  `line_parts` split, and a round body in a cut cell.
 
 ## Required motion operation
 
@@ -877,10 +878,31 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   600 random cut cells, also run at 6000); a cut root cell meets a stretching
   end half way through the tick where the rigid fit arrived at its end
   (`a_cut_root_cell_reads_a_stretching_line_by_its_shape_motion`). Still on
-  the rigid fit: a curve-carried cell (S3), a line on a portal's plane, and
-  a round body in a cut cell.
+  the rigid fit: a line on a portal's plane, and a round body in a cut cell
+  (a curve-carried cell landed under S3).
 - **S3 — a curve-carried cell** (a curved support on a moving host)
   through a portal. Test: the GNU hump's material place survives a crossing.
+  *Cast landed 2026-11-27.* A cell carried on a curve (beyond a turning
+  pair) read a deforming segment by its rigid fit. The curved interval
+  search now takes its obstacle's motion as a parameter (`curved::Motion`):
+  the rigid pose as before, or a segment whose two ends each travel
+  straight (`Deforming`, bounded by its faster end against the cell's
+  material variation), so `against_deforming_where` follows the ends there
+  too. Witnesses: `a_curve_carried_deforming_cast_with_equal_end_motion_is_the_rigid_curved_cast`
+  (200 random segments beyond a pair turning 0.6 rad: every contact time
+  agrees within 1e-6, and the two motions refuse exactly the same grazing
+  cases) and `a_curve_carried_cell_reads_a_stretching_line_by_its_shape_motion`
+  (one end sweeping up through the far part is met when the search says,
+  where the rigid fit read another time). The first version built the
+  segment's bounding planes in `f32`; near x 100 that widened the bound by
+  ~1e-6, so a near-grazing interval could never be excluded and refused
+  with `Precision`. The planes are built in `f64` (`segment_planes`).
+  Core lib (973), runtime with `portal` (311) and the app's portal tests
+  (52) pass. Not run: the GNU hump
+  itself crossing a portal in the game; this is the cast the world's chain
+  contact calls (`World` → `against_deforming_where`). Still on the rigid
+  fit: a line on an aperture's plane and a round body in a cut (affine)
+  cell.
 
 **P5/P6 — observer and capture** ([view/capture
 contract](portals-one-transit-for-every-mover.md)). Keep the current

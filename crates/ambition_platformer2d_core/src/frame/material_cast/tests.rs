@@ -1431,3 +1431,87 @@ fn a_turning_link_bounds_its_image_by_the_orbit_not_the_endpoints() {
     assert!(keys.contains(&2), "a quarter turn carries the source to C's entry: {keys:?}");
     assert!(!admitted_keys(&cast, &turning(0.0), Some(0)).contains(&2), "a still A never carries it there");
 }
+
+/// A pair whose exit at x 100 turns by `turn` about its origin over the tick:
+/// the far part of a body straddling the entry is carried on a curve.
+fn turning_pair(turn: f32) -> [PortalLink; 2] {
+    use crate::frame::ApertureStep;
+    let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, -Vec2::X), half_length: 40.0 };
+    let normal = (Mat2::from_angle(turn) * Vec2::X).normalize();
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 0.0), normal), half_length: 40.0 };
+    PortalLink::both_ways_with_steps(0, [
+        (enter, ApertureStep::fixed(enter.frame.origin, enter.frame.normal)),
+        (exit, ApertureStep::ending_at(exit.frame, Vec2::ZERO, turn)),
+    ])
+}
+
+fn straddling_cells<'a>(body: &'a CombatVolume, links: &[PortalLink]) -> MaterialCastCells<'a> {
+    let admission = MotionAdmission { span: Default::default(), links, first: None,
+        budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation };
+    MaterialCast::new(MaterialPrimitive::world(body), body.center(), Vec2::ZERO, 0.0..1.0)
+        .cells(Some(admission)).unwrap()
+}
+
+/// SUP1 S3: in a cell carried on a curve, a segment whose ends move together
+/// is met when the rigid curved cast meets the same segment translating:
+/// the deforming search follows each end, the rigid one the pose, and the
+/// two agree wherever the shapes do.
+#[test]
+fn a_curve_carried_deforming_cast_with_equal_end_motion_is_the_rigid_curved_cast() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(-2.0, 0.0), Vec2::splat(4.0)));
+    let links = turning_pair(0.6);
+    let cells = straddling_cells(&body, &links);
+    let part = cells.parts().iter().find(|part| part.curve.is_some()).expect("premise: a curve-carried far part");
+    let mut seed = 0x2545_f491_4f6c_dd1d_u64;
+    let mut number = || { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed >> 11) as f64 / (1u64 << 53) as f64 };
+    let (mut met, mut missed, mut refused) = (0, 0, 0);
+    for _ in 0..200 {
+        let mut point = |lo: f64, hi: f64| lo + (hi - lo) * number();
+        let a = DVec2::new(point(96.0, 116.0), point(-16.0, 16.0));
+        let b = DVec2::new(point(96.0, 116.0), point(-16.0, 16.0));
+        let motion = DVec2::new(point(-12.0, 12.0), point(-12.0, 12.0));
+        let to = [a, b];
+        let from = to.map(|end| end - motion);
+        let rigid = curved::cast(&body, part, &to.map(|p| p.as_vec2()), motion.as_vec2(), 0.0, Vec2::ZERO,
+            0.0..1.0, InitialOverlap::AllowSeparation, |_| true);
+        let deforming = curved::deforming_cast(&body, part, from, to, 0.0..1.0, InitialOverlap::AllowSeparation, |_| true);
+        // The search may refuse a grazing case it cannot resolve; the two
+        // motions must refuse the same cases.
+        assert_eq!(rigid.is_err(), deforming.is_err(), "only one refused: rigid {:?} deforming {:?} for {a:?} {b:?} {motion:?}",
+            rigid.as_ref().err(), deforming.as_ref().err());
+        let (Ok(rigid), Ok(deforming)) = (rigid, deforming) else { refused += 1; continue; };
+        match (rigid, deforming) {
+            (None, None) => missed += 1,
+            (Some(r), Some(d)) => {
+                met += 1;
+                assert!((r.time - d.time).abs() < 1e-6, "time {} against {} for {a:?} {b:?} {motion:?}", r.time, d.time);
+            }
+            (r, d) => panic!("rigid {:?} against deforming {:?} for {a:?} {b:?} {motion:?}", r.map(|h| h.time), d.map(|h| h.time)),
+        }
+    }
+    assert!(met > 20 && missed > 20 && refused < 20, "the sample must meet and miss: {met}, {missed}, {refused} refused");
+}
+
+/// SUP1 S3: beyond a turning pair, a stretching line is met when its moving
+/// end arrives, as its shape motion says, where the rigid fit (the mean
+/// move) used to meet it at another time.
+#[test]
+fn a_curve_carried_cell_reads_a_stretching_line_by_its_shape_motion() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(-2.0, 0.0), Vec2::splat(4.0)));
+    let links = turning_pair(0.6);
+    let cells = straddling_cells(&body, &links);
+    let part = cells.parts().iter().find(|part| part.curve.is_some()).expect("premise: a curve-carried far part");
+    // A horizontal line below the exit whose right end sweeps up through the
+    // far part while its left end stays put.
+    let from = [Vec2::new(60.0, -30.0), Vec2::new(104.0, -30.0)];
+    let to = [Vec2::new(60.0, -30.0), Vec2::new(104.0, 30.0)];
+    let fit = (Vec2::new(0.0, 30.0), 0.0, Vec2::ZERO);
+    let shaped = cells.against_deforming_where(part, from, to, fit, |_| true).unwrap();
+    let rigid = cells.against_rigid_where(part, &to, fit.0, fit.1, fit.2, |_| true).unwrap();
+    let exact = curved::deforming_cast(&body, part, from.map(Vec2::as_dvec2), to.map(Vec2::as_dvec2), 0.0..1.0,
+        InitialOverlap::AllowSeparation, |_| true).unwrap();
+    let shaped = shaped.expect("the sweeping end meets the far part");
+    assert_eq!(Some(shaped.toi), exact.map(|hit| hit.time), "the curve cell is read by the deforming search");
+    assert!(rigid.as_ref().is_none_or(|rigid| (rigid.toi - shaped.toi).abs() > 1e-3),
+        "premise: the rigid fit reads another time: {:?} against {}", rigid.map(|hit| hit.toi), shaped.toi);
+}

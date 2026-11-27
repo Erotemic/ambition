@@ -66,25 +66,6 @@ fn the_relief_lever_opens_the_deep_works_and_the_service_stair_returns_to_the_ya
     assert!(gate_stands(pad.world_mut(), "mine_deep_screen"));
     walk_through(&mut pad, SHAFT).expect("back up to the shaft base");
     walk_through(&mut pad, BASIN).expect("back into the basin");
-    walk_through(&mut pad, POCKET).expect("visit the sample stope");
-    let wall_face = Vec2::new(582.0, 480.0);
-    walk_to(&mut pad, wall_face).expect("reach the cracked seam");
-    for tick in 0..460 {
-        if pad.world_mut().query::<&ambition_platformer2d::breakables::BreakableFeature>()
-            .iter(pad.world()).any(|wall| wall.broken()) {
-            break;
-        }
-        pad.step(Press {
-            axis: -1.0,
-            attack: tick % 16 == 0,
-            ..Press::default()
-        });
-    }
-    let player = the_player(pad.world_mut());
-    let before = pad.world().get::<BodyWallet>(player).unwrap().balance;
-    interact_at(&mut pad, Vec2::new(230.0, 480.0));
-    assert_eq!(pad.world().get::<BodyWallet>(player).unwrap().balance - before, 24);
-    walk_through(&mut pad, BASIN).expect("leave the sample stope");
     walk_through(&mut pad, VENT).expect("cross the basin to the drift");
     interact_at(&mut pad, Vec2::new(243.0, 608.0));
 
@@ -112,6 +93,40 @@ fn the_relief_lever_opens_the_deep_works_and_the_service_stair_returns_to_the_ya
     walk_through(&mut pad, SHAFT).expect("take the top corridor");
     walk_through(&mut pad, YARD).expect("return to the ore yard");
     walk_through(&mut pad, "eureka_test_range").expect("cross to the Test Range");
+    walk_through(&mut pad, YARD).expect("take the same road back to the yard");
+}
+
+#[test]
+fn the_cracked_stope_has_a_breakable_seam_and_a_sample_locker() {
+    use ambition_platformer2d::breakables::BreakableFeature;
+    let mut sim = fixed_60hz_room_sim(POCKET);
+    sim.step_n(base(), 30);
+    let mut pad = Pad::new(&mut sim);
+    walk_to(&mut pad, Vec2::new(584.0, 480.0)).expect("reach the cracked seam");
+    let seam_broken = |world: &mut World| {
+        world.query::<&BreakableFeature>().iter(world).any(BreakableFeature::broken)
+    };
+    assert!(!seam_broken(pad.world_mut()));
+    for _ in 0..8 {
+        pad.step(Press { axis: -1.0, jump_pressed: true, jump_held: true, ..Press::default() });
+        for _ in 0..10 {
+            pad.step(Press { axis: -1.0, jump_held: true, ..Press::default() });
+        }
+        pad.step(Press { axis: -1.0, jump_held: true, attack: true, ..Press::default() });
+        for _ in 0..45 {
+            pad.step(Press::default());
+        }
+        if seam_broken(pad.world_mut()) {
+            break;
+        }
+    }
+    assert!(seam_broken(pad.world_mut()), "the opening blade breaks the seam");
+    let player = the_player(pad.world_mut());
+    let before = pad.world().get::<BodyWallet>(player).unwrap().balance;
+    interact_at(&mut pad, Vec2::new(230.0, 480.0));
+    assert_eq!(pad.world().get::<BodyWallet>(player).unwrap().balance - before, 24);
+    walk_through(&mut pad, BASIN).expect("leave the sample stope");
+    walk_through(&mut pad, POCKET).expect("return to the sample stope");
 }
 
 #[test]

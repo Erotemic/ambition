@@ -21,13 +21,13 @@
 //!   z), one [`CARD_BODY_STEP`] apart, nearer for a later one;
 //! - a body's parts are [`CARD_PART_STEP`] apart in paint order.
 //!
-//! # Whole-body cards
+//! # One picture, when the 2D view has one
 //!
-//! The card view requests one image for each sampled rigged player. It draws
-//! the atlas cell at the body's depth and blends the cell's alpha like a
-//! sprite. A body composited for a fade, flash, or warp uses the same path.
-//! Direct part cards cover frames whose cell is not ready or cannot fit the
-//! pose. A flash ([`PresentedFlash`]) adds a silhouette over each visible card.
+//! A body the 2D view composites (a fading frame, a flash, a warp, any reader
+//! of it as one image) is drawn here as one card of its composited cell, as
+//! the 2D root draws it: a fading frame fades as one picture, not part by
+//! part. A body's flash ([`PresentedFlash`]) is a silhouette card over each of
+//! its cards, in the cue's colour, as strong as the cue.
 //!
 //! # Bodies drawn from a sheet
 //!
@@ -106,12 +106,11 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, PlayerVisual};
-use ambition_sprite_sheet::character::rigged::{ComposedBodyDemand, PartDraw};
+use ambition_sprite_sheet::character::rigged::PartDraw;
 
 use super::retained_entities::RetainedEntities;
 use super::actors::rigged::{
-    drive_rigged_presentations, sample_rigged_presentations, BakedFrame, RiggedImpostorAtlas,
-    RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
+    BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
 };
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
@@ -316,14 +315,6 @@ impl Plugin for CardViewPlugin {
         app.init_resource::<PresentedVessels>();
         app.add_systems(
             Update,
-            request_player_cards
-                .run_if(card_outputs_enabled)
-                .in_set(super::actors::rigged::RiggedDriveSet)
-                .after(sample_rigged_presentations)
-                .before(drive_rigged_presentations),
-        );
-        app.add_systems(
-            Update,
             (
                 present_card_view_rigs,
                 place_card_view_cameras,
@@ -394,19 +385,6 @@ impl Plugin for CardViewPlugin {
 
 fn card_outputs_enabled(settings: Res<CardViewSettings>) -> bool {
     settings.mode != CardViewMode::Plane
-}
-
-/// Ask for a whole image after sampling so offscreen players do not allocate cells.
-pub(super) fn request_player_cards(
-    players: Query<(), With<PlayerVisual>>,
-    poses: Query<(&RiggedPresentationOf, &RiggedLocalSample)>,
-    mut demand: ResMut<ComposedBodyDemand>,
-) {
-    for (owner, pose) in &poses {
-        if players.contains(owner.0) && pose.parts().is_some() {
-            demand.declare(owner.0);
-        }
-    }
 }
 
 fn retire_card_outputs(
@@ -918,14 +896,21 @@ pub(super) fn realize_card_bodies(
             };
             let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
             let opacity = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
-            let color = if let Some(sprite) = root_sprite.filter(|_| composited.is_some()) {
-                sprite.color.to_srgba().to_u8_array()
-            } else {
-                [255, 255, 255, opacity]
-            };
-            let material = cache.textured_material(
-                &baked.image, color, composited.is_some() || opacity < 255, &mut materials,
-            );
+            let material = cache
+                .materials
+                .entry((baked.image.id(), [255, 255, 255, opacity], opacity < 255))
+                .or_insert_with(|| {
+                    materials.add(StandardMaterial {
+                        base_color: Color::srgba(1.0, 1.0, 1.0, f32::from(opacity) / 255.0),
+                        base_color_texture: Some(baked.image.clone()),
+                        unlit: true,
+                        cull_mode: None,
+                        double_sided: true,
+                        alpha_mode: if opacity < 255 { AlphaMode::Blend } else { AlphaMode::Mask(0.5) },
+                        ..default()
+                    })
+                })
+                .clone();
             let local = Transform::IDENTITY;
             shown.clear();
             shown.push((mesh.clone(), material, local));

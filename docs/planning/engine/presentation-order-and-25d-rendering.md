@@ -746,10 +746,6 @@ shared value preparation are sufficient until source proves otherwise.
    comparison mode. Switching the output kept one workshop session
    active and kept it paused while the cube was open.
 
-   The card output requests a composed sprite for each sampled player rig.
-   The card uses the sprite's tint and alpha. The rig's parts animate in
-   the shared compositor and the sprite has one depth in the room.
-
    A card uses the existing portal capture mesh and texture for the far-side
    window. Partial body traversal still needs P5/P6 work. Carts retain their
    board entities and share a unit mesh. Seating records the vessel and seat

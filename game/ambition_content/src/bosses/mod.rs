@@ -451,9 +451,7 @@ impl Plugin for AmbitionBossContentPlugin {
                 .after(ambition_extension_host::ExtensionSet::Lower(ambition_content_modules::gnu_ton::conductor::CONDUCT_PHASE))
                 .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
         );
-        // The prelude: GNU-ton nearly beaten in the room before his hall runs
-        // to its door. Before the brains write control, so his steps are the
-        // run's; in the world's prep, as the duel's.
+        // Set GNU-ton's retreat command before the AI writes movement input.
         app.add_scoped_systems(
             sim,
             crate::AMBITION_RULES,

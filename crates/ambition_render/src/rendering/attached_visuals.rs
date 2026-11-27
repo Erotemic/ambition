@@ -1,6 +1,7 @@
 //! Reconcile body attachments by stable presentation identity.
 
 use super::presented_bodies::{PresentedBodies, PresentedBody, PresentedBodyKey};
+use super::primitives::WorldSprite;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, PresentationOf, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -9,6 +10,7 @@ use std::{collections::BTreeMap, marker::PhantomData};
 
 /// One effect family attached to one body representation.
 #[derive(Component)]
+#[require(WorldSprite)]
 pub struct BodyAttachedVisual<F: Send + Sync + 'static> {
     pub body: Entity,
     key: PresentedBodyKey,

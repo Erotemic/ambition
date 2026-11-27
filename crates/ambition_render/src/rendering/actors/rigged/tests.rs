@@ -2482,6 +2482,40 @@ fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
 
 #[cfg(feature = "card_view")]
 #[test]
+fn a_morphed_body_hides_its_rigged_cards_and_can_show_them_again() {
+    use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
+    use ambition_sim_view::BodyPoseView;
+    use crate::rendering::body_visibility::sync_body_visibility;
+    use crate::rendering::card_view::{realize_card_bodies, CardBody, CardMeshes};
+
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app_direct(&sprites, raider(&sprites, true), Anchor::CENTER);
+    app.world_mut().entity_mut(root).insert((PlayerVisual, BodyPoseView::default()));
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<CardMeshes>()
+        .add_systems(Update, (
+            sync_body_visibility.before(RiggedDriveSet),
+            realize_card_bodies.after(RiggedDriveSet),
+        ));
+    settle(&mut app);
+    let card = app.world_mut().query_filtered::<Entity, With<CardBody>>()
+        .single(app.world()).expect("the visible body has a card root");
+    assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Inherited));
+
+    app.world_mut().get_mut::<BodyPoseView>(root).unwrap().morph_ball = true;
+    app.update();
+    let sample = app.world().get::<RiggedLocalSample>(owner(&app, root)).unwrap();
+    assert!(sample.parts().is_some());
+    assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Hidden));
+
+    app.world_mut().get_mut::<BodyPoseView>(root).unwrap().morph_ball = false;
+    app.update();
+    assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Inherited));
+}
+
+#[cfg(feature = "card_view")]
+#[test]
 fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
     use ambition_platformer2d_core::Vec2 as WorldPoint;
     use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, PlayerVisual, RoomInstanceRoot};

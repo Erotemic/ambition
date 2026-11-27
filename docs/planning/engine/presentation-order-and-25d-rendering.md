@@ -816,6 +816,12 @@ shared value preparation are sufficient until source proves otherwise.
    card view shows the ladder at the same position before and after this
    replacement.
 
+   Morph balls, trapdoors, flylines, tethers, room motes, and limb wisps
+   use the same sprite path. The card rig reads the same visibility as
+   the 2D rig. A test checks that morphing hides the rig on the same frame
+   and that exiting morph shows it again. An Ultra fixture shows the
+   replacement sprites and effects in 2D, side-on 2.5D, and oblique 2.5D.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

@@ -1149,6 +1149,7 @@
     "volcano_east": (),
     // The orbital station's observation deck: its window.
     "obs_deck_window": (),
+    "orbital_viewing_walk": (),
     // Eureka's gate court.
     "court_furniture": (),
     "eureka_court_walks": (),

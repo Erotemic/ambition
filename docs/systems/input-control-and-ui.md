@@ -143,11 +143,13 @@ last local menu closes. A local menu does not stop a remote shared timeline.
 
 ## Map
 
-The Cube and Grid open the map on the room that the menu owner's body is in.
-If there is no current room on the map, it opens at Dimensions. Dimensions
-includes the sandbox. Select a dimension or group to open it. Select a room
-to see its map. Back returns to the parent level. Back at Dimensions closes
-the menu.
+The Cube and Grid open the map on the group that contains the menu owner's
+current room. The map selects the room and shows it with nearby rooms.
+Zoom out to see more of the group. Fit shows the full group.
+If there is no current room on the map, the map opens at Dimensions.
+Dimensions includes the sandbox. Select a dimension or group to open it.
+Select a room to see its own map. Back returns to the parent level.
+Back at Dimensions closes the menu.
 
 The chart uses gold for the current room and a bright blue outline for the
 selected entry. Group cards open the next level. The legend shows the marks

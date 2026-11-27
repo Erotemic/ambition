@@ -235,6 +235,10 @@ pub struct MenuLook {
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MapLook {
+    pub paper: [f32; 4],
+    pub plate: [f32; 4],
+    pub brass: [f32; 4],
+    pub engraving: [f32; 4],
     pub frame: [f32; 4],
     pub grid: [f32; 4],
     pub stroke: [f32; 4],
@@ -282,6 +286,10 @@ impl MenuLook {
             ("heading", self.heading),
             ("body", self.body),
             ("placeholder_body", self.placeholder_body),
+            ("map.paper", map.paper),
+            ("map.plate", map.plate),
+            ("map.brass", map.brass),
+            ("map.engraving", map.engraving),
             ("map.frame", map.frame),
             ("map.grid", map.grid),
             ("map.stroke", map.stroke),

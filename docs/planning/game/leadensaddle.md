@@ -53,11 +53,11 @@ and the livery are interiors, so their ways in are doors
 | --- | --- | --- |
 | `frontier_landing_pad` | Pad Three: the gate, terminal, and clerk's booth on the apron. The cargo scale leads to the booth roof. Loading walks connect the roof and containers to the freighter hold. Service steps return to the apron at the town end. | Dolores Pike, the pad clerk. |
 | `frontier_main_street` | The boardwalk leads to the saloon, the livery, and the Marshal's notices. Visitors can reach the water tower from the dry goods roof or by the pump walks from the livery porch. | |
-| `frontier_wet_whistle` | The saloon: the bar, the piano, the stage; the balcony is a tier up. | Mae Calloway (behind the bar), Elias Crane (a prospector), the piano player. |
-| `frontier_livery` | The livery: stalls of hover-mules, a hayloft over them. | Gus Bell's daughter June, who shoes the mules. |
+| `frontier_wet_whistle` | The saloon has a bar and a piano stage. Steps at the door and the bar lead to the balcony. The balcony extends above the bar toward the stage. | Mae Calloway (behind the bar), Elias Crane (a prospector). |
+| `frontier_livery` | The livery has stalls and a hayloft. A ladder and a crate lead up at the west end. Stacked bales give access at the east end below the loft window. | Gus Bell, who hires out mules. |
 | `frontier_refinery` | The refinery on the flank of the east mesa: terraces cut into the slope, pipe racks, tanks, the cracking tower, catwalks. The Marshal's posse are here (chickens). | Ruth Harlan, the night-shift foreman. |
 | `frontier_ore_corral` | The arena: a level yard on a shelf of the mesa, ore carts, the corral fence, the steam whistle on its stack. Two raised loading docks at the sides, one jump up. | Marshal Gallus. |
-| `frontier_saddle_lookout` | The top of the east mesa, behind the corral's grille: the whole town below, the pads and the ships. The Marshal sits on an ore cart there, hoarse. The reward chest. | Marshal Gallus, beaten. |
+| `frontier_saddle_lookout` | The mesa path and the survey decks lead from the corral to the summit. The upper deck leads to the shelter roof. The shelter, spyglass, and reward chest are on the summit. | Marshal Gallus after the fight (planned). |
 | `hall_marshal_gallus_corral` | The Hall of Bosses' practice copy of the corral (placement `hall.marshal_gallus`). | |
 
 Each room has a title and a blurb (two Room DebugLabels) that says where it

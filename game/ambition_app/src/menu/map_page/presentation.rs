@@ -11,6 +11,8 @@ use bevy::prelude::{Rect, Vec2};
 
 use crate::menu::model::{add_edge_buttons, line, menu_look, MapLook, MenuPage, MenuPageAction};
 
+mod ornament;
+
 /// Map viewport in percent of the menu page.
 pub(crate) const MAP_FRAME: MenuRect = MenuRect::new(14.0, 29.0, 72.0, 53.0);
 const ROOM_LABEL_SIZE: f32 = 2.0;
@@ -20,8 +22,10 @@ type MapModel = MenuPageModel<MenuPage, MenuPageAction>;
 pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, MenuPageAction> {
     let look = menu_look();
     let palette = look.map;
-    let mut model = MenuPageModel::new(MenuPage::Map, line("menu.map.title"), colour(look.page));
+    let mut model =
+        MenuPageModel::new(MenuPage::Map, line("menu.map.title"), colour(palette.paper));
     add_edge_buttons(&mut model, MenuPage::Map);
+    ornament::title_plate(&mut model, &palette);
     model.text(
         50.0,
         4.0,
@@ -46,13 +50,14 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
         50.0,
         8.0,
         4.0,
-        fit_title(&view.title, MAP_FRAME.w, 4.0),
+        fit_title(&view.title, ornament::TITLE_WIDTH, 4.0),
         MenuTextAlign::Center,
         colour(palette.label),
     );
 
     draw_tools(&mut model, view);
     draw_chart(&mut model, &palette);
+    ornament::folio(&mut model, &palette);
     let marks = landmarks(view);
     draw_entries(&mut model, view, &palette, &marks);
     let stride = 0.25 / marks.len().max(1) as f32;
@@ -161,7 +166,21 @@ fn draw_entries(
 
         if group && inner.width() >= 5.0 && inner.height() >= 3.0 {
             let accent = Rect::from_corners(inner.min, Vec2::new(inner.max.x, inner.min.y + 0.48));
-            layer_rect(model, accent, colour(outline), None, layer + stride * 0.66);
+            let accent_color = if entry.selected || entry.here {
+                outline
+            } else {
+                palette.brass
+            };
+            layer_rect(
+                model,
+                accent,
+                colour(accent_color),
+                None,
+                layer + stride * 0.66,
+            );
+        }
+        if view.room_detail {
+            ornament::room_engraving(model, palette, inner, fill, layer + stride * 0.66);
         }
         let font = if group {
             let chars = map_label(&entry.title).chars().count().max(1) as f32;

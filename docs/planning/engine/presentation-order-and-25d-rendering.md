@@ -764,6 +764,8 @@ shared value preparation are sufficient until source proves otherwise.
    markers, slash sprites, and folded line meshes. Medium captures show the
    hub floor, doors, switches, and an open gate in side-on view. Wolfenstein's
    throne-room lightning uses the same line mesh in both views.
+   At Ultra, both outputs use the same animated tunnel material inside
+   the gate membrane.
 
    World-space sprite producers mark their art with `WorldSprite`. The card
    renderer reads this marker and uses the sprite's world transform and

@@ -54,6 +54,7 @@ pub(super) fn install(app: &mut App) {
         install_card_mesh_material::<ambition_sprite_fx::SpriteFxMaterial>(app);
         install_card_mesh_material::<crate::rendering::darkness::DarknessMaterial>(app);
         install_card_mesh_material::<crate::bubble_shield_fx::BubbleShieldFxMaterial>(app);
+        install_card_mesh_material::<crate::gate_portal_fx::GatePortalFxMaterial>(app);
         install_card_mesh_material::<crate::rendering::daylight::DaylightMaterial>(app);
         install_card_mesh_material::<crate::rendering::daylight::LampGlowMaterial>(app);
         #[cfg(feature = "portal_render")]
@@ -75,6 +76,7 @@ pub trait CardMaterialSource: Material2d + PartialEq {
 impl CardMaterialSource for ambition_sprite_fx::SpriteFxMaterial {}
 impl CardMaterialSource for crate::rendering::darkness::DarknessMaterial {}
 impl CardMaterialSource for crate::bubble_shield_fx::BubbleShieldFxMaterial {}
+impl CardMaterialSource for crate::gate_portal_fx::GatePortalFxMaterial {}
 #[cfg(feature = "portal_render")]
 impl CardMaterialSource for ambition_portal2d_presentation::PortalGlowMaterial {}
 #[cfg(feature = "portal_render")]

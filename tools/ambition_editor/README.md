@@ -77,7 +77,9 @@ pack, so another engine game is inspected the same way (`--profile`,
   counts each commit/target pair once. A blank field shows all entries.
   Characters show the most recently added entries first by default.
   Use Sort by to change the order by name, date added, or art generation date.
-  Use Importance and Role to filter by the cast data in the character pack.
+  Use Tier and Role to filter by the cast data in the character pack.
+  Choose an exact tier or include every tier at or above or below it.
+  Use Unclassified to find entries without a tier.
   The cards and detail pages show the cast labels.
   Both date sorts offer newest and oldest first. Added dates use the first
   character key in available catalog Git history, across file renames. Boss

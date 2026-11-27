@@ -6,7 +6,7 @@
   const I = C.inventory;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent;
-  const defaultFilters = {family: "", lineage: "", attention: "", view: "", sort: "added-newest", importance: "", role: "", history: ""};
+  const defaultFilters = {family: "", lineage: "", attention: "", view: "", sort: "added-newest", tier: "", role: "", history: ""};
   const filters = {...defaultFilters};
   const badge = (text, warn = false) => `<span class="chip ${warn ? 'c-warn' : 'c-info'}">${esc(text)}</span>`;
   const characterLink = (key, label) => `<a href="#character/${enc(key)}">${esc(label || I.identities[key]?.display || key)}</a>`;
@@ -44,7 +44,17 @@
   // A review can name an action or a published animation row.
   const animations = actor => [...new Set([...actor.coverage.map(row => row.action), ...assetsFor(actor).flatMap(asset => (asset.layout?.rows || []).map(row => row.name))])].sort();
   const importance = actor => actor.catalog.cast?.importance || 'Unclassified';
-  const importanceLevels = ['Primary', 'Secondary', 'Tertiary', 'Background', 'Unclassified'];
+  const rankedTiers = ['Primary', 'Secondary', 'Tertiary', 'Background'];
+  const importanceLevels = [...rankedTiers, 'Unclassified'];
+  function matchesTier(actor) {
+    if (!filters.tier) return true;
+    const [mode, selected] = filters.tier.split(':');
+    const tier = importance(actor);
+    if (mode === 'exact') return tier === selected;
+    const rank = rankedTiers.indexOf(tier);
+    const boundary = rankedTiers.indexOf(selected);
+    return rank >= 0 && (mode === 'above' ? rank <= boundary : rank >= boundary);
+  }
   const hasBossTag = actor => (actor.catalog.tags || []).includes('boss');
   function rolesFor(actor) {
     const roles = actor.catalog.cast?.roles || {};
@@ -102,7 +112,7 @@
     const actors = Object.values(I.identities).sort((a, b) => compare(a, b));
     const query = document.getElementById('q').value.trim().toLowerCase();
     const roles = new Map(actors.map(actor => [actor.key, rolesFor(actor)]));
-    const shown = actors.filter(actor => (!filters.importance || importance(actor) === filters.importance)
+    const shown = actors.filter(actor => matchesTier(actor)
       && matchesRole(actor, roles.get(actor.key)) && (!filters.family || familiesFor(actor).includes(filters.family)) &&
       (!filters.lineage || lineagesFor(actor).includes(filters.lineage)) &&
       (filters.history === '' || lineageItemCount(actor) > Number(filters.history)) &&
@@ -118,19 +128,28 @@
     }));
     const groups = I.character_groups.filter(group => group.members.some(key => matched.has(key)))
       .sort((a, b) => compare(I.identities[a.root], I.identities[b.root], groupDates));
-    const filteringCast = Boolean(filters.importance || filters.role);
+    const filteringCast = Boolean(filters.tier || filters.role);
     const grouped = group => {
       const children = group.members.filter(key => key !== group.root && (!filteringCast || matched.has(key)))
         .sort((a, b) => compare(I.identities[a], I.identities[b]));
+      const root = I.identities[group.root];
+      if (!matchesTier(root)) return children.map(key => card(I.identities[key])).join('');
       const work = group.members.reduce((sum, key) => sum + window.AssetReviews.workCount(key), 0);
       const open = query || filters.attention || (filteringCast && !matched.has(group.root));
-      return `<article class="character-group" data-character-root="${esc(group.root)}">${card({...I.identities[group.root], generated_at: groupDates.get(group.root)?.generated_at, generated_at_evidence: groupDates.get(group.root)?.generated_at_evidence})}
+      return `<article class="character-group" data-character-root="${esc(group.root)}">${card({...root, generated_at: groupDates.get(group.root)?.generated_at, generated_at_evidence: groupDates.get(group.root)?.generated_at_evidence})}
         ${children.length ? `<details class="character-variants"${open ? ' open' : ''}><summary>${children.length} forms and parts${work ? ` · ${work} reviews need work` : ''}</summary>
           <div class="character-children">${children.map(key => card(I.identities[key])).join('')}</div></details>` : ''}</article>`;
     };
     function select(name, label, values) {
       return `<label>${label} <select data-character-filter="${name}"><option value="">${name === 'view' ? 'Characters with forms and parts' : name === 'sort' ? 'Name (A–Z)' : 'All'}</option>${values.map(([value, text]) => `<option value="${esc(value)}"${filters[name] === value ? ' selected' : ''}>${esc(text)}</option>`).join('')}</select></label>`;
     }
+    const tierOption = (value, label) => `<option value="${esc(value)}"${filters.tier === value ? ' selected' : ''}>${esc(label)}</option>`;
+    const tierSelect = `<label for="character-tier-filter">Tier</label><select id="character-tier-filter" data-character-filter="tier">
+      ${tierOption('', 'All tiers')}
+      <optgroup label="Exact tier">${importanceLevels.map(tier => tierOption(`exact:${tier}`, tier)).join('')}</optgroup>
+      <optgroup label="At or above">${rankedTiers.map(tier => tierOption(`above:${tier}`, `${tier} or higher`)).join('')}</optgroup>
+      <optgroup label="At or below">${rankedTiers.map(tier => tierOption(`below:${tier}`, `${tier} or lower`)).join('')}</optgroup>
+    </select>`;
     const roleOptions = new Map();
     for (const entries of roles.values()) {
       for (const [group, labels] of Object.entries(entries)) {
@@ -148,7 +167,7 @@
       <div class="controls character-controls">
         ${select('sort', 'Sort by', [['added-newest', 'Added to game (newest first)'], ['added-oldest', 'Added to game (oldest first)'], ['generated-newest', 'Art generated (newest first)'], ['generated-oldest', 'Art generated (oldest first)']])}
         ${select('view', 'Show', [['entries', 'All entries']])}
-        ${select('importance', 'Importance', importanceLevels.map(level => [level, level]))}
+        ${tierSelect}
         ${roleSelect}
         ${select('family', 'Art family', [...new Set(actors.flatMap(familiesFor))].sort().map(name => [name, name]))}
         ${select('lineage', 'Lineage', [...new Set(actors.flatMap(lineagesFor))].sort().map(id => [id, I.lineages[id]?.name || id]))}

@@ -98,7 +98,7 @@
 
   function cast(id, name, levels, saved) {
     return open("Cast for " + name, "/api/character-cast", {id}, (root, record) => {
-      root.innerHTML = `<label>Importance<select name="importance" aria-label="Importance">
+      root.innerHTML = `<label>Tier<select name="importance" aria-label="Tier">
         ${levels.map(level => `<option${level === record.cast.importance ? " selected" : ""}>${esc(level)}</option>`).join("")}
         </select></label>
         <div data-roles></div><button type="button" data-add-role>Add role</button>`;

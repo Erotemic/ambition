@@ -1234,8 +1234,11 @@ and letting go blinks behind it. The slow is a technique request
 ([loadout, open 1](game/ability-loadout.md#open)).
 
 **Next action:** the laser's own sound waits for an SFX bank republish.
-Then Precision Blink's quick press and double press (open 2; what the
-single press does is [Q179](awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)), and the
+Then Precision Blink's one press-hold-release (Q179, ruled 2026-11-27;
+[loadout, open 2](game/ability-loadout.md#open)): a minimum preparation
+before the short blink, tuned apart from the hold threshold, with
+preparation, aiming, interruption and release in rollback state and a
+visible preparation tried in play; no double tap. Then the
 stance placeholders through the same technique/equipment seam, not named
 engine branches. Dash II and Dash III were built on 2026-11-26 as dash styles
 lent by their rows (`EquipmentRow.lends`); see

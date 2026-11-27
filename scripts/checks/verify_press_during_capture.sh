@@ -26,9 +26,7 @@ out_dir="${1:-/tmp/press_during_check}"
 mkdir -p "$out_dir"
 cd "$(git rev-parse --show-toplevel)"
 
-# ⛔ `ultra` IS NOT A PREFERENCE HERE. The Potato tier a software rasteriser gets
-# seeded to scales screen shaders and the parallax to nothing, so two captures
-# could match by both being empty. capture_scene's own --help says the same.
+# Use Ultra for full screen effects and parallax in both captures.
 export AMBITION_QUALITY_PROFILE=ultra
 
 size="${PRESS_DURING_SIZE:-320x180}"

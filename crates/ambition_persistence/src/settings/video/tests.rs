@@ -420,13 +420,10 @@ fn the_seed_tier_follows_the_adapter_and_not_the_operating_system() {
         "a paravirtualised adapter is an IGP's problem wearing a guest's clothes"
     );
 
-    // ⛔ NO GPU IS NOT A WEAK GPU. A software rasteriser pays its fill cost on
-    // the same cores running the sim, so the tier that merely trims effects is
-    // the wrong answer for it.
     assert_eq!(
         seed_profile_for_gpu(DetectedGpuClass::Cpu),
-        VisualQualityProfile::Potato,
-        "llvmpipe/lavapipe must start at the cheapest tier there is"
+        VisualQualityProfile::Low,
+        "a software renderer starts on Low and a player can select Potato"
     );
 
     // ⛔ AND AN ADAPTER WE CANNOT CLASSIFY KEEPS THE EXISTING DEFAULT. Booting an

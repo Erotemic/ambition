@@ -195,8 +195,8 @@ NDK, GPU or display as broken code.
 
 - **Web:** with `wasm32-unknown-unknown` absent, the gate plans no web job and
   says the web build is unchecked.
-- **GPU/display:** a CPU adapter seeds `Potato` and says so;
-  `[census] phases_trust` reports `trustworthy=no_render_backend`.
+- **GPU/display:** a CPU adapter starts on `Low` and records the preset in
+  the log. `[census] phases_trust` reports `trustworthy=no_render_backend`.
 - **Fonts:** a missing font is still reported as a read error from the
   typography test target, not as a named prerequisite. Fail with the
   prerequisite named and the fetch command quoted, as the web job does. The

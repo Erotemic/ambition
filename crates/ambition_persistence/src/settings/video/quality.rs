@@ -170,13 +170,12 @@ pub enum DetectedGpuClass {
 /// OS, so every desktop boots `High`, including integrated GPUs such as an
 /// Intel HD 630, which runs much faster with a matched raster budget.
 ///
-/// `Cpu` gets `Potato`, not `Low`: a software rasteriser pays fill cost on the
-/// same cores that run the simulation.
+/// A software renderer starts on Low. Select Potato explicitly to use it.
 pub fn seed_profile_for_gpu(class: DetectedGpuClass) -> VisualQualityProfile {
     match class {
         DetectedGpuClass::Discrete => VisualQualityProfile::High,
         DetectedGpuClass::Integrated | DetectedGpuClass::Virtual => VisualQualityProfile::Medium,
-        DetectedGpuClass::Cpu => VisualQualityProfile::Potato,
+        DetectedGpuClass::Cpu => VisualQualityProfile::Low,
         // An unknown adapter keeps the existing default. Do not guess
         // downward: "GPU not recognised" must not look like "GPU is weak".
         DetectedGpuClass::Other => default_visual_quality_profile(),

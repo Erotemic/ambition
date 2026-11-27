@@ -90,9 +90,10 @@ capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
   sequence. It exits 2 when the sequence ends before frame N, and it is
   refused without `--press` or with 0. `scripts/checks/verify_press_during_capture.sh`
   checks the pixels.
-- A capture is at the `low` quality profile unless `AMBITION_QUALITY_PROFILE`
-  names another. Name `high` or `ultra` to judge art; do not use `potato`,
-  which scales screen shaders and parallax to nothing.
+- Capture tools default to `medium`. For a window capture, set
+  `AMBITION_QUALITY_PROFILE=medium` before launch. Check the active preset in
+  the log and name it with the images. Use the same preset for each image in a
+  comparison. Use `potato` only for performance measurements.
 
 For a geometry image, run:
 

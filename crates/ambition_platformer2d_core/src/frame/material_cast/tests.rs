@@ -1630,6 +1630,7 @@ fn a_deforming_line_on_a_portals_plane_is_read_by_its_shape_motion() {
     // opening ends at 40): a cut cast.
     let body = CombatVolume::aabb(Aabb::new(Vec2::new(-2.0, 30.0), Vec2::new(4.0, 20.0)));
     let cells = straddling_cells(&body, &links);
+    assert!(cells.scene.is_some(), "premise: the pair cuts this cast (a body that misses the opening gets no scene)");
     let plain = MaterialCast::new(MaterialPrimitive::world(&body), body.center(), Vec2::ZERO, 0.0..1.0)
         .cells(None).unwrap();
     let from = [Vec2::new(0.0, 100.0), Vec2::new(0.0, 90.0)];

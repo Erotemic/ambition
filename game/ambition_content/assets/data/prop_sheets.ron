@@ -568,6 +568,7 @@
     // and the fittings of its decks. The quarantine gate and the spur hatch
     // are the looks of two lock walls, and fill their walls' boxes.
     "orbital_hauler": (),
+    "orbital_bay_gangways": (),
     "orbital_shuttle": (),
     "orbital_freight_stack": (),
     "orbital_consignment": (),

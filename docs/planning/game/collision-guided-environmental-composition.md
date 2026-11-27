@@ -414,6 +414,9 @@ Show the altitude signs from the car at their height.
 At the terminus, show the arrival position, the gap at the shaft,
 and the view through the window from the deck. Place the docking
 bay sign beside the exit that loads that room.
+In the docking bay, show where a body leaves the east ladder at the
+service deck and the hauler walk. Use the ledge spans to place the
+gantry braces and the gaps in the rails.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

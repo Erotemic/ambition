@@ -415,7 +415,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // `phase_dash` (Dash II and III). The codec-shape baseline is re-recorded
 // here; 90dfa7a6d had changed `ambition_characters`' snapshot shape without
 // recording it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 551;
+// 551 -> 552: `WireState` encodes a held rope (a grapple's): `held`,
+// `reel_speed`, `min_length`, `max_length`, `release_hop`. The fields are
+// listed in `axis_fields!`, which the codec-shape check does not read, so its
+// baseline did not move.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 552;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

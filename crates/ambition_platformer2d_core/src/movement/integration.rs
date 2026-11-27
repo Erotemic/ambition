@@ -1552,6 +1552,15 @@ pub(super) const SUBMERGED_SPEED_FRAC: f32 = 1.2;
 /// held direction converge on an ANGLE instead of oscillating at one.
 const WIRE_SWING_DAMPING: f32 = 2.2;
 
+/// How hard a HELD wire's swing is damped (a grapple's).
+///
+/// ⛔ NOT THE LIFT'S. The lift's damping settles a held stick onto an angle
+/// within a lift that lasts a fraction of a second; on a rope that hangs until
+/// she lets go it ate 60% of a swing's height in one half-period, so a swing
+/// could not be carried across a gap. A grapple keeps a pendulum's energy and
+/// the fading drive alone holds the stick inside the cap.
+const GRAPPLE_SWING_DAMPING: f32 = 0.12;
+
 /// The shortest the winch may pull the rope, in world px.
 ///
 /// ⛔ NOT ZERO. At zero length the pendulum has no angle — every direction is
@@ -1649,15 +1658,19 @@ pub(super) fn integrate_wire_clusters(
     // THE CLOCK FIRST, so the release tick is unambiguous: the wire either has
     // time left and lifts, or it is out of time and lets go. A tick that did
     // both would write two velocities.
-    wire.lift_remaining_s -= dt;
-    if wire.lift_remaining_s <= 0.0 {
+    //
+    // ⛔ A HELD WIRE (a grapple's) HAS NO CLOCK: it hangs until a jump, a
+    // let-go or a cut ends it, and the jump is answered with the jump buffer
+    // (`handle_jump_buffer_clusters`), before this runs.
+    if !wire.held {
+        wire.lift_remaining_s -= dt;
+    }
+    if !wire.held && wire.lift_remaining_s <= 0.0 {
         // ⭐⭐ THE RELEASE. The tangent at `angle` is the direction a body on a
         // rope is actually travelling — `d/dθ (sin θ, cos θ)` in the frame's own
         // basis — and `ang_vel * length` is how fast along it. That product IS
         // the horizontal recovery the swing bought; nothing else adds to it.
-        let tangent = frame.to_world(Vec2::new(wire.angle.cos(), -wire.angle.sin()));
-        let swing = tangent * (wire.ang_vel * wire.length);
-        kinematics.vel = swing - frame.down() * wire.release_rise;
+        kinematics.vel = wire.exit_velocity(frame, wire.release_rise);
         state.wire = None;
         return;
     }
@@ -1696,7 +1709,7 @@ pub(super) fn integrate_wire_clusters(
     } else {
         drive
     };
-    let damping = -WIRE_SWING_DAMPING * wire.ang_vel;
+    let damping = -if wire.held { GRAPPLE_SWING_DAMPING } else { WIRE_SWING_DAMPING } * wire.ang_vel;
     wire.ang_vel += (restoring + drive + damping) * dt;
     wire.angle += wire.ang_vel * dt;
     // The rope's hard stop — a BACKSTOP now rather than the mechanism. The fading
@@ -1750,8 +1763,17 @@ pub(super) fn integrate_wire_clusters(
     // `the_lift_decelerates_into_the_release_instead_of_stopping_dead` measured.
     // A quadratic has zero derivative at the bottom, so the final ticks are
     // already travelling at `release_rise` and the handover is invisible.
-    let reel = wire.release_rise + (wire.winch_speed - wire.release_rise) * eased * eased;
-    wire.length = (wire.length - reel * dt).max(WIRE_MIN_LENGTH);
+    if wire.held {
+        // ⭐ A GRAPPLE'S REEL IS THE STICK'S: up takes rope in, down lets it
+        // out, within the rope's authored bounds. Local `+y` is toward the
+        // feet, so up is negative and shortens.
+        let along = input.local_axis().y;
+        wire.length = (wire.length + along * wire.reel_speed * dt)
+            .clamp(wire.min_length.max(WIRE_MIN_LENGTH), wire.max_length.max(WIRE_MIN_LENGTH));
+    } else {
+        let reel = wire.release_rise + (wire.winch_speed - wire.release_rise) * eased * eased;
+        wire.length = (wire.length - reel * dt).max(WIRE_MIN_LENGTH);
+    }
 
     // ── WHERE THE ROPE SAYS SHE IS ───────────────────────────────────────────
     // Local `+y` is toward the feet, so `(sin θ, cos θ)` hangs DOWN from the

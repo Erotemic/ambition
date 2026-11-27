@@ -122,7 +122,7 @@ pub use ledge_grab::{
 };
 pub use movement::{
     arrive_body_in_room, blink_destination_clusters, blink_destination_to_point_clusters,
-    catch_the_wire, cut_the_wire, default_player_body_size, footstool_victim,
+    catch_the_grapple, catch_the_wire, cut_the_wire, default_player_body_size, footstool_victim, let_go_of_the_wire, GrappleRope,
     integrate_normal_spine, knock_off_ledge, resolve_burst_maneuver, resolve_shield, step_motion,
     switch_motion_model, ActionEdges, ActionKey, ActiveMovementTuning, AdhesiveCrawlerMotion,
     MechanicalDomain, MechanicalEditAdmission, MechanicalEditSet, PendingMechanicalEdits,

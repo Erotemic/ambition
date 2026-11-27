@@ -93,9 +93,9 @@ pub use integration::{winch_rate_for, WIRE_CRUISE_FRAC};
 pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use settled::{SettledMotion, SettledMotionStatus};
 pub use model::{
-    catch_the_wire, cut_the_wire, footstool_victim, knock_off_ledge, switch_motion_model,
+    catch_the_grapple, catch_the_wire, cut_the_wire, footstool_victim, knock_off_ledge, let_go_of_the_wire, switch_motion_model,
     AxisManeuverState, AxisSweptMotion, BodySpawnShape, MotionModel, MotionModelKind, MotionModelSpec,
-    PhasedJumpState, SurfaceMomentumMotion, WireState,
+    GrappleRope, PhasedJumpState, SurfaceMomentumMotion, WireState,
 };
 pub use ops::MovementOp;
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
@@ -751,6 +751,7 @@ fn update_body_simulation_inner(
     // Consume the buffered jump (or convert to swim stroke /
     // drop-through / wall-jump / double-jump).
     let ops_before_jump = events.operations.len();
+    let on_a_held_wire = state.wire.is_some_and(|wire| wire.held);
     simulation::handle_jump_buffer_clusters(
         world,
         integration::platform_drop_requested(
@@ -776,6 +777,12 @@ fn update_body_simulation_inner(
         tuning,
         &mut events,
     );
+    // A jump off a grapple's rope leaves with the swing's run, and the swing
+    // is the world's momentum, as a fling is: the hands-off stop assist bleeds
+    // toward it rather than to zero, or the swing would be gone in five ticks.
+    if on_a_held_wire && state.wire.is_none() {
+        clusters.flight.carried_run = clusters.kinematics.vel.dot(frame.side());
+    }
     // A jump out of a surge ends the burst and keeps its speed: the gravity
     // the burst held off comes back, and the jump carries the dash's speed
     // along the run (the air law keeps speed past the run while the stick

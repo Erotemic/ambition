@@ -168,6 +168,11 @@ axis_fields!(crate::WireState {
     max_angle,
     swing_accel,
     release_rise,
+    held,
+    reel_speed,
+    min_length,
+    max_length,
+    release_hop,
 });
 
 axis_fields!(crate::LedgeContact {

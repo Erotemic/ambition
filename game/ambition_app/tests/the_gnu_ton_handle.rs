@@ -125,6 +125,18 @@ fn standing(sim: &mut Platformer2dSimHarness) -> Vec<String> {
     .collect()
 }
 
+fn cross_edge(sim: &mut Platformer2dSimHarness, target: &str, action: AgentAction) {
+    assert!(
+        until(sim, 240, |_| action, |sim| sim.observation().active_room == target).is_some(),
+        "walk to {target}: {}",
+        trace(sim, "passage"),
+    );
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    assert_eq!(sim.observation().active_room, target);
+}
+
 /// Travel between each pair of rooms in both directions. The arena has a
 /// door to the hub.
 #[test]
@@ -141,14 +153,16 @@ fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
                 (WELL, 2720.0, 704.0, 1.0),
             ] {
                 stand(&mut sim, x, floor);
-                assert!(
-                    until(&mut sim, 120, |_| axis(direction, 0.0), |sim| {
-                        sim.observation().active_room == target
-                    }).is_some(),
-                    "walk to {target}: {}",
-                    trace(&mut sim, "seam"),
-                );
+                cross_edge(&mut sim, target, axis(direction, 0.0));
             }
+            continue;
+        }
+        if pair == [WELL, HALL] {
+            stand(&mut sim, 112.0, 144.0);
+            cross_edge(&mut sim, HALL, axis(0.0, -1.0));
+            assert!(sim.observation().on_ground, "the landing holds the arriving robot");
+            cross_edge(&mut sim, WELL, AgentAction { move_y: 1.0, jump: true, jump_held: true, ..base() });
+            cross_edge(&mut sim, HALL, axis(0.0, -1.0));
             continue;
         }
         assert_eq!(walk_through_the_door_to(&mut sim, pair[1]), pair[1], "`{}` has a door to `{}`", pair[0], pair[1]);
@@ -253,10 +267,9 @@ fn the_swinging_tree_carries_a_robot_that_walks_with_it() {
     assert_eq!(sim.observation().resets, 0, "it never fell in the chasm");
 }
 
-/// THE VECTOR WELL. Right onto the east wall, up it; left across the well,
-/// up the west wall; up to the vault; left into the passage of the top door.
+/// Cross both walls and the ceiling, then climb to Conservation Hall.
 #[test]
-fn the_vector_well_falls_four_ways_to_its_top_door() {
+fn the_vector_well_falls_four_ways_to_its_upper_shaft() {
     let mut sim = room(WELL);
     let mut ways = vec![gravity(&mut sim)];
     let done = until(
@@ -280,12 +293,39 @@ fn the_vector_well_falls_four_ways_to_its_top_door() {
     );
     assert!(done.is_some(), "{}", trace(&mut sim, "the robot is not in the top passage"));
     assert_eq!(ways, [(0.0, 1.0), (1.0, 0.0), (-1.0, 0.0), (0.0, -1.0), (0.0, 1.0)], "down, right, left, up, down");
-    assert_eq!(sim.observation().resets, 0);
+    assert_eq!(sim.observation().resets, 0, "reach the upper passage without a reset");
+    assert!(
+        until(
+            &mut sim, 120,
+            |sim| axis(((112.0 - at(sim).0) / 24.0).clamp(-1.0, 1.0), 0.0),
+            |sim| (at(sim).0 - 112.0).abs() < 4.0,
+        ).is_some(),
+        "{}",
+        trace(&mut sim, "reach the ladder"),
+    );
+    cross_edge(&mut sim, HALL, axis(0.0, -1.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground, "the shaft landing holds the arriving robot");
+    assert!((arrival.player_pos.1 - 952.0).abs() < 1.0, "the robot lands in the shaft");
+    assert_eq!(arrival.resets, 1, "the room arrival records one restart");
+    assert!(
+        until(&mut sim, 120, |_| axis(0.0, -1.0), |sim| at(sim).1 < 852.0).is_some(),
+        "{}",
+        trace(&mut sim, "climb above the hall floor"),
+    );
+    assert!(
+        until(&mut sim, 120, |_| axis(1.0, 0.0), |sim| {
+            let o = sim.observation();
+            o.on_ground && o.player_pos.0 > 180.0 && (o.player_pos.1 - 872.0).abs() < 1.0
+        }).is_some(),
+        "{}",
+        trace(&mut sim, "step onto the hall floor"),
+    );
+    assert_eq!(sim.observation().resets, arrival.resets, "climb out without a restart");
 }
 
-/// THE CONSERVATION HALL. Hold right from the door: the floor's portal puts
-/// the robot on the shelf; off the shelf's edge, the basin's portal flings
-/// it out of the pillar and over the pit.
+/// The floor portal leads to the shelf. The basin portal sends the robot
+/// out of the pillar and over the pit.
 #[test]
 fn the_halls_portals_lift_the_robot_and_fling_it_over_the_pit() {
     let mut sim = room(HALL);

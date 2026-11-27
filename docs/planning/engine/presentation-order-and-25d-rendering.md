@@ -766,6 +766,15 @@ shared value preparation are sufficient until source proves otherwise.
    card view shows the ladder at the same position before and after this
    replacement.
 
+   The card view uses Bevy's sprite slices for lock-wall braces and other
+   sliced props. It draws boss-stage veils and both room darkness paths.
+   The blueprint overlay, portal glow, and shield lattice use the same
+   fragment shaders in both views. The portal channel uses the world text
+   layout. Gravity zone sprites keep their identity when a zone moves. The
+   shield keeps its card mesh and material as its size and color change.
+   Medium captures show these fixes in Castle Godwin, the blueprint room,
+   the military gate annex, Gravity Lab, Portal Lab, and the central hub.
+
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
    and a performance comparison are open.

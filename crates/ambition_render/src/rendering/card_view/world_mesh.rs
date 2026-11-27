@@ -7,7 +7,7 @@ use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::pbr::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy::prelude::*;
 use bevy::render::render_resource::{
-    AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, RenderPipelineDescriptor,
+    AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BlendState, RenderPipelineDescriptor,
     SpecializedMeshPipelineError, UnpreparedBindGroup,
 };
 use bevy::render::renderer::RenderDevice;
@@ -42,12 +42,32 @@ pub(super) fn install(app: &mut App) {
     );
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         install_card_mesh_material::<ambition_sprite_fx::SpriteFxMaterial>(app);
+        install_card_mesh_material::<crate::rendering::darkness::DarknessMaterial>(app);
+        install_card_mesh_material::<crate::bubble_shield_fx::BubbleShieldFxMaterial>(app);
+        install_card_mesh_material::<crate::rendering::daylight::DaylightMaterial>(app);
+        install_card_mesh_material::<crate::rendering::daylight::LampGlowMaterial>(app);
+        #[cfg(feature = "portal_render")]
+        install_card_mesh_material::<ambition_portal2d_presentation::PortalGlowMaterial>(app);
     }
 }
 
+/// A planar material with a fragment shader for the card output.
+pub trait CardMaterialSource: Material2d + PartialEq {
+    /// A blend state other than the material's alpha mode.
+    fn card_blend() -> Option<BlendState> {
+        None
+    }
+}
+
+impl CardMaterialSource for ambition_sprite_fx::SpriteFxMaterial {}
+impl CardMaterialSource for crate::rendering::darkness::DarknessMaterial {}
+impl CardMaterialSource for crate::bubble_shield_fx::BubbleShieldFxMaterial {}
+#[cfg(feature = "portal_render")]
+impl CardMaterialSource for ambition_portal2d_presentation::PortalGlowMaterial {}
+
 /// Draw a planar material with the same bindings in the card view. Its fragment
 /// shader must accept the 3D vertex output when `AMBITION_CARD_MESH` is set.
-pub fn install_card_mesh_material<M: Material2d + PartialEq>(app: &mut App)
+pub fn install_card_mesh_material<M: CardMaterialSource>(app: &mut App)
 where
     M::Data: PartialEq + Eq + std::hash::Hash + Clone,
 {
@@ -106,7 +126,7 @@ impl<M: Material2d> AsBindGroup for CardMaterial<M> {
     }
 }
 
-impl<M: Material2d> Material for CardMaterial<M> {
+impl<M: CardMaterialSource> Material for CardMaterial<M> {
     fn fragment_shader() -> ShaderRef {
         M::fragment_shader()
     }
@@ -135,6 +155,11 @@ impl<M: Material2d> Material for CardMaterial<M> {
     ) -> Result<(), SpecializedMeshPipelineError> {
         if let Some(fragment) = &mut descriptor.fragment {
             fragment.shader_defs.push("AMBITION_CARD_MESH".into());
+            if let Some(blend) = M::card_blend() {
+                for target in fragment.targets.iter_mut().flatten() {
+                    target.blend = Some(blend);
+                }
+            }
         }
         descriptor.primitive.cull_mode = None;
         Ok(())
@@ -218,7 +243,7 @@ fn effect_place(
     super::sprite_card_place(&place, scenery_depth(place.translation.z, front))
 }
 
-fn realize_shaded_meshes<M: Material2d + PartialEq>(
+fn realize_shaded_meshes<M: CardMaterialSource>(
     sources: Query<
         (
             Entity,

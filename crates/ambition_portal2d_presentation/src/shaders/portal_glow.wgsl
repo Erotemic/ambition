@@ -7,8 +7,13 @@
 //
 // `phase.x` opens it from its middle (a portal that was added), and `phase.y`
 // breaks it up and closes it (a portal that was removed). All lengths are px.
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#import bevy_pbr::mesh_view_bindings::globals
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::globals
+#endif
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -74,15 +79,18 @@ fn shade(in: VertexOutput) -> vec4<f32> {
     // The core, and a glow that is wider on the room side. A fresh line and a
     // dissolving one glow wider.
     let flicker = 0.92 + 0.08 * sin(t * 9.0 + seed * 6.28 + p.x * 0.21);
-    let core = exp(-d * d / 1.3) * flicker;
+    let edge = clamp(0.5 * fwidth(d), 0.25, 1.2);
+    let core = (1.0 - smoothstep(1.0 - edge, 1.0 + edge, d)) * flicker;
     // The glow ends before the quad does: no edge of the quad is drawn.
     let support = clamp(1.0 - d / (0.5 * shape.z - 4.0), 0.0, 1.0);
     let reach = mix(2.6, 6.0, room_side) * (1.0 + 2.4 * fresh + 1.6 * gone);
-    let glow = exp(-d / reach) * 0.78 * support * support;
+    let glow = exp(-d / reach) * 0.59 * support * support;
 
-    // A node at each end: where the opening stops.
-    let end_d = length(vec2<f32>(abs(p.x) - half, p.y));
-    let nodes = exp(-end_d * end_d / 7.0) * (0.85 + 2.5 * fresh);
+    // The tips mark the two ends of the opening.
+    let end = vec2<f32>(abs(p.x) - half, p.y);
+    let tip_d = abs(end.x) + 0.8 * abs(end.y);
+    let tip = 1.0 - smoothstep(2.3 - edge, 2.3 + edge, tip_d);
+    let nodes = tip * 0.86 + exp(-dot(end, end) / 9.0) * (0.25 + 2.5 * fresh);
 
     // A pulse that runs from the two ends to the middle.
     let along = abs(p.x) / max(half, 1.0);

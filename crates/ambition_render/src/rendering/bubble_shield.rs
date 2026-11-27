@@ -35,6 +35,7 @@ pub struct BubbleShieldSprite {
 
 /// Marker on the shield sibling sprite.
 #[derive(Component)]
+#[require(super::primitives::AnimatedWorldSpriteTint)]
 pub struct BubbleShieldVisual;
 
 /// What a bubble shows now, as its sync resolved it, for a layer that draws

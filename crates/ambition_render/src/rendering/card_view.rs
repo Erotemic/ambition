@@ -80,16 +80,9 @@
 //!
 //! # Portals
 //!
-//! A portal is its line of light here too: a thin card along its opening in
-//! the colour the 2D glow draws its room side in, opening and dissolving as
-//! the glow does ([`ambition_portal2d_presentation::PortalGlow`]), on the
-//! play plane in front of the terrain and behind the bodies. What a portal
-//! shows of its far side is not drawn in this view (P5/P6).
-//!
-//! # Not yet realized (RV3)
-//!
-//! The gate cue's scanlines (drawn as its flat tint) and a portal's far side
-//! are not drawn in this view.
+//! Both views use the portal glow shader and the portal's channel label.
+//! The card view also uses the 2D view's portal capture texture. A body
+//! split across an opening still needs its own presentation.
 
 mod gameplay;
 mod labels;
@@ -98,7 +91,7 @@ mod world_mesh;
 #[cfg(feature = "portal_render")]
 mod portal_windows;
 
-pub use world_mesh::install_card_mesh_material;
+pub use world_mesh::{install_card_mesh_material, CardMaterialSource};
 
 use gameplay::CardScope;
 use std::collections::HashMap;
@@ -109,6 +102,7 @@ use bevy::camera::{ClearColorConfig, ScalingMode, Viewport};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
+use bevy::sprite::{SpriteImageMode, TextureSlice};
 
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
@@ -125,7 +119,7 @@ use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
 use super::chain_skin::ChainEarth;
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
-use super::primitives::WorldSprite;
+use super::primitives::{AnimatedWorldSpriteTint, WorldSprite};
 use super::terrain_skin::TerrainSkinMesh;
 
 /// The distance from the play plane to a vessel's far sprite layer.
@@ -149,7 +143,7 @@ pub const TERRAIN_DEPTH: f32 = -0.5;
 /// How far the earth under a line is behind the block skin (its 2D band is
 /// under the blocks').
 const EARTH_BEHIND_SKIN: f32 = 0.1;
-/// A portal's line of light: in front of the terrain, behind the bodies.
+/// Depth of a portal window above the terrain.
 pub const PORTAL_DEPTH: f32 = -0.25;
 /// A line's turf: in front of the block skin's layers, behind the scenery.
 pub const TURF_DEPTH: f32 = TERRAIN_DEPTH + 0.1;
@@ -165,8 +159,6 @@ const BAND_ORDER_SCALE: f32 = 0.1;
 const BACKDROP_DISTANCE: f32 = 1500.0;
 /// How far in front of the play plane a foreground parallax layer stands.
 const FOREGROUND_DISTANCE: f32 = 1000.0;
-/// The width of a portal's line of light, in world units.
-pub const PORTAL_LINE_WIDTH: f32 = 3.0;
 /// The near sprite layer's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
 /// How far the camera stands from what it looks at.
@@ -262,10 +254,6 @@ pub struct CardHeldArt;
 /// The card of one mesh of a room's terrain skin.
 #[derive(Component)]
 pub struct CardTerrain;
-
-/// The card of one portal's line of light.
-#[derive(Component)]
-pub struct CardPortal;
 
 /// The card of a body drawn from a sheet (no rigged presentation).
 #[derive(Component)]
@@ -379,10 +367,8 @@ impl Plugin for CardViewPlugin {
         #[cfg(feature = "portal_render")]
         app.add_systems(
             Update,
-            (
-                realize_card_portals.after(ambition_portal2d_presentation::sync_portal_glows),
-                portal_windows::realize_portal_windows.after(ambition_portal2d_presentation::sync_portal_view_cones),
-            )
+            portal_windows::realize_portal_windows
+                .after(ambition_portal2d_presentation::sync_portal_view_cones)
                 .run_if(card_outputs_enabled)
                 .after(ViewCameraSet),
         );
@@ -555,7 +541,7 @@ pub fn card_body_depth(seated: bool, rank: usize) -> f32 {
 #[derive(Resource, Default)]
 pub struct CardMeshes {
     meshes: HashMap<QuadKey, Handle<Mesh>>,
-    tiled: HashMap<(QuadKey, [bool; 2], u32), Handle<Mesh>>,
+    subdivided: HashMap<QuadKey, Vec<(SpriteImageMode, Handle<Mesh>)>>,
     materials: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
     /// Silhouettes, by page and the cue's colour and strength in bytes.
     flashes: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
@@ -667,18 +653,32 @@ impl TextureQuad {
         mesh_for_quads([(self, Vec2::ZERO)])
     }
 
-    fn tiled_mesh(self, [tile_x, tile_y]: [bool; 2], stretch: f32) -> Mesh {
-        let slices = bevy::sprite::TextureSlice {
-            texture_rect: self.rect,
-            draw_size: self.size,
-            offset: Vec2::ZERO,
-        }
-        .tiled(stretch, (tile_x, tile_y));
+    fn subdivided_mesh(self, mode: &SpriteImageMode) -> Mesh {
+        let slices = match mode {
+            SpriteImageMode::Sliced(slicer) => slicer.compute_slices(self.rect, Some(self.size)),
+            SpriteImageMode::Tiled { tile_x, tile_y, stretch_value } => TextureSlice {
+                texture_rect: self.rect,
+                draw_size: self.size,
+                offset: Vec2::ZERO,
+            }
+            .tiled(*stretch_value, (*tile_x, *tile_y)),
+            SpriteImageMode::Auto | SpriteImageMode::Scale(_) => return self.mesh(),
+        };
         let flip = Vec2::from_array(self.flip.map(|flip| if flip { -1.0 } else { 1.0 }));
-        mesh_for_quads(slices.into_iter().map(|slice| {
-            let tile = Self { rect: slice.texture_rect, size: slice.draw_size, anchor: Vec2::ZERO, ..self };
-            (tile, slice.offset * flip - self.anchor * self.size)
-        }))
+        mesh_for_quads(
+            slices
+                .into_iter()
+                .filter(|slice| slice.draw_size.cmpgt(Vec2::ZERO).all())
+                .map(|slice| {
+                    let tile = Self {
+                        rect: slice.texture_rect,
+                        size: slice.draw_size,
+                        anchor: Vec2::ZERO,
+                        ..self
+                    };
+                    (tile, slice.offset * flip - self.anchor * self.size)
+                }),
+        )
     }
 }
 
@@ -714,7 +714,11 @@ fn a_tiled_sprite_card_repeats_and_crops_its_last_tile() {
         anchor: Vec2::ZERO,
         flip: [false, false],
     };
-    let mesh = quad.tiled_mesh([true, false], 1.0);
+    let mesh = quad.subdivided_mesh(&SpriteImageMode::Tiled {
+        tile_x: true,
+        tile_y: false,
+        stretch_value: 1.0,
+    });
     let Some(Float32x3(positions)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) else { panic!("missing positions") };
     let Some(Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) else { panic!("missing UVs") };
     assert_eq!(positions.len(), 12);
@@ -722,15 +726,69 @@ fn a_tiled_sprite_card_repeats_and_crops_its_last_tile() {
     assert_eq!((uvs[1][0], uvs[5][0], uvs[9][0]), (1.0, 1.0, 0.5));
 }
 
+#[cfg(test)]
+#[test]
+fn a_sliced_column_keeps_its_caps_and_repeats_its_middle() {
+    use bevy::mesh::VertexAttributeValues::{Float32x2, Float32x3};
+    use bevy::sprite::{BorderRect, SliceScaleMode, TextureSlicer};
+
+    let page = Vec2::new(16.0, 32.0);
+    let quad = TextureQuad {
+        rect: Rect::from_corners(Vec2::ZERO, page),
+        page,
+        size: Vec2::new(16.0, 64.0),
+        anchor: Vec2::ZERO,
+        flip: [false, false],
+    };
+    let mesh = quad.subdivided_mesh(&SpriteImageMode::Sliced(TextureSlicer {
+        border: BorderRect {
+            min_inset: Vec2::new(0.0, 8.0),
+            max_inset: Vec2::new(0.0, 8.0),
+        },
+        center_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+        sides_scale_mode: SliceScaleMode::Stretch,
+        max_corner_scale: 1.0,
+    }));
+    let Some(Float32x3(positions)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) else {
+        panic!("missing positions");
+    };
+    let Some(Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) else {
+        panic!("missing UVs");
+    };
+    let mut rows: Vec<_> = positions.chunks_exact(4).zip(uvs.chunks_exact(4))
+        .map(|(points, uv)| (points[0][1], points[2][1], uv[2][1], uv[0][1]))
+        .collect();
+    rows.sort_by(|a, b| a.0.total_cmp(&b.0));
+    assert_eq!(rows, [
+        (-32.0, -24.0, 0.75, 1.0),
+        (-24.0, -8.0, 0.25, 0.75),
+        (-8.0, 8.0, 0.25, 0.75),
+        (8.0, 24.0, 0.25, 0.75),
+        (24.0, 32.0, 0.0, 0.25),
+    ]);
+}
+
 impl CardMeshes {
     fn quad(&mut self, quad: TextureQuad, meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
         self.meshes.entry(quad.key()).or_insert_with(|| meshes.add(quad.mesh())).clone()
     }
 
-    fn tiled_quad(&mut self, quad: TextureQuad, axes: [bool; 2], stretch: f32, meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
-        self.tiled.entry((quad.key(), axes, stretch.to_bits()))
-            .or_insert_with(|| meshes.add(quad.tiled_mesh(axes, stretch)))
-            .clone()
+    fn sprite_mesh(
+        &mut self,
+        quad: TextureQuad,
+        mode: &SpriteImageMode,
+        meshes: &mut Assets<Mesh>,
+    ) -> Handle<Mesh> {
+        if !mode.uses_slices() {
+            return self.quad(quad, meshes);
+        }
+        let variants = self.subdivided.entry(quad.key()).or_default();
+        if let Some((_, handle)) = variants.iter().find(|(recipe, _)| recipe == mode) {
+            return handle.clone();
+        }
+        let handle = meshes.add(quad.subdivided_mesh(mode));
+        variants.push((mode.clone(), handle.clone()));
+        handle
     }
 
     fn textured_material(
@@ -740,17 +798,42 @@ impl CardMeshes {
         materials: &mut Assets<StandardMaterial>,
     ) -> Handle<StandardMaterial> {
         self.materials.entry((texture.id(), color)).or_insert_with(|| {
-            materials.add(StandardMaterial {
-                base_color: Color::srgba_u8(color[0], color[1], color[2], color[3]),
-                base_color_texture: (*texture != Handle::default()).then(|| texture.clone()),
-                unlit: true,
-                cull_mode: None,
-                double_sided: true,
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            })
+            let color = Color::srgba_u8(color[0], color[1], color[2], color[3]);
+            let texture = (*texture != Handle::default()).then(|| texture.clone());
+            materials.add(sprite_material(texture, color))
         }).clone()
     }
+}
+
+fn sprite_material(texture: Option<Handle<Image>>, color: Color) -> StandardMaterial {
+    StandardMaterial {
+        base_color: color,
+        base_color_texture: texture,
+        unlit: true,
+        cull_mode: None,
+        double_sided: true,
+        alpha_mode: AlphaMode::Blend,
+        ..default()
+    }
+}
+
+fn animated_sprite_material(
+    handle: Option<&Handle<StandardMaterial>>,
+    sprite: &Sprite,
+    materials: &mut Assets<StandardMaterial>,
+) -> Handle<StandardMaterial> {
+    let texture = (sprite.image != Handle::default()).then(|| sprite.image.clone());
+    if let Some(handle) = handle {
+        if let Some(material) = materials.get(handle) {
+            if material.base_color != sprite.color || material.base_color_texture != texture {
+                let mut material = materials.get_mut(handle).unwrap();
+                material.base_color = sprite.color;
+                material.base_color_texture = texture;
+            }
+            return handle.clone();
+        }
+    }
+    materials.add(sprite_material(texture, sprite.color))
 }
 
 type CardQuery<'w, 's> = Query<
@@ -1143,12 +1226,7 @@ fn sprite_card(
     cache: &mut CardMeshes,
 ) -> (Handle<Mesh>, Handle<StandardMaterial>) {
     let quad = TextureQuad::baked(frame, page_size);
-    let mesh = match sprite.image_mode {
-        bevy::sprite::SpriteImageMode::Tiled { tile_x, tile_y, stretch_value } => {
-            cache.tiled_quad(quad, [tile_x, tile_y], stretch_value, meshes)
-        }
-        _ => cache.quad(quad, meshes),
-    };
+    let mesh = cache.sprite_mesh(quad, &sprite.image_mode, meshes);
     let color = sprite.color.to_srgba().to_u8_array();
     let material = cache.textured_material(&frame.image, color, materials);
     (mesh, material)
@@ -1341,7 +1419,7 @@ pub(super) fn realize_card_scenery(
     scenery: Query<
         (
             Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
-            &InheritedVisibility, Option<&MovingPlatformVisual>,
+            &InheritedVisibility, Option<&MovingPlatformVisual>, Has<AnimatedWorldSpriteTint>,
         ),
         (With<WorldSprite>, Without<CardScenery>),
     >,
@@ -1365,7 +1443,7 @@ pub(super) fn realize_card_scenery(
         return;
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
-    for (entity, sprite, anchor, local, global, visibility, platform) in &scenery {
+    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint) in &scenery {
         let shown = visibility.get()
             && sprite.color.alpha() > 0.0
             && !depths.roots.contains_key(&entity);
@@ -1392,13 +1470,21 @@ pub(super) fn realize_card_scenery(
             };
             sprite_card_place(&place, scenery_depth(place.translation.z, front))
         };
-        if frame.image == Handle::default() {
+        // Keep the quad when the size of an unsliced sprite changes.
+        if matches!(sprite.image_mode, SpriteImageMode::Auto) {
             card_place.scale *= frame.size.extend(1.0);
             frame.size = Vec2::ONE;
         }
-        let (mesh, material) =
-            sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
-        match by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+        let card = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok());
+        let mesh = cache.sprite_mesh(TextureQuad::baked(&frame, page_size), &sprite.image_mode, &mut meshes);
+        let material = if animated_tint {
+            let handle = card.as_ref().map(|(_, material, ..)| &material.0);
+            animated_sprite_material(handle, sprite, &mut materials)
+        } else {
+            let color = sprite.color.to_srgba().to_u8_array();
+            cache.textured_material(&frame.image, color, &mut materials)
+        };
+        match card {
             Some((mut card_mesh, mut card_material, mut transform, mut global, mut card_visibility, mut inherited)) => {
                 if card_mesh.0 != mesh {
                     card_mesh.0 = mesh;
@@ -1533,72 +1619,6 @@ pub(super) fn realize_card_backdrop(
                         .id();
                     by_panel.insert((panel, camera), card);
                 }
-            }
-        }
-    }
-}
-
-/// Realize each portal's line of light ([`ambition_portal2d_presentation::PortalGlow`])
-/// as a thin card along its opening, at the glow's place and turn, in its
-/// look's colour, as opaque as the glow is open and not dissolved.
-#[cfg(feature = "portal_render")]
-pub(super) fn realize_card_portals(
-    mut commands: Commands,
-    glows: Query<(Entity, &ambition_portal2d_presentation::PortalGlow, &Transform), Without<CardPortal>>,
-    mut cards: Query<(&mut MeshMaterial3d<StandardMaterial>, &mut Transform), With<CardPortal>>,
-    meshes: Option<ResMut<Assets<Mesh>>>,
-    materials: Option<ResMut<Assets<StandardMaterial>>>,
-    mut line: Local<Option<Handle<Mesh>>>,
-    mut by_colour: Local<HashMap<[u8; 4], Handle<StandardMaterial>>>,
-    mut by_glow: Local<RetainedEntities<Entity>>,
-) {
-    let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
-        return;
-    };
-    by_glow.reconcile(&mut commands, |glow| glows.contains(*glow));
-    let mesh = line.get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0))).clone();
-    for (entity, glow, place) in &glows {
-        let strength = (glow.appear * (1.0 - glow.dissolve)).clamp(0.0, 1.0);
-        let colour = glow.look.display().1.with_alpha(strength);
-        let material = by_colour
-            .entry(colour.to_srgba().to_u8_array())
-            .or_insert_with(|| {
-                materials.add(StandardMaterial {
-                    base_color: colour,
-                    unlit: true,
-                    cull_mode: None,
-                    double_sided: true,
-                    alpha_mode: AlphaMode::Blend,
-                    ..default()
-                })
-            })
-            .clone();
-        let card_place = Transform {
-            translation: place.translation.truncate().extend(PORTAL_DEPTH),
-            rotation: place.rotation,
-            scale: Vec3::new(glow.length, PORTAL_LINE_WIDTH, 1.0),
-        };
-        match by_glow.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-            Some((mut card_material, mut transform)) => {
-                if card_material.0 != material {
-                    card_material.0 = material;
-                }
-                transform.set_if_neq(card_place);
-            }
-            None => {
-                let card = commands
-                    .spawn((
-                        CardPortal,
-                        CardScope::Source(entity),
-                        Mesh3d(mesh.clone()),
-                        MeshMaterial3d(material),
-                        card_place,
-                        Visibility::Inherited,
-                        RenderLayers::layer(CARD_VIEW_LAYER),
-                        Name::new("Card portal"),
-                    ))
-                    .id();
-                by_glow.insert(entity, card);
             }
         }
     }
@@ -1799,7 +1819,7 @@ mod tests {
             flip_y: false,
         };
         app.world_mut().spawn((sprite(Vec3::new(0.0, 0.0, 20.0)), PlayerVisual));
-        let scenery = app.world_mut().spawn((sprite(Vec3::new(10.0, 0.0, 10.6)), prop())).id();
+        let scenery = app.world_mut().spawn((sprite(Vec3::new(10.0, 0.0, 10.6)), prop(), AnimatedWorldSpriteTint)).id();
         app.world_mut().spawn((sprite(Vec3::new(20.0, 0.0, 21.75)), prop()));
         app.world_mut().spawn((sprite(Vec3::new(30.0, 0.0, -11.0)), prop()));
         app.world_mut().spawn((sprite(Vec3::new(40.0, 0.0, 2.01)), ChainTurfPiece));
@@ -1844,6 +1864,18 @@ mod tests {
                 matches!(scope, CardScope::Source(source) if *source == scenery).then_some(card)
             }).unwrap()
         };
+        let mesh = app.world().get::<Mesh3d>(card_of_scenery).unwrap().0.clone();
+        let material = app.world().get::<MeshMaterial3d<StandardMaterial>>(card_of_scenery).unwrap().0.clone();
+        let size = Vec2::new(32.0, 40.0);
+        let color = Color::srgba(0.5, 0.8, 1.0, 0.6);
+        let mut prop_sprite = app.world_mut().get_mut::<Sprite>(scenery).unwrap();
+        prop_sprite.custom_size = Some(size);
+        prop_sprite.color = color;
+        app.update();
+        assert_eq!(app.world().get::<Mesh3d>(card_of_scenery).unwrap().0, mesh);
+        assert_eq!(app.world().get::<Transform>(card_of_scenery).unwrap().scale.truncate(), size);
+        assert_eq!(app.world().get::<MeshMaterial3d<StandardMaterial>>(card_of_scenery).unwrap().0, material);
+        assert_eq!(app.world().resource::<Assets<StandardMaterial>>().get(&material).unwrap().base_color, color);
         app.world_mut().entity_mut(card_of_scenery).despawn();
         app.update();
         assert_eq!(shown(&mut app).len(), 4);
@@ -1989,45 +2021,6 @@ mod tests {
     /// RV3: a portal is a thin card along its opening at its glow's place
     /// and turn, in its look's colour, as strong as the glow is open; it
     /// leaves with its glow.
-    #[cfg(feature = "portal_render")]
-    #[test]
-    fn a_portal_is_a_line_of_light_on_the_play_plane() {
-        use ambition_portal2d_presentation::PortalGlow;
-        let mut app = App::new();
-        app.init_resource::<Assets<Mesh>>()
-            .init_resource::<Assets<StandardMaterial>>()
-            .add_systems(Update, realize_card_portals);
-        let look = ambition_portal2d_presentation::PortalChannel::Authored(ambition_portal2d_presentation::PortalChannelColor::Teal);
-        let glow = PortalGlow {
-            portal: None,
-            channel: look,
-            look,
-            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
-            pos: Vec2::new(100.0, 50.0),
-            normal: Vec2::Y,
-            length: 48.0,
-            appear: 0.5,
-            dissolve: 0.0,
-        };
-        let turn = Quat::from_rotation_z(0.3);
-        let place = Transform::from_xyz(-20.0, 30.0, 9.0).with_rotation(turn).with_scale(Vec3::new(80.0, 40.0, 1.0));
-        let source = app.world_mut().spawn((glow, place)).id();
-        app.update();
-        let world = app.world_mut();
-        let mut cards = world.query_filtered::<(&Transform, &MeshMaterial3d<StandardMaterial>), With<CardPortal>>();
-        let (card, material) = cards.single(world).map(|(t, m)| (*t, m.0.clone())).unwrap();
-        assert_eq!(card.translation, Vec3::new(-20.0, 30.0, PORTAL_DEPTH));
-        assert_eq!(card.rotation, turn);
-        assert_eq!(card.scale, Vec3::new(48.0, PORTAL_LINE_WIDTH, 1.0), "the opening, not the glow's halo quad");
-        assert!(PORTAL_DEPTH > TERRAIN_DEPTH && PORTAL_DEPTH < card_body_depth(false, 0));
-        let colour = world.resource::<Assets<StandardMaterial>>().get(&material).unwrap().base_color;
-        assert_eq!(colour, look.display().1.with_alpha(0.5));
-        app.world_mut().entity_mut(source).despawn();
-        app.update();
-        let world = app.world_mut();
-        assert_eq!(world.query_filtered::<(), With<CardPortal>>().iter(world).count(), 0, "it leaves with its glow");
-    }
-
     #[test]
     fn a_moving_cart_uses_its_two_sprite_layers_around_the_rider() {
         use super::super::moving_platforms::PlatformLook;

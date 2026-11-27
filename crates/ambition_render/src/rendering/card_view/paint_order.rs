@@ -11,7 +11,7 @@ use bevy::render::render_phase::{sort_phase_system, ViewSortedRenderPhases};
 use bevy::render::{Extract, ExtractSchedule, Render, RenderApp, RenderSystems};
 
 use super::{
-    CardHeldArt, CardPart, CardPortal, CardScenery, CardSpriteBody, CardTerrain, CardViewCamera,
+    CardHeldArt, CardPart, CardScenery, CardSpriteBody, CardTerrain, CardViewCamera,
     CAMERA_DISTANCE,
 };
 
@@ -46,7 +46,6 @@ fn extract_cards(
                 With<CardSpriteBody>,
                 With<CardScenery>,
                 With<CardTerrain>,
-                With<CardPortal>,
                 With<super::world_mesh::CardWorldMesh>,
             )>,
         >,

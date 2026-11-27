@@ -24,6 +24,11 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct WorldSprite;
 
+/// The sprite changes color while it is visible. Keep its card material.
+#[derive(Component, Default)]
+#[require(WorldSprite)]
+pub(super) struct AnimatedWorldSpriteTint;
+
 /// Standing-stance render size of the textured player sprite, recorded when
 /// the sprite is built. The crouch squash in `sync_visuals` uses it to scale
 /// the sprite vertically to the current `body_mode` height with the feet

@@ -119,7 +119,7 @@ pub fn multiplier(light: Color) -> LinearRgba {
 
 /// The veil's material: its fragment is the multiplier, and its blend
 /// multiplies it into the target (`src * dst`).
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct DaylightMaterial {
     #[uniform(0)]
     pub light: Vec4,
@@ -129,6 +129,26 @@ pub struct DaylightMaterial {
     /// How far each lamp reaches round it (Ultra; [`super::lamps`]).
     #[texture(2, sample_type = "float", filterable = false)]
     pub reach: Option<Handle<Image>>,
+}
+
+const DAYLIGHT_BLEND: BlendState = BlendState {
+    color: BlendComponent {
+        src_factor: BlendFactor::Dst,
+        dst_factor: BlendFactor::Zero,
+        operation: BlendOperation::Add,
+    },
+    alpha: BlendComponent {
+        src_factor: BlendFactor::Zero,
+        dst_factor: BlendFactor::One,
+        operation: BlendOperation::Add,
+    },
+};
+
+#[cfg(feature = "card_view")]
+impl super::card_view::CardMaterialSource for DaylightMaterial {
+    fn card_blend() -> Option<BlendState> {
+        Some(DAYLIGHT_BLEND)
+    }
 }
 
 impl Material2d for DaylightMaterial {
@@ -145,21 +165,9 @@ impl Material2d for DaylightMaterial {
         _layout: &MeshVertexBufferLayoutRef,
         _key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let multiply = BlendState {
-            color: BlendComponent {
-                src_factor: BlendFactor::Dst,
-                dst_factor: BlendFactor::Zero,
-                operation: BlendOperation::Add,
-            },
-            alpha: BlendComponent {
-                src_factor: BlendFactor::Zero,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
-        };
         if let Some(fragment) = descriptor.fragment.as_mut() {
             for target in fragment.targets.iter_mut().flatten() {
-                target.blend = Some(multiply);
+                target.blend = Some(DAYLIGHT_BLEND);
             }
         }
         Ok(())
@@ -168,13 +176,25 @@ impl Material2d for DaylightMaterial {
 
 /// The glow about each lamp at night ([`DaylightMaterial`]'s lamps): its
 /// fragment is light, and its blend adds it to the target (`src + dst`).
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct LampGlowMaterial {
     /// How dark the hour is (no glow by day), and the glow's size.
     #[uniform(0)]
     pub glow: Vec4,
     #[uniform(1)]
     pub lamps: LampsUniform,
+}
+
+const LAMP_GLOW_BLEND: BlendState = BlendState {
+    color: BlendComponent { src_factor: BlendFactor::One, dst_factor: BlendFactor::One, operation: BlendOperation::Add },
+    alpha: BlendComponent { src_factor: BlendFactor::Zero, dst_factor: BlendFactor::One, operation: BlendOperation::Add },
+};
+
+#[cfg(feature = "card_view")]
+impl super::card_view::CardMaterialSource for LampGlowMaterial {
+    fn card_blend() -> Option<BlendState> {
+        Some(LAMP_GLOW_BLEND)
+    }
 }
 
 impl Material2d for LampGlowMaterial {
@@ -191,13 +211,9 @@ impl Material2d for LampGlowMaterial {
         _layout: &MeshVertexBufferLayoutRef,
         _key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let add = BlendState {
-            color: BlendComponent { src_factor: BlendFactor::One, dst_factor: BlendFactor::One, operation: BlendOperation::Add },
-            alpha: BlendComponent { src_factor: BlendFactor::Zero, dst_factor: BlendFactor::One, operation: BlendOperation::Add },
-        };
         if let Some(fragment) = descriptor.fragment.as_mut() {
             for target in fragment.targets.iter_mut().flatten() {
-                target.blend = Some(add);
+                target.blend = Some(LAMP_GLOW_BLEND);
             }
         }
         Ok(())

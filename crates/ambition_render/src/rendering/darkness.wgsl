@@ -4,7 +4,11 @@
 // the veil takes the lamp's colour, so a lantern's pool has a warm rim. The
 // same sum the CPU light map makes per texel (`darkness::light_map`).
 
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#endif
 #import ambition_render::lamps::{Lamps, MAX_LAMPS, LIGHT_CORE, light_of}
 #import bevy_render::color_operations::srgb_to_linear
 #ifdef SRGB_OUTPUT

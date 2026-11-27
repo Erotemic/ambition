@@ -33,6 +33,7 @@ const BRIGHTEST: f32 = 0.75;
 
 /// A veil of a boss's stage: its dark (`false`) or its flash (`true`).
 #[derive(Component, Clone, Copy, Debug)]
+#[require(super::primitives::AnimatedWorldSpriteTint)]
 pub struct BossStageVeil {
     flash: bool,
 }
@@ -158,8 +159,8 @@ pub fn light_the_boss_stage(
                 BossStageVeil { flash: is_flash },
                 Sprite { color, custom_size: Some(Vec2::splat(VEIL_SIZE)), ..Default::default() },
                 Transform::from_translation(at.extend(BOSS_STAGE_Z + if is_flash { 0.05 } else { 0.0 })),
-                // Apply camera-relative light once, over the portal windows.
-                // Captures and carries must not treat it as world geometry.
+                // Draw the veil over the portal windows in the gameplay view.
+                // Omit the veil from portal captures.
                 bevy::camera::visibility::RenderLayers::layer(
                     ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
                 ),

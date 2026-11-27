@@ -6,8 +6,13 @@
 // draws no art of its own: it says where on the bubble each picture shows,
 // and how bright.
 
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#import bevy_pbr::mesh_view_bindings::globals
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::globals
+#endif
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif

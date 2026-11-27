@@ -261,6 +261,9 @@ pub struct RoomSkinMaterial {
     pub field: Handle<Image>,
 }
 
+#[cfg(feature = "card_view")]
+impl ambition_render::rendering::card_view::CardMaterialSource for RoomSkinMaterial {}
+
 impl Material2d for RoomSkinMaterial {
     fn fragment_shader() -> ShaderRef {
         "embedded://ambition_content/presentation/shaders/room_skin.wgsl".into()
@@ -510,7 +513,7 @@ impl RoomLook for RoomStateMaterial {
 }
 
 /// The collision truth of a room, drawn as a drawing.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct RoomBlueprintMaterial {
     #[uniform(0)]
     pub piece: Vec4,
@@ -520,6 +523,9 @@ pub struct RoomBlueprintMaterial {
     #[uniform(2)]
     pub front: Vec4,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_render::rendering::card_view::CardMaterialSource for RoomBlueprintMaterial {}
 
 impl Material2d for RoomBlueprintMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -895,6 +901,7 @@ pub fn install(app: &mut App) {
         app.add_plugins(Material2dPlugin::<RoomSkinMaterial>::default());
         #[cfg(feature = "card_view")]
         ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkinMaterial>(app);
+        ambition_render::rendering::card_view::install_card_mesh_material::<RoomBlueprintMaterial>(app);
         app.add_plugins(Material2dPlugin::<RoomSkyMaterial>::default());
         app.add_plugins(Material2dPlugin::<RoomFrontFieldMaterial>::default());
     }

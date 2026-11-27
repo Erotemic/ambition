@@ -77,6 +77,7 @@ const RIM_WARMTH: f32 = 0.3;
 
 /// One piece of the veil: the hole round the player, or a flat piece.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[require(crate::rendering::WorldSprite)]
 pub enum DarknessVeil {
     Hole,
     Left,
@@ -97,7 +98,7 @@ pub struct DarknessLightMap(pub Handle<Image>);
 
 /// The veil at High and Ultra, summed per pixel: the room's ambient (sRGB)
 /// and how dark it looks, its lights, and how far each reaches (Ultra).
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct DarknessMaterial {
     #[uniform(0)]
     pub veil: Vec4,

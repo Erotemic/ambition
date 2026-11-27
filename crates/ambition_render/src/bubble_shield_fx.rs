@@ -32,7 +32,7 @@ const FX_Z: f32 = 0.002;
 
 /// The material of the layer. Bindings are `vec4` uniforms and two textures,
 /// as the other materials of the game are, for WebGL2.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct BubbleShieldFxMaterial {
     /// `rgb`: the hue of the guard's state. `a`: the strength of the layer.
     #[uniform(0)]

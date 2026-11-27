@@ -6,7 +6,11 @@
 // the lamps' colour instead, as much as they light there, and never darker
 // than the hour.
 
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#endif
 #import ambition_render::lamps::{Lamps, MAX_LAMPS, light_of}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb

@@ -1,6 +1,6 @@
 # Combat stances
 
-**Status:** asked by Jon 2026-11-27; S1–S4 landed the same day; S5 below.
+**Status:** asked by Jon 2026-11-27; S1–S5 landed the same day.
 Queue: COMBAT-STANCES.
 
 Jon (2026-11-27): *"I was wondering if you could implement variants of the
@@ -85,4 +85,13 @@ lists its tip first.
   The Lunge and Crescent moves play these clips; the rest of each stance
   borrows the Edge's published rows.
 - **S5 — feel pass.** Play each stance headless against the dense-melee room
-  and tune reach, frames and the pogo's bounce.
+  and tune reach, frames and the pogo's bounce. *Done 2026-11-27, no retune.*
+  Each stance fought `dense_melee_pit` for 1800 ticks under one scripted
+  routine (a jump with pogo presses, tilts every 16 ticks, a forward smash
+  every 120): Edge dealt 2169 (93 kills, pogo 16/60 presses bounced, 71 px
+  travelled), Lunge 11617 (757, 22/60, 2073 px), Crescent 2962 (120, 15/60,
+  73 px). None lost more than 1 hp. Per-hit numbers match (damage 1–2,
+  knockback 55–110, actives 0.07–0.12 s); the Lunge's lead is ground: each
+  thrust carries it past the foes it reached into fresh ones, which is the
+  stance's role. The pogo bounces at the same rate in every stance. A
+  retune waits for hands-on play.

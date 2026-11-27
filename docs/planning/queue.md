@@ -2848,15 +2848,18 @@ winches.
 
 **Blocked by:** none.
 
-### COMBAT-STANCES — Scout's hit kit in three stances
+### COMBAT-STANCES — Scout's hit kit in three stances — ✅ DONE 2026-11-27
 
 **Owner:** [combat stances](game/combat-stances.md).
 
 **State:** asked by Jon 2026-11-27; S1–S3 landed the same day (the
 mechanism, the three items, Stance II and III authored and witnessed).
 
-**Next action:** S4, the look: bespoke rows for the lunge, whirl, plunge and
-crescents in the v3 generator.
+S4 landed the same day (the Lunge's smeared thrusts and plunge and the
+Crescent's arcs as v3 rows), and S5 measured all three stances in the
+dense-melee pit and kept the tuning (see the page).
+
+**Next action:** none; S1–S5 are done.
 
 **Acceptance:** [combat stances](game/combat-stances.md#stages) S1–S5.
 

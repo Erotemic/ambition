@@ -153,6 +153,33 @@ impl CaptureCameraFrame {
         (self.center - half, self.center + half)
     }
 
+    /// The area it frames.
+    pub(crate) fn area(&self) -> f32 {
+        self.size.x * self.size.y
+    }
+
+    /// `poly` clipped to the rect it frames, in the rect's own axes (a
+    /// convex polygon stays convex). An unturned rect clips by its bounds.
+    pub(crate) fn clip(&self, poly: &[Vec2]) -> Vec<Vec2> {
+        if self.axis == Vec2::X {
+            let (min, max) = self.bounds();
+            return clip_polygon_to_rect(poly, min, max);
+        }
+        let (axis, down) = (self.axis, self.down());
+        let local: Vec<Vec2> = poly
+            .iter()
+            .map(|p| {
+                let d = *p - self.center;
+                Vec2::new(d.dot(axis), d.dot(down))
+            })
+            .collect();
+        let half = self.size * 0.5;
+        clip_polygon_to_rect(&local, -half, half)
+            .into_iter()
+            .map(|l| self.center + axis * l.x + down * l.y)
+            .collect()
+    }
+
     /// The camera's turn in the render frame (y up), where its `+x` runs
     /// along `axis`.
     pub(crate) fn render_rotation(&self) -> Quat {
@@ -1147,8 +1174,8 @@ pub(crate) fn compute_cone(
 }
 
 /// Resolve a blended window cone into renderable data: clip the entry quad to
-/// the WORLD rect (the wedge's only honest bound — it may legitimately reach
-/// the half-plane), map each clipped vertex through the body map, and frame
+/// the `view` rect (turned with a rolled camera; the wedge's only honest
+/// bound — it may legitimately reach the half-plane), map each clipped vertex through the body map, and frame
 /// the capture on the clipped source's bounds — so the texture's density is
 /// spent only on what the window can actually show. `None` when the clip
 /// leaves nothing or the source degenerates.
@@ -1158,8 +1185,7 @@ pub(crate) fn cone_render(
     exit: &PortalAperture,
     frame: &PortalWorldFrame,
     config: &PortalViewConeConfig,
-    clip_min: Vec2,
-    clip_max: Vec2,
+    view: CaptureCameraFrame,
     z: f32,
     capture_frame: Option<CaptureCameraFrame>,
     convention: ambition_portal2d::pieces::MapConvention,
@@ -1168,7 +1194,7 @@ pub(crate) fn cone_render(
         PortalViewConeSourceClipPolicy::AllowClip => cone.entry_quad.to_vec(),
         PortalViewConeSourceClipPolicy::ClampToFrame
         | PortalViewConeSourceClipPolicy::FitToFrame => {
-            clip_polygon_to_rect(&cone.entry_quad, clip_min, clip_max)
+            view.clip(&cone.entry_quad)
         }
     };
     if poly.len() < 3 {

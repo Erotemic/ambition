@@ -751,20 +751,23 @@ fn portal_at_seam(viewer: Option<&PortalViewer>, portal_pos: Vec2) -> bool {
         .is_some_and(|v| v.eye.distance(portal_pos) <= v.half_size.length() + PORTAL_SEAM_REACH)
 }
 
-fn portal_window_clip_rect(
+/// The rect of the world a window is clipped to: what the observer's camera
+/// shows, turned with it when it rolls, or the whole room with no sample.
+fn portal_window_view(
     frame: &PortalWorldFrame,
     host_view: Option<&PortalCameraContinuityHostView>,
-) -> (Vec2, Vec2) {
+) -> geometry::CaptureCameraFrame {
     if let Some(host_view) = host_view
         .filter(|view| view.initialized && view.visible_view.x > 0.0 && view.visible_view.y > 0.0)
     {
-        let half = host_view.visible_view * 0.5;
-        (
-            host_view.current_center_world - half,
-            host_view.current_center_world + half,
-        )
+        geometry::CaptureCameraFrame {
+            center: host_view.current_center_world,
+            size: host_view.visible_view,
+            axis: host_view.view_axis(),
+            shown: host_view.visible_view,
+        }
     } else {
-        (Vec2::ZERO, frame.size)
+        geometry::CaptureCameraFrame::aligned(Vec2::ZERO, frame.size)
     }
 }
 
@@ -780,15 +783,13 @@ fn drawn_area(
     enter: &PortalAperture,
     exit: &PortalAperture,
     convention: ambition_portal2d::pieces::MapConvention,
-    clip_min: Vec2,
-    clip_max: Vec2,
+    view: geometry::CaptureCameraFrame,
 ) -> f32 {
     if shape.is_shut() {
         return 0.0;
     }
-    let view = ((clip_max.x - clip_min.x) * (clip_max.y - clip_min.y)).max(1.0);
     let quad = shape.cone(enter, exit, convention).entry_quad;
-    polygon_area(&geometry::clip_polygon_to_rect(&quad, clip_min, clip_max)) / view
+    polygon_area(&view.clip(&quad)) / view.area().max(1.0)
 }
 
 /// `shown` eased toward `want` by `step`, held so its drawn area changes by
@@ -802,10 +803,9 @@ fn ease_window(
     enter: &PortalAperture,
     exit: &PortalAperture,
     convention: ambition_portal2d::pieces::MapConvention,
-    clip_min: Vec2,
-    clip_max: Vec2,
+    view: geometry::CaptureCameraFrame,
 ) -> WindowShape {
-    let area = |shape| drawn_area(shape, enter, exit, convention, clip_min, clip_max);
+    let area = |shape| drawn_area(shape, enter, exit, convention, view);
     let limit = MAX_WINDOW_AREA_RATE * dt;
     let from = area(shown);
     let full = shown.eased_toward(want, step);
@@ -871,7 +871,8 @@ fn mapped_camera_frame(
     // large: a window into a smaller exit shows the far side magnified, so the
     // far mouth's ends meet the near mouth's.
     let center = ambition_portal2d::pieces::map_through(host_view.current_center_world, enter, exit, convention);
-    let axis = ambition_portal2d::pieces::portal_map_vec(Vec2::X, enter.frame.normal, exit.frame.normal, convention)
+    // A rolled view's rect is turned: its own `+x` is mapped.
+    let axis = ambition_portal2d::pieces::portal_map_vec(host_view.view_axis(), enter.frame.normal, exit.frame.normal, convention)
         .normalize_or(Vec2::X);
     let size = host_view.visible_view * ambition_portal2d::pieces::scale_through(enter, exit);
     Some(geometry::CaptureCameraFrame { center, size, axis, shown: host_view.visible_view })
@@ -978,15 +979,14 @@ pub fn sync_portal_view_cones(
             continue;
         };
         let host_view = observer_views.as_deref().and_then(|views| views.of(viewer.observer));
-        let (clip_min, clip_max) = portal_window_clip_rect(&placement.frame, host_view);
+        let view = portal_window_view(&placement.frame, host_view);
         eyes.push(RoomEye {
             placement,
             room_band: frames.band(placement.room),
             all: by_room.in_room(Some(placement.room)).to_vec(),
             viewer,
             host_view,
-            clip_min,
-            clip_max,
+            view,
             screen_scale: screen_density.texels_per_world(host_view),
         });
     }
@@ -1042,9 +1042,8 @@ pub fn sync_portal_view_cones(
             retire_rig(&mut commands, entity, &rig);
             continue;
         };
-        let RoomEye { placement: _, room_band, all, viewer, host_view, clip_min, clip_max, screen_scale } = eye;
-        let (room_band, host_view, clip_min, clip_max, screen_scale) =
-            (*room_band, *host_view, *clip_min, *clip_max, *screen_scale);
+        let RoomEye { placement: _, room_band, all, viewer, host_view, view, screen_scale } = eye;
+        let (room_band, host_view, view, screen_scale) = (*room_band, *host_view, *view, *screen_scale);
         let viewer = Some(*viewer);
         let frame = eye.placement.frame;
         // A room with no size yet: leave its rigs as they are.
@@ -1113,7 +1112,7 @@ pub fn sync_portal_view_cones(
         // portal's own frame ([`WindowShape`]); a closed plan eases it shut
         // into the aperture. A crossing hands the window to its partner at
         // once (the cut), and the partner that takes it starts where it was.
-        let reach = (clip_max - clip_min).length();
+        let reach = view.size.length();
         let want = if plan.target > 0.0 && rig.blend > 0.0 {
             WindowShape::of(
                 &blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit, convention),
@@ -1128,7 +1127,7 @@ pub fn sync_portal_view_cones(
         } else if rig.shown.is_shut() && taken_over > 0.0 {
             want
         } else {
-            ease_window(rig.shown, want, step, time.delta_secs(), &enter, &exit, convention, clip_min, clip_max)
+            ease_window(rig.shown, want, step, time.delta_secs(), &enter, &exit, convention, view)
         };
         if rig.shown.is_shut() {
             rig.shown = WindowShape::SHUT;
@@ -1156,8 +1155,7 @@ pub fn sync_portal_view_cones(
             &exit,
             &frame,
             &config,
-            clip_min,
-            clip_max,
+            view,
             z,
             capture_frame,
             convention,
@@ -1166,7 +1164,7 @@ pub fn sync_portal_view_cones(
         // read by `scripts/measure/portal_cone_trace.py`): each window's drawn area,
         // as a fraction of the view, and where it is, each frame.
         if bevy::log::tracing::enabled!(target: "ambition_portal::cone_trace", bevy::log::Level::DEBUG) {
-            let view_area = ((clip_max.x - clip_min.x) * (clip_max.y - clip_min.y)).max(1.0);
+            let view_area = view.area().max(1.0);
             let (area, at) = render.as_ref().map_or((0.0, Vec2::ZERO), |r| {
                 (polygon_area(&r.entry_poly_world) / view_area, polygon_mean(&r.entry_poly_world))
             });
@@ -1181,8 +1179,8 @@ pub fn sync_portal_view_cones(
                 at.x,
                 at.y,
                 u8::from(plan.cut),
-                (clip_min.x + clip_max.x) * 0.5,
-                (clip_min.y + clip_max.y) * 0.5
+                view.center.x,
+                view.center.y
             );
         }
         match render {
@@ -1253,9 +1251,8 @@ pub fn sync_portal_view_cones(
 
     // Second pass: spawn rigs for desired pairs not yet served, room by room.
     for eye in &eyes {
-    let RoomEye { placement, room_band, all, viewer, host_view, clip_min, clip_max, screen_scale } = eye;
-    let (room_band, host_view, clip_min, clip_max, screen_scale) =
-        (*room_band, *host_view, *clip_min, *clip_max, *screen_scale);
+    let RoomEye { placement, room_band, all, viewer, host_view, view, screen_scale } = eye;
+    let (room_band, host_view, view, screen_scale) = (*room_band, *host_view, *view, *screen_scale);
     let viewer = Some(*viewer);
     let frame = placement.frame;
     if frame.size == Vec2::ZERO {
@@ -1294,7 +1291,7 @@ pub fn sync_portal_view_cones(
             0.0
         };
         let blend = eased_blend(blend_before(placement.room, portal.channel), &plan, taken_over, step);
-        let reach = (clip_max - clip_min).length();
+        let reach = view.size.length();
         let want = if plan.target > 0.0 && blend > 0.0 {
             WindowShape::of(
                 &blend_cones(&plan.min, &plan.wedge, smooth01(blend), &enter, &exit, convention),
@@ -1309,7 +1306,7 @@ pub fn sync_portal_view_cones(
         let shown = if taken_over > 0.0 {
             want
         } else {
-            ease_window(WindowShape::SHUT, want, step, time.delta_secs(), &enter, &exit, convention, clip_min, clip_max)
+            ease_window(WindowShape::SHUT, want, step, time.delta_secs(), &enter, &exit, convention, view)
         };
         let opened = if plan.target > 0.0 { (blend / plan.target).clamp(0.0, 1.0) } else { 0.0 };
         let cone = (!shown.is_shut()).then(|| shown.flushed(plan.flush * opened, reach).cone(&enter, &exit, convention));
@@ -1321,8 +1318,7 @@ pub fn sync_portal_view_cones(
                 &exit,
                 &frame,
                 &config,
-                clip_min,
-                clip_max,
+                view,
                 z,
                 capture_frame,
                 convention,
@@ -1485,8 +1481,8 @@ struct RoomEye<'a> {
     viewer: &'a PortalViewer,
     /// The camera sample of the observer the eye is for.
     host_view: Option<&'a PortalCameraContinuityHostView>,
-    clip_min: Vec2,
-    clip_max: Vec2,
+    /// What the observer's camera shows, the rect its windows are clipped to.
+    view: geometry::CaptureCameraFrame,
     screen_scale: Vec2,
 }
 

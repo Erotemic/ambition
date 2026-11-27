@@ -891,6 +891,18 @@ separately.
   Test: two same-room views each see the portal window from their own eye.
 - **V2 — rolled viewport clipping.** Test: under a rolled camera the
   window clips to the rolled viewport (a pixel test and a capture).
+  *Done 2026-11-27.* The camera's sample (`PortalCameraContinuityHostView`)
+  now records the view's roll (`roll_radians`, `view_axis`), and a window is
+  clipped to the view's rect turned with it (`CaptureCameraFrame::clip`),
+  not the unrolled rect around the same centre; its capture frame maps the
+  turned rect, so the capture turns with the view. Unrolled, the clip is the
+  bounds as before. `capture_scene --camera-roll` pins the roll into the
+  sample beside the centre and size. Witness:
+  `a_window_under_a_rolled_camera_is_clipped_to_the_rolled_view` (an 800 x
+  450 camera at (516, 550): unrolled it cuts the window at y 325; a quarter
+  turn shows the whole window, every vertex inside the turned rect, and the
+  capture's axis turned). Captures of `portal_lab` at the red mouth rolled
+  0°, 30° and 90° draw the window to the corners of its side of the screen.
 - **V3 — ordered crossing samples.** A body straddling a moving aperture
   is drawn in both charts at the sample its step used. Test: the two
   halves meet at the aperture on the frame of a fast crossing.

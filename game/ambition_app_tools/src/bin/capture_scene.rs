@@ -3374,6 +3374,7 @@ fn apply_capture_snapshot(
             if view.initialized {
                 view.current_center_world = snapshot.center_world;
                 view.visible_view = snapshot.visible_view;
+                view.roll_radians = snapshot.rotation_radians;
             }
         }
     }
@@ -3381,6 +3382,7 @@ fn apply_capture_snapshot(
         if host_view.initialized {
             host_view.current_center_world = snapshot.center_world;
             host_view.visible_view = snapshot.visible_view;
+            host_view.roll_radians = snapshot.rotation_radians;
         }
     }
 

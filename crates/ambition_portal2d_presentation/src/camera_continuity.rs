@@ -176,6 +176,10 @@ pub struct PortalCameraContinuityHostView {
     pub target_world: Vec2,
     /// Host visible view size, for diagnostics and future on-screen tests.
     pub visible_view: Vec2,
+    /// The view's roll, in radians, as the camera is turned in the render
+    /// frame (y up): what it shows is `visible_view` turned by it about the
+    /// centre. See [`Self::view_axis`].
+    pub roll_radians: f32,
     /// Number of camera zones the host camera follow saw this frame.
     pub active_camera_zones: usize,
     /// The selected host camera-zone id, if any. This is diagnostic-only: the
@@ -193,6 +197,7 @@ impl PortalCameraContinuityHostView {
         ordinary_center_world: Vec2,
         target_world: Vec2,
         visible_view: Vec2,
+        roll_radians: f32,
         active_camera_zones: usize,
         active_camera_zone: Option<String>,
     ) {
@@ -206,9 +211,18 @@ impl PortalCameraContinuityHostView {
         self.ordinary_center_world = ordinary_center_world;
         self.target_world = target_world;
         self.visible_view = visible_view;
+        self.roll_radians = roll_radians;
         self.active_camera_zones = active_camera_zones;
         self.active_camera_zone = active_camera_zone;
         self.sample_index = self.sample_index.wrapping_add(1);
+    }
+
+    /// The view's `+x` in the world (y down), unit. A camera rolled by `r`
+    /// in the render frame shows the world turned by `-r`, so its `+x` there
+    /// is `(cos r, -sin r)`; unrolled it is `+x`.
+    pub fn view_axis(&self) -> Vec2 {
+        let (sin, cos) = self.roll_radians.sin_cos();
+        Vec2::new(cos, -sin)
     }
 }
 

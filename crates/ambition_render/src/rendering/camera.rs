@@ -270,6 +270,7 @@ pub fn present_view_frames(
                     ordinary_center_world,
                     snapshot.target_world,
                     snapshot.visible_view,
+                    snapshot.rotation_radians,
                     snapshot.active_camera_zones,
                     snapshot.active_camera_zone.clone(),
                 );
@@ -283,6 +284,7 @@ pub fn present_view_frames(
                     ordinary_center_world,
                     snapshot.target_world,
                     snapshot.visible_view,
+                    snapshot.rotation_radians,
                     snapshot.active_camera_zones,
                     snapshot.active_camera_zone.clone(),
                 );

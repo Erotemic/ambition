@@ -158,7 +158,7 @@ fn two_rooms_with_eyes(eyes: &[(LiveRoomInstance, Option<Vec2>)]) -> App {
     for (room, camera) in eyes {
         let observer = camera.map(|centre| {
             let observer = app.world_mut().spawn_empty().id();
-            samples.of_mut(observer).capture(centre, centre, centre, Vec2::new(800.0, 450.0), 0, None);
+            samples.of_mut(observer).capture(centre, centre, centre, Vec2::new(800.0, 450.0), 0.0, 0, None);
             observer
         });
         viewers.publish(PortalViewer {
@@ -215,7 +215,7 @@ fn captures_allocate_only_for_visible_windows_and_preserve_pixel_density() {
     let mut samples = app.world_mut().resource_mut::<crate::PortalObserverViews>();
     let offscreen = center + Vec2::Y * 900.0;
     samples.of_mut(observer)
-        .capture(offscreen, offscreen, offscreen, Vec2::new(800.0, 450.0), 0, None);
+        .capture(offscreen, offscreen, offscreen, Vec2::new(800.0, 450.0), 0.0, 0, None);
     app.update();
     assert!(app.world_mut().query_filtered::<&Camera, With<PortalViewRig>>()
         .iter(app.world()).all(|camera| !camera.is_active));
@@ -489,4 +489,69 @@ fn a_window_that_closed_when_the_viewer_crossed_is_the_far_pane() {
         (false, true),
         "at the right face the left window is closed, and it is the far pane"
     );
+}
+
+/// A window is clipped to what a rolled camera shows (V2): the camera's
+/// rect turned with it, not the unrolled rect around the same centre, and
+/// its capture is turned with it. The eye stands 30 px before the purple
+/// mouth; its window spans x 500..590 and y 236..364.
+///
+/// The camera (800 x 450) is centred at (516, 550). The control is the
+/// unrolled camera: it shows y 325..775, and the window is cut at y 325.
+/// Rolled a quarter turn, it shows x 291..741 and y 150..950: the whole
+/// window, which the unrolled clip had cut at the same line.
+#[test]
+fn a_window_under_a_rolled_camera_is_clipped_to_the_rolled_view() {
+    let centre = Vec2::new(516.0, 550.0);
+    let window = |roll: f32| -> (Vec<Vec2>, geometry::CaptureCameraFrame) {
+        let room = LiveRoomInstance::ACTIVATION;
+        let mut app = two_rooms_with_eyes(&[(room, Some(centre))]);
+        app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+        let mut viewers = app.world_mut().resource_mut::<PortalViewers>();
+        let mut moved = PortalViewers::default();
+        for viewer in viewers.iter() {
+            moved.publish(PortalViewer { eye: Vec2::new(470.0, 300.0), ..viewer.clone() });
+        }
+        *viewers = moved;
+        let observer = app.world().resource::<PortalViewers>().iter().next()
+            .and_then(|viewer| viewer.observer).unwrap();
+        app.world_mut().resource_mut::<crate::PortalObserverViews>().of_mut(observer)
+            .capture(centre, centre, centre, Vec2::new(800.0, 450.0), roll, 0, None);
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+        let (mesh, cone, captured) = app.world_mut().query::<&PortalViewRig>().iter(app.world())
+            .find(|rig| rig.room() == room && rig.channel.name().to_lowercase().contains("purple"))
+            .map(|rig| {
+                assert!(rig.drawn, "premise: the purple window is drawn");
+                (rig.mesh.clone(), rig.cone, rig.captured.expect("premise: captured"))
+            })
+            .unwrap();
+        let at = app.world().get::<Transform>(cone).unwrap().translation;
+        let frame = PortalWorldFrame { size: WORLD };
+        let origin = frame.to_render(Vec2::ZERO, 0.0).truncate();
+        let ex = frame.to_render(Vec2::X, 0.0).truncate() - origin;
+        let ey = frame.to_render(Vec2::Y, 0.0).truncate() - origin;
+        let to_world = Mat2::from_cols(ex, ey).inverse();
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(positions)) = app.world()
+            .resource::<Assets<Mesh>>().get(&mesh).unwrap().attribute(Mesh::ATTRIBUTE_POSITION).cloned()
+        else {
+            panic!("window mesh positions")
+        };
+        let world = positions.iter()
+            .map(|p| to_world * (Vec2::new(p[0], p[1]) + at.truncate() - origin))
+            .collect();
+        (world, captured)
+    };
+    let (upright, upright_capture) = window(0.0);
+    let min_y = |points: &[Vec2]| points.iter().map(|p| p.y).fold(f32::MAX, f32::min);
+    assert!((min_y(&upright) - 325.0).abs() < 1e-2, "control: cut at the unrolled view's top: {upright:?}");
+    assert!(upright_capture.axis.abs_diff_eq(Vec2::X, 1e-4), "control: {upright_capture:?}");
+
+    let (rolled, rolled_capture) = window(std::f32::consts::FRAC_PI_2);
+    for p in &rolled {
+        let d = *p - centre;
+        assert!(d.x.abs() <= 225.0 + 1e-2 && d.y.abs() <= 400.0 + 1e-2, "{p} outside the rolled view: {rolled:?}");
+    }
+    assert!(min_y(&rolled) < 300.0, "the window above y 325 is drawn: {rolled:?}");
+    assert!(rolled_capture.axis.x.abs() < 1e-4, "the capture turns with the view: {rolled_capture:?}");
 }

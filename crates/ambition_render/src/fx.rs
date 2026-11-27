@@ -77,6 +77,7 @@ pub struct ParticleVisual {
 }
 
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct ImpactVisual {
     pos: ae::Vec2,
     age: f32,
@@ -85,6 +86,7 @@ pub struct ImpactVisual {
 }
 
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct EffectVisual {
     pos: ae::Vec2,
     age: f32,
@@ -136,6 +138,7 @@ const SPEECH_BUBBLE_OUTLINE_ALPHA: f32 = 0.88;
 /// at the predicted landing while blink is held, one ring for each blinking
 /// body. Despawned on release or when blink is gated.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct BlinkPreviewVisual {
     /// The reticle this ember belongs to, by its index in
     /// `BlinkPreviewFact::reticles`.

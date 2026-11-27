@@ -423,6 +423,15 @@ the end of each beam so an author can see where it fades into the sky.
 On Gallows Hill, use the points of the `SurfaceChain` to draw the
 terrace and place its piers. Show where a body can join the terrace
 with Up and where the footpath continues below it.
+In Lower Godwin, show where a body can leave the bell tower ladder to
+reach each landing. Show the bakery door and the two talk prompts
+below the loft in the same view.
+In Crumb's bakery, show the floor route past the flour sacks and the
+raised route above them. Show how much of the press the sacks hide
+from each approach.
+At the allotments, show both routes to the greenhouse roof and the
+drop to the roof from the ridge. Show the gap above the Plot 13 ladder
+and the clear space below the trellis.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

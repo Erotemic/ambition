@@ -430,6 +430,7 @@ pub struct ChainTurfDressed;
 /// One piece of a theme's trim on a [`ChainTurf`] strip: a picture other
 /// views draw as the 2D view does.
 #[derive(Component, Clone, Copy, Debug)]
+#[require(crate::rendering::WorldSprite)]
 pub struct ChainTurfPiece;
 
 /// The pieces of trim on a segment: for each, how far into the pattern it

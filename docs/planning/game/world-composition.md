@@ -89,6 +89,15 @@ conscript starts on the wall. The spectral wolf starts on the road.
 ```
 
 - **Surface row:** the hamlet, the allotments and the moor, joined at the floor; the moor joins the gate forest (and the castle).
+- In Lower Godwin, the flour bin and rack lead to the bakery loft. The
+  crier's platform leads to the east landing. Jump between the landings
+  or take the ladder up to Gallows Hill.
+- Inside Crumb's bakery, the loading shelf connects the ovens and the
+  flour rack. The floor continues to the press behind the sacks.
+- At the allotments, the seed chest and the Plot 13 landings give access
+  to the greenhouse roof from the west. The crop trellis and the watering
+  shelf give access from the east. The Failed Prototype starts on the
+  trellis. A Crawling Conscript starts in the soil lane below it.
 - In the Crooked Lantern, the map shows the road, the ridge, and the
   crypt. Climb from the wood box or the bar to read it. Tobias and
   Gudrun meet visitors on the floor.

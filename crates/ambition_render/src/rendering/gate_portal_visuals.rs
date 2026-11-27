@@ -249,6 +249,7 @@ pub struct RingOverlay {
 
 /// One lit overlay over a ring: a child of the ring's sprite.
 #[derive(Component, Clone, Debug, PartialEq)]
+#[require(crate::rendering::WorldSprite)]
 pub struct GateRingLitGlyph(pub RingOverlay);
 
 /// Draw each ring's overlays ([`GateRingOverlays`]): one child sprite per

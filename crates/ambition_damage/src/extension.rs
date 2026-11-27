@@ -84,6 +84,7 @@ fn fact(
         },
         decision,
         raw_damage: hit.raw_damage,
+        damage_types: hit.damage_types.names().map(str::to_owned).collect(),
         damage: hit.resolution.damage_applied(),
         wallet_spent: match hit.resolution {
             BodyHitResolution::WalletShielded { spent } => spent,

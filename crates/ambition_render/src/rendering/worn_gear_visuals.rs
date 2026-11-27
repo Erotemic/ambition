@@ -26,11 +26,14 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, LiveRoomInstance, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_shared_tangle::worn_gear::{GearFit, WornGearManifest};
-use ambition_sim_view::WornGearView;
+use ambition_sim_view::{WornGearFact, WornGearView};
 use ambition_sprite_sheet::character::CharacterAnimator;
 
-use super::actors::rigged::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest, PlacedPart};
+use super::actors::rigged::{
+    ask_for_parts, forget_parts, root_shows, PartSetDraws, PartSetRequest, PlacedPart,
+};
 use super::posed_hand::VisualRoots;
+use super::primitives::WorldSprite;
 
 /// The start of the name of each ask: a reader for each anchor track
 /// (`worn_gear:head`), because an answer does not say which track a part is
@@ -60,11 +63,30 @@ pub enum GearLayer {
 /// this live room. A visual is kept while the body wears the gear there, and
 /// moved; another gear, body or room is a new visual.
 #[derive(Component, Debug)]
+#[require(WorldSprite)]
 pub struct WornGearVisual {
     body: Entity,
     gear: String,
-    layer: GearLayer,
+    pub(super) layer: GearLayer,
     room: LiveRoomInstance,
+    pub(super) order: WornGearOrder,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct WornGearOrder {
+    pub root: Entity,
+    pub anchor_part: Option<usize>,
+}
+
+struct GearDraw<'a> {
+    fact: &'a WornGearFact,
+    layer: GearLayer,
+    order: WornGearOrder,
+    path: &'a str,
+    transform: Transform,
+    anchor: Anchor,
+    size: Vec2,
+    taken: bool,
 }
 
 /// Where the two pictures of a gear go, in the space sprites are drawn in.
@@ -162,10 +184,17 @@ pub fn sync_worn_gear_visuals(
     asset_server: Option<Res<AssetServer>>,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     roots: VisualRoots,
-    bodies: Query<(Option<&CharacterAnimator>, Option<&PartSetDraws>)>,
-    baked: Query<(&ambition_sprite_sheet::boss::BossAnimator, &GlobalTransform, &Sprite)>,
+    bodies: Query<(
+        Option<&CharacterAnimator>,
+        Option<&PartSetDraws>,
+        (Option<&Visibility>, Option<&InheritedVisibility>, Has<ChildOf>),
+    )>,
+    baked: Query<
+        (&ambition_sprite_sheet::boss::BossAnimator, &Transform, &GlobalTransform, &Sprite),
+        Without<WornGearVisual>,
+    >,
     asked: Query<(Entity, &PartSetRequest)>,
-    mut visuals: Query<(Entity, &WornGearVisual, &mut Transform)>,
+    mut visuals: Query<(Entity, &mut WornGearVisual, &mut Transform)>,
     mut warnings: Local<GearWarnings>,
 ) {
     let Some(session_scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref()) else {
@@ -176,71 +205,73 @@ pub fn sync_worn_gear_visuals(
     };
     // The asks each root needs this frame, by root and reader name.
     let mut wanted_asks: BTreeSet<(Entity, String)> = BTreeSet::new();
-    // Each picture to draw, with where it goes; `true` once a visual has it.
-    let mut wanted: Vec<(&ambition_sim_view::WornGearFact, GearLayer, &str, Transform, Anchor, Vec2, bool)> = Vec::new();
+    let mut wanted = Vec::new();
     for fact in &view.0 {
         let Some(gear) = manifest.as_deref().and_then(|manifest| manifest.get(&fact.gear)) else {
             continue;
         };
         let root = roots.of(fact.body, fact.feature.as_deref());
-        let (animator, draws) = bodies.get(root).unwrap_or((None, None));
-        let Some(animator) = animator else {
-            if let Ok((boss, global, sprite)) = baked.get(root) {
-                let sheet = boss.record.key.as_str();
-                let Some(fit) = gear.fits.get(sheet) else {
-                    warnings.once(&fact.gear, sheet, || "the gear has no fit for the sheet (`worn_gear.ron`, `fits`)".to_owned());
-                    continue;
-                };
-                let placement = place_gear_baked(global.translation(), sprite.flip_x, fit);
-                let anchor = socket_anchor(gear.socket);
-                for (layer, path, transform) in [
-                    (GearLayer::Back, gear.back.as_deref(), placement.back),
-                    (GearLayer::Front, gear.front.as_deref(), placement.front),
-                ] {
-                    if let Some(path) = path {
-                        wanted.push((fact, layer, path, transform, anchor, gear.size, false));
-                    }
-                }
+        let Ok((animator, draws, visibility)) = bodies.get(root) else {
+            continue;
+        };
+        let (placement, anchor_part) = if let Some(animator) = animator {
+            let sheet = animator.spec.target();
+            let Some(fit) = gear.fits.get(sheet) else {
+                warnings.once(&fact.gear, sheet, || "the gear has no fit for the sheet (`worn_gear.ron`, `fits`)".to_owned());
+                continue;
+            };
+            let reader = format!("{READER}{}", fit.track);
+            let part = draws.and_then(|draws| draws.parts(&reader).last().map(|part| (draws.place, part)));
+            wanted_asks.insert((root, reader));
+            if !root_shows(visibility) {
                 continue;
             }
+            let Some((place, part)) = part else {
+                let baked = assets.as_deref().is_some_and(|assets| {
+                    let (mut ready, mut rigged) = (false, false);
+                    for asset in assets.characters.ready_sheets().filter(|asset| {
+                        asset.spec.base_sheet_key() == animator.spec.base_sheet_key()
+                    }) {
+                        ready = true;
+                        rigged |= asset.rigged.is_some();
+                    }
+                    ready && !rigged
+                });
+                if baked {
+                    warnings.once(&fact.gear, sheet, || "the sheet has no part flipbook (it is drawn baked)".to_owned());
+                }
+                continue;
+            };
+            let Some(placement) = place_gear(part, place, fit, animator.draws_mirror_row()) else {
+                continue;
+            };
+            (placement, Some(part.paint_index))
+        } else if let Ok((boss, local, global, sprite)) = baked.get(root) {
+            if !root_shows(visibility) {
+                continue;
+            }
+            let sheet = boss.record.target.as_str();
+            let Some(fit) = gear.fits.get(sheet) else {
+                warnings.once(&fact.gear, sheet, || "the gear has no fit for the sheet (`worn_gear.ron`, `fits`)".to_owned());
+                continue;
+            };
+            let middle = if visibility.2 { global.translation() } else { local.translation };
+            (place_gear_baked(middle, sprite.flip_x, fit), None)
+        } else {
             let who = fact.feature.clone().unwrap_or_else(|| format!("{:?}", fact.body));
             warnings.once(&fact.gear, &who, || "the body is drawn from a baked sheet, with no parts".to_owned());
             continue;
         };
-        let sheet = animator.spec.base_sheet_key();
-        let Some(fit) = gear.fits.get(sheet) else {
-            warnings.once(&fact.gear, sheet, || "the gear has no fit for the sheet (`worn_gear.ron`, `fits`)".to_owned());
-            continue;
-        };
-        let reader = format!("{READER}{}", fit.track);
-        let part = draws.and_then(|draws| draws.parts(&reader).last().map(|part| (draws.place, part)));
-        wanted_asks.insert((root, reader));
-        let Some((place, part)) = part else {
-            // No answer yet (the ask is new, or the pages load), or the
-            // sheet has no part flipbook.
-            let baked = assets.as_deref().is_some_and(|assets| {
-                let (mut ready, mut rigged) = (false, false);
-                for asset in assets.characters.ready_sheets().filter(|asset| asset.spec.base_sheet_key() == sheet) {
-                    ready = true;
-                    rigged |= asset.rigged.is_some();
-                }
-                ready && !rigged
-            });
-            if baked {
-                warnings.once(&fact.gear, sheet, || "the sheet has no part flipbook (it is drawn baked)".to_owned());
-            }
-            continue;
-        };
-        let Some(placement) = place_gear(part, place, fit, animator.draws_mirror_row()) else {
-            continue;
-        };
+        let order = WornGearOrder { root, anchor_part };
         let anchor = socket_anchor(gear.socket);
         for (layer, path, transform) in [
             (GearLayer::Back, gear.back.as_deref(), placement.back),
             (GearLayer::Front, gear.front.as_deref(), placement.front),
         ] {
             if let Some(path) = path {
-                wanted.push((fact, layer, path, transform, anchor, gear.size, false));
+                wanted.push(GearDraw {
+                    fact, layer, order, path, transform, anchor, size: gear.size, taken: false,
+                });
             }
         }
     }
@@ -261,13 +292,22 @@ pub fn sync_worn_gear_visuals(
     }
 
     for (entity, drawn, mut transform) in &mut visuals {
-        let kept = wanted.iter_mut().find(|(fact, layer, .., taken)| {
-            !*taken && fact.body == drawn.body && fact.gear == drawn.gear && *layer == drawn.layer && fact.room == Some(drawn.room)
+        let kept = wanted.iter_mut().find(|next| {
+            !next.taken
+                && next.fact.body == drawn.body
+                && next.fact.gear == drawn.gear
+                && next.layer == drawn.layer
+                && next.fact.room == Some(drawn.room)
         });
         match kept {
-            Some((.., wanted_transform, _, _, taken)) => {
-                *taken = true;
-                transform.set_if_neq(*wanted_transform);
+            Some(next) => {
+                next.taken = true;
+                transform.set_if_neq(next.transform);
+                #[cfg(feature = "portal_render")]
+                if drawn.order.root != next.order.root {
+                    commands.entity(entity).try_insert(ambition_portal2d_presentation::PortalDrawnWith(next.order.root));
+                }
+                drawn.map_unchanged(|drawn| &mut drawn.order).set_if_neq(next.order);
             }
             None => commands.entity(entity).despawn(),
         }
@@ -275,24 +315,24 @@ pub fn sync_worn_gear_visuals(
     let Some(asset_server) = asset_server else {
         return;
     };
-    for (fact, layer, path, transform, anchor, size, taken) in wanted {
+    for GearDraw { fact, layer, order, path, transform, anchor, size, taken } in wanted {
         let Some(room) = fact.room.filter(|_| !taken) else {
             continue;
         };
         // A picture that is not published yet loads as nothing: the asset
         // server reports the missing file, and the sprite draws nothing.
         let sprite = Sprite { image: asset_server.load(path.to_owned()), custom_size: Some(size), ..default() };
-        commands.spawn_session_scoped(
-            session_scope.in_room(Some(room)),
-            (
-                WornGearVisual { body: fact.body, gear: fact.gear.clone(), layer, room },
-                ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(fact.body),
-                sprite,
-                anchor,
-                transform,
-                Name::new(format!("Worn gear {} ({layer:?})", fact.gear)),
-            ),
+        let bundle = (
+            WornGearVisual { body: fact.body, gear: fact.gear.clone(), layer, room, order },
+            ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(fact.body),
+            sprite,
+            anchor,
+            transform,
+            Name::new(format!("Worn gear {} ({layer:?})", fact.gear)),
         );
+        #[cfg(feature = "portal_render")]
+        let bundle = (bundle, ambition_portal2d_presentation::PortalDrawnWith(order.root));
+        commands.spawn_session_scoped(session_scope.in_room(Some(room)), bundle);
     }
 }
 
@@ -306,6 +346,7 @@ mod tests {
 
     fn part(at: Vec3, turn: f32) -> PlacedPart {
         PlacedPart {
+            paint_index: 0,
             image: Handle::default(),
             rect: Rect::new(0.0, 0.0, 8.0, 8.0),
             size: Vec2::splat(8.0),

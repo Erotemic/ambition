@@ -7,9 +7,6 @@
 //!
 //! One persistent drawable per clocked body, not a clear-and-respawn each
 //! frame, which names its body (`PresentationOf`).
-//!
-//! A plain colour sprite: Bevy's 1x1 white image under the default handle is
-//! what `sprite_frame_basis` needs when a pair carries it.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -20,6 +17,7 @@ use bevy::prelude::*;
 
 /// The bar drawn for one body's clock.
 #[derive(Component, Debug, Clone, Copy)]
+#[require(super::WorldSprite)]
 pub struct BodyClockVisual {
     pub body: Entity,
 }

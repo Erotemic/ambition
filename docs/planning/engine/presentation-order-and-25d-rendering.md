@@ -822,6 +822,23 @@ shared value preparation are sufficient until source proves otherwise.
    and that exiting morph shows it again. An Ultra fixture shows the
    replacement sprites and effects in 2D, side-on 2.5D, and oblique 2.5D.
 
+   Worn gear fits use the published sheet target. The fit works for both
+   loose assets and library assets. The card view draws the back picture
+   behind the wearer and the front picture above its anchor part.
+   An Ultra fixture shows Scout's helmet on a rig drawn from parts and
+   Kagero's talismans on the Inugami drawn as one image.
+
+   Portal carry includes worn gear in the wearer's capture and includes the
+   gear's bounds when it sizes that capture. A held item has its own portal
+   cut. Its card uses the item's visibility. The item and its entry piece
+   use the same draw depth. An Ultra fixture shows a split helmet and held
+   items with independent cuts in all three views.
+
+   Both views use the same additive material for folded lights on devices
+   that support it. Blended folded meshes, such as electric shock, use the
+   color-mesh path. An Ultra fixture checks light strength, vertex colors,
+   and the world sprite that shows a body's countdown.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

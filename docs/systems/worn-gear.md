@@ -23,7 +23,7 @@ head part, so they are drawn over its whole face.
 - **The anchor.** A gear attaches to an anchor of the wearer. The only anchor
   now is `Head`.
 - **The fit.** Each wearer sheet has a fit, keyed by its sheet target
-  (`CharacterAnimator::spec.base_sheet_key()`, for example `player_robot_v3`).
+  (`CharacterSheetSpec::target()`, for example `player_robot_v3`).
   The fit names the track of the sheet's part flipbook that is the anchor part
   (`head` when it names none). It also gives a `scale`, an `offset` (world
   units, in the frame of the body: +x is the way it faces, +y is up) and a
@@ -89,13 +89,18 @@ parts for the fit's track under the reader `worn_gear:<track>`, and draws the
 two pictures on the last draw of that track. When a body wears no gear, the
 render forgets its ask. A picture that is not published draws nothing.
 
+Both renderers use the same pivot and fit. The card view uses the anchor's
+index in the full pose to draw the front picture before any later part.
+When the card view draws the body as one image, the gear layers surround
+that image. The render finds each wearer in its own live room.
+
 ## A body drawn baked
 
 A body drawn from a baked sheet has no parts, so it has no anchor part. A
 boss drawn baked (`BossAnimator`) wears its gear at the middle of its
 picture, moved by the fit's `offset` (world units, +x the way it faces, +y
-up), and mirrored with the picture. The fit is the fit of the boss sheet's
-key. The offset is one place for all the frames of the sheet, so a fit for a
+up), and mirrored with the picture. The fit uses the boss sheet's target.
+The offset is one place for all the frames of the sheet, so a fit for a
 baked boss is the place of its head in its rest frame, and the gear is big
 enough to cover the head as it moves. GNU-ton is drawn this way. Another
 body drawn baked does not show its gear; the render logs one warning for

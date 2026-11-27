@@ -739,6 +739,7 @@ fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
             slot:0,generation:0,from:ambition_combat_port::Spot::World([origin,0.0]),
             toward:[direction,0.0],reach:40.0,width:4.0,damage:1,knockback:1.0,
             launch_dir:None,lifetime_s:0.5,look:"laser".into(),
+            damage_types: Vec::new(),
             jump: None,
         };
         let (origin,strike,shape)=cast_world(&request, Some(&world),Some(&passages),owner,None).unwrap();
@@ -771,6 +772,7 @@ fn a_subunit_ray_does_not_extend_through_its_first_wall() {
         slot:0,generation:0,from:ambition_combat_port::Spot::World([0.0,0.0]),
         toward:[f32::MAX,0.0],reach:40.0,width:0.1,damage:1,knockback:1.0,
         launch_dir:None,lifetime_s:0.5,look:"laser".into(),
+        damage_types: Vec::new(),
         jump: None,
     };
     let (origin,strike,shape)=cast_world(&request, Some(&world),None,owner,None).unwrap();
@@ -794,6 +796,7 @@ fn a_held_ray_stops_when_its_edge_hits_a_wall_that_its_centre_misses() {
         slot: 0, generation: 0, from: ambition_combat_port::Spot::World([0.0, 0.0]),
         toward: [1.0, 0.0], reach: 40.0, width: 4.0, damage: 1, knockback: 1.0,
         launch_dir: None, lifetime_s: 0.5, look: "laser".into(),
+        damage_types: Vec::new(),
         jump: None,
     };
     let (origin, strike, shape) = cast_world(&request, Some(&world), None, owner, None).unwrap();

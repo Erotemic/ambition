@@ -279,6 +279,7 @@ struct AskedHeld {
     ray: Option<crate::strike::RayStrike>,
     jump: Option<ambition_combat_port::ray::RayJump>,
     damage: i32,
+    damage_types: crate::damage_types::DamageTypes,
     knockback: f32,
     launch_dir: Option<ambition_combat_port::LaunchDirection>,
     lifetime_s: f32,
@@ -420,12 +421,13 @@ fn lower_held_damage_boxes<P: LowersIn>(
             ray: None,
             jump: None,
             damage: s.value.damage,
+            damage_types: Default::default(),
             knockback: s.value.knockback,
             launch_dir: None,
             lifetime_s: s.value.lifetime_s,
         })
         .collect();
-    for s in rays {
+    for mut s in rays {
         if s.value.jump.is_some_and(|jump| !jump.is_valid()) {
             warn!("extension entry {} requested invalid ray jump settings", s.entry);
             continue;
@@ -438,6 +440,13 @@ fn lower_held_damage_boxes<P: LowersIn>(
             trace!("extension entry {} ray from {:?} refused before publication", s.entry, s.scope);
             continue;
         };
+        let damage_types = match crate::damage_types::DamageTypes::from_names(std::mem::take(&mut s.value.damage_types)) {
+            Ok(types) => types,
+            Err(name) => {
+                warn!("extension entry {} named an invalid damage type {:?}", s.entry, name);
+                continue;
+            }
+        };
         asked.push(AskedHeld {
             scope: s.scope,
             entry: s.entry.clone(),
@@ -449,6 +458,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
             ray: Some(ray),
             jump: s.value.jump.filter(|jump| jump.chance > 0.0),
             damage: s.value.damage,
+            damage_types,
             knockback: s.value.knockback,
             launch_dir: s.value.launch_dir,
             lifetime_s: s.value.lifetime_s,
@@ -549,12 +559,14 @@ fn lower_held_damage_boxes<P: LowersIn>(
         }
         if let Some(ray) = &s.ray {
             born.insert(ray.clone());
-            if let Some(jump) = s.jump {
-                let follow_up = crate::hit_origin::RayJumpOnDamage { jump, width: ray.width, look: ray.look.clone() };
-                born.entry::<crate::HitOrigin>().and_modify(move |mut origin| {
-                    origin.ray_jump = Some(follow_up);
-                });
-            }
+            let follow_up = s.jump.map(|jump| crate::hit_origin::RayJumpOnDamage {
+                jump, width: ray.width, look: ray.look.clone(),
+            });
+            let damage_types = s.damage_types.clone();
+            born.entry::<crate::HitOrigin>().and_modify(move |mut origin| {
+                origin.damage_types = damage_types;
+                origin.ray_jump = follow_up;
+            });
         }
         let entity = born.id();
         let record = HeldDamageBoxRecord {

@@ -25,7 +25,9 @@ use bevy::transform::TransformSystems;
 
 use super::{CARD_BODY_STEP, EARTH_BEHIND_SKIN, TERRAIN_DEPTH, scenery_depth, sprite_material};
 use super::{CardBodyRepresentation, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
-use crate::folded_mesh::{AddedLightMaterial, FoldedMesh};
+#[cfg(not(target_os = "android"))]
+use crate::folded_mesh::AddedLightMaterial;
+use crate::folded_mesh::FoldedMesh;
 use crate::rendering::chain_skin::ChainEarth;
 use crate::rendering::terrain_skin::TerrainSkinMesh;
 use crate::rendering::unauthored_volumes::UnauthoredVolumeVisual;
@@ -50,10 +52,8 @@ pub(super) fn install(app: &mut App) {
     );
     app.add_systems(
         PostUpdate,
-        (
-            realize_color_meshes.run_if(cards_are_visible_or_were),
-            realize_folded_meshes.run_if(cards_are_visible),
-        )
+        realize_color_meshes
+            .run_if(cards_are_visible_or_were)
             .in_set(CardWorldMeshSet),
     );
     if app.get_sub_app(RenderApp).is_some() {
@@ -66,6 +66,7 @@ pub(super) fn install(app: &mut App) {
         install_card_mesh_material::<crate::rendering::daylight::LampGlowMaterial>(app);
         #[cfg(not(target_os = "android"))]
         {
+            install_card_mesh_material::<AddedLightMaterial>(app);
             install_card_mesh_material::<crate::rendering::actor_glow::ActorGlowMaterial>(app);
             install_card_mesh_material::<crate::rendering::hit_flash::HitFlashMaterial>(app);
         }
@@ -95,6 +96,12 @@ impl CardMaterialSource for ambition_sprite_fx::SpriteFxMaterial {}
 impl CardMaterialSource for crate::rendering::darkness::DarknessMaterial {}
 impl CardMaterialSource for crate::bubble_shield_fx::BubbleShieldFxMaterial {}
 impl CardMaterialSource for crate::gate_portal_fx::GatePortalFxMaterial {}
+#[cfg(not(target_os = "android"))]
+impl CardMaterialSource for AddedLightMaterial {
+    fn card_blend() -> Option<BlendState> {
+        Some(Self::BLEND)
+    }
+}
 #[cfg(feature = "portal_render")]
 impl CardMaterialSource for ambition_portal2d_presentation::PortalGlowMaterial {}
 #[cfg(feature = "portal_render")]
@@ -309,7 +316,7 @@ fn realize_color_meshes(
             Has<NoFrustumCulling>,
         ),
         (
-            Or<(With<ChainEarth>, With<TerrainSkinMesh>, With<UnauthoredVolumeVisual>)>,
+            Or<(With<ChainEarth>, With<TerrainSkinMesh>, With<UnauthoredVolumeVisual>, With<FoldedMesh>)>,
             Without<CardWorldMesh>,
         ),
     >,
@@ -399,6 +406,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
     #[cfg(feature = "portal_render")] carry_orders: Query<&PortalCarryOrder>,
+    #[cfg(feature = "portal_render")] held_art: Query<&super::HeldArtOf>,
 ) {
     if !cards_are_visible(settings) {
         by_material.clear();
@@ -444,7 +452,13 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         let body_depth = depths.effect_depth(subject, global.translation().z);
         #[cfg(feature = "portal_render")]
         let body_depth = match carry_orders.get(source) {
-            Ok(PortalCarryOrder::Entry(root)) => depths.roots.get(root).map(|depth| depth.plane_z),
+            Ok(PortalCarryOrder::Entry(root)) => {
+                if let Ok(super::HeldArtOf(holder)) = held_art.get(*root) {
+                    depths.held_depth(*holder, global.translation().z)
+                } else {
+                    depths.roots.get(root).map(|depth| depth.plane_z)
+                }
+            }
             Ok(PortalCarryOrder::Exit) => None,
             Err(_) => body_depth,
         };
@@ -461,59 +475,6 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         products.show(source, &mesh.0, card, place, skip_culling);
     }
     by_material.retain(|id, _| used.contains(id));
-}
-
-fn realize_folded_meshes(
-    sources: Query<
-        (
-            Entity,
-            &Mesh2d,
-            &GlobalTransform,
-            &InheritedVisibility,
-            Has<MeshMaterial2d<AddedLightMaterial>>,
-        ),
-        (With<FoldedMesh>, Without<CardWorldMesh>),
-    >,
-    mut materials: Option<ResMut<Assets<StandardMaterial>>>,
-    mut prepared: Local<[Option<Handle<StandardMaterial>>; 2]>,
-    mut products: MeshProducts<StandardMaterial>,
-    rooms: LiveRooms,
-    depths: Res<CardRootDepths>,
-) {
-    let Some(materials) = materials.as_deref_mut() else {
-        return;
-    };
-    products
-        .retained
-        .reconcile(&mut products.commands, |entity| {
-            sources
-                .get(*entity)
-                .is_ok_and(|(_, _, _, visible, _)| visible.get())
-        });
-    for (source, mesh, global, visible, additive) in &sources {
-        if !visible.get() {
-            continue;
-        }
-        let material = prepared[usize::from(additive)].get_or_insert_with(|| {
-            materials.add(StandardMaterial {
-                unlit: true,
-                cull_mode: None,
-                alpha_mode: if additive {
-                    AlphaMode::Add
-                } else {
-                    AlphaMode::Blend
-                },
-                ..default()
-            })
-        });
-        products.show(
-            source,
-            &mesh.0,
-            material,
-            effect_place(source, global, &rooms, &depths),
-            true,
-        );
-    }
 }
 
 #[cfg(test)]
@@ -590,6 +551,43 @@ mod tests {
         assert!(!shown(app.world_mut()).contains_key(&trim));
     }
 
+    #[cfg(not(target_os = "android"))]
+    #[test]
+    fn a_folded_light_retains_its_card_when_the_source_strength_changes() {
+        let mut app = App::new();
+        app.init_resource::<Assets<AddedLightMaterial>>()
+            .init_resource::<Assets<CardMaterial<AddedLightMaterial>>>()
+            .init_resource::<CardRootDepths>()
+            .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
+            .add_systems(Update, realize_shaded_meshes::<AddedLightMaterial>);
+        let world = app.world_mut();
+        let source_material = world.resource_mut::<Assets<AddedLightMaterial>>()
+            .add(AddedLightMaterial { strength: Vec4::ONE });
+        let source = world.spawn((
+            FoldedMesh::default(),
+            Mesh2d::default(),
+            MeshMaterial2d(source_material.clone()),
+            NoFrustumCulling,
+            InheritedVisibility::VISIBLE,
+        )).id();
+        let card = |world: &mut World| {
+            let (entity, material, scope) = world
+                .query_filtered::<(Entity, &MeshMaterial3d<CardMaterial<AddedLightMaterial>>, &CardScope), With<CardWorldMesh>>()
+                .single(world).unwrap();
+            assert!(matches!(scope, CardScope::Source(root) if *root == source));
+            (entity, material.0.clone())
+        };
+        app.update();
+        let (entity, material) = card(app.world_mut());
+        let strength = Vec4::new(0.4, 0.9, 0.7, 0.6);
+        app.world_mut().resource_mut::<Assets<AddedLightMaterial>>()
+            .get_mut(&source_material).unwrap().strength = strength;
+        app.update();
+        assert_eq!(card(app.world_mut()), (entity, material.clone()));
+        assert_eq!(app.world().resource::<Assets<CardMaterial<AddedLightMaterial>>>()
+            .get(&material).unwrap().0.strength, strength);
+    }
+
     #[cfg(feature = "portal_render")]
     #[test]
     fn a_portal_entry_piece_keeps_its_sources_draw_depth() {
@@ -632,6 +630,17 @@ mod tests {
         app.update();
         let (entry_card, entry_place) = card(app.world_mut());
         assert_eq!(entry_place, Vec3::new(42.0, 13.0, 2.5));
+
+        let item = app.world_mut().spawn(super::super::HeldArtOf(root)).id();
+        let item_z = 20.0 + 3.0 * super::super::SLOT_STEP_2D;
+        app.world_mut().entity_mut(piece).insert((
+            PortalCarryOrder::Entry(item),
+            GlobalTransform::from_translation(Vec3::new(42.0, 13.0, item_z)),
+        ));
+        app.update();
+        let (item_card, item_place) = card(app.world_mut());
+        assert_eq!(entry_card, item_card);
+        assert!((item_place.z - (2.5 + 3.0 * super::super::CARD_PART_STEP)).abs() < 0.001);
 
         app.world_mut().entity_mut(piece).insert((
             PortalCarryOrder::Exit,

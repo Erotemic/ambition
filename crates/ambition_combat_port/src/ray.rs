@@ -149,6 +149,7 @@ pub struct HeldRay {
     pub reach: f32,
     pub width: f32,
     pub damage: i32,
+    pub damage_types: Vec<String>,
     pub knockback: f32,
     pub launch_dir: Option<crate::LaunchDirection>,
     pub lifetime_s: f32,
@@ -176,7 +177,7 @@ impl RayJump {
 }
 
 impl Port for HeldRayPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 6);
+    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 7);
     const ROLE: PortRole = PortRole::Request;
     type Value = HeldRay;
 
@@ -210,6 +211,7 @@ mod tests {
             reach: 460.0,
             width: 30.0,
             damage: 1,
+            damage_types: vec!["example.electric".into(), "example.fire".into()],
             knockback: 1.3,
             launch_dir: Some(crate::LaunchDirection::World([-1.0, -0.4])),
             lifetime_s: 0.3,
@@ -316,6 +318,8 @@ ambition_extension_sdk::port_record! {
         reach: f32,
         width: f32,
         damage: i32,
+        /// Game-defined IDs for this damage amount.
+        damage_types: Vec<String> = Vec::new(),
         knockback: f32 = 1.0,
         launch_dir: Option<crate::LaunchDirection> = None,
         lifetime_s: f32,

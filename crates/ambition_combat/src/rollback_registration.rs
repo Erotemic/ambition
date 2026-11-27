@@ -881,6 +881,7 @@ mod pending_hit_checksum_tests {
         use crate::{HitIdentity, HitOrigin};
         let mut pending = staged(HitReaction::Strike);
         pending.0[0].event.origin = Some(HitOrigin {
+            damage_types: Default::default(),
             ray_jump: None,
             projectile: Some(HitIdentity { id: Some(SimId::placement("shot")), room: Some(LiveRoomInstance::ACTIVATION), session: Some(SessionScopeId(1)) }),
             attacker: Some(HitIdentity { id: Some(SimId::placement("deflector")), room: Some(LiveRoomInstance::ACTIVATION), session: Some(SessionScopeId(1)) }),

@@ -22,6 +22,7 @@
 pub mod empowerment;
 pub mod allegiance;
 pub mod damage_box;
+pub mod damage_types;
 pub mod action_emission;
 pub mod actor_tuning;
 pub mod attack_support;

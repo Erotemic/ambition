@@ -119,7 +119,7 @@ pub fn region(rooms: &[MapRoomNode], start: usize) -> Vec<usize> {
             other.world == room.world && other.edge_exits.iter().any(|target| *target == room.id || *target == room.area)
         });
         for next in forward.chain(backward.map(|(i, _)| i)).collect::<Vec<_>>() {
-            if rooms[next].world == room.world && seen.insert(next) {
+            if rooms[next].world == room.world && rooms[next].group_path == room.group_path && seen.insert(next) {
                 queue.push_back(next);
             }
         }
@@ -144,7 +144,8 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
     let here_title = rooms[here].title.clone();
     let reveal_all = state.reveal_all;
     let mut region_rooms = if reveal_all {
-        (0..rooms.len()).filter(|&i| rooms[i].world == rooms[here].world).collect()
+        (0..rooms.len()).filter(|&i| rooms[i].world == rooms[here].world
+            && rooms[i].group_path == rooms[here].group_path).collect()
     } else {
         region(rooms, here)
     };
@@ -153,7 +154,7 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
     let mut door_at = None;
     // Inside a building of one room: the region outside, by its door. The
     // developer map draws the building itself, so it needs no stand-in.
-    if !reveal_all && region_rooms.len() == 1 {
+    if !reveal_all && region_rooms.len() == 1 && rooms[here].group_path.is_empty() {
         let outside = rooms.iter().enumerate().find_map(|(i, room)| {
             (i != here).then_some(())?;
             let door = room.doors.iter().find(|door| door.target_room == rooms[here].id || door.target_room == rooms[here].area)?;

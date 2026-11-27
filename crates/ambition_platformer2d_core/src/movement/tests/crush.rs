@@ -19,7 +19,7 @@ fn body_at(pos: Vec2) -> BodyClusterScratch {
 fn named<'a>(source: &ContactSource, name: &str, blocks: impl IntoIterator<Item = &'a Block>) -> bool {
     match source {
         ContactSource::Block { id, .. } => blocks.into_iter().any(|block| block.id == *id && block.name == name),
-        ContactSource::Chain { .. } => false,
+        ContactSource::Chain { .. } | ContactSource::Rim { .. } => false,
     }
 }
 

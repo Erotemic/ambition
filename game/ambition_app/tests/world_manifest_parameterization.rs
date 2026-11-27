@@ -20,6 +20,7 @@ fn manifest_of(id: &str, file: &str, entry_room: &str) -> WorldManifest {
         ron_rooms: Vec::new(),
         worlds: vec![WorldSource {
             id: AssetId::new(id),
+            map_title: None,
             asset_path: format!("game://worlds/{file}"),
             loose_path: Some(worlds_dir.join(file)),
             embedded_text: None,

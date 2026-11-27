@@ -30,7 +30,7 @@ pub struct BodyTeleported {
 /// openings from behind (its centre behind the plane), as a body that comes
 /// up through a one-way platform does. A crossing is begun only from a
 /// portal's face, so while it has this the pair does not begin its
-/// crossing, open its hole for it, snag it, or take it: it must be wholly
+/// crossing, open its hole for it, or take it: it must be wholly
 /// past the plane first, and then it is on one side or the other like any
 /// body (Jon 2026-10-16).
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -302,7 +302,7 @@ fn threaded_through(body: ae::Aabb, center: Vec2, transit: Option<PortalTransit>
 /// past an end opens the hole and stands on the host past the end by its
 /// own support rule: one that stands by its balance (`ae::Balance`) is
 /// pushed off that end into the hole; one that stands on a lip stays on it
-/// until it is in line, and the snag holds it there. "Approaching" and
+/// until it is in line, and the opening's rim holds it there. "Approaching" and
 /// "falling" are relative to the portal's surface, so a portal that moves or
 /// turns onto a still body opens for it. `depth` bounds the hole by the
 /// host's thickness.

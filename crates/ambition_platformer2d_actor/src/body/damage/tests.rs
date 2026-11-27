@@ -1522,8 +1522,8 @@ fn defeated_boss_drops_its_signature_ability() {
     assert_eq!(kinds.len(), 1, "one ability pickup dropped");
     assert_eq!(
         kinds[0],
-        ambition_interaction::PickupKind::Ability {
-            ability_id: "grapple".to_string()
+        ambition_interaction::PickupKind::Item {
+            item_id: "grapple".to_string()
         },
     );
 }

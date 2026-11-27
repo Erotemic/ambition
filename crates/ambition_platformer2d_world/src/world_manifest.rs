@@ -34,6 +34,8 @@ pub struct WorldSource {
     /// Catalog id (`world.*` by convention) — the row's identity for asset
     /// resolution and hot reload.
     pub id: AssetId,
+    /// Display name for the world map, if the game supplies one.
+    pub map_title: Option<String>,
     /// Bevy `AssetPath` for the file (the backend's tile-render spine loads
     /// it; a game typically roots it in its own registered asset source, e.g.
     /// `game://worlds/sandbox.ldtk`).
@@ -118,6 +120,9 @@ pub struct AuthoredWorldManifest {
 pub struct AuthoredWorld {
     /// The row's catalog id (`world.*` by convention).
     pub id: String,
+    /// Display name for the world map.
+    #[serde(default)]
+    pub map_title: Option<String>,
     /// The file's name in the game's worlds directory.
     pub file: String,
     /// A required world aborts the boot when it cannot be read; an optional
@@ -148,6 +153,7 @@ impl AuthoredWorldManifest {
                     let embedded_text = (roots.embedded_text)(&world.file);
                     WorldSource {
                         id: AssetId::new(world.id.as_str()),
+                        map_title: world.map_title.clone(),
                         asset_path: format!("{}{}", roots.asset_prefix, world.file),
                         loose_path: Some(roots.loose_dir.join(&world.file)),
                         embedded_text,
@@ -245,6 +251,7 @@ mod tests {
     fn sample_manifest() -> WorldManifest {
         let source = |id: &str, file: &str, required: bool| WorldSource {
             id: AssetId::new(id),
+            map_title: None,
             asset_path: format!("game://worlds/{file}"),
             loose_path: None,
             embedded_text: None,
@@ -293,6 +300,7 @@ mod tests {
     fn embedded_rows_resolve_to_the_embedded_path_and_loose_rows_do_not() {
         let mut source = WorldSource {
             id: AssetId::new("world.primary"),
+            map_title: None,
             asset_path: "game://worlds/primary.ldtk".to_string(),
             loose_path: None,
             embedded_text: None,
@@ -331,6 +339,7 @@ mod tests {
         };
         let source = WorldSource {
             id: AssetId::new("world.primary"),
+            map_title: None,
             asset_path: "game://worlds/primary.ldtk".to_string(),
             loose_path: None,
             embedded_text: Some("{}"),
@@ -371,7 +380,7 @@ mod tests {
             entry_room: "hub".into(),
             worlds: worlds
                 .iter()
-                .map(|(id, file, required)| AuthoredWorld { id: (*id).into(), file: (*file).into(), required: *required })
+                .map(|(id, file, required)| AuthoredWorld { id: (*id).into(), map_title: None, file: (*file).into(), required: *required })
                 .collect(),
         }
     }

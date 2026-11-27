@@ -7,6 +7,7 @@
 //! its own, and inside one the map shows the region outside it.
 
 use ambition_platformer2d::ldtk_map::ActiveLdtkProject;
+use ambition_platformer2d::menu::map::browser::{MapAccess, MapAction, MapAtlas, MapBrowser, MapEntryKind, MapHierarchy};
 use ambition_platformer2d::menu::map::view::{map_view, region};
 use ambition_platformer2d::menu::map::{map_room_node, MapMenuState};
 
@@ -54,6 +55,44 @@ fn inside_the_bakery_the_map_shows_lower_godwin_and_its_door() {
     let here: Vec<&str> = view.rooms.iter().filter(|r| r.here).map(|r| r.id.as_str()).collect();
     assert_eq!(here, ["evil_lower_godwin"]);
     assert_eq!(view.marked_door, Some(0));
+}
+
+#[test]
+fn the_fantasy_overworld_opens_the_barrows_as_a_separate_map() {
+    use ambition_platformer2d::world::world_manifest::WorldManifest;
+
+    let app = a_session_in("intro_moor");
+    let rooms: Vec<_> = app.world().resource::<ActiveLdtkProject>().0.levels.iter().map(map_room_node).collect();
+    let hierarchy = MapHierarchy {
+        world_titles: app.world().resource::<WorldManifest>().worlds.iter()
+            .filter_map(|world| Some((world.id.as_str().to_owned(), world.map_title.clone()?)))
+            .collect(),
+        ..Default::default()
+    };
+    let atlas = MapAtlas::new(&rooms, Some(&hierarchy));
+    let visits = Default::default();
+    let access = MapAccess { current_room: Some("intro_moor"), visited: &visits, reveal_all: true, can_travel: false };
+    let mut browser = MapBrowser::default();
+    browser.apply(&atlas, access, 1.7, MapAction::Fit);
+    let overworld = browser.view(&atlas, access, 1.7);
+    assert_eq!(overworld.title, "Fantasy Dimension");
+    let entrance = overworld.entries.iter().find(|entry| entry.title == "The Barrows").unwrap();
+    assert_eq!(entrance.kind, MapEntryKind::Landmark);
+    assert_eq!(entrance.pieces.len(), 3);
+    assert!(overworld.entries.iter().all(|entry| !entry.title.contains("WHEELWORKS")));
+    browser.apply(&atlas, access, 1.7, MapAction::Open(entrance.id));
+    let dungeon = browser.view(&atlas, access, 1.7);
+    assert_eq!(dungeon.title, "The Barrows");
+    assert_eq!(dungeon.parent_title.as_deref(), Some("Fantasy Dimension"));
+    assert_eq!(dungeon.entries.len(), 7);
+    assert!(dungeon.entries.iter().any(|entry| entry.title == "THE WHEELWORKS"));
+    assert!(dungeon.links.len() >= 6);
+
+    browser.apply(&atlas, access, 1.7, MapAction::Up);
+    let returned = browser.view(&atlas, access, 1.7);
+    let focused = returned.entries.iter().find(|entry| entry.id == entrance.id).unwrap();
+    assert!(focused.selected);
+    assert!(focused.pieces.iter().any(|piece| piece.width() > entrance.pieces[0].width()));
 }
 
 #[test]

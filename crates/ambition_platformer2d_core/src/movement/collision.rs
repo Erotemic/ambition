@@ -193,6 +193,10 @@ pub(super) fn sweep_player_axis_clusters(
                     chain.kind == crate::world::SurfaceKind::Solid && chain.closed
                         || gravity_pass && !drop_through && normal.dot(chain.normal_at_time(segment, hit.world_time).map_err(numeric)?) > 0.5
                 }
+
+                // An end of the opening the body goes through (portal P3):
+                // past it the plane is the host.
+                crate::world::MaterialCollider::Rim(_) => true,
             })
         });
         result
@@ -302,6 +306,8 @@ fn material_axis_hits<'w>(
                         && hit.contact.map.direction(normal).dot(face) > 0.5
                 }
             }
+            // The axis visit reads room geometry only; the sweep meets rims.
+            crate::world::MaterialCollider::Rim(_) => false,
         };
         let gravity_contact = hit.minimum_normal.dot(gravity_dir).abs()
             >= hit.minimum_normal.dot(gravity_dir.perp()).abs();

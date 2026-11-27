@@ -1411,6 +1411,9 @@ pub struct SweepHit<'a> {
 pub enum MaterialCollider<'a> {
     Block(&'a Block),
     Chain { chain: &'a SurfaceChain, index: usize, segment: usize },
+    /// An end of an opening the body goes through, or the no-worse floor
+    /// beside it (portal P3, [`crate::frame::material_cast::RimObstacle`]).
+    Rim(crate::frame::material_cast::RimObstacle),
 }
 
 impl MaterialCollider<'_> {
@@ -1447,6 +1450,9 @@ impl MaterialCollider<'_> {
             (MaterialCollider::Block(_),MaterialCollider::Chain { .. }) => std::cmp::Ordering::Less,
             (MaterialCollider::Chain { .. },MaterialCollider::Block(_)) => std::cmp::Ordering::Greater,
             (MaterialCollider::Chain { chain:a,segment:i,.. },MaterialCollider::Chain { chain:b,segment:j,.. }) => a.name.cmp(&b.name).then(i.cmp(&j)),
+            (MaterialCollider::Rim(a),MaterialCollider::Rim(b)) => a.cmp_identity(&b),
+            (MaterialCollider::Rim(_),_) => std::cmp::Ordering::Greater,
+            (_,MaterialCollider::Rim(_)) => std::cmp::Ordering::Less,
         }
     }
 
@@ -1454,11 +1460,12 @@ impl MaterialCollider<'_> {
         match self {
             Self::Block(block) => crate::collision_semantics::ContactSource::Block { kind: block.kind, id: block.id.clone() },
             Self::Chain { index, segment, .. } => crate::collision_semantics::ContactSource::Chain { chain: index as u32, segment: segment as u32 },
+            Self::Rim(rim) => crate::collision_semantics::ContactSource::Rim { link: rim.link, end: rim.end },
         }
     }
 
     pub fn displacement(self) -> Vec2 {
-        match self { Self::Block(block) => block.velocity, Self::Chain { chain, .. } => chain.velocity }
+        match self { Self::Block(block) => block.velocity, Self::Chain { chain, .. } => chain.velocity, Self::Rim(rim) => rim.displacement }
     }
 
     /// The tick's displacement of the surface's material at a contact
@@ -1480,6 +1487,11 @@ impl MaterialCollider<'_> {
                 let pivot = chain.pivot.as_dvec2() - chain.velocity.as_dvec2() * (1.0 - time.clamp(0.0, 1.0));
                 let r = point.as_dvec2() - pivot;
                 (chain.velocity.as_dvec2() + bevy_math::DVec2::new(-r.y, r.x) * f64::from(chain.turn)).as_vec2()
+            }
+            Self::Rim(rim) if rim.turn != 0.0 => {
+                let pivot = rim.pivot.as_dvec2() - rim.displacement.as_dvec2() * (1.0 - time.clamp(0.0, 1.0));
+                let r = point.as_dvec2() - pivot;
+                (rim.displacement.as_dvec2() + bevy_math::DVec2::new(-r.y, r.x) * f64::from(rim.turn)).as_vec2()
             }
             _ => self.displacement(),
         }
@@ -1526,7 +1538,7 @@ impl MaterialCollider<'_> {
     pub fn velocity_at(self, point: Vec2, dt: f32, time: f64) -> Result<Vec2, crate::frame::NumericFault> {
         use crate::frame::{NumericFault, Sim2};
         let displacement = self.displacement();
-        let turn = match self { Self::Chain { chain, .. } => chain.turn, _ => 0.0 };
+        let turn = match self { Self::Chain { chain, .. } => chain.turn, Self::Rim(rim) => rim.turn, _ => 0.0 };
         if !point.is_finite() || !displacement.is_finite() || !turn.is_finite() || !dt.is_finite() || !time.is_finite() {
             return Err(NumericFault::NonFinite);
         }
@@ -1545,9 +1557,10 @@ impl MaterialCollider<'_> {
         if displacement == Vec2::ZERO && turn == 0.0 { return Ok(Vec2::ZERO); }
         if dt <= 0.0 { return Err(NumericFault::InvalidFrame); }
         let mut velocity = displacement.as_dvec2() / f64::from(dt);
-        if let Self::Chain { chain, .. } = self {
-            if !chain.pivot.is_finite() { return Err(NumericFault::NonFinite); }
-            let pivot = chain.pivot.as_dvec2()-displacement.as_dvec2()*(1.0-time);
+        let pivot = match self { Self::Chain { chain, .. } => Some(chain.pivot), Self::Rim(rim) => Some(rim.pivot), _ => None };
+        if let Some(pivot) = pivot {
+            if !pivot.is_finite() { return Err(NumericFault::NonFinite); }
+            let pivot = pivot.as_dvec2()-displacement.as_dvec2()*(1.0-time);
             let r = point.as_dvec2()-pivot;
             velocity += bevy_math::DVec2::new(-r.y,r.x) * (f64::from(turn)/f64::from(dt));
         }
@@ -1964,6 +1977,8 @@ impl World {
                     SurfaceKind::Ground => hit.map.direction(hit.normal)
                         .dot(chain.normal_at_time(segment, hit.world_time).map_err(numeric)?) > 0.5,
                 },
+                // A body held at an end of an opening stands on it.
+                MaterialCollider::Rim(_) => true,
             })
         })
     }
@@ -2086,6 +2101,11 @@ impl World {
                     })?;
                 }
             }
+        }
+        // The ends of the openings the body goes through, met by the whole
+        // body in its root chart (portal P3).
+        if let Some((rim, part, contact)) = cells.first_rim_contact()? {
+            consider(MaterialWorldHit { collider: MaterialCollider::Rim(rim), contact }, part);
         }
         match refused { Some((_,reason)) => Err(reason), None => Ok(best) }
     }

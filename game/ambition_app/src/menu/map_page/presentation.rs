@@ -57,6 +57,7 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
 
     draw_tools(&mut model, view);
     draw_chart(&mut model, &palette);
+    draw_passages(&mut model, view, &palette);
     ornament::folio(&mut model, &palette);
     let marks = landmarks(view);
     draw_footer(&mut model, view, &palette, &marks);
@@ -74,6 +75,21 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
         );
     }
     model
+}
+
+fn draw_passages(model: &mut MapModel, view: &MapBrowserView, palette: &MapLook) {
+    let chart = chart_bounds();
+    for &[from, to] in &view.links {
+        let a = chart_point(from);
+        let b = chart_point(to);
+        let middle = (a.y + b.y) * 0.5;
+        let route = [a, Vec2::new(a.x, middle), Vec2::new(b.x, middle), b];
+        for leg in route.windows(2) {
+            let rect = Rect::from_corners(leg[0], leg[1]);
+            let trace = Rect::from_corners(rect.min - Vec2::splat(0.16), rect.max + Vec2::splat(0.16));
+            layer_rect(model, trace.intersect(chart), colour(palette.brass), None, 0.08);
+        }
+    }
 }
 
 fn draw_chart(model: &mut MapModel, palette: &MapLook) {
@@ -118,7 +134,7 @@ fn draw_entries(
     marks: &[Landmark],
 ) {
     let mut entries: Vec<_> = view.entries.iter().collect();
-    entries.sort_by_key(|entry| (entry.selected, entry.here));
+    entries.sort_by_key(|entry| (entry.kind == MapEntryKind::Landmark, entry.selected, entry.here));
     let mut tiles = Vec::new();
     for entry in entries {
         let largest = entry
@@ -136,7 +152,8 @@ fn draw_entries(
     let stride = 0.58 / tiles.len().max(1) as f32;
     for (index, tile) in tiles.iter().enumerate() {
         let entry = tile.entry;
-        let group = entry.kind == MapEntryKind::Group;
+        let landmark = entry.kind == MapEntryKind::Landmark;
+        let group = entry.kind != MapEntryKind::Room;
         let fill = match (entry.here, group, entry.visited) {
             (true, _, _) => palette.room_here,
             (_, true, _) => palette.group,
@@ -152,7 +169,13 @@ fn draw_entries(
         };
         let layer = 0.1 + stride * index as f32;
         let action = (!view.room_detail).then_some(MenuPageAction::Map(MapAction::Open(entry.id)));
-        let tile_rect = inset(tile.bounds, Vec2::new(0.10, 0.15));
+        let tile_bounds = if landmark {
+            Rect::from_center_size(tile.bounds.center(), tile.bounds.size().max(Vec2::new(3.25, 4.05)))
+                .intersect(chart_bounds())
+        } else {
+            tile.bounds
+        };
+        let tile_rect = inset(tile_bounds, Vec2::new(0.10, 0.15));
         let inner = inset(
             tile_rect,
             if entry.selected {
@@ -164,7 +187,9 @@ fn draw_entries(
         layer_rect(model, tile_rect, colour(outline), action, layer);
         layer_rect(model, inner, colour(fill), None, layer + stride * 0.33);
 
-        if group && inner.width() >= 5.0 && inner.height() >= 3.0 {
+        if landmark && inner.width() >= 2.0 && inner.height() >= 2.0 {
+            draw_gate(model, inner, palette, layer + stride * 0.66);
+        } else if group && inner.width() >= 5.0 && inner.height() >= 3.0 {
             let accent = Rect::from_corners(inner.min, Vec2::new(inner.max.x, inner.min.y + 0.48));
             let accent_color = if entry.selected || entry.here {
                 outline
@@ -197,7 +222,12 @@ fn draw_entries(
             continue;
         }
         let name = fit_title(&entry.title, inner.width() - 0.8, font);
-        let anchor = inner.center();
+        let mut anchor = inner.center();
+        if landmark {
+            anchor.y = inner.min.y + (inner.height() - 1.7).max(font) * 0.45;
+        } else if !group && !view.links.is_empty() {
+            anchor.y = inner.min.y + font * 1.26;
+        }
         let label = Rect::from_center_size(
             anchor,
             Vec2::new(name.chars().count() as f32 * font * 0.48, font),
@@ -223,6 +253,20 @@ fn draw_entries(
                 palette.label
             }),
         );
+    }
+}
+
+fn draw_gate(model: &mut MapModel, inner: Rect, palette: &MapLook, layer: f32) {
+    let x = inner.center().x;
+    let y = inner.max.y - 0.6;
+    let bars = [
+        (Vec2::new(x, y - 1.65), Vec2::new(1.65, 0.33)),
+        (Vec2::new(x - 0.52, y - 0.86), Vec2::new(0.32, 1.35)),
+        (Vec2::new(x + 0.52, y - 0.86), Vec2::new(0.32, 1.35)),
+        (Vec2::new(x, y - 0.17), Vec2::new(1.75, 0.26)),
+    ];
+    for (centre, size) in bars {
+        layer_rect(model, Rect::from_center_size(centre, size), colour(palette.brass), None, layer);
     }
 }
 

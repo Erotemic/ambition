@@ -396,6 +396,7 @@ pub fn prepare_body_translation(
         Ok(match collider {
             crate::world::MaterialCollider::Block(block) => crate::collision_semantics::is_full_collision_surface(block.kind),
             crate::world::MaterialCollider::Chain { chain, .. } => chain.kind == crate::world::SurfaceKind::Solid,
+            crate::world::MaterialCollider::Rim(_) => true,
         })
     };
     let contact = world.first_material_sweep_prefix(cast, 1.0, admission, accepts)?;

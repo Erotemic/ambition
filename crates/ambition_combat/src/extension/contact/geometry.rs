@@ -23,6 +23,9 @@ pub(super) fn world_contact(contact: &Contact) -> WorldContact {
         ContactSource::Chain { chain, segment } => (None, Some(ChainContact {
             chain: *chain, segment: *segment,
         })),
+
+        // An end of a portal opening is no authored geometry (portal P3).
+        ContactSource::Rim { .. } => (None, None),
     };
     WorldContact {
         role: match contact.kind {

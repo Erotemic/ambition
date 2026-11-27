@@ -96,7 +96,11 @@ pub use brain_profile_ref::{BrainProfileId, BrainProfileRef};
 pub enum PickupKind {
     Health { amount: i32 },
     Currency { amount: i32 },
-    Ability { ability_id: String },
+    #[serde(alias = "Ability")]
+    Item {
+        #[serde(alias = "ability_id")]
+        item_id: String,
+    },
     StoryFlag { flag: String },
     Custom(String),
 }

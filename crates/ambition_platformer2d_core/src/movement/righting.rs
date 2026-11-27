@@ -53,6 +53,8 @@ pub fn admit_body_righting(
                         hit.map.direction(hit.normal).dot(normal) > 0.5
                     }
                 }
+                // A turn may not take an end of the opening inside the body.
+                crate::world::MaterialCollider::Rim(_) => true,
             })
         })?;
         Ok(contact.is_none())

@@ -190,7 +190,9 @@ pub struct HitFlashMaterial {
 #[cfg(feature = "card_view")]
 impl super::card_view::CardMaterialSource for HitFlashMaterial {
     fn draws_on_card(&self, body: Option<super::card_view::CardBodyRepresentation>) -> bool {
-        body == Some(super::card_view::CardBodyRepresentation::Sprite) && self.control.x > 0.001
+        use super::card_view::CardBodyRepresentation::{RiggedFrame, Sprite};
+
+        matches!(body, Some(Sprite | RiggedFrame)) && self.control.x > 0.001
     }
 }
 
@@ -209,8 +211,8 @@ impl Material2d for HitFlashMaterial {
 /// body (0 shows nothing). Published on the source so another view of the
 /// body draws the same cue without deciding it again (RV3).
 ///
-/// Rigged cards use the flat tint. The shared flash material draws the
-/// gate's scanlines on sheet-drawn bodies.
+/// A direct rig uses this tint when its whole frame is not available.
+/// The flash material draws the gate's scanlines on a whole frame.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
 pub struct PresentedFlash {
     pub intensity: f32,

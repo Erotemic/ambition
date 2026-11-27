@@ -29,8 +29,8 @@
 //! A body the 2D view composites (a fading frame, a flash, a warp, any reader
 //! of it as one image) is drawn here as one card of its composited cell, as
 //! the 2D root draws it: a fading frame fades as one picture, not part by
-//! part. A body's flash ([`PresentedFlash`]) is a silhouette card over each of
-//! its cards, in the cue's colour, as strong as the cue.
+//! part. A whole frame uses the shared flash shader. A direct rig uses a
+//! silhouette over each part when a whole frame is not available.
 //!
 //! # Bodies drawn from a sheet
 //!
@@ -308,7 +308,8 @@ impl CardRootDepths {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CardBodyRepresentation {
     Sprite,
-    Rigged,
+    RiggedFrame,
+    RiggedParts,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1019,12 +1020,19 @@ pub(super) fn realize_card_bodies(
                 .map_or(0.0, |parts| parts.len().saturating_sub(1) as f32 * CARD_PART_STEP);
             depths.roots.insert(of.0, CardBodyDepth {
                 front_part,
-                representation: CardBodyRepresentation::Rigged,
+                representation: if baked.is_some() {
+                    CardBodyRepresentation::RiggedFrame
+                } else {
+                    CardBodyRepresentation::RiggedParts
+                },
                 ..*depth
             });
         }
         if let Some(baked) = baked {
-            let opacity = if composited.is_some() { 1.0 } else { sample.frame_opacity };
+            let mut color = root_sprite.map_or(Srgba::WHITE, |sprite| sprite.color.to_srgba());
+            if composited.is_none() {
+                color.alpha *= sample.frame_opacity;
+            }
             let mut place = *root;
             place.translation.z = depth.plane_z;
             body_transform.set_if_neq(place);
@@ -1035,20 +1043,10 @@ pub(super) fn realize_card_bodies(
                 continue;
             };
             let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
-            let opacity = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
-            let material = cache.textured_material(&baked.image, [255, 255, 255, opacity], &mut materials);
-            let local = Transform::IDENTITY;
-            shown.clear();
-            shown.push((mesh.clone(), material, local));
-            if let Some(flash) = flash {
-                let silhouette = cache
-                    .flashes
-                    .entry((baked.image.id(), flash_key(flash)))
-                    .or_insert_with(|| materials.add(flash_material(&baked.image, flash)))
-                    .clone();
-                shown.push((mesh, silhouette, local.with_translation(Vec3::Z * FLASH_STEP * depth.order_scale)));
-            }
-            show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &shown);
+            let material = cache.textured_material(&baked.image, color.to_u8_array(), &mut materials);
+            show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &[
+                (mesh, material, Transform::IDENTITY),
+            ]);
             continue;
         }
         let (Some(draws), Some(feet)) = (sample.parts(), sample.feet) else {

@@ -834,6 +834,11 @@ shared value preparation are sufficient until source proves otherwise.
    use the same draw depth. An Ultra fixture shows a split helmet and held
    items with independent cuts in all three views.
 
+   Both views use the same additive material for folded lights on devices
+   that support it. Blended folded meshes, such as electric shock, use the
+   color-mesh path. An Ultra fixture checks light strength, vertex colors,
+   and the world sprite that shows a body's countdown.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

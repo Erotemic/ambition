@@ -373,6 +373,9 @@ Show the terrain decor on the bridge deck. Let the author use
 `TerrainKeepOut` to keep plants off the road deck and the inspection walks.
 At Sprocket Row, show a body passing below the boiler and a body on top.
 Use the collision face to place the bottom of the raised boiler.
+On the Number 9 freight tail, show the roof and floor of each loading
+car with the gangway between cars. Show the ladder ends and the clearance
+for a body in each passage.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

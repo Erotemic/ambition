@@ -89,6 +89,9 @@ conscript starts on the wall. The spectral wolf starts on the road.
 ```
 
 - **Surface row:** the hamlet, the allotments and the moor, joined at the floor; the moor joins the gate forest (and the castle).
+- In the Crooked Lantern, the map shows the road, the ridge, and the
+  crypt. Climb from the wood box or the bar to read it. Tobias and
+  Gudrun meet visitors on the floor.
 - **Under:** the crypt stair in the moor, west through the catacombs, up the shaft under plot 13 into the allotments.
   In the catacombs, the broken vault has a raised walk to the shrine. A
   conscript is on the walk and a crawler is below it.

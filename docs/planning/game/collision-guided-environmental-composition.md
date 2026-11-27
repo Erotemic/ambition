@@ -407,6 +407,9 @@ and show where a body can stop to open it after the jump across the hoist
 opening.
 In the Guild Room, show the conversation prompts at the lectern and the
 minutes desk. Show where a body on the floor can talk to either speaker.
+At the Crooked Lantern, use the door and stair connections to check the
+routes on the map. Show the map at the camera scale of a body on the
+gallery.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

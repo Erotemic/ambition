@@ -21,6 +21,9 @@
 //!   z), one [`CARD_BODY_STEP`] apart, nearer for a later one;
 //! - a body's parts are [`CARD_PART_STEP`] apart in paint order.
 //!
+//! A moving platform uses the same sprite frame in both views. A vessel's
+//! near and far sprite layers enclose its riders.
+//!
 //! # One picture, when the 2D view has one
 //!
 //! A body the 2D view composites (a fading frame, a flash, a warp, any reader
@@ -90,6 +93,7 @@
 
 mod gameplay;
 mod labels;
+mod paint_order;
 #[cfg(feature = "portal_render")]
 mod portal_windows;
 
@@ -115,14 +119,13 @@ use super::actors::rigged::{
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
-use super::moving_platforms::{PresentedVessels, SeatedInVessel, VesselBox, VesselOccurrence};
+use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
 use super::chain_skin::{ChainEarth, ChainTurfPiece};
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
 use super::primitives::PropVisual;
 use super::terrain_skin::TerrainSkinMesh;
 
-/// How deep a vessel's bed is, in world units: the pilot cart's authored
-/// thickness.
+/// The distance from the play plane to a vessel's far sprite layer.
 pub const VESSEL_DEPTH: f32 = 40.0;
 /// The gap between two bodies' card blocks on one depth.
 pub const CARD_BODY_STEP: f32 = 2.5;
@@ -161,10 +164,8 @@ const BACKDROP_DISTANCE: f32 = 1500.0;
 const FOREGROUND_DISTANCE: f32 = 1000.0;
 /// The width of a portal's line of light, in world units.
 pub const PORTAL_LINE_WIDTH: f32 = 3.0;
-/// The near panel's distance behind the play plane.
+/// The near sprite layer's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
-/// Panel and floor thickness.
-const BOARD: f32 = 3.0;
 /// How far the camera stands from what it looks at.
 const CAMERA_DISTANCE: f32 = 2000.0;
 
@@ -251,10 +252,6 @@ pub struct CardBody {
 #[derive(Component, Debug)]
 pub struct CardPart;
 
-/// The cart mesh of one vessel.
-#[derive(Component, Debug)]
-pub struct CardVessel;
-
 /// A card drawing one held or wielded item.
 #[derive(Component)]
 pub struct CardHeldArt;
@@ -311,8 +308,7 @@ impl Plugin for CardViewPlugin {
         app.init_resource::<CardViewSettings>();
         app.init_resource::<CardMeshes>();
         app.init_resource::<CardRootDepths>();
-        // Seating publishes its vessels only while this resource exists.
-        app.init_resource::<PresentedVessels>();
+        paint_order::install(app);
         app.add_systems(
             Update,
             (
@@ -321,7 +317,6 @@ impl Plugin for CardViewPlugin {
                 realize_card_bodies,
                 realize_card_sprite_bodies,
                 realize_card_held_art,
-                realize_card_vessels,
                 realize_card_terrain,
                 realize_card_scenery,
             )
@@ -333,6 +328,7 @@ impl Plugin for CardViewPlugin {
                 .after(super::hit_flash::sync_hit_flash_overlays)
                 .after(super::item_visuals::sync_held_item_visual)
                 .after(super::wielded_item_visuals::sync_wielded_item_visuals)
+                .after(super::moving_platforms::sync_moving_platform_visuals)
                 .after(super::moving_platforms::seat_bodies_in_vessels),
         );
         app.add_systems(
@@ -549,7 +545,7 @@ pub fn card_body_depth(seated: bool, rank: usize) -> f32 {
 #[derive(Resource, Default)]
 pub struct CardMeshes {
     meshes: HashMap<QuadKey, Handle<Mesh>>,
-    materials: HashMap<(AssetId<Image>, [u8; 4], bool), Handle<StandardMaterial>>,
+    materials: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
     /// Silhouettes, by page and the cue's colour and strength in bytes.
     flashes: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
 }
@@ -675,17 +671,16 @@ impl CardMeshes {
         &mut self,
         texture: &Handle<Image>,
         color: [u8; 4],
-        blend: bool,
         materials: &mut Assets<StandardMaterial>,
     ) -> Handle<StandardMaterial> {
-        self.materials.entry((texture.id(), color, blend)).or_insert_with(|| {
+        self.materials.entry((texture.id(), color)).or_insert_with(|| {
             materials.add(StandardMaterial {
                 base_color: Color::srgba_u8(color[0], color[1], color[2], color[3]),
                 base_color_texture: Some(texture.clone()),
                 unlit: true,
                 cull_mode: None,
                 double_sided: true,
-                alpha_mode: if blend { AlphaMode::Blend } else { AlphaMode::Mask(0.5) },
+                alpha_mode: AlphaMode::Blend,
                 ..default()
             })
         }).clone()
@@ -896,21 +891,7 @@ pub(super) fn realize_card_bodies(
             };
             let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
             let opacity = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
-            let material = cache
-                .materials
-                .entry((baked.image.id(), [255, 255, 255, opacity], opacity < 255))
-                .or_insert_with(|| {
-                    materials.add(StandardMaterial {
-                        base_color: Color::srgba(1.0, 1.0, 1.0, f32::from(opacity) / 255.0),
-                        base_color_texture: Some(baked.image.clone()),
-                        unlit: true,
-                        cull_mode: None,
-                        double_sided: true,
-                        alpha_mode: if opacity < 255 { AlphaMode::Blend } else { AlphaMode::Mask(0.5) },
-                        ..default()
-                    })
-                })
-                .clone();
+            let material = cache.textured_material(&baked.image, [255, 255, 255, opacity], &mut materials);
             let local = Transform::IDENTITY;
             shown.clear();
             shown.push((mesh.clone(), material, local));
@@ -957,8 +938,7 @@ pub(super) fn realize_card_bodies(
             if translucent {
                 color[3] = (f32::from(color[3]) * sample.frame_opacity).round() as u8;
             }
-            let blended = color[3] < 255;
-            let material = cache.textured_material(page, color, blended, &mut materials);
+            let material = cache.textured_material(page, color, &mut materials);
             let mut local = card_part_local(draw, index);
             local.translation.z *= depth.order_scale;
             if let Some(flash) = flash {
@@ -1022,7 +1002,7 @@ fn realize_card_held_art(
             }
             continue;
         };
-        let (mesh, material) = sprite_card(sprite, &frame, page_size, false, &mut meshes, &mut materials, &mut cache);
+        let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
         let card_place = sprite_card_place(place, depth.plane_z + held_art_card_offset(place.translation.z, depth.source_z) * depth.order_scale);
         match by_art.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut scope, mut card_visibility)) => {
@@ -1088,15 +1068,13 @@ fn sprite_card(
     sprite: &Sprite,
     frame: &BakedFrame,
     page_size: Vec2,
-    blend: bool,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     cache: &mut CardMeshes,
 ) -> (Handle<Mesh>, Handle<StandardMaterial>) {
     let mesh = cache.quad(TextureQuad::baked(frame, page_size), meshes);
     let color = sprite.color.to_srgba().to_u8_array();
-    let blended = blend || color[3] < 255;
-    let material = cache.textured_material(&frame.image, color, blended, materials);
+    let material = cache.textured_material(&frame.image, color, materials);
     (mesh, material)
 }
 
@@ -1139,7 +1117,7 @@ pub(super) fn realize_card_sprite_bodies(
             }
             continue;
         };
-        let (mesh, material) = sprite_card(sprite, &frame, page_size, false, &mut meshes, &mut materials, &mut cache);
+        let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
         let card_place = sprite_card_place(place, depth);
         match by_body.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
@@ -1212,21 +1190,7 @@ pub(super) fn realize_card_terrain(
             continue;
         };
         let color = skin.color.to_srgba().to_u8_array();
-        let material = cache
-            .materials
-            .entry((image.id(), color, true))
-            .or_insert_with(|| {
-                materials.add(StandardMaterial {
-                    base_color: skin.color,
-                    base_color_texture: Some(image.clone()),
-                    unlit: true,
-                    cull_mode: None,
-                    double_sided: true,
-                    alpha_mode: AlphaMode::Blend,
-                    ..default()
-                })
-            })
-            .clone();
+        let material = cache.textured_material(&image, color, &mut materials);
         let (scale, rotation, translation) = global.to_scale_rotation_translation();
         let place = Transform {
             translation: translation.truncate().extend(if earth {
@@ -1282,6 +1246,16 @@ fn scenery_depth(z: f32, front: f32) -> f32 {
     }
 }
 
+fn platform_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>) -> f32 {
+    if platform.front {
+        -NEAR_PANEL_GAP
+    } else if platform.sheet.as_ref().and_then(|key| looks?.0.get(key)).is_some_and(|look| look.front_row.is_some()) {
+        -VESSEL_DEPTH
+    } else {
+        PORTAL_DEPTH * 0.5
+    }
+}
+
 /// Realize each room prop and each piece of a line's turf as a card of the
 /// cell it draws, at its 2D place, on the depth its 2D band maps to
 /// ([`scenery_depth`]). A prop ranked as a body is left to the bodies.
@@ -1289,11 +1263,15 @@ fn scenery_depth(z: f32, front: f32) -> f32 {
 pub(super) fn realize_card_scenery(
     mut commands: Commands,
     scenery: Query<
-        (Entity, &Sprite, Option<&bevy::sprite::Anchor>, &GlobalTransform, Option<&InheritedVisibility>),
+        (
+            Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
+            Option<&InheritedVisibility>, Option<&MovingPlatformVisual>,
+        ),
         (
             Or<(
                 With<PropVisual>,
                 With<ChainTurfPiece>,
+                With<MovingPlatformVisual>,
                 With<super::item_visuals::GroundItemVisual>,
                 With<super::item_visuals::WorldItemVisual>,
                 With<super::projectile_visuals::ProjectileVisual>,
@@ -1302,6 +1280,7 @@ pub(super) fn realize_card_scenery(
         ),
     >,
     depths: Res<CardRootDepths>,
+    platform_looks: Option<Res<PlatformLooks>>,
     rooms: LiveRooms,
     mut cards: Query<
         (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
@@ -1318,7 +1297,7 @@ pub(super) fn realize_card_scenery(
         return;
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
-    for (entity, sprite, anchor, global, visibility) in &scenery {
+    for (entity, sprite, anchor, local, global, visibility, platform) in &scenery {
         let shown = visibility.is_none_or(|visibility| visibility.get())
             && sprite.color.alpha() > 0.0
             && !depths.roots.contains_key(&entity);
@@ -1331,12 +1310,14 @@ pub(super) fn realize_card_scenery(
             continue;
         };
         let (mesh, material) =
-            sprite_card(sprite, &frame, page_size, true, &mut meshes, &mut materials, &mut cache);
-        let (scale, rotation, translation) = global.to_scale_rotation_translation();
-        let card_place = sprite_card_place(
-            &Transform { translation, rotation, scale },
-            scenery_depth(translation.z, depths.fronts.get(&rooms.of(entity)).copied().unwrap_or(CARD_BODY_STEP)),
-        );
+            sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
+        let card_place = if let Some(platform) = platform {
+            sprite_card_place(local, platform_depth(platform, platform_looks.as_deref()))
+        } else {
+            let place = global.compute_transform();
+            let front = depths.fronts.get(&rooms.of(entity)).copied().unwrap_or(CARD_BODY_STEP);
+            sprite_card_place(&place, scenery_depth(place.translation.z, front))
+        };
         match by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
                 if card_mesh.0 != mesh {
@@ -1439,7 +1420,7 @@ pub(super) fn realize_card_backdrop(
                 }
                 continue;
             };
-            let (mesh, material) = sprite_card(sprite, &cell, page_size, true, &mut meshes, &mut materials, &mut cache);
+            let (mesh, material) = sprite_card(sprite, &cell, page_size, &mut meshes, &mut materials, &mut cache);
             let card_place =
                 backdrop_card_place(camera_place, frame.plane_center, place.translation.truncate(), layer.z, scale);
             match by_panel.get(&(panel, camera)).and_then(|card| cards.get_mut(*card).ok()) {
@@ -1537,85 +1518,6 @@ pub(super) fn realize_card_portals(
             }
         }
     }
-}
-
-/// Realize each published vessel as a cart: a floor, a back panel, two
-/// sides and a near panel, recessed behind the play plane by the policy.
-pub(super) fn realize_card_vessels(
-    mut commands: Commands,
-    vessels: Option<Res<PresentedVessels>>,
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
-    mut boards: Query<&mut Transform, With<CardVessel>>,
-    meshes: Option<ResMut<Assets<Mesh>>>,
-    materials: Option<ResMut<Assets<StandardMaterial>>>,
-    mut assets: Local<Option<(Handle<Mesh>, [Handle<StandardMaterial>; 2])>>,
-    mut products: Local<RetainedEntities<(VesselOccurrence, usize)>>,
-) {
-    let (Some(vessels), Some(mut meshes), Some(mut materials)) = (vessels, meshes, materials) else {
-        return;
-    };
-    products.reconcile(&mut commands, |(key, _)| {
-        vessels.0.iter().any(|(current, bounds)| current == key && rooms.in_room(bounds.room).is_some())
-    });
-    if vessels.0.is_empty() {
-        return;
-    }
-    let (mesh, wood) = assets.get_or_insert_with(|| {
-        let wood = [Color::srgb(0.36, 0.23, 0.13), Color::srgb(0.55, 0.36, 0.2)];
-        (
-            meshes.add(Cuboid::from_size(Vec3::ONE)),
-            wood.map(|base_color| materials.add(StandardMaterial { base_color, unlit: true, ..default() })),
-        )
-    });
-    for (key, vessel) in &vessels.0 {
-        let Some(room) = rooms.in_room(vessel.room) else {
-            continue;
-        };
-        for (slot, (center, size, near)) in cart_boards(vessel, room.0.size).into_iter().enumerate() {
-            let key = (key.clone(), slot);
-            let place = Transform::from_translation(center).with_scale(size);
-            if let Some(mut board) = products.get(&key).and_then(|entity| boards.get_mut(*entity).ok()) {
-                board.set_if_neq(place);
-                continue;
-            }
-            let board = commands.spawn((
-                CardVessel,
-                CardScope::Room(vessel.room),
-                Mesh3d(mesh.clone()),
-                MeshMaterial3d(wood[usize::from(near)].clone()),
-                place,
-                RenderLayers::layer(CARD_VIEW_LAYER),
-                Name::new("Card cart board"),
-            )).id();
-            products.insert(key, board);
-        }
-    }
-}
-
-/// The cart's boards for a vessel, on the Bevy plane of a room `room_size`
-/// wide: (centre, size, near-side wood).
-pub fn cart_boards(vessel: &VesselBox, room_size: bevy::math::Vec2) -> [(Vec3, Vec3, bool); 5] {
-    let to_plane = |x: f32, y: f32| bevy::math::Vec2::new(x - room_size.x * 0.5, room_size.y * 0.5 - y);
-    let width = (vessel.right - vessel.left).max(BOARD);
-    let rim = vessel.rim.max(BOARD);
-    let mid_x = (vessel.left + vessel.right) * 0.5;
-    let bed = to_plane(mid_x, vessel.top);
-    let near_z = -NEAR_PANEL_GAP - BOARD * 0.5;
-    let back_z = -VESSEL_DEPTH;
-    let mid_z = (near_z + back_z) * 0.5;
-    let depth = near_z - back_z;
-    let panel_y = bed.y + rim * 0.5;
-    [
-        // The floor, under the bed.
-        (Vec3::new(bed.x, bed.y - BOARD * 0.5, mid_z), Vec3::new(width, BOARD, depth), false),
-        // The back panel.
-        (Vec3::new(bed.x, panel_y, back_z), Vec3::new(width, rim, BOARD), false),
-        // The two sides.
-        (Vec3::new(bed.x - width * 0.5, panel_y, mid_z), Vec3::new(BOARD, rim, depth), false),
-        (Vec3::new(bed.x + width * 0.5, panel_y, mid_z), Vec3::new(BOARD, rim, depth), false),
-        // The near panel, just behind the play plane.
-        (Vec3::new(bed.x, panel_y, near_z), Vec3::new(width, rim, BOARD), true),
-    ]
 }
 
 #[cfg(test)]
@@ -1966,33 +1868,67 @@ mod tests {
         assert_eq!(world.query_filtered::<(), With<CardPortal>>().iter(world).count(), 0, "it leaves with its glow");
     }
 
-    /// The declared depth policy: a seated body is behind the cart's near
-    /// panel, which is behind every body on the play plane; the back panel is
-    /// behind the seated body; and later bodies on one depth are nearer.
     #[test]
-    fn a_seated_body_is_between_the_cart_panels_and_others_are_in_front() {
-        let vessel = VesselBox {
-            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
-            left: 100.0,
-            right: 300.0,
-            top: 200.0,
-            rim: 12.0,
+    fn a_moving_cart_uses_its_two_sprite_layers_around_the_rider() {
+        use super::super::moving_platforms::PlatformLook;
+
+        let mut app = App::new();
+        app.init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<CardMeshes>()
+            .init_resource::<CardRootDepths>()
+            .insert_resource(PlatformLooks(HashMap::from([("cart".into(), PlatformLook {
+                sheet: None,
+                row: "body".into(),
+                frame_px: [80.0, 60.0],
+                span_px: [4.0, 76.0],
+                top_px: 32.0,
+                faces_right: true,
+                front_row: Some("rail".into()),
+                rim_px: Some(12.0),
+            })])))
+            .add_systems(Update, realize_card_scenery);
+        let origin = Vec3::new(25.0, 50.0, 5.0);
+        let mut spawn_layer = |front| {
+            let world = app.world_mut();
+            let image = world.resource_mut::<Assets<Image>>().add(Image::default());
+            let source = world.spawn((
+                Sprite::from_image(image.clone()),
+                Transform::from_translation(origin),
+                InheritedVisibility::VISIBLE,
+                MovingPlatformVisual { room: LiveRoomInstance::ACTIVATION, index: 0, sheet: Some("cart".into()), front },
+            )).id();
+            (source, image)
         };
-        let boards = cart_boards(&vessel, Vec2::new(800.0, 600.0));
-        let near = boards.iter().find(|(_, _, near)| *near).unwrap();
-        let back = boards[1];
-        let near_front = near.0.z + near.1.z * 0.5;
-        let near_back = near.0.z - near.1.z * 0.5;
+        let (back_source, back_image) = spawn_layer(false);
+        let (near_source, near_image) = spawn_layer(true);
+        app.update();
+
+        let draw_of = |app: &mut App, source| {
+            let world = app.world_mut();
+            let mut cards = world.query_filtered::<(Entity, &CardScope, &Transform, &MeshMaterial3d<StandardMaterial>), With<CardScenery>>();
+            let (card, _, place, material) = cards.iter(world)
+                .find(|(_, scope, ..)| **scope == CardScope::Source(source)).unwrap();
+            let material = world.resource::<Assets<StandardMaterial>>().get(&material.0).unwrap();
+            assert_eq!(material.alpha_mode, AlphaMode::Blend);
+            (card, place.translation, material.base_color_texture.clone().unwrap())
+        };
+        let (_, back, back_texture) = draw_of(&mut app, back_source);
+        let (near_card, near, near_texture) = draw_of(&mut app, near_source);
+        assert_eq!((back_texture, near_texture), (back_image, near_image));
+        assert_eq!(back.truncate(), origin.truncate());
+        assert_eq!(near.truncate(), origin.truncate());
         let seated = card_body_depth(true, 0);
         let free = card_body_depth(false, 0);
-        assert!(back.0.z + back.1.z * 0.5 < seated, "the seated body is in front of the back panel");
-        assert!(seated < near_back, "the seated body is behind the near panel");
-        assert!(near_front < free, "a body on the play plane is in front of the near panel");
+        assert!(back.z < seated && seated < near.z && near.z < free);
         assert!(card_body_depth(false, 1) > free && card_body_depth(true, 1) < seated);
-        assert!(card_body_depth(true, 100) > back.0.z + back.1.z * 0.5);
-        // The panel stands on the bed (y down in the world, up on the plane).
-        let bed = 600.0 * 0.5 - vessel.top;
-        assert!((near.0.y - near.1.y * 0.5 - bed).abs() < 1e-3);
-        assert!((near.1.y - vessel.rim).abs() < 1e-3);
+        assert!(card_body_depth(true, 100) > back.z);
+
+        app.world_mut().get_mut::<Transform>(near_source).unwrap().translation.x += 10.0;
+        app.update();
+        let (retained_card, moved, _) = draw_of(&mut app, near_source);
+        assert_eq!(retained_card, near_card);
+        assert_eq!(moved, near + Vec3::X * 10.0);
     }
 }

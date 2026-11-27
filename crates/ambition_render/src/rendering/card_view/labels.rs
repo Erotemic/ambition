@@ -164,7 +164,7 @@ pub(super) fn realize_card_labels(
             let Some(texture) = images.get_strong_handle(page) else {
                 continue;
             };
-            let material = cache.textured_material(&texture, color, true, &mut materials);
+            let material = cache.textured_material(&texture, color, &mut materials);
             let key = (source, page);
             if let Some(&entity) = retained.get(&key) {
                 let Ok((mut mesh, mut tint, mut transform)) = cards.get_mut(entity) else {

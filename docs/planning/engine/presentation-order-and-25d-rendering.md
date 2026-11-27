@@ -747,10 +747,11 @@ shared value preparation are sufficient until source proves otherwise.
    active and kept it paused while the cube was open.
 
    A card uses the existing portal capture mesh and texture for the far-side
-   window. Partial body traversal still needs P5/P6 work. Carts retain their
-   board entities and share a unit mesh. Seating records the vessel and seat
-   slot. Card quads use a geometry key with region, page size, anchor, and
-   flips.
+   window. Partial body traversal still needs P5/P6 work. Moving platforms
+   use their sprite frames. The cart's near layer covers seated riders and
+   its far layer stays behind them. Sprite cards blend texture alpha and
+   use plane depth for paint order in tilted views. Card quads use a
+   geometry key with region, page size, anchor, and flips.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,

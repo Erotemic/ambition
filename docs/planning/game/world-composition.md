@@ -198,6 +198,9 @@ conscript starts on the wall. The spectral wolf starts on the road.
 - At the orbital terminus, the floor leads past Dobbs to the docking
   bay. Steps at either end give access to the arrivals board and the
   viewing gallery. Jump across the gap at the shaft to use both decks.
+- In the docking bay, the west gantry and the east ladder lead to the
+  walk under the hauler. The shuttle steps join the east ladder at the
+  service deck. The floor continues to the tether terminus.
 - **Under:** down the manhole in the quad's street into the steam plant (catwalks, boilers), east on its floor into the Collider, up its stair to the quad: a loop.
 - **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
 - **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.

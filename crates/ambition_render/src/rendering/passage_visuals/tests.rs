@@ -298,6 +298,60 @@ fn a_themed_door_restores_the_current_theme_image() {
     assert!(app.world().get::<DoorOpening>(door).is_none());
 }
 
+#[test]
+fn a_scene_door_draws_its_named_skin_and_opening() {
+    use super::super::terrain_skin::dress_themed_doors;
+    use super::super::world::spawn_loading_zone;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d_world::rooms::{
+        LoadingZone, LoadingZoneActivation, LoadingZonePresentation, ZoneWay,
+    };
+    use ambition_sprite_sheet::game_assets::ParallaxTheme;
+    use bevy::ecs::system::RunSystemOnce;
+
+    let mut app = door_test_app();
+    app.add_systems(Update, sync_door_openings);
+    let closed = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
+    let strip = app.world_mut().resource_mut::<Assets<Image>>().reserve_handle();
+    put_strip_image(&mut app, &strip);
+    let mut assets = GameAssets::default();
+    let skin = ParallaxTheme::new("gallery");
+    assets.room_dressing.insert(skin, RoomDressingPart::Door, closed.clone());
+    assets.room_dressing.insert(skin, RoomDressingPart::DoorOpening, strip.clone());
+    let room = ae::World::new("hub", ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new());
+    let zone = LoadingZone {
+        id: "gallery".into(),
+        name: "Gallery".into(),
+        activation: LoadingZoneActivation::Door,
+        aabb: ae::Aabb::new(ae::Vec2::splat(100.0), ae::Vec2::new(24.0, 48.0)),
+        presentation: LoadingZonePresentation::SceneDoor { skin: skin.key().into() },
+    };
+    let world = app.world_mut();
+    spawn_loading_zone(
+        &mut world.commands(),
+        SessionSpawnScope::UNSCOPED,
+        &room,
+        &zone,
+        ZoneWay::BothWays,
+        Some(&assets),
+        Some(ParallaxTheme::new("hub")),
+    );
+    world.flush();
+    world.insert_resource(assets);
+    world.run_system_once(dress_themed_doors).unwrap();
+    let door = world.query_filtered::<Entity, With<LoadingZoneVisual>>().single(world).unwrap();
+    assert_eq!(world.get::<Sprite>(door).unwrap().image, closed);
+    set_open_door(&mut app, &zone.id);
+    app.update();
+    app.update();
+    let sprite = app.world().get::<Sprite>(door).unwrap();
+    assert_eq!(sprite.image, strip);
+    assert_eq!(sprite.texture_atlas.as_ref().unwrap().index, 5);
+    app.insert_resource(ambition_sim_view::PassageViews::default());
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(door).unwrap().image, closed);
+}
+
 fn door_test_app() -> App {
     let mut app = App::new();
     app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());

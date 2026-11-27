@@ -54,7 +54,7 @@ impl LoadingZoneActivation {
 pub const SECRET_ZONE_PREFIX: &str = "secret_";
 
 /// The authored appearance of one loading zone. Discovery remains separate.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LoadingZonePresentation {
     #[default]
     Default,
@@ -62,6 +62,8 @@ pub enum LoadingZonePresentation {
     SceneArt,
     /// The scene supplies the label. Draw the marker with its animation.
     SceneLabel,
+    /// The scene supplies the label and selects a door skin.
+    SceneDoor { skin: String },
 }
 
 /// A non-colliding rectangular trigger that swaps the active room.
@@ -82,6 +84,13 @@ impl LoadingZone {
 
     pub fn shows_label(&self) -> bool {
         self.presentation == LoadingZonePresentation::Default && !self.is_secret()
+    }
+
+    pub fn door_skin(&self) -> Option<&str> {
+        match &self.presentation {
+            LoadingZonePresentation::SceneDoor { skin } => Some(skin),
+            _ => None,
+        }
     }
 
     /// Whether the body's path reaches this opening. The body's center

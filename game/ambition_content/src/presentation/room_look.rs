@@ -1100,7 +1100,7 @@ fn dress_doors<M: RoomLook>(
             continue;
         }
         let Some(zone) = spec.loading_zones.iter().find(|zone| {
-            zone.id == visual.id && matches!(zone.activation, LoadingZoneActivation::Door)
+            zone.id == visual.id && matches!(zone.activation, LoadingZoneActivation::Door) && zone.door_skin().is_none()
         }) else {
             continue;
         };

@@ -6,7 +6,8 @@ This is the repository operating guide for coding agents. Keep it short, session
 > with side loading zones (`EdgeExit`). Use jumpable platforms or steps
 > for elevation changes. Reserve ladders for rare, deliberate uses and
 > loading-zone `Door` for thresholds such as overworld entrances into
-> dungeons or buildings. Read the
+> dungeons or buildings. The Sandbox (`sandbox.ldtk`) may use doors
+> between rooms. Read the
 > [level connection rules](docs/concepts/level-connections.md) before you
 > lay out rooms.
 

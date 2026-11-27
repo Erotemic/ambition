@@ -17,10 +17,11 @@ last_verified: 2026-11-27
 
 > [!IMPORTANT]
 > **A side loading zone is the standard connection between rooms in one
-> region. Use a loading-zone `Door` only at a clear threshold between
-> places, such as the entrance from an overworld into a dungeon or a
-> building. Use jumpable platforms or steps to change height. Ladders
-> are a rare exception.**
+> region. Outside the Sandbox, use a loading-zone `Door` only at a clear
+> threshold between places, such as the entrance from an overworld into a
+> dungeon or a building. The Sandbox (`sandbox.ldtk`) may use doors
+> between rooms. Use jumpable platforms or steps to change height.
+> Ladders are a rare exception.**
 
 A room boundary divides the map for loading. A path through that boundary
 continues into the next room. A player who walks east through an opening
@@ -41,8 +42,8 @@ must arrive on the west side of the next room, on the same path.
    such as a `LockWall` across the passage. Keep the edge exit at the room
    boundary. This lets the player walk through the same passage after the
    barrier opens.
-5. For each loading-zone `Door`, name the threshold it represents. If
-   both sides are rooms along one continuous route, lay out that route
+5. Outside the Sandbox, name the threshold for each loading-zone `Door`.
+   If both sides are rooms along one continuous route, lay out that route
    and join the rooms at their edges.
 
 Use ladders sparingly. A ladder gives the player one way to go up. Platforms

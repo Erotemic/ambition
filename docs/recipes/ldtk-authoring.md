@@ -10,7 +10,8 @@ related_docs:
 # LDtk authoring
 
 > [!IMPORTANT]
-> **Join rooms with edge exits. Use platforms for climbs.** Read the
+> **Join rooms with edge exits. The Sandbox may use doors between rooms.
+> Use platforms for climbs.** Read the
 > [level connection rules](../concepts/level-connections.md) before you
 > add rooms or loading zones.
 

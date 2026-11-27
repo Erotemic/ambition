@@ -1,7 +1,8 @@
 # Ambition LDtk Tools
 
 > [!IMPORTANT]
-> **Use edge exits between adjacent rooms. Use platforms for climbs.** Read the
+> **Use edge exits between adjacent rooms. The Sandbox may use doors between
+> rooms. Use platforms for climbs.** Read the
 > [level connection rules](../../docs/concepts/level-connections.md) before
 > you lay out a level or add a loading zone.
 

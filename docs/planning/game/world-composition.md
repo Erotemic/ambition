@@ -97,6 +97,8 @@ conscript starts on the wall. The spectral wolf starts on the road.
   sarcophagus. A Shock Warden guards the floor below.
   In the catacombs, the broken vault has a raised walk to the shrine. A
   conscript is on the walk and a crawler is below it.
+  In the ossuary, both side plinths give access to the signet altar. The
+  floor leads past the six busts to the broken wall.
 - **Over:** the moor's watchtower up onto the ridge; west along it, over the plank bridge, onto Gallows Hill and down the hamlet's bell tower. The bridge is dropped through onto the allotments' greenhouse (a shortcut down).
 - **Tests:** `game/ambition_app/tests/the_searchlight_moor.rs`.
 

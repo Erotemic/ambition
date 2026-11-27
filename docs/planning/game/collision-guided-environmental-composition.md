@@ -415,6 +415,8 @@ lid under the chest. Show which paths the floor guards can reach from
 their start positions.
 For route tests, load the room once. Restore the same start state for
 each set of inputs so the guards and doors start in the same state.
+In the ossuary, show the light from a visitor on each plinth. Check that
+the text and the altar edge are visible at the room's light level.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

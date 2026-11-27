@@ -20,7 +20,7 @@ use ambition_combat::held_items::HeldItem;
 use ambition_combat_port::{
     AimCast, AimCastPort, AimHit, BodySoundPort, BurstPort, EffectPort, EndModuleEntityPort, HitMarkPort,
     LaunchToucherPort, MarkPort, MarkView, ModuleEntityTickPort, MovementCooldownPort, PullBodiesPort, SetMarkPort,
-    SetVelocityPort,
+    SetVelocityPort, HangOnRopePort, LetGoOfRopePort,
     SpawnModuleEntityPort, SpendManaPort, TechniqueUse, TechniqueUsePort, WieldedAlternatePort, WieldedUsePort,
     Wielder, AIM_CAST_REACH,
 };
@@ -65,6 +65,8 @@ pub fn install(app: &mut App) {
     app.install_extension_submitted_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_bursts::<InWieldedUse>);
     app.install_extension_submitted_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
     app.install_extension_submitted_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
+    app.install_extension_submitted_request::<HangOnRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_hangs);
+    app.install_extension_submitted_request::<LetGoOfRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_releases);
     app.install_extension_submitted_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
     app.install_extension_submitted_request::<BodySoundPort, _>(
         WIELDED_USE,
@@ -396,6 +398,11 @@ fn wielder_of(
         names_spawns,
         cooldown_ready: cooldown.is_none_or(|cooldown| cooldown.ready()),
         swept: matches!(model, Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(_))),
+        on_rope: matches!(
+            model,
+            Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(axis))
+                if axis.state.wire.is_some_and(|wire| wire.held)
+        ),
     }
 }
 
@@ -873,6 +880,59 @@ fn lower_velocities<L: LowersIn>(mut outbox: ResMut<ExtensionOutbox>, mut bodies
             continue;
         };
         kin.vel = Vec2::from(submitted.value.velocity);
+    }
+}
+
+/// Lower `ambition.motion.hang_on_rope`: the body hangs from the anchor on a
+/// held rope, from where and how fast it is now. The kernel refuses a body
+/// that is not swept and a bite out of the rope's reach.
+fn lower_rope_hangs(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: Query<(&BodyKinematics, &ResolvedMotionFrame, &mut ambition_platformer2d_core::movement::MotionModel)>,
+) {
+    for submitted in outbox.drain::<HangOnRopePort>(&WIELDED_USE) {
+        let hang = submitted.value;
+        let Ok((kin, frame, mut model)) = bodies.get_mut(submitted.scope) else {
+            warn!("extension entry {} asked a body with no motion to hang on a rope; refused", submitted.entry);
+            continue;
+        };
+        let rope = ambition_platformer2d_core::GrappleRope {
+            max_angle: hang.max_angle,
+            swing_accel: hang.swing_accel,
+            reel_speed: hang.reel_speed,
+            min_length: hang.min_length,
+            max_length: hang.max_length,
+            release_hop: hang.release_hop,
+        };
+        let anchor = Vec2::from(hang.anchor);
+        if !ambition_platformer2d_core::catch_the_grapple(&mut model, kin.pos, kin.vel, frame.get(), anchor, rope) {
+            debug!("extension entry {}: the rope from {anchor:?} did not take {:?}", submitted.entry, submitted.scope);
+        }
+    }
+}
+
+/// Lower `ambition.motion.let_go_of_rope`: a body on a held rope leaves with
+/// the swing's speed, carried as the world's momentum.
+fn lower_rope_releases(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: Query<(
+        &mut BodyKinematics,
+        &ResolvedMotionFrame,
+        &mut ambition_platformer2d_core::movement::MotionModel,
+        Option<&mut ambition_platformer2d_core::BodyFlightState>,
+    )>,
+) {
+    for submitted in outbox.drain::<LetGoOfRopePort>(&WIELDED_USE) {
+        let Ok((mut kin, frame, mut model, flight)) = bodies.get_mut(submitted.scope) else {
+            continue;
+        };
+        let frame = frame.get();
+        if let Some(velocity) = ambition_platformer2d_core::let_go_of_the_wire(&mut model, frame) {
+            kin.vel = velocity;
+            if let Some(mut flight) = flight {
+                flight.carried_run = velocity.dot(frame.side());
+            }
+        }
     }
 }
 

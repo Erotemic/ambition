@@ -1,6 +1,6 @@
 # Grapple
 
-**Status:** asked by Jon 2026-11-27; G1 landed the same day; G2–G4 below, in order. Queue: GRAPPLE.
+**Status:** asked by Jon 2026-11-27; G1 and G2 landed the same day; G3–G4 below, in order. Queue: GRAPPLE.
 
 Jon (2026-11-27): *"make grapple a supported mechanic. The current
 implementation if any is broken. Grapple needs to be able to swing, it needs
@@ -66,6 +66,15 @@ A line is cast along the aim. What it bites decides what it does:
   the wire (and to let go); the grapple module swings on a bite above and zips
   otherwise; the rope is drawn while it holds. App witness in a real room and
   a capture of the swing.
+  *Landed:* two request ports in `wielded_use`, `ambition.motion.hang_on_rope`
+  (the rope's numbers travel with the request, so a module authors its own
+  rope) and `ambition.motion.let_go_of_rope` (the swing's speed, carried as
+  the world's momentum); the wielder reports `on_rope` (`wielded_use` v5,
+  `wielded_alternate` v2, `technique` v2). The grapple swings on a bite
+  within 1.2 rad of straight up, zips otherwise, and a press on the rope lets
+  go. Witness `ambition_app/tests/the_grapple_swings.rs` (sync-test session:
+  bite, swing through, jump release keeps the run). `capture_scene --grapple
+  X,Y[@TICK]` stages a swing for a film.
 - **G3 — grab and whip.** The cast reports the first body or item on the line;
   an item comes to the hand, a foe takes the line's hit.
 - **G4 — Smash recovery.** The same wire as a Smash move: a tether that swings

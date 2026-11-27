@@ -117,6 +117,10 @@ struct SceneCaptureConfig {
     /// tick on, and hold it there (`--squash F[@TICK]`), so the squashed look
     /// of a pinched body (crushing C6) is photographed with no press.
     squash: Option<(f32, u64)>,
+    /// Hang the primary player on the grapple's rope from a world point on a
+    /// sim tick (`--grapple X,Y[@TICK]`), as a bite there does, so a swing is
+    /// filmed with no press.
+    grapple: Option<(Vec2, u64)>,
     /// Hold the primary player's wallet at this many coins every tick
     /// (`--purse N`), so a death has coins for its fee to take.
     purse: Option<i32>,
@@ -406,6 +410,11 @@ OPTIONS:
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest or moving at VX,VY px/s;
                         repeat for more places
+    --grapple X,Y[@TICK]
+                        hang the player on the grapple's rope from world X,Y
+                        on sim tick TICK [default: 1], as a bite there does,
+                        from where and how fast it is; with --player-at and
+                        --frames, films a swing
     --player-dies TICK  the player dies on sim tick TICK (the ordinary death
                         report), to film its death; repeat for more deaths
     --purse N           hold the player's wallet at N coins until the first
@@ -1148,6 +1157,32 @@ fn squash_the_player(
     }
 }
 
+/// `--grapple`: the primary player hangs on the grapple's rope from the
+/// point, from where and how fast it is on the tick.
+fn hang_the_player(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut player: Query<
+        (&ae::BodyKinematics, &ambition_platformer2d::world::ResolvedMotionFrame, &mut ae::movement::MotionModel),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+) {
+    let Some((anchor, on)) = config.grapple else { return };
+    if tick.get() != on { return; }
+    let Ok((kin, frame, mut model)) = player.single_mut() else { return };
+    let rope = ambition_content::grapple_module::ROPE;
+    let rope = ae::GrappleRope {
+        max_angle: rope.max_angle,
+        swing_accel: rope.swing_accel,
+        reel_speed: rope.reel_speed,
+        min_length: rope.min_length,
+        max_length: rope.max_length,
+        release_hop: rope.release_hop,
+    };
+    let hung = ae::catch_the_grapple(&mut model, kin.pos, kin.vel, frame.get(), anchor, rope);
+    eprintln!("capture_scene: the player at {:?} hangs from {anchor:?} on tick {on}: {hung}", kin.pos);
+}
+
 /// `--player-dies` and `--purse`: the primary player's death on its ticks,
 /// and its wallet held.
 fn kill_and_pay_the_player(
@@ -1563,7 +1598,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, hold_player_flash, place_player_beside, place_player_at, kill_and_pay_the_player, squash_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
+        (hold_boss_health, blow_on_bosses, hold_player_flash, place_player_beside, place_player_at, kill_and_pay_the_player, squash_the_player, hang_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
     );
     if !app.world().resource::<SceneCaptureConfig>().gate_dials.is_empty() {
         app.add_systems(sim, dial_gates.before(ambition_platformer2d::session::rooms::gate_network::run_gate_network));
@@ -1836,6 +1871,7 @@ impl SceneCaptureConfig {
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
         let mut player_dies: Vec<u64> = Vec::new();
         let mut squash: Option<(f32, u64)> = None;
+        let mut grapple: Option<(Vec2, u64)> = None;
         let mut purse: Option<i32> = None;
         let mut player_climbs = false;
         let mut seam: Option<SeamCheck> = None;
@@ -2147,6 +2183,18 @@ impl SceneCaptureConfig {
                         .ok_or_else(|| "--squash requires a fraction in (0, 1]".to_string())?;
                     let tick = tick.parse::<u64>().map_err(|_| "--squash TICK must be a sim tick".to_string())?;
                     squash = Some((fraction, tick));
+                    2
+                }
+                "--grapple" => {
+                    let spec = args.get(i + 1).ok_or_else(|| "--grapple requires X,Y[@TICK]".to_string())?;
+                    let (at, tick) = spec.split_once('@').map_or((spec.as_str(), "1"), |(a, t)| (a, t));
+                    let (x, y) = at.split_once(',').ok_or_else(|| "--grapple requires X,Y".to_string())?;
+                    let point = Vec2::new(
+                        x.parse::<f32>().map_err(|_| "--grapple X must be a number".to_string())?,
+                        y.parse::<f32>().map_err(|_| "--grapple Y must be a number".to_string())?,
+                    );
+                    let tick = tick.parse::<u64>().map_err(|_| "--grapple TICK must be a sim tick".to_string())?;
+                    grapple = Some((point, tick));
                     2
                 }
                 "--purse" => {
@@ -2491,6 +2539,7 @@ impl SceneCaptureConfig {
                 player_at: Vec::new(),
                 player_dies: Vec::new(),
                 squash: None,
+                grapple: None,
                 purse: None,
                 player_climbs: false,
                 seam: None,
@@ -2599,6 +2648,7 @@ impl SceneCaptureConfig {
             player_at,
             player_dies,
             squash,
+            grapple,
             purse,
             player_climbs,
             seam,

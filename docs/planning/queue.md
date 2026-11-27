@@ -2828,9 +2828,13 @@ her velocity, a lightly damped swing the stick pumps, a reel on the stick
 within authored bounds, and a jump that lets go with the swing's speed plus a
 hop, carried as the world's momentum (`carried_run`).
 
-**Next action:** G2, the grapple item hangs its body on the wire through a
-port (swing on a bite above, zip otherwise) and the rope is drawn while it
-holds; then G3 (grab, whip) and G4 (Smash recovery).
+G2 landed the same day: the grapple item hangs its body on the wire
+(`ambition.motion.hang_on_rope`, `ambition.motion.let_go_of_rope`; the
+wielder's `on_rope`), swings on a bite above, zips otherwise, and the rope is
+drawn from the motion facts (`the_grapple_swings`).
+
+**Next action:** G3 (grab an item from a distance, whip a foe), then G4
+(Smash recovery).
 
 **Acceptance:** [grapple](game/grapple.md#stages) G1–G4.
 

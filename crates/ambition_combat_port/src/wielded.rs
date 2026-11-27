@@ -56,6 +56,8 @@ pub struct Wielder {
     pub cooldown_ready: bool,
     /// The body moves by the swept kernel (`MotionModel::AxisSwept`).
     pub swept: bool,
+    /// The body hangs on a held rope (`ambition.motion.hang_on_rope`).
+    pub on_rope: bool,
 }
 
 /// A bank pays a cost when it holds at least the cost less this. The bank's
@@ -88,7 +90,7 @@ impl Wielder {
 }
 
 impl Port for WieldedUsePort {
-    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 4);
+    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 5);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = Wielder;
 
@@ -128,6 +130,8 @@ ambition_extension_sdk::port_record! {
         cooldown_ready: bool,
         /// The body uses the swept motion model.
         swept: bool,
+        /// The body hangs on a held rope (a grapple's).
+        on_rope: bool,
     }
 }
 
@@ -150,7 +154,7 @@ ambition_extension_sdk::script_port!(WieldedUsePort);
 pub struct WieldedAlternatePort;
 
 impl Port for WieldedAlternatePort {
-    const KEY: PortKey = PortKey::new("ambition.items.wielded_alternate", 1);
+    const KEY: PortKey = PortKey::new("ambition.items.wielded_alternate", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = Wielder;
 
@@ -411,6 +415,7 @@ mod tests {
             names_spawns: true,
             cooldown_ready: false,
             swept: true,
+            on_rope: true,
         };
         let mut out = Vec::new();
         WieldedUsePort::encode(&w, &mut out);
@@ -427,6 +432,7 @@ mod tests {
         wire::put_bool(&mut expected, w.names_spawns);
         wire::put_bool(&mut expected, w.cooldown_ready);
         wire::put_bool(&mut expected, w.swept);
+        wire::put_bool(&mut expected, w.on_rope);
         assert_eq!(out, expected, "the structural description keeps the published wire format");
         let mut r = WireReader::new(&out);
         assert_eq!(WieldedUsePort::decode(&mut r).unwrap(), w);

@@ -175,6 +175,8 @@ pub mod worlds;
 pub mod portal;
 
 pub use plugin::AmbitionContentPlugin;
+/// The grapple's rope, for tools that stage a swing (`capture_scene --grapple`).
+pub use ambition_content_modules::grapple as grapple_module;
 
 /// Stable provider identity used by App-local content registries and the shell.
 pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";

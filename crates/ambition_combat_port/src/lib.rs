@@ -76,7 +76,8 @@ pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};
 pub use launch::LaunchDirection;
 pub use ray::{ArtPart, HeldRay, HeldRayPort, PartSpot, Spot};
 pub use motion::{
-    Destination, Effect, EffectPort, HitMark, HitMarkPort, MovementCooldown, MovementCooldownPort, ObserverSlow,
+    Destination, Effect, EffectPort, HangOnRope, HangOnRopePort, HitMark, HitMarkPort, LetGoOfRope, LetGoOfRopePort,
+    MovementCooldown, MovementCooldownPort, ObserverSlow,
     ObserverSlowPort, Place, SetVelocity,
     SetVelocityPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, Transit, TransitPort,
 };

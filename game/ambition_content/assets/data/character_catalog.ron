@@ -1662,6 +1662,11 @@
             move_style: Float,
             melee: Some(Lunge(windup_s: 0.62, active_s: 0.22, recover_s: 0.74, damage: 3, reach_px: 44.0, step_px: 0.0, rush_px: 142.0)),
         ),
+        // Lead rears onto its rear supports and drops its front mass.
+        "lead_elemental_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.86, active_s: 0.20, recover_s: 1.04, damage: 3, reach_px: 64.0, armored: true)),
+        ),
     },
 
     characters: {
@@ -17769,6 +17774,33 @@
                 provoked: ["You have been warned."],
                 on_hit: ["Danger!"],
             ),
+        ),
+        // Lead (Pb): a four-point beast of dense cast metal.
+        "lead_elemental": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Lead Elemental",
+            manifest: "sprites/lead_elemental_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(78.0),
+            composition: None,
+            default_action_set: "lead_elemental_slam",
+            death_traits: Some((corpse: Some(Stay))),
+            locomotion: Some((run_speed: 64.0, move_style: WalkHeavy)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 380.0,
+                attack_range: 62.0,
+                patrol_effort: 0.32,
+                chase_effort: 0.83,
+                attack_cooldown_s: 1.24,
+                shares_sightings: false,
+                tactics: (notice_s: 0.42),
+            )),
+            max_health: Some(9),
+            mass: Some(7.0),
+            tags: ["enemy", "science", "elemental", "chemical_element", "lead", "heavy_metal", "heavy"],
         ),
     },
 )

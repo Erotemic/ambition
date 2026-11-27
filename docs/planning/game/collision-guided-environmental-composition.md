@@ -411,6 +411,9 @@ gallery height.
 On the tether ascent, show the path of a body that leaves the car on
 each side. Show where the body lands and how it reaches the opening.
 Show the altitude signs from the car at their height.
+At the terminus, show the arrival position, the gap at the shaft,
+and the view through the window from the deck. Place the docking
+bay sign beside the exit that loads that room.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

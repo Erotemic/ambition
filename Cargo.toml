@@ -57,6 +57,8 @@ members = [
     "crates/ambition_encounter_features",
     "crates/ambition_vfx",
     "crates/ambition_binding",
+    "crates/ambition_replay_messages",
+    "crates/ambition_snapshot",
     "crates/ambition_platformer2d_core",
     "crates/ambition_input",
     "opinions/ambition_input_opinions",

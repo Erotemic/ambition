@@ -668,7 +668,7 @@ fn loop_contains_world_surface(loop_positions: &[ae::Vec2], world: &ae::World) -
     if loop_positions.len() < 4 {
         return false;
     }
-    let Some(loop_bounds) = polygon_bounds(loop_positions) else {
+    let Ok(Some(loop_bounds)) = ae::geometry::point_bounds(loop_positions.iter().copied()) else {
         return false;
     };
     world.blocks.iter().any(|block| {
@@ -694,20 +694,6 @@ fn polygon_touches_or_contains_aabb(poly: &[ae::Vec2], aabb: ae::Aabb) -> bool {
             .iter()
             .any(|(a, b)| segments_intersect_inclusive(segment[0], segment[1], *a, *b))
     })
-}
-
-fn polygon_bounds(points: &[ae::Vec2]) -> Option<ae::Aabb> {
-    let first = *points.first()?;
-    let (min, max) = points
-        .iter()
-        .copied()
-        .fold((first, first), |(min, max), p| {
-            (
-                ae::Vec2::new(min.x.min(p.x), min.y.min(p.y)),
-                ae::Vec2::new(max.x.max(p.x), max.y.max(p.y)),
-            )
-        });
-    Some(ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5))
 }
 
 fn aabb_witness_points(aabb: ae::Aabb) -> [ae::Vec2; 5] {

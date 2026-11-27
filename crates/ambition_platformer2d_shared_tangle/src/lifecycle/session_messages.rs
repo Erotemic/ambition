@@ -107,7 +107,7 @@ pub(super) fn clear_session_message_channels(
 }
 
 /// Empty every declared channel for a whole-session rewind, including kept
-/// channels. A room replay uses `begin_room_replay` and `end_room_replay`.
+/// channels. A room replay uses `with_room_replay`.
 pub fn clear_channels_for_a_rewind(world: &mut World) {
     let Some(channels) = world.get_resource::<SessionMessageChannels>() else {
         return;
@@ -118,19 +118,35 @@ pub fn clear_channels_for_a_rewind(world: &mut World) {
     }
 }
 
-/// Keep live message streams outside a room replay. Simulation readers use
-/// `ReplayMessageReader` so their live cursors stay with those streams.
+/// Isolate channels in registration order. If setup fails, restore the
+/// channels that already started before propagating the failure.
 pub(super) fn isolate_channels_for_room_replay(world: &mut World) {
-    let Some(channels) = world.get_resource::<SessionMessageChannels>() else { return };
-    let isolate: Vec<fn(&mut World)> = channels.replay.iter().map(|(isolate, _)| *isolate).collect();
-    for isolate in isolate { isolate(world); }
+    use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+
+    let operations = world.get_resource::<SessionMessageChannels>()
+        .map_or_else(Vec::new, |channels| channels.replay.clone());
+    let mut started = 0;
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        for (isolate, _) in &operations {
+            isolate(world);
+            started += 1;
+        }
+    }));
+    if let Err(error) = result {
+        for (_, restore) in operations[..started].iter().rev() {
+            restore(world);
+        }
+        resume_unwind(error);
+    }
 }
 
-/// Put back the streams that the room replay held at the live boundary.
+/// Restore channels in reverse order. Channel declarations have App lifetime.
 pub(super) fn restore_channels_after_room_replay(world: &mut World) {
-    let Some(channels) = world.get_resource::<SessionMessageChannels>() else { return };
-    let restore: Vec<fn(&mut World)> = channels.replay.iter().map(|(_, restore)| *restore).collect();
-    for restore in restore { restore(world); }
+    let Some(channels) = world.get_resource::<SessionMessageChannels>() else { return; };
+    let restore: Vec<_> = channels.replay.iter().rev().map(|(_, restore)| *restore).collect();
+    for restore in restore {
+        restore(world);
+    }
 }
 
 /// Install the clear on the activation edge.
@@ -172,6 +188,28 @@ mod tests {
             .init_resource::<Served>();
         declare(&mut app);
         app
+    }
+
+    #[test]
+    fn an_unwinding_room_replay_restores_its_live_messages() {
+        let mut app = host(clear_message_at_session_activation::<Request>);
+        let world = app.world_mut();
+        world.write_message(Request);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            crate::lifecycle::with_room_replay(
+                world,
+                crate::lifecycle::LiveRoomInstance::from_ordinal(1),
+                |world| {
+                    assert!(world.resource::<Messages<Request>>().is_empty());
+                    world.write_message(Request);
+                    world.write_message(Request);
+                    panic!("fail during replay");
+                },
+            )
+        }));
+        assert!(result.is_err());
+        assert!(!world.contains_resource::<crate::lifecycle::RoomReplay>());
+        assert_eq!(world.resource::<Messages<Request>>().len(), 1);
     }
 
     /// The request the old session wrote AFTER its reader ran: the reader does

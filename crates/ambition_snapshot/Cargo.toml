@@ -1,0 +1,18 @@
+[package]
+name = "ambition_snapshot"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Deterministic snapshot codecs and optional Bevy rollback registration."
+
+[features]
+default = []
+canonical = ["dep:serde"]
+ecs = ["dep:bevy_ecs"]
+math = ["dep:bevy_math"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+bevy_ecs = { version = "0.19.1", default-features = false, optional = true }
+bevy_math = { version = "0.19.1", default-features = false, features = ["std"], optional = true }

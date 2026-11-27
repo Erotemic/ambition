@@ -14,6 +14,14 @@ measurement so far.
 [extension execution](extension-state-and-execution.md), and
 [execution specialization](execution-specialization-and-work-selection.md).
 
+## Time and rollback foundations
+
+`ambition_time` uses `ambition_replay_messages` for message cursors and
+`ambition_snapshot` for value encoding and Bevy registration. Its dependency
+graph does not include the platformer core or Parry. The snapshot package
+offers canonical serde values, Bevy math adapters, and ECS registration as
+separate features. Geometry and hit types own their codecs.
+
 ## Selected boundaries
 
 Let the executable select its dependencies. A schema library should not

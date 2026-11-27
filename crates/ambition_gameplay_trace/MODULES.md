@@ -10,9 +10,10 @@
 | [`buffer`](src/buffer.rs) | The `GameplayTraceBuffer` resource: a rolling ring buffer of per-frame snapshots and discrete events that the game's recorder systems push into. |
 | [`dump`](src/dump.rs) | Dump writers: serialize a `GameplayTraceBuffer` to a timestamped markdown + JSON pair (`write_dump`, path/label helpers). |
 | [`model`](src/model.rs) | Serializable trace data shapes: the per-frame `GameplayTraceFrame` (player + platform + control state) and the discrete `GameplayTraceEvent` / `DumpReason` / `OobReason` enums, plus serde-friendly geometry mirrors (`TracePoint`, `TraceAabb`) that avoid leaking `bevy_math`/engine types into the JSON shape. |
+| [`pending_frames`](src/pending_frames.rs) | Hold diagnostic results until their simulation frame is confirmed. |
 | [`policy`](src/policy.rs) | Policy controlling whether gameplay traces may write files. |
 
-_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

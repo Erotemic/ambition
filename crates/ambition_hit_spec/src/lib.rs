@@ -196,3 +196,5 @@ impl HitGuard {
         *self == Self::default()
     }
 }
+
+mod snapshot_impls;

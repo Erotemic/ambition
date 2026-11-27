@@ -109,12 +109,7 @@ pub fn sim_random(domain: RandomDomain, context: RandomContext, tick: u64, salt:
 /// FNV-1a, spelled out rather than borrowed from `DefaultHasher`, whose output is
 /// explicitly not stable across releases.
 pub fn sim_salt_for_name(name: &str) -> u64 {
-    let mut hash: u64 = 0xCBF2_9CE4_8422_2325;
-    for byte in name.as_bytes() {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
-    }
-    hash
+    ambition_snapshot::hash::fnv1a(name.as_bytes())
 }
 
 /// A draw in `0..len`, or `None` for an empty range.

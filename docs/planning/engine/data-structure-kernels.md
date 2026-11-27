@@ -36,6 +36,19 @@ measured dependency cut needs it. Moving code alone has no runtime speed claim.
 The selected benefit is reusable algorithms with stable meanings and isolated
 measurements, not a new repository or submodule.
 
+## Point bounds and clipping
+
+`ambition_geometry` returns point bounds as coordinate limits. Empty input has
+no box. Nonfinite input is an error. Each caller selects its own response. A
+point or segment can have a box of zero area.
+
+The convex half-plane operation preserves points on the line and adds an
+intersection where an edge crosses it. Callers supply signed distance in their
+working precision and apply the area rule for their domain. The line-box
+interval uses closed slabs. Sweeps apply their motion threshold and test an
+allowed time range. Portal host depth applies its own forward limits. The
+moving-platform obstruction solver keeps its strict stationary contact rule.
+
 ## Existing mechanisms and independent customers
 
 | Source | Existing mechanism | Shared work to expose |

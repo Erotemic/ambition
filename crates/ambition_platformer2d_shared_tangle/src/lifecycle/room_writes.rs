@@ -243,17 +243,33 @@ pub fn room_replay_refusal(world: &World) -> Option<&'static str> {
     known.refusals.iter().find(|(_, refuses)| refuses(world)).map(|(name, _)| *name)
 }
 
-/// Begin the room's simulation scope and suspend live message streams.
+/// Start replay when the caller drives a full App update. Pair with
+/// end_room_replay. Use with_room_replay for a World-only replay.
 pub fn begin_room_replay(world: &mut World, room: LiveRoomInstance) {
     assert!(!world.contains_resource::<RoomReplay>(), "room replays cannot nest");
-    world.insert_resource(RoomReplay { room });
     super::session_messages::isolate_channels_for_room_replay(world);
+    world.insert_resource(RoomReplay { room });
 }
 
-/// Restore live message streams and leave the room's simulation scope.
+/// Restore the live streams and remove the room replay scope.
 pub fn end_room_replay(world: &mut World) {
     super::session_messages::restore_channels_after_room_replay(world);
     world.remove_resource::<RoomReplay>();
+}
+
+/// Run with private message streams for a room replay. Restore live streams
+/// before returning or propagating a panic. The caller owns simulation state.
+pub fn with_room_replay<R>(
+    world: &mut World,
+    room: LiveRoomInstance,
+    run: impl FnOnce(&mut World) -> R,
+) -> R {
+    use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+
+    begin_room_replay(world, room);
+    let result = catch_unwind(AssertUnwindSafe(|| run(world)));
+    end_room_replay(world);
+    result.unwrap_or_else(|panic| resume_unwind(panic))
 }
 
 #[cfg(test)]

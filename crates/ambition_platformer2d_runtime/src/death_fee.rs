@@ -72,9 +72,7 @@ impl DeathFees {
     /// The checksum projection: every fee owed and parcel lying, in order.
     pub fn probe(&self) -> u64 {
         let text = format!("{:?}", self);
-        text.bytes().fold(0xcbf2_9ce4_8422_2325u64, |hash, byte| {
-            (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
-        })
+        ambition_platformer2d_core::snapshot::checksum_bytes(text.as_bytes())
     }
 }
 
@@ -96,9 +94,7 @@ impl DeathFeesInRooms {
     /// The checksum projection, as [`DeathFees::probe`].
     pub fn probe(&self) -> u64 {
         let text = format!("{:?}", self);
-        text.bytes().fold(0xcbf2_9ce4_8422_2325u64, |hash, byte| {
-            (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
-        })
+        ambition_platformer2d_core::snapshot::checksum_bytes(text.as_bytes())
     }
 
     /// Note what `participant` has in `ledger` before `written` changes it.

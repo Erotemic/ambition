@@ -503,12 +503,11 @@ impl<T: Spatial> Layered<T> {
 
 /// The box around `points`.
 pub fn bounds_of(points: &[Vec2]) -> Aabb {
-    if points.is_empty() { return Aabb::new(Vec2::ZERO, Vec2::ZERO); }
-    if points.iter().any(|point| !point.is_finite()) { return UNBOUNDED; }
-    let (lo, hi) = points
-        .iter()
-        .fold((Vec2::splat(f32::MAX), Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
-    Aabb { min: lo, max: hi }
+    match crate::geometry::point_bounds(points.iter().copied()) {
+        Ok(Some(bounds)) => bounds,
+        Ok(None) => Aabb::new(Vec2::ZERO, Vec2::ZERO),
+        Err(_) => UNBOUNDED,
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

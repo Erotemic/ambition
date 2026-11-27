@@ -17,6 +17,5 @@ crate-type = ["rlib"]
 # this crate must stay reusable and headless.
 bevy = { version = "0.19.1", default-features = false }
 
-# The snapshot vocabulary: this crate encodes its own rollback state, and the
-# trait lives in the floor so the impls can live beside the types.
-ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_replay_messages = { path = "../ambition_replay_messages" }
+ambition_snapshot = { path = "../ambition_snapshot", features = ["ecs"] }

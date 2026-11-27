@@ -559,7 +559,8 @@ fn holds<P: Into<MaterialPlane>>(volume: &CombatVolume, planes: impl Iterator<It
             CombatVolume::Convex { .. } => outline.extend(volume.polygon().into_iter().flatten().map(Vec2::as_dvec2)),
         }
         for plane in planes {
-            clip_into(outline, plane.into(), kept);
+            let plane = plane.into();
+            ambition_geometry::polygon::clip_half_plane(outline, |p| plane.side(p), kept);
             std::mem::swap(outline, kept);
             if outline.len() < 3 {
                 return false;
@@ -928,7 +929,8 @@ fn cut_wide<P: Copy + Into<MaterialPlane>>(outline: Vec<Vec2>, planes: &[P]) -> 
     let mut outline: Vec<DVec2> = outline.into_iter().map(Vec2::as_dvec2).collect();
     let mut kept = Vec::with_capacity(outline.len() + planes.len());
     for plane in planes {
-        clip_into(&outline, (*plane).into(), &mut kept);
+        let plane = (*plane).into();
+        ambition_geometry::polygon::clip_half_plane(&outline, |p| plane.side(p), &mut kept);
         std::mem::swap(&mut outline, &mut kept);
         if outline.len() < 3 { return None; }
     }
@@ -940,21 +942,6 @@ pub(super) fn has_area(outline: &[DVec2]) -> bool {
     let extent = outline.iter().map(|p| (*p - origin).abs().max_element()).fold(0.0_f64, f64::max);
     let magnitude = outline.iter().map(|p| p.abs().max_element()).fold(extent, f64::max);
     twice_area(outline).abs() > f64::EPSILON * magnitude * extent * outline.len() as f64 * 32.0
-}
-
-/// `outline`'s part on `plane`'s inward side, into `kept`.
-fn clip_into(outline: &[DVec2], plane: MaterialPlane, kept: &mut Vec<DVec2>) {
-    kept.clear();
-    for i in 0..outline.len() {
-        let (a, b) = (outline[i], outline[(i + 1) % outline.len()]);
-        let (sa, sb) = (plane.side(a), plane.side(b));
-        if sa >= 0.0 {
-            kept.push(a);
-        }
-        if (sa >= 0.0) != (sb >= 0.0) {
-            kept.push(a + (b - a) * (sa / (sa - sb)));
-        }
-    }
 }
 
 fn twice_area(outline: &[DVec2]) -> f64 {
@@ -978,7 +965,7 @@ fn circles_meet(a: (DVec2, f64), b: (DVec2, f64), planes: &[MaterialPlane]) -> b
     let mut region = vec![lo, DVec2::new(hi.x, lo.y), hi, DVec2::new(lo.x, hi.y)];
     let mut kept = Vec::new();
     for plane in planes {
-        clip_into(&region, *plane, &mut kept);
+        ambition_geometry::polygon::clip_half_plane(&region, |p| plane.side(p), &mut kept);
         std::mem::swap(&mut region, &mut kept);
         if region.is_empty() { return false; }
     }

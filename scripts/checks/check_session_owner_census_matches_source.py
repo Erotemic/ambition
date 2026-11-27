@@ -110,7 +110,7 @@ REGISTRATION_ROOTS = ("crates", "game")
 #:
 #: ⚠ Every one of them takes `(owner, name, ...)` as its first two arguments, so
 #: one call-site shape covers all ten.
-REGISTRAR_TRAIT = REPO / "crates/ambition_platformer2d_core/src/snapshot.rs"
+REGISTRAR_TRAIT = REPO / "crates/ambition_snapshot/src/registration.rs"
 #: ⭐ RESOURCE AND COMPONENT METHODS BOTH (C03, 2026-10-07): a root family's
 #: members register as components, and a scan that asked only about resources
 #: would report every one of them unregistered.
@@ -162,8 +162,8 @@ def registration_methods() -> list[str]:
 def call_site_pattern(methods: list[str]) -> re.Pattern[str]:
     return re.compile(
         r"(?:" + "|".join(methods) + r")::<\s*([\w:]+)\s*>\s*\(\s*"
-        # The owner is an identifier, a path to one (`super::OWNER`) or a literal.
-        r'(?:[\w:]+|"[^"]*")\s*,\s*"([^"]+)"'
+        # A crate can also use its package name as the owner.
+        r'(?:[\w:]+|"[^"]*"|env!\("CARGO_PKG_NAME"\))\s*,\s*"([^"]+)"'
     )
 #: The trait's own forwarding definition — `::<T>(owner, name, detail, checksum)`,
 #: every argument an identifier and the generic a type PARAMETER. It is plumbing,

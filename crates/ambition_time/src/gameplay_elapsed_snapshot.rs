@@ -1,7 +1,7 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
 //! These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an impl to the
+//! `ambition_snapshot::snapshot` owns the trait and the orphan rule binds an impl to the
 //! crate owning the trait OR the type. The orphan rule is what proves this file is in the right
 //! crate: if a type moves, this stops compiling rather than drifting.
 //!
@@ -9,7 +9,7 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use ambition_platformer2d_core::snapshot::{Reader, SnapshotState, put_f32};
+use ambition_snapshot::snapshot::{Reader, SnapshotState, put_f32};
 
 /// An accumulating sim clock, and netcode.md's N3.1 checklist names it: *"`WorldTime`
 /// + every sim clock"*. A brain stamps `RememberedActor.last_seen` with it, so a rewind

@@ -7,6 +7,7 @@
 
 pub mod combat_volume;
 pub mod geometry;
+pub mod polygon;
 pub mod reference_frame;
 pub mod spatial;
 pub mod swing_shape;
@@ -21,3 +22,5 @@ pub use reference_frame::{
 };
 pub use swing_shape::SwingShape;
 pub use volume_shape::{VolumeShape, DUMMY_HALF};
+
+mod snapshot_impls;

@@ -70,39 +70,11 @@ pub fn map_aabb(
 /// The box that bounds the part of `b` on the `dir` side of the line through
 /// `point` (`dir` is the line's normal): exact for a cardinal `dir`.
 pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
-    bound_clipped(b, &[(point, dir)])
-}
-
-/// The box that bounds the part of `b` inside the half planes `(point, dir)`
-/// (each keeps `(p - point) . dir >= 0`): the box's corners clipped as a
-/// polygon, then bounded.
-fn bound_clipped(b: ae::Aabb, planes: &[(Vec2, Vec2)]) -> Option<ae::Aabb> {
-    let mut poly = vec![
-        Vec2::new(b.min.x, b.min.y),
-        Vec2::new(b.max.x, b.min.y),
-        Vec2::new(b.max.x, b.max.y),
-        Vec2::new(b.min.x, b.max.y),
-    ];
-    for &(point, dir) in planes {
-        let side = |p: Vec2| (p - point).dot(dir);
-        let mut out = Vec::with_capacity(poly.len() + 2);
-        for i in 0..poly.len() {
-            let (a, c) = (poly[i], poly[(i + 1) % poly.len()]);
-            let (sa, sc) = (side(a), side(c));
-            if sa >= 0.0 {
-                out.push(a);
-            }
-            if (sa >= 0.0) != (sc >= 0.0) {
-                out.push(a + (c - a) * (sa / (sa - sc)));
-            }
-        }
-        poly = out;
-        if poly.is_empty() {
-            return None;
-        }
-    }
-    let (min, max) = poly.iter().fold((Vec2::splat(f32::MAX), Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
-    ae::geometry::aabb_from_min_max(min.x, min.y, max.x, max.y)
+    let corners = [b.min, Vec2::new(b.max.x, b.min.y), b.max, Vec2::new(b.min.x, b.max.y)];
+    let mut clipped = Vec::with_capacity(6);
+    ae::polygon::clip_half_plane(&corners, |p| (p - point).dot(dir), &mut clipped);
+    let bounds = ae::geometry::point_bounds(clipped).ok().flatten()?;
+    (bounds.min.cmplt(bounds.max).all()).then_some(bounds)
 }
 
 /// Does `body` straddle `ap`'s plane within the opening? True when the plane

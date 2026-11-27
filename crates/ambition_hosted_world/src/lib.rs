@@ -1151,6 +1151,7 @@ fn write_row_ticks(
 
 pub mod room_rollback;
 mod input_clock;
+mod input_history;
 mod prediction;
 pub use prediction::{GuestPredictionStats, PredictsOwnBody};
 pub use room_rollback::{RewindsGuestRooms, RoomRollbackStats, REWIND_HORIZON};

@@ -54,7 +54,7 @@ pub(super) fn publish_carried_obstructions(
         let Some(behind) = clip_behind(aabb, mouth.pos, mouth.normal) else { continue };
         let (Ok(x), Ok(y)) = (map.vector(Vec2::X), map.vector(Vec2::Y)) else { continue };
         let mapped: Option<Vec<Vec2>> = behind.iter().map(|p| map.point(*p).ok()).collect();
-        let Some(mapped) = mapped.and_then(|points| bounds(&points)) else { continue };
+        let Some(mapped) = mapped.and_then(|points| ae::geometry::point_bounds(points).ok().flatten()) else { continue };
         let mapped = Aabb::new(mapped.center(), (mapped.half_size() - Vec2::splat(CLIP_INSET)).max(Vec2::ZERO));
         let Some(solids) = collision.room(room.map(InRoomInstance).as_ref()).and_then(|room| room.solids()) else { continue };
         // Which of these stop the part depends on the push, known only when
@@ -71,21 +71,7 @@ pub(super) fn publish_carried_obstructions(
 /// (the side the normal points away from), `None` when nothing of it is.
 fn clip_behind(aabb: Aabb, origin: Vec2, normal: Vec2) -> Option<Vec<Vec2>> {
     let corners = [aabb.min, Vec2::new(aabb.max.x, aabb.min.y), aabb.max, Vec2::new(aabb.min.x, aabb.max.y)];
-    let depth = |p: Vec2| (p - origin).dot(normal);
     let mut out = Vec::with_capacity(6);
-    for i in 0..4 {
-        let (a, b) = (corners[i], corners[(i + 1) % 4]);
-        let (da, db) = (depth(a), depth(b));
-        if da <= 0.0 { out.push(a); }
-        if (da < 0.0 && db > 0.0) || (da > 0.0 && db < 0.0) {
-            out.push(a + (b - a) * (da / (da - db)));
-        }
-    }
+    ae::polygon::clip_half_plane(&corners, |p| -(p - origin).dot(normal), &mut out);
     (out.len() >= 3).then_some(out)
-}
-
-fn bounds(points: &[Vec2]) -> Option<Aabb> {
-    let first = *points.first()?;
-    let (min, max) = points.iter().fold((first, first), |(min, max), p| (min.min(*p), max.max(*p)));
-    Some(Aabb::new((min + max) * 0.5, (max - min) * 0.5))
 }

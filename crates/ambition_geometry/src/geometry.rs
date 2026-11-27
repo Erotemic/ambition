@@ -22,6 +22,34 @@ const CONTACT_EPS: f32 = 1.0e-4;
 /// (`ae` is the usual alias for `ambition_platformer2d_core`).
 pub type Aabb = Aabb2d;
 
+/// A point with a nonfinite coordinate prevents a finite bound.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NonFinitePoint;
+
+/// Return the coordinate limits of the points. An empty set has no box.
+/// A point or line can have a box with zero width or height.
+pub fn point_bounds(points: impl IntoIterator<Item = Vec2>) -> Result<Option<Aabb>, NonFinitePoint> {
+    let mut points = points.into_iter();
+    let Some(first) = points.next() else {
+        return Ok(None);
+    };
+    if !first.is_finite() {
+        return Err(NonFinitePoint);
+    }
+    let mut bounds = Aabb {
+        min: first,
+        max: first,
+    };
+    for point in points {
+        if !point.is_finite() {
+            return Err(NonFinitePoint);
+        }
+        bounds.min = bounds.min.min(point);
+        bounds.max = bounds.max.max(point);
+    }
+    Ok(Some(bounds))
+}
+
 /// Construct an AABB from a minimum corner and a size.
 pub fn aabb_from_min_size(min: Vec2, size: Vec2) -> Aabb {
     Aabb::new(min + size * 0.5, size * 0.5)
@@ -428,79 +456,102 @@ fn reject_grazing_contact(
     }
 }
 
-/// The closed-form swept-AABB test: expand `rhs` by `lhs`'s half-extents, sweep
-/// `lhs`'s centre through it as a point, and take the latest entry against the
-/// earliest exit.
-///
-/// `None` means either no hit along `delta` or a penetrating start that this
-/// function declines. [`starts_overlapping`] tells them apart.
-///
-/// An axis with no motion is not divided. `delta.x == 0` gives infinite slab
-/// times, and `0.0 / 0.0` on a face is a NaN that turns a hit into a miss.
-/// The zero-motion axis uses containment instead.
-fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
-    let half = lhs.half_size();
-    let min_x = rhs.left() - half.x;
-    let max_x = rhs.right() + half.x;
-    // `top`/`bottom` follow this crate's screen-space convention, where `top` is
-    // the smaller y. Expanding outward therefore subtracts from `top`.
-    let min_y = rhs.top() - half.y;
-    let max_y = rhs.bottom() + half.y;
-    let p = lhs.center();
+/// The closed parameter interval inside an axis-aligned box.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AabbLineInterval {
+    pub enter: f32,
+    pub exit: f32,
+    /// The first axis on a tie. None if no axis sets the entry.
+    pub entry_axis: Option<usize>,
+}
 
-    let mut enter = f32::NEG_INFINITY;
-    let mut exit = f32::INFINITY;
-    // Which axis the last entry was on, and from which side. 0 = x, 1 = y.
-    let mut axis = 0usize;
-    let mut sign = 0.0f32;
-
-    for (index, (position, motion, lo, hi)) in
-        [(p.x, delta.x, min_x, max_x), (p.y, delta.y, min_y, max_y)]
-            .into_iter()
-            .enumerate()
-    {
-        if motion.abs() <= 1.0e-8 {
+/// Intersect a closed box with `origin + t * direction`. The caller sets the
+/// allowed range of `t`. A stationary axis must lie within the slab.
+/// Use finite coordinates and ordered box limits.
+pub fn aabb_line_interval(origin: Vec2, direction: Vec2, bounds: Aabb) -> Option<AabbLineInterval> {
+    let mut interval = AabbLineInterval {
+        enter: f32::NEG_INFINITY,
+        exit: f32::INFINITY,
+        entry_axis: None,
+    };
+    for axis in 0..2 {
+        let (position, motion) = (origin[axis], direction[axis]);
+        let (lo, hi) = (bounds.min[axis], bounds.max[axis]);
+        if motion == 0.0 {
             if position < lo || position > hi {
                 return None;
             }
             continue;
         }
         let inverse = 1.0 / motion;
-        let mut near = (lo - position) * inverse;
-        let mut far = (hi - position) * inverse;
+        let time = |edge| {
+            if inverse.is_finite() {
+                (edge - position) * inverse
+            } else {
+                (edge - position) / motion
+            }
+        };
+        let (mut near, mut far) = (time(lo), time(hi));
         if near > far {
             std::mem::swap(&mut near, &mut far);
         }
-        // `normal1` is the moving shape's outward face normal, not the surface
-        // normal, so it points along the motion on the entry axis. A box moving
-        // right contacts with its right face (+x).
-        let side = motion.signum();
-        if near > enter {
-            enter = near;
-            axis = index;
-            sign = side;
+        if near > interval.enter {
+            interval.enter = near;
+            interval.entry_axis = Some(axis);
         }
-        if far < exit {
-            exit = far;
+        if far < interval.exit {
+            interval.exit = far;
         }
-        if enter > exit {
+        if interval.enter > interval.exit {
             return None;
         }
     }
+    Some(interval)
+}
 
-    if enter > 1.0 || exit < 0.0 {
-        return None;
-    }
-    // A penetrating start belongs to Parry; see the caller.
-    if enter < 0.0 {
-        return None;
-    }
-    // Every axis was stationary and contained: the boxes overlap and are not
-    // moving apart. That is a penetrating start too.
-    if !enter.is_finite() {
-        return None;
+#[cfg(test)]
+mod bounds_tests {
+    use super::*;
+
+    #[test]
+    fn point_bounds_distinguish_empty_invalid_and_degenerate_sets() {
+        assert_eq!(point_bounds([]), Ok(None));
+        assert_eq!(point_bounds([Vec2::ZERO, Vec2::NAN]), Err(NonFinitePoint));
+        let min = Vec2::new(-f32::MAX, -3.0);
+        let max = Vec2::new(f32::MAX, -3.0);
+        assert_eq!(point_bounds([max, min]), Ok(Some(Aabb { min, max })));
+        assert_eq!(point_bounds([min]), Ok(Some(Aabb { min, max: min })));
     }
 
+    #[test]
+    fn a_line_parallel_to_and_on_a_box_edge_keeps_the_closed_interval() {
+        let bounds = Aabb { min: Vec2::ZERO, max: Vec2::ONE };
+        let hit = aabb_line_interval(Vec2::new(0.0, -2.0), Vec2::Y, bounds).unwrap();
+        assert_eq!((hit.enter, hit.exit, hit.entry_axis), (2.0, 3.0, Some(1)));
+        assert!(aabb_line_interval(Vec2::new(-0.1, -2.0), Vec2::Y, bounds).is_none());
+    }
+}
+
+/// Expand `rhs` by the half-extents of `lhs` and sweep its center through
+/// that box. [`starts_overlapping`] identifies a penetrating start.
+fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
+    let half = lhs.half_size();
+    let expanded = Aabb {
+        min: rhs.min - half,
+        max: rhs.max + half,
+    };
+    let sweep_component = |value: f32| if value.abs() <= 1.0e-8 { 0.0 } else { value };
+    let motion = Vec2::new(sweep_component(delta.x), sweep_component(delta.y));
+    let AabbLineInterval {
+        enter,
+        exit,
+        entry_axis,
+    } = aabb_line_interval(lhs.center(), motion, expanded)?;
+    if !(0.0..=1.0).contains(&enter) || exit < 0.0 {
+        return None;
+    }
+    let axis = entry_axis?;
+    let sign = motion[axis].signum();
     let normal1 = if axis == 0 {
         Vec2::new(sign, 0.0)
     } else {

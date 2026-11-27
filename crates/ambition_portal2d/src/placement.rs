@@ -97,19 +97,6 @@ fn material_fits(body: ae::BodyKinematics, portal: &PlacedPortal) -> Result<bool
 /// begins transit on contact. The carve opens only after transit begins.
 pub(crate) const TRANSIT_BEGIN_MARGIN: f32 = 6.0;
 
-/// The ray-parameter interval where `origin + t*dir` is inside `aabb` (slab
-/// method), or `None` if the ray never enters it.
-fn ray_interval(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, f32)> {
-    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
-    let t1 = (aabb.min - origin) * inv;
-    let t2 = (aabb.max - origin) * inv;
-    let near = t1.min(t2);
-    let far = t1.max(t2);
-    let t_near = near.x.max(near.y);
-    let t_far = far.x.min(far.y);
-    (t_near <= t_far).then_some((t_near, t_far))
-}
-
 /// How much solid host material is directly behind `frame`'s face along
 /// `-normal`, probed at the aperture center. Consecutive solid intervals that
 /// start at the face (within [`pp::SURFACE_GRACE`], for grid-snap error) are
@@ -130,7 +117,8 @@ pub fn host_material_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_de
     let dir = -frame.normal;
     let mut intervals: Vec<(f32, f32)> = occluders
         .iter()
-        .filter_map(|a| ray_interval(frame.origin, dir, *a))
+        .filter_map(|a| ae::geometry::aabb_line_interval(frame.origin, dir, *a))
+        .map(|interval| (interval.enter, interval.exit))
         .filter(|(near, far)| *far > 0.0 && *near < probe_depth)
         .collect();
     intervals.sort_by(|a, b| a.0.total_cmp(&b.0));

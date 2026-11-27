@@ -935,6 +935,7 @@ dependencies = [
 name = "ambition_geometry"
 version = "0.1.0"
 dependencies = [
+ "ambition_snapshot",
  "bevy_ecs",
  "bevy_math",
  "parry2d 0.26.1",
@@ -973,6 +974,7 @@ dependencies = [
 name = "ambition_hit_spec"
 version = "0.1.0"
 dependencies = [
+ "ambition_snapshot",
  "serde",
 ]
 
@@ -1403,7 +1405,9 @@ version = "0.1.0"
 dependencies = [
  "ambition_geometry",
  "ambition_hit_spec",
+ "ambition_replay_messages",
  "ambition_resource_spec",
+ "ambition_snapshot",
  "bevy_ecs",
  "bevy_math",
  "bincode",
@@ -1913,6 +1917,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_replay_messages"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+]
+
+[[package]]
 name = "ambition_resource_spec"
 version = "0.1.0"
 dependencies = [
@@ -2021,6 +2032,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_snapshot"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+ "bevy_math",
+ "serde",
+]
+
+[[package]]
 name = "ambition_sprite_fx"
 version = "0.1.0"
 dependencies = [
@@ -2064,7 +2084,8 @@ dependencies = [
 name = "ambition_time"
 version = "0.1.0"
 dependencies = [
- "ambition_platformer2d_core",
+ "ambition_replay_messages",
+ "ambition_snapshot",
  "bevy",
 ]
 

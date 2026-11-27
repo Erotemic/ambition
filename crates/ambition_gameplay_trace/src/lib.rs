@@ -14,6 +14,7 @@
 
 mod actor_trace;
 mod buffer;
+mod pending_frames;
 mod dump;
 mod model;
 mod policy;

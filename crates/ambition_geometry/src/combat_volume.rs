@@ -142,7 +142,7 @@ impl CombatVolume {
     /// ordered; the Parry shape is built from their convex hull.
     pub fn convex(points: Vec<Vec2>) -> Self {
         CombatVolume::Convex {
-            bounds: bounds_of_points(&points),
+            bounds: combat_bounds(points.iter().copied()),
             points,
         }
     }
@@ -155,7 +155,7 @@ impl CombatVolume {
                 center,
                 half,
                 rotation,
-            } => bounds_of_points(&obb_corners(*center, *half, *rotation)),
+            } => combat_bounds(obb_corners(*center, *half, *rotation)),
             CombatVolume::Circle { center, radius } => Aabb::new(*center, Vec2::splat(*radius)),
             CombatVolume::Convex { bounds, .. } => *bounds,
         }
@@ -470,17 +470,12 @@ pub fn convex_hull(points: &[Vec2]) -> Vec<Vec2> {
     hull
 }
 
-fn bounds_of_points(points: &[Vec2]) -> Aabb {
-    if points.is_empty() {
-        return Aabb::new(Vec2::ZERO, Vec2::ZERO);
+fn combat_bounds(points: impl IntoIterator<Item = Vec2>) -> Aabb {
+    match crate::geometry::point_bounds(points) {
+        Ok(Some(bounds)) => bounds,
+        Ok(None) => Aabb::new(Vec2::ZERO, Vec2::ZERO),
+        Err(_) => Aabb { min: Vec2::splat(f32::NEG_INFINITY), max: Vec2::splat(f32::INFINITY) },
     }
-    let mut min = points[0];
-    let mut max = points[0];
-    for p in &points[1..] {
-        min = min.min(*p);
-        max = max.max(*p);
-    }
-    Aabb { min, max }
 }
 
 fn pv(x: f32, y: f32) -> Vector {

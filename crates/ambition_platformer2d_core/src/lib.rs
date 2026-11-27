@@ -31,11 +31,11 @@ pub mod movement;
 pub mod navigation;
 pub mod player_state;
 pub mod resources;
-pub mod replay_messages;
+pub use ambition_replay_messages as replay_messages;
 pub mod rollback_registration;
 pub mod sim_random;
 pub mod rollback_kind;
-pub mod snapshot;
+pub use ambition_snapshot::{snapshot, snapshot_marker, snapshot_pod, snapshot_unit_enum};
 pub mod solid_lines;
 mod snapshot_impls;
 #[cfg(test)]
@@ -93,7 +93,7 @@ pub use ambition_geometry::reference_frame::{
 };
 pub use ambition_geometry::swing_shape::SwingShape;
 pub use ambition_geometry::volume_shape::{VolumeShape, DUMMY_HALF};
-pub use ambition_geometry::{combat_volume, geometry, reference_frame, swing_shape, volume_shape};
+pub use ambition_geometry::{combat_volume, geometry, polygon, reference_frame, swing_shape, volume_shape};
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on
 /// every non-rollback host, where it means "confirm everything".
 pub use confirmed_frame::{

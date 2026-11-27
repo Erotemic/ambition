@@ -6,7 +6,7 @@
 //! every requester; other regimes change the policy table rather than the callers.
 
 use bevy::prelude::*;
-use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
+use ambition_replay_messages::ReplayMessageReader;
 
 use crate::{ClockDomain, ClockObserver, ClockState};
 

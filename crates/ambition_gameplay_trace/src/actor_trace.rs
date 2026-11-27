@@ -19,7 +19,7 @@
 use crate::{timestamp_label, CollisionTraceShape, TraceAabb, TracePoint};
 use bevy::prelude::Resource;
 use serde::Serialize;
-use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::{fs, io};
@@ -196,8 +196,7 @@ pub struct ActorTraceBuffer {
     pub last_dump_path: Option<String>,
     pub last_dump_status: Option<String>,
     /// Correctable per-frame OOB truth awaiting the GGRS confirmation line.
-    pending_oob: BTreeMap<(u64, i32), PendingActorAssessment>,
-    pending_oob_session: Option<u64>,
+    pending_oob: crate::pending_frames::PendingFrames<PendingActorAssessment>,
 }
 
 impl Default for ActorTraceBuffer {
@@ -218,8 +217,7 @@ impl ActorTraceBuffer {
             min_context_frames: DEFAULT_MIN_CONTEXT_FRAMES,
             last_dump_path: None,
             last_dump_status: None,
-            pending_oob: BTreeMap::new(),
-            pending_oob_session: None,
+            pending_oob: Default::default(),
         }
     }
 
@@ -248,31 +246,17 @@ impl ActorTraceBuffer {
             auto_dump_eligible: self.frames.len() >= self.min_context_frames,
         };
 
-        if let Some(identity) = identity {
-            let session = identity.0;
-            if self.pending_oob_session != Some(session) {
-                self.pending_oob.clear();
-                self.pending_oob_session = Some(session);
-                self.oob_disarmed.clear();
-            }
-            self.pending_oob.insert(identity, assessment);
+        if self.pending_oob.select_session(identity.map(|(session, _)| session)) {
+            self.oob_disarmed.clear();
+        }
+        if let Some((_, frame)) = identity {
+            self.pending_oob.replace(frame, assessment);
             if let Some(confirmed) = confirmed {
-                let ready: Vec<_> = self
-                    .pending_oob
-                    .range((session, i32::MIN)..=(session, confirmed))
-                    .map(|(identity, _)| *identity)
-                    .collect();
-                for identity in ready {
-                    if let Some(assessment) = self.pending_oob.remove(&identity) {
-                        self.apply_oob_assessment(assessment);
-                    }
+                for assessment in self.pending_oob.take_confirmed(confirmed) {
+                    self.apply_oob_assessment(assessment);
                 }
             }
         } else {
-            if self.pending_oob_session.take().is_some() {
-                self.pending_oob.clear();
-                self.oob_disarmed.clear();
-            }
             self.apply_oob_assessment(assessment);
         }
 

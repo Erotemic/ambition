@@ -31,12 +31,7 @@ pub struct PortalLink(pub u64);
 /// FNV-1a 64-bit hash of a link string. Stable across runs (unlike
 /// `DefaultHasher`), so channel assignment is deterministic.
 pub fn link_hash(s: &str) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325;
-    for b in s.bytes() {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
+    ambition_platformer2d_core::snapshot::checksum_bytes(s.as_bytes())
 }
 
 /// The first channel of the link range. A hand-authored `cN` channel stops

@@ -1147,13 +1147,11 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "id": "geometry-is-the-floor",
         "crate": "ambition_geometry",
         "forbidden": "*",
+        "allowed": ["ambition_snapshot"],
         "reason": (
-            "Shapes, boxes and reference frames — the vocabulary every other "
-            "crate is written in terms of, and the one layer with no workspace "
-            "dependency at all. This is what `ambition_platformer2d_core`'s "
-            "contract used to say; the floor MOVED DOWN when the kernel was "
-            "carved out, and the guarantee has to move with it or it is not a "
-            "floor, it is a habit."
+            "Geometry owns shapes, bounds, and reference frames. Its only workspace "
+            "dependency supplies the codecs for its value types. Geometry cannot "
+            "depend on platformer simulation or composition."
         ),
     },
     {
@@ -1161,10 +1159,11 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "crate": "ambition_projectile_spec",
         "forbidden": "*",
         # The spawn port uses shared value contracts.
-        "allowed": ["ambition_extension_sdk", "ambition_hit_spec"],
+        "allowed": ["ambition_extension_sdk", "ambition_hit_spec", "ambition_snapshot"],
         "reason": (
             "Projectile spawn intent uses shared hit values and the portable "
             "extension SDK. Both are value contracts with no simulation or ECS. "
+            "Hit values use the primitive snapshot codecs. "
             "The projectile domain and engine composition stay above this seam."
         ),
     },
@@ -1195,13 +1194,13 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "id": "engine-core-is-the-floor",
         "crate": "ambition_platformer2d_core",
         "forbidden": "*",
-        # Shared value contracts contain no simulation or composition code.
-        "allowed": ["ambition_geometry", "ambition_resource_spec", "ambition_hit_spec"],
+        "allowed": [
+            "ambition_geometry", "ambition_resource_spec", "ambition_hit_spec",
+            "ambition_replay_messages", "ambition_snapshot",
+        ],
         "reason": (
-            "The body floor uses geometry and shared resource and hit values. "
-            "Hit values also serve pure content and projectile ports. The hit values have "
-            "no workspace dependencies. "
-            "No simulation domain or composition root belongs below core."
+            "The body floor uses geometry, value types, replay messages, and snapshot "
+            "codecs. No simulation domain or composition root belongs below core."
         ),
     },
     {

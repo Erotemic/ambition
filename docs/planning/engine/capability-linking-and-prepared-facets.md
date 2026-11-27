@@ -336,8 +336,9 @@ hand whose live moveset routes no `ranged` verb, so a held item with no
 shot leaves the body disabled rather than charging, and letting go
 restores the charge. The press emitter, the charge consumer's IN5 route
 check and the weapon-readiness read model all ask it; no executor flag
-sits beside the fold. `equip_equipment_row`, used only by tests, still
-rebuilds every family.
+sits beside the fold. `equip_equipment_row`, which rebuilt every family
+for tests only, was retired 2026-11-27: its one test now asks
+`effective_repertoire`.
 
 [`effective_repertoire`](../../../crates/ambition_characters/src/repertoire.rs)
 rebuilds both melee and ranged when either preset slot changes.
@@ -438,8 +439,8 @@ implicit second character-scale pass.
 
 **Remove:** the broad two-family rebuild, absence-of-verb as proof of
 charge ownership, and the touched action/readiness readers' independent
-reconstruction of this choice. Retire `equip_equipment_row` if its only
-remaining test customers can use the real fold. Keep one native
+reconstruction of this choice. (`equip_equipment_row` is retired; its
+test customer uses the real fold.) Keep one native
 specialization owner, the completed scale compiler and the existing
 per-frame permission boundary.
 

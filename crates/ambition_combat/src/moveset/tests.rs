@@ -3946,56 +3946,54 @@ fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
     );
 }
 
-/// The A3 equip contract `equip_equipment_row`: a grant-free row is read-time only
-/// (no moveset, no action-set change); a grant-bearing row overlays the verb and
-/// re-derives a moveset that PRESERVES the body's existing verbs.
+/// The A3 equip contract, through the one repertoire fold: a grant-free row is
+/// read-time only (the repertoire is the identity's), and a grant-bearing row
+/// adds its verb while the identity's own verbs survive.
 #[test]
-fn a3_equip_equipment_row_is_read_time_for_plain_rows_and_rebuilds_for_grants() {
-    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+fn a3_a_plain_row_changes_no_repertoire_and_a_granting_row_adds_its_verb() {
+    use ambition_characters::brain::action_set::{ActionSet, IdentityKit, RangedActionSpec};
     use ambition_characters::equipment::{EquipmentGrant, EquipmentRow, WornEquipment};
+    use ambition_characters::repertoire::{Hand, effective_repertoire};
     use ambition_entity_catalog::MovesetContract;
 
-    let mut actions = ActionSet::peaceful();
-    let mut worn = WornEquipment::default();
+    let mut signature = MovesetContract::default();
+    signature
+        .verbs
+        .insert("special".to_string(), "chain".to_string());
+    let identity = IdentityKit {
+        action_set: ActionSet::peaceful(),
+        moveset: signature,
+    };
 
-    // A grant-free grow-cap analog: returns None, touches neither.
+    // A grant-free grow-cap analog: worn, and the repertoire is the identity's.
     let grow_cap = EquipmentRow {
         id: "grow_cap".to_string(),
         ..Default::default()
     };
-    assert!(
-        equip_equipment_row(&mut actions, &mut worn, None, grow_cap).is_none(),
-        "a grant-free row wires no moveset — its effect is read-time"
-    );
-    assert!(actions.ranged.is_none(), "no grant, no action-set change");
+    let mut worn = WornEquipment::default();
+    worn.equip(grow_cap);
+    let plain = effective_repertoire(&identity, Some(&worn), Hand::Empty);
+    assert!(plain.action_set.ranged.is_none(), "no grant, no action-set change");
+    assert_eq!(plain.moveset, identity.moveset, "a grant-free row wires no moveset");
     assert!(worn.wears("grow_cap"), "but it is recorded as worn");
 
-    // A grant-bearing spark-blossom analog, equipped OVER a body that already has a
-    // signature verb: the rebuilt moveset gains "ranged" AND keeps the signature.
-    let mut current = MovesetContract::default();
-    current
-        .verbs
-        .insert("special".to_string(), "chain".to_string());
-    let blossom = EquipmentRow {
+    // A grant-bearing spark-blossom analog: "ranged" is added AND the
+    // signature verb is kept.
+    worn.equip(EquipmentRow {
         id: "spark_blossom".to_string(),
         grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(420.0, 6))],
         ..Default::default()
-    };
-    let rebuilt = equip_equipment_row(&mut actions, &mut worn, Some(&current), blossom)
-        .expect("a granted verb rebuilds a moveset");
+    });
+    let granted = effective_repertoire(&identity, Some(&worn), Hand::Empty);
     assert!(
-        rebuilt.move_for_verb(RANGED_VERB).is_some(),
+        granted.moveset.move_for_verb(RANGED_VERB).is_some(),
         "the granted ranged verb is fireable"
     );
     assert!(
-        rebuilt.verbs.contains_key("special"),
+        granted.moveset.verbs.contains_key("special"),
         "the body's existing signature verb survives the equip"
     );
-    assert!(
-        actions.ranged.is_some(),
-        "the grant overlaid the action set"
-    );
-    assert!(worn.wears("spark_blossom"));
+    assert!(granted.action_set.ranged.is_some(), "the grant overlaid the action set");
 }
 
 /// The accumulator lives on the persistent `MovePlayback`; the derived swing must COPY it

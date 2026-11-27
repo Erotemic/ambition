@@ -149,6 +149,7 @@ fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
         let walk_positions = match pair {
             [ORCHARD, WELL] => Some(((2720.0, 704.0), (96.0, 1536.0))),
             [HALL, GALLERY] => Some(((2464.0, 432.0), (96.0, 896.0))),
+            [GALLERY, APPROACH] => Some(((2464.0, 896.0), (96.0, 1344.0))),
             _ => None,
         };
         if let Some((east, west)) = walk_positions {
@@ -393,11 +394,8 @@ fn the_gallerys_levers_turn_it_over_and_back() {
     assert_eq!(sim.observation().resets, 0);
 }
 
-/// THE INVERSION GALLERY. The lever turns the room over; the robot walks
-/// the ceiling over the chasm, steps off the ceiling's step into the first
-/// portal, comes out of the hanging wall past the ceiling's hole, and the
-/// column of down field puts it on the ledge of GNU-ton's door. It only
-/// holds right.
+/// The robot walks across the ceiling and through the portal over the
+/// gap. It falls toward the east passage and walks into the Approach.
 #[test]
 fn the_inversion_gallery_is_crossed_on_its_ceiling() {
     let mut sim = room(GALLERY);
@@ -406,6 +404,7 @@ fn the_inversion_gallery_is_crossed_on_its_ceiling() {
     let up = until(&mut sim, 120, |_| base(), |sim| gravity(sim) == (0.0, -1.0) && sim.observation().on_ground);
     assert!(up.is_some(), "{}", trace(&mut sim, "the lever did not turn the room over"));
     let mut past_the_hole = false;
+    let mut falling_to_passage = false;
     let done = until(
         &mut sim,
         900,
@@ -413,15 +412,21 @@ fn the_inversion_gallery_is_crossed_on_its_ceiling() {
             let o = sim.observation();
             // Out of the hanging wall's portal, past the hole, still upside down.
             past_the_hole |= o.gravity_dir.1 < 0.0 && o.player_pos.0 > 2112.0;
+            falling_to_passage |= o.gravity_dir.1 > 0.0 && o.player_pos.0 > 2304.0;
             axis(1.0, 0.0)
         },
-        |sim| {
-            let o = sim.observation();
-            o.on_ground && o.gravity_dir.1 > 0.0 && (o.player_pos.1 - 872.0).abs() < 1.0 && o.player_pos.0 > 2304.0
-        },
+        |sim| sim.observation().active_room == APPROACH,
     );
-    assert!(done.is_some() && past_the_hole, "{}", trace(&mut sim, "the robot is not at GNU-ton's door"));
-    assert_eq!(sim.observation().resets, 0, "it never fell in the chasm or the hole");
+    assert!(done.is_some() && past_the_hole && falling_to_passage, "{}", trace(&mut sim, "the robot did not reach the Approach"));
+    let landed = until(&mut sim, 120, |_| base(), |sim| {
+        let o = sim.observation();
+        o.on_ground && (o.player_pos.1 - 1320.0).abs() < 1.0
+    });
+    assert!(landed.is_some(), "{}", trace(&mut sim, "land on the Approach floor"));
+    assert_eq!(sim.observation().resets, 1, "only the room change resets the body");
+    cross_edge(&mut sim, GALLERY, axis(-1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 872.0).abs() < 1.0);
 }
 
 /// THE SHOULDERS. GNU-ton rides his giant here under his own placement, and
@@ -495,7 +500,7 @@ fn his_fight_here_opens_his_portals() {
 }
 
 
-/// THE APPROACH. From the gallery's door, a robot that holds right walks
+/// THE APPROACH. From the gallery passage, a robot that holds right walks
 /// into the column against the tower, falls up along its face, and out of
 /// the column over its top drops onto the tower, by GNU-ton's door.
 #[test]

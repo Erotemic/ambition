@@ -55,9 +55,9 @@ whose west side is now an edge.
 | `frontier_freight_tail` | Hollis Teague is on the caboose. Gangways connect the two loading cars at deck height. Ladders connect the gangways to the roofs. The decks lead to the flat car. |
 | `frontier_freight_cars` | The tank car leads to an ore hopper. The sorting car has a deck passage to the flat car. A One-Armed Bandit guards the roof above it. Ladders connect the passage and the roof at both ends. |
 | `frontier_rustler_head` | The Multi-Armed Bandit guards the boxcar roof. Peyote Lean is on the tender. Cross the cab on the footplate or on its roof. The pilot leads into Clinker Flats. |
-| `frontier_clinker_yard` | Clinker Flats' yard: the dock (Lou Shunter), the tipple road up to the works |
-| `frontier_clinker_works` | the smelter works: furnace house, slag pots, crane gantry (Magda Ferro) |
-| `frontier_clinker_row` | the Row under the works: shacks, the pump on a cinder hump (Ida Soames) |
+| `frontier_clinker_yard` | Lou Shunter is at the freight dock. The tipple road leads to the works. An inspection ladder connects it to the tracks, which lead to the Row. |
+| `frontier_clinker_works` | The walking lane passes in front of the slag pots. The loading step and the ladder give access to the crane gantries. Magda Ferro is at the foot of the crane. |
+| `frontier_clinker_row` | The street leads past Ida Soames and the pump. Wash stands give access to the roofs. A drying deck connects the roofs and gives access to the pump. |
 | `frontier_clinker_railhead` | the old tramway grade down from the works, the line east to Pad Three |
 
 Clinker Flats is a loop: the yard's tipple road and the railhead's grade

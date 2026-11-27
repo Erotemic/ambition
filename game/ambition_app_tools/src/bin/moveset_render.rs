@@ -90,9 +90,8 @@ OPTIONS:
     --repress TICKS  press the verb again on these exercise ticks (a comma
                      list), to photograph a string: `--repress 16,32`
     --out DIR        directory for the PNGs and manifest.json  [default: /tmp/moveset_render]
-                     QUALITY: the pictures are at the `low` visual quality
-                     profile unless `AMBITION_QUALITY_PROFILE` names another.
-                     To judge art, name `high` or `ultra`. Never `potato`.
+                     QUALITY: the default is `medium`. Set
+                     `AMBITION_QUALITY_PROFILE` to use another profile.
     --frames N       how many pictures                          [default: 24]
     --stride K       simulation ticks between pictures          [default: 1]
     --adapter WHICH  auto | hardware | software                  [default: auto]
@@ -264,9 +263,7 @@ fn main() {
         print!("{USAGE}");
         return;
     }
-    // Before the app starts: textures are loaded for the profile. With no
-    // profile named, a software adapter seeds the potato tier, and a picture
-    // of that tier is not the game a player sees (Jon, 2026-10-12).
+    // Set the profile before the app loads textures.
     eprintln!(
         "moveset_render: visual quality `{}`",
         ambition_platformer2d::render::capture::name_capture_quality_profile()

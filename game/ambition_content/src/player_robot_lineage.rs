@@ -300,11 +300,25 @@ mod tests {
             .find(|row| row.animation == "idle")
             .expect("v3 has an idle row; it is the pose the standing body is read from");
         let (mut left, mut top, mut right, mut bottom) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
-        for rect in &idle.rects {
-            left = left.min(rect.off.0);
-            top = top.min(rect.off.1);
-            right = right.max(rect.off.0 + rect.w);
-            bottom = bottom.max(rect.off.1 + rect.h);
+        if record.drawn_from_parts {
+            // A part-drawn sheet publishes whole-frame rects: its silhouette
+            // is where its parts are drawn.
+            let flipbook = ambition_sprite_sheet::character::rigged::RiggedSpriteAsset::baked(&sprite_content, "player_robot_v3")
+                .expect("v3 is drawn from parts, so it publishes a flipbook");
+            for index in 0..idle.rects.len() {
+                let Some(extent) = flipbook.frame_extent("idle", index) else { continue };
+                left = left.min(extent.min.x.floor() as i32);
+                top = top.min(extent.min.y.floor() as i32);
+                right = right.max(extent.max.x.ceil() as i32);
+                bottom = bottom.max(extent.max.y.ceil() as i32);
+            }
+        } else {
+            for rect in &idle.rects {
+                left = left.min(rect.off.0);
+                top = top.min(rect.off.1);
+                right = right.max(rect.off.0 + rect.w);
+                bottom = bottom.max(rect.off.1 + rect.h);
+            }
         }
 
         // NON-VACUITY, three ways. Without these the comparisons below pass
@@ -318,9 +332,9 @@ mod tests {
         );
         assert!(
             right - left < record.frame_width as i32 && bottom - top < record.frame_height as i32,
-            "v3's frames are untrimmed, so `off`/`w`/`h` describe the whole \
-             {}×{} logical frame instead of his alpha extent — this test would \
-             then pass on a body box of any size at all",
+            "v3's silhouette spans the whole {}×{} logical frame (untrimmed \
+             rects, or no part extent), so this test would pass on a body box \
+             of any size at all",
             record.frame_width,
             record.frame_height,
         );

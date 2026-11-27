@@ -527,14 +527,9 @@ OPTIONS:
                         so when a tier scales them to nothing.
 
 QUALITY:
-    A capture is taken at the `low` visual quality profile unless
-    `AMBITION_QUALITY_PROFILE` names another (potato, low, medium, high,
-    ultra). `low` has the backdrop (two layers), sprites at half resolution
-    and screen shaders at half strength. To judge art, name `high` or `ultra`.
-    Do not use `potato` to look at the game: it is the tier for a machine that
-    can not run it, with no backdrop and no screen shader. Measured 2026-09-01
-    in `water_world`: sprite coverage 631,267 at potato against 14,564,876 at
-    ultra (world units).
+    The default visual quality profile is `medium`. Set
+    `AMBITION_QUALITY_PROFILE` to use another profile. Use `potato` only for
+    performance measurements. It removes the backdrop and screen shaders.
     --fit-room          frame the whole room instead of a point
     -h, --help          print this and exit
 
@@ -2730,8 +2725,7 @@ impl ScreenEffect {
 /// The warning matters. `sync_screen_effect_settings_from_video_settings`
 /// clamps the global strength to
 /// `quality.budget.shaders.screen_shader_scale`, which is 0.0 on the Potato
-/// tier, and a software rasteriser (`llvmpipe`) is seeded to Potato on a first
-/// run. The effect then renders as nothing while every setting says it is on.
+/// tier. An enabled effect is invisible at that strength.
 ///
 /// Every frame, like `force_combat_overlay`, because the settings load and the
 /// quality seed both write this state and a Startup-only write races them.

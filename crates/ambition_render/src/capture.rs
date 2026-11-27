@@ -12,14 +12,8 @@ use bevy::render::view::Msaa;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{FrontHudCamera, MainCamera};
 
-/// The visual quality profile of a capture whose caller names none.
-///
-/// A capture is not a play session. On a machine with no GPU the first-run
-/// seed is Potato (`seed_profile_for_gpu`), which is the tier for a machine
-/// that can not run the game: it has no backdrop and no screen shader. A
-/// picture of that tier does not show the game a player sees. Low is the
-/// lowest tier a player is expected to choose, so it is the default here.
-pub const DEFAULT_CAPTURE_QUALITY_PROFILE: &str = "low";
+/// Use Medium for captures to give visual comparisons a common baseline.
+pub const DEFAULT_CAPTURE_QUALITY_PROFILE: &str = "medium";
 
 /// State the quality profile of this capture, and return its label.
 ///

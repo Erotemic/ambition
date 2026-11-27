@@ -744,6 +744,15 @@ mod expressiveness_census {
         {
             why.push("volume reaction");
         }
+        // A status (bury, freeze, paralyze, crumple) holds the victim in a
+        // state a launch cannot: the hit decides what the body may do next.
+        if mv
+            .windows
+            .iter()
+            .any(|w| w.volumes.iter().any(|v| v.status.is_some()))
+        {
+            why.push("status");
+        }
         if mv
             .events
             .iter()

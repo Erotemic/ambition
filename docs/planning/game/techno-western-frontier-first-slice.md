@@ -51,7 +51,7 @@ whose west side is now an edge.
 | `frontier_siding_street` | Ramps connect the inn, the mercantile, and the telegraph office along the street. Visitors can reach the windmill deck by its ladder or from either porch. |
 | `frontier_lie_down_inn` | Pearl Featherstone is at the desk. Alice and Bob are by the cots. Visitors can reach the gallery above the cots from the linen chest or the far stair. |
 | `frontier_siding_trestle` | The road crosses the gulch. Two hatches lead to the inspection walks below it. There is a jump between the walks. Drop through the loose planks in the middle to board the freight. |
-| `frontier_sprocket_row` | the mechanics' street over the trestle: Hettie Gimbal's garage, the parts yard, the workshops' shut gate (room for the district later) |
+| `frontier_sprocket_row` | Hettie Gimbal is in the garage. A transfer walk links the garage hoist to the boiler in the parts yard. The street passes below the work platforms to the closed workshop gate. |
 | `frontier_freight_tail` | the Number 9's caboose (Hollis Teague, the brakeman), two box cars, a flat car with a loose crate |
 | `frontier_freight_cars` | a tank car, an ore car, a box car, a flat car with a loose crate |
 | `frontier_rustler_head` | the head of the train and the Rustler, the outlaw engine; off its pilot into Clinker Flats |

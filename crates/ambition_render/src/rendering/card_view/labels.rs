@@ -93,6 +93,7 @@ type LabelKey = (Entity, AssetId<Image>);
 type LabelSource = bevy::prelude::Or<(
     With<WorldLabel>,
     With<ambition_portal2d_presentation::PortalVisual>,
+    With<ambition_portal2d_presentation::PortalDisorientIndicator>,
 )>;
 #[cfg(not(feature = "portal_render"))]
 type LabelSource = With<WorldLabel>;
@@ -111,13 +112,14 @@ pub(super) fn realize_card_labels(
             &Visibility,
             &InheritedVisibility,
         ),
-        LabelSource,
+        (LabelSource, Without<CardLabel>),
     >,
     mut cards: Query<
         (
             &mut Mesh3d,
             &mut MeshMaterial3d<StandardMaterial>,
             &mut Transform,
+            &mut GlobalTransform,
             &mut CardPaintDepth,
         ),
         With<CardLabel>,
@@ -171,7 +173,7 @@ pub(super) fn realize_card_labels(
             let material = cache.textured_material(&texture, color, &mut materials);
             let key = (source, page);
             if let Some(&entity) = retained.get(&key) {
-                let Ok((mut mesh, mut tint, mut transform, mut paint)) = cards.get_mut(entity) else {
+                let Ok((mut mesh, mut tint, mut transform, mut global, mut paint)) = cards.get_mut(entity) else {
                     continue;
                 };
                 if layout.is_changed() || bounds.is_changed() || anchor.is_changed() {
@@ -182,6 +184,7 @@ pub(super) fn realize_card_labels(
                     tint.0 = material;
                 }
                 transform.set_if_neq(place);
+                global.set_if_neq(GlobalTransform::from(place));
                 paint.set_if_neq(depth.paint);
             } else {
                 let card = commands
@@ -191,6 +194,8 @@ pub(super) fn realize_card_labels(
                         Mesh3d(meshes.add(label_mesh(&layout, *bounds, *anchor, page, page_size))),
                         MeshMaterial3d(material),
                         place,
+                        GlobalTransform::from(place),
+                        InheritedVisibility::VISIBLE,
                         depth.paint,
                         RenderLayers::layer(CARD_VIEW_LAYER),
                     ))

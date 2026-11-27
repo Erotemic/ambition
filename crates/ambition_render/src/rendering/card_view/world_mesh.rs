@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 #[cfg(feature = "portal_render")]
-use ambition_portal2d_presentation::PortalCarryOrder;
+use ambition_portal2d_presentation::{PortalCarryOrder, PortalGlow};
 use bevy::asset::AssetEventSystems;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems};
 use bevy::ecs::system::{SystemParam, SystemParamItem};
@@ -381,8 +381,9 @@ fn realize_color_meshes(
 
 #[cfg(feature = "portal_render")]
 #[derive(SystemParam)]
-struct PortalPiecePlacement<'w, 's> {
+struct PortalMeshPlacement<'w, 's> {
     pieces: Query<'w, 's, &'static PortalCarryOrder>,
+    rims: Query<'w, 's, (), With<PortalGlow>>,
     sources: Query<'w, 's, (
         Option<&'static MovingPlatformVisual>,
         Option<&'static HeldArtOf>,
@@ -393,7 +394,7 @@ struct PortalPiecePlacement<'w, 's> {
 }
 
 #[cfg(feature = "portal_render")]
-impl PortalPiecePlacement<'_, '_> {
+impl PortalMeshPlacement<'_, '_> {
     fn entry_depth(&self, source: Entity, source_z: f32, depths: &CardRootDepths) -> Option<CardDepth> {
         if let Some(body) = depths.roots.get(&source) {
             return Some(body.depth);
@@ -431,7 +432,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     settings: Option<Res<CardViewSettings>>,
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
-    #[cfg(feature = "portal_render")] portal: PortalPiecePlacement,
+    #[cfg(feature = "portal_render")] portal: PortalMeshPlacement,
 ) {
     if !cards_are_visible(settings) {
         by_material.clear();
@@ -477,10 +478,12 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         let z = global.translation().z;
         let body_depth = depths.effect_depth(subject, z);
         #[cfg(feature = "portal_render")]
-        let body_depth = match portal.pieces.get(source) {
-            Ok(PortalCarryOrder::Entry(root)) => portal.entry_depth(*root, z, &depths),
-            Ok(PortalCarryOrder::Exit) => None,
-            Err(_) => body_depth,
+        let piece = portal.pieces.get(source).ok().copied();
+        #[cfg(feature = "portal_render")]
+        let body_depth = match piece {
+            Some(PortalCarryOrder::Entry(root)) => portal.entry_depth(root, z, &depths),
+            Some(PortalCarryOrder::Exit) => None,
+            None => body_depth,
         };
         let room = rooms.of(source);
         let mut depth = if terrain {
@@ -488,6 +491,11 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         } else {
             body_depth.unwrap_or_else(|| depths.scenery(z, room))
         };
+        #[cfg(feature = "portal_render")]
+        if piece == Some(PortalCarryOrder::Exit) || portal.rims.contains(source) {
+            // Use the window plane for the rim and emerging parts.
+            depth = depth.on_play_plane();
+        }
         if draw.paints_in_scene_order() {
             if let Some(paint) = depths.scene_paint_depth(z, room) {
                 depth.paint = paint;
@@ -689,7 +697,7 @@ mod tests {
         let (exit_card, exit_place, exit_paint) = card(app.world_mut());
         assert_eq!(entry_card, exit_card);
         let exit = app.world().resource::<CardRootDepths>().scenery(PORTAL_EXIT_COPY_Z, None);
-        assert_eq!(exit_place, Vec3::new(-36.0, 13.0, exit.plane));
+        assert_eq!(exit_place, Vec3::new(-36.0, 13.0, super::super::PLAY_PLANE_Z));
         assert_eq!(exit_paint, exit.paint.0);
     }
 

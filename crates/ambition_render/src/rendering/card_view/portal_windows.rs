@@ -8,7 +8,7 @@ use bevy::prelude::{
 
 use super::paint_order::CardPaintDepth;
 use super::world_mesh::CardMaterial;
-use super::{CardRootDepths, CardScope, RetainedEntities, PORTAL_DEPTH};
+use super::{CardRootDepths, CardScope, RetainedEntities};
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 
@@ -52,18 +52,17 @@ pub(super) fn realize_portal_windows(
         // A closed cone keeps an empty mesh. Keep its pipeline in use so the
         // first open frame can use it.
         let picture = PortalClipMaterial::window(material.color, material.texture.clone().unwrap_or_default());
-        let mut place = *transform;
-        place.translation.z = PORTAL_DEPTH - 0.01;
         // The window stays at the seam. Its picture replaces the scene under
         // the wedge after the bodies and their portal pieces draw.
-        let depth = depths.scenery(transform.translation.z, rooms.of(source)).paint;
+        let depth = depths.scenery(transform.translation.z, rooms.of(source)).on_play_plane();
+        let place = depth.place(transform);
         if let Some((mut polygon, image, mut position, mut visibility, mut order)) = product {
             if polygon.0 != mesh.0 {
                 polygon.0 = mesh.0.clone();
             }
             position.set_if_neq(place);
             visibility.set_if_neq(*visible);
-            order.set_if_neq(depth);
+            order.set_if_neq(depth.paint);
             if materials.get(&image.0).is_some_and(|material| material.0 != picture) {
                 materials.insert(image.0.id(), CardMaterial(picture)).ok();
             }
@@ -71,7 +70,7 @@ pub(super) fn realize_portal_windows(
             let product = commands
                 .spawn((
                     CardWindow,
-                    depth,
+                    depth.paint,
                     CardScope::Source(source),
                     Mesh3d(mesh.0.clone()),
                     MeshMaterial3d(materials.add(CardMaterial(picture))),
@@ -131,7 +130,8 @@ mod tests {
         let photo = photo.0.clone();
         let plane = world.get::<Transform>(card).unwrap().translation.z;
         let paint_depth = world.get::<CardPaintDepth>(card).unwrap().0;
-        assert!(plane < 0.0 && paint_depth > 0.0);
+        assert_eq!(plane, super::super::PLAY_PLANE_Z);
+        assert!(paint_depth > 0.0);
         assert_eq!(
             world
                 .resource::<Assets<CardMaterial<PortalClipMaterial>>>()

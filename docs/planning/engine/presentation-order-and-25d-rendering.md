@@ -914,6 +914,14 @@ shared value preparation are sufficient until source proves otherwise.
    covers the bounds of that projection. The comparison inset and its
    main output share one capture for each portal and observer.
 
+   Portal windows, rims, and exit pieces project from the same play plane
+   in 2.5D. The draw order of each stays in its own layer. An Ultra capture
+   checks the projection with both tilt and roll. A thin line can still
+   appear where a tilted window meets a clipped body.
+
+   Text cards use Bevy's layout for the current frame. The brief portal
+   input-direction cue appears in both views and clears on release.
+
    Rigged bodies use the same output coverage as portal windows. A tilted
    view samples a body at its own screen edge. A body keeps sprite slots
    when a 2D camera or the compositor needs them. Card draws and part

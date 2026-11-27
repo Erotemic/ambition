@@ -53,6 +53,10 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 
 ## The Evil outdoors (the second)
 
+The cemetery wall gives travellers a raised crossing through the gate
+forest. Steps connect it to the road on both sides of the graves. A
+conscript starts on the wall. The spectral wolf starts on the road.
+
 ```
  [Gallows Hill]══bridge══[Searchlight Ridge]─────────────┐
    │bell tower             ┊gap (drop)        │watchtower

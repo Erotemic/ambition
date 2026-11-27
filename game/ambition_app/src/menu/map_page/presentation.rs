@@ -225,6 +225,8 @@ fn draw_entries(
         let mut anchor = inner.center();
         if landmark {
             anchor.y = inner.min.y + (inner.height() - 1.7).max(font) * 0.45;
+        } else if !group && !view.links.is_empty() {
+            anchor.y = inner.min.y + font * 0.95;
         }
         let label = Rect::from_center_size(
             anchor,

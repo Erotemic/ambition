@@ -480,15 +480,7 @@ impl MapBrowser {
                 level
                     .current
                     .and_then(|id| level.entry_bounds(id))
-                    .map_or(fitted, |room| {
-                        let room_height = fit_height(room, aspect) * ROOM_CONTEXT;
-                        let zoom = (level_height / room_height).clamp(1.0, OPENING_ZOOM_MAX);
-                        if zoom > 1.0 {
-                            (room.center(), zoom)
-                        } else {
-                            fitted
-                        }
-                    })
+                    .map_or(fitted, |room| room_context(bounds, room, aspect))
             }
             Viewport::Manual { centre, zoom } => (centre, zoom),
         };
@@ -716,9 +708,17 @@ impl MapBrowser {
         match action {
             MapAction::Up if level.id == ROOT => return MapOutcome::Close,
             MapAction::Up => {
-                self.open(atlas, atlas.entries[level.id.0].parent);
+                let current = &atlas.entries[level.id.0];
+                self.open(atlas, current.parent);
                 let parent = self.level(atlas, access);
                 self.reveal(&parent, level.id, aspect);
+                let entrance = current.entrances.iter()
+                    .find(|entrance| Some(entrance.destination) == level.current)
+                    .or_else(|| current.entrances.first());
+                if let Some(entrance) = entrance {
+                    let (centre, zoom) = room_context(parent.bounds, room_rect(entrance.outside), aspect);
+                    self.set_viewport(&parent, Viewport::Manual { centre, zoom });
+                }
             }
             MapAction::Open(id)
                 if detail.is_none() && level.entries.iter().any(|entry| entry.id == id) =>
@@ -856,6 +856,14 @@ impl Level<'_> {
 fn fit_height(bounds: Rect, aspect: f32) -> f32 {
     let size = bounds.size().max(Vec2::ONE);
     size.y.max(size.x / aspect) * 1.10
+}
+
+fn room_context(bounds: Rect, room: Rect, aspect: f32) -> (Vec2, f32) {
+    let viewport = if aspect.is_finite() { aspect.clamp(0.1, 10.0) } else { 1.0 };
+    let room_height = fit_height(room, viewport) * ROOM_CONTEXT;
+    let zoom = (fit_height(bounds, viewport) / room_height).clamp(1.0, OPENING_ZOOM_MAX);
+    let centre = if zoom > 1.0 { room.center() } else { bounds.center() };
+    (centre, zoom)
 }
 
 fn clamp_centre(bounds: Rect, centre: Vec2, extent: Vec2) -> Vec2 {

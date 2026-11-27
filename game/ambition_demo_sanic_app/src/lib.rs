@@ -149,7 +149,7 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
         VideoMenuOption::ViewShape,
         #[cfg(not(target_arch = "wasm32"))]
         VideoMenuOption::Vsync,
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
         VideoMenuOption::FramePacing,
     ];
     #[cfg(not(target_arch = "wasm32"))]

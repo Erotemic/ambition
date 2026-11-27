@@ -1768,6 +1768,7 @@
         ),
         "npc_busy_beaver": (
             display_name: "Busy Beaver",
+            cast: (importance: Tertiary, roles: {"service": ["foreman"]}),
             manifest: "sprites/busy_beaver_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2719,6 +2720,7 @@
         "imperfect_cellular_automaton": (
             sprite_tuning: Some((collision_scale: 1.12, frame_sample_inset: 1)),
             display_name: "Imperfect Cellular Automaton",
+            cast: (importance: Tertiary, roles: {"story": ["foil"]}),
             manifest: "sprites/imperfect_cellular_automaton_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -2761,6 +2763,7 @@
         "npc_pirate_heavy_broadside_bess": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Broadside Bess",
+            cast: (importance: Tertiary, roles: {"story": ["pirate"]}),
             manifest: "sprites/pirate_heavy_broadside_bess_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -3170,6 +3173,7 @@
         "npc_full_stack": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Full Stack",
+            cast: (importance: Secondary, roles: {"story": ["enforcer"], "encounter": ["boss-mount"]}),
             manifest: "sprites/full_stack_giant_spritesheet.ron",
             tier: Giant,
             body_kind: Wide,
@@ -3738,6 +3742,7 @@
         ),
         "npc_creator": (
             display_name: "Dennis",
+            cast: (importance: Secondary, roles: {"story": ["mentor"], "service": ["robot-builder"]}),
             manifest: "sprites/creator_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4227,6 +4232,7 @@
         ),
         "npc_flying_spaghetti_monster_boss": (
             display_name: "Flying Spaghetti Monster",
+            cast: (importance: Secondary, roles: {"story": ["deity"], "encounter": ["boss"]}),
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -4335,6 +4341,7 @@
         ),
         "npc_girdle": (
             display_name: "Girdle",
+            cast: (importance: Secondary, roles: {"service": ["logician"]}),
             manifest: "sprites/girdle_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4597,6 +4604,7 @@
         ),
         "npc_mockingbird_boss": (
             display_name: "Mockingbird",
+            cast: (importance: Secondary, roles: {"encounter": ["boss"]}),
             manifest: "sprites/mockingbird_boss_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -5253,6 +5261,7 @@
         ),
         "npc_davy_hylbert": (
             display_name: "Davy Hylbert",
+            cast: (importance: Secondary, roles: {"service": ["hotelier"]}),
             manifest: "sprites/davy_hylbert_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -5453,6 +5462,7 @@
         // its fight builds at its arena box, so the Hall shows it at that size.
         "npc_marshal_gallus": (
             display_name: "Marshal Gallus",
+            cast: (importance: Secondary, roles: {"story": ["outlaw"], "encounter": ["boss"]}),
             manifest: "sprites/marshal_gallus_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -5495,6 +5505,7 @@
         ),
         "npc_gram_reaper": (
             display_name: "Gram Reaper",
+            cast: (importance: Secondary, roles: {"encounter": ["boss", "dungeon-guardian"]}),
             manifest: "sprites/gram_reaper_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -6300,6 +6311,7 @@
         ),
         "special_patent_clerk": (
             display_name: "Patent Clerk",
+            cast: (importance: Tertiary, roles: {"service": ["patent-clerk"]}),
             manifest: "sprites/patent_clerk_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -6537,6 +6549,7 @@
         ),
         "npc_hunny_horror_boss": (
             display_name: "Hunny Horror",
+            cast: (importance: Tertiary, roles: {"encounter": ["boss"]}),
             manifest: "sprites/hunny_horror_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -7165,6 +7178,7 @@
         "barrow_wight": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Barrow Wight",
+            cast: (importance: Tertiary, roles: {"encounter": ["dungeon-guardian"]}),
             manifest: "sprites/barrow_wight_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -10811,6 +10825,7 @@
         // place in the hall (at the END of the catalog: see the flock above).
         "npc_wolfenstein_boss": (
             display_name: "Wolfenstein",
+            cast: (importance: Secondary, roles: {"encounter": ["boss"]}),
             manifest: "sprites/wolfenstein_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -10859,6 +10874,7 @@
         // the hall. His fight is `supreme_leader` (`data/boss_profiles.ron`).
         "npc_supreme_leader": (
             display_name: "The Supreme Leader",
+            cast: (importance: Secondary, roles: {"story": ["ruler"], "encounter": ["boss"]}),
             manifest: "sprites/supreme_leader_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -11681,6 +11697,7 @@
         ),
         "npc_port_jory": (
             display_name: "Jory",
+            cast: (importance: Background, roles: {"service": ["fisherman"]}),
             // A fisherman who mends nets on the pier.
             manifest: "sprites/port_jory_spritesheet.ron",
             tier: MainHall,
@@ -11699,6 +11716,7 @@
         ),
         "npc_port_bram": (
             display_name: "Bram",
+            cast: (importance: Tertiary, roles: {"service": ["harbour-master"]}),
             // The harbour master.
             manifest: "sprites/port_bram_spritesheet.ron",
             tier: MainHall,
@@ -11717,6 +11735,7 @@
         ),
         "npc_port_wren": (
             display_name: "Lark",
+            cast: (importance: Tertiary, roles: {"service": ["innkeeper"]}),
             // The keeper of the waterfront tavern.
             manifest: "sprites/port_wren_spritesheet.ron",
             tier: MainHall,
@@ -12044,6 +12063,7 @@
         ),
         "npc_station_pell": (
             display_name: "Gus Pell",
+            cast: (importance: Background, roles: {"service": ["cook"]}),
             manifest: "sprites/station_pell_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -12084,6 +12104,7 @@
         // built yet.
         "npc_science_nikobolt": (
             display_name: "Nikobolt Tesseract",
+            cast: (importance: Secondary, roles: {"service": ["inventor"]}),
             manifest: "sprites/science_nikobolt_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -12104,6 +12125,7 @@
         // hand-made overlay `data/overlays/coulomba_tesseract.overlay.svg`).
         "npc_science_coulomba": (
             display_name: "Coulomba Tesseract",
+            cast: (importance: Secondary, roles: {"story": ["collaborator"]}),
             manifest: "sprites/science_coulomba_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17117,6 +17139,7 @@
         // it. Placement says where he stands and whose side he is on.
         "npc_peyote_lean": (
             display_name: "Peyote Lean",
+            cast: (importance: Secondary, roles: {"story": ["outlaw"]}),
             manifest: "sprites/peyote_lean_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

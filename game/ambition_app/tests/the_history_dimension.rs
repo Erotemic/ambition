@@ -85,6 +85,41 @@ fn settle(sim: &mut Platformer2dSimHarness) {
     }
 }
 
+/// Drop through the coast passage. Jump back up to the peninsula.
+#[test]
+fn the_mammoth_steppe_coast_reaches_sahul_and_back() {
+    const STEPPE: &str = "history_mammoth_steppe";
+    const SAHUL: &str = "history_sahul";
+    const HATCH_CENTER_X: f32 = 2148.0;
+    let mut sim = room(STEPPE);
+    let half_height = sim.observation().player_size.1 * 0.5;
+    sim.teleport_player((HATCH_CENTER_X, 1216.0 - half_height));
+    settle(&mut sim);
+
+    for (target, move_y) in [(SAHUL, 1.0), (STEPPE, 0.0)] {
+        let crossed = (0..300).any(|tick| {
+            let jump = sim.observation().on_ground && tick % 12 == 0;
+            sim.step(AgentAction { move_y, jump, jump_held: true, ..base() }).active_room == target
+        });
+        assert!(crossed, "reach {target}: {:?}", sim.observation().player_pos);
+        let landed = (0..90).any(|_| sim.step(base()).on_ground);
+        assert_eq!(sim.observation().active_room, target);
+        assert!(landed, "land in {target}: {:?}", sim.observation().player_pos);
+    }
+
+    let climbed = (0..600).any(|tick| {
+        let observation = sim.observation();
+        if observation.on_ground && observation.player_pos.1 < 1216.0 {
+            return true;
+        }
+        let move_x = ((HATCH_CENTER_X - observation.player_pos.0) / 16.0).clamp(-1.0, 1.0);
+        let jump = observation.on_ground && tick % 12 == 0;
+        sim.step(AgentAction { move_x, jump, jump_held: true, ..base() });
+        false
+    });
+    assert!(climbed, "reach the peninsula: {:?}", sim.observation().player_pos);
+}
+
 /// The ways of the grid: along each floor (later to the east), up and down
 /// (a hatch in a floor, a tower of ledges under it), and into each building.
 const WAYS: &[(&str, &str)] = &[

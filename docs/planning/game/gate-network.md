@@ -296,6 +296,11 @@ lowering spells each word into chevrons and keeps the words apart
 word names, and the `gate.known.*` key. The engine's own tests now dial a
 fixture network of numbered endpoints with no inscription.
 
+*Slice 5 (2026-11-27).* The refusal words are the game's: the engine's
+`DialRefusal` has a `kind` and its payload, no `message`; Ambition's
+`gate_inscription::refusal_words` words every kind. The network's checksum
+folds each refusal's payload, not its words.
+
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).

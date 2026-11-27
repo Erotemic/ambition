@@ -2809,11 +2809,11 @@ the game's: the engine's catalog is a chevron count and rings addressed by
 chevrons, the `gate_network` schema and its inscription, word addresses and
 spelling are Ambition's (`ambition_content_schemas::gate_network`, lowered
 into the catalog and `GateWordsResource`), and the engine's tests dial a
-fixture of numbered endpoints.
+fixture of numbered endpoints. Slice 5: the refusal words are the game's
+(`refusal_words`); the engine's `DialRefusal` keeps its kind and payload.
 
 **Next action:** the rest, one move per slice, each leaving the game
-playable: facilities and dimensions as a directory, the refusal words, and
-the terminal panel's remaining engine pieces; the engine keeps dialed
+playable: facilities and dimensions as a directory, and the terminal panel's remaining engine pieces; the engine keeps dialed
 passages with opaque keys (dial, link, idle timeout, phases, rollback,
 navigation).
 

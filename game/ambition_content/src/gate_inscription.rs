@@ -43,14 +43,24 @@ pub fn address_rule() -> GateAddressRule {
     GateAddressRule(address_fits)
 }
 
-/// What a terminal shows for a refused dial: the engine's words, except
-/// where Ambition's spelling is the reason.
+/// What a terminal shows for a refused dial. Each kind has its own words,
+/// so a player can tell a wrong address from a ring that is down.
 pub fn refusal_words(refusal: &DialRefusal) -> String {
     match refusal {
+        DialRefusal::Empty => "Enter an address first.".to_string(),
+        DialRefusal::NoSuchChevron(chevron) => format!("The ring has no chevron {chevron}."),
         DialRefusal::Malformed => format!(
             "An address is at most {MAX_ADDRESS_LEN} chevrons, each used at most {MAX_CHEVRON_USES} times."
         ),
-        other => other.message(),
+        DialRefusal::Unknown => "No ring answers that address.".to_string(),
+        DialRefusal::SameFacility => "That ring is in this facility. Walk there.".to_string(),
+        DialRefusal::Offline(reason) => format!("OFFLINE: {reason}"),
+        DialRefusal::Busy(reason) => format!("BUSY: {reason}"),
+        DialRefusal::WrongKind => "A gate dials gates, and a portal reaches portals.".to_string(),
+        DialRefusal::OtherDimension => "A portal can not reach another world. That takes a gate.".to_string(),
+        DialRefusal::OutOfReach { distance, reach } => {
+            format!("Too far: that arch is {distance} away, and this one reaches {reach}.")
+        }
     }
 }
 
@@ -171,6 +181,7 @@ mod tests {
     #[test]
     fn a_malformed_address_is_worded_by_the_game() {
         assert!(refusal_words(&DialRefusal::Malformed).contains("at most 16 chevrons"));
-        assert_eq!(refusal_words(&DialRefusal::Unknown), DialRefusal::Unknown.message());
+        assert_eq!(refusal_words(&DialRefusal::Unknown), "No ring answers that address.");
+        assert_eq!(refusal_words(&DialRefusal::Busy("a convoy".into())), "BUSY: a convoy");
     }
 }

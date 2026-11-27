@@ -199,8 +199,8 @@ pub enum GateStatusRule {
     BusyWhile { flag: String, reason: String },
 }
 
-/// Why a dial did not open a link. Each kind has its own message, so a
-/// player can tell a wrong address from a ring that is down.
+/// Why a dial did not open a link. Each kind is its own, so a game can word
+/// a wrong address apart from a ring that is down (the words are the game's).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DialRefusal {
     /// No chevrons were entered.
@@ -243,23 +243,6 @@ impl DialRefusal {
         }
     }
 
-    /// What a terminal shows.
-    pub fn message(&self) -> String {
-        match self {
-            Self::Empty => "Enter an address first.".to_string(),
-            Self::NoSuchChevron(chevron) => format!("The ring has no chevron {chevron}."),
-            Self::Malformed => "That is no address this ring can dial.".to_string(),
-            Self::Unknown => "No ring answers that address.".to_string(),
-            Self::SameFacility => "That ring is in this facility. Walk there.".to_string(),
-            Self::Offline(reason) => format!("OFFLINE: {reason}"),
-            Self::Busy(reason) => format!("BUSY: {reason}"),
-            Self::WrongKind => "A gate dials gates, and a portal reaches portals.".to_string(),
-            Self::OtherDimension => "A portal can not reach another world. That takes a gate.".to_string(),
-            Self::OutOfReach { distance, reach } => {
-                format!("Too far: that arch is {distance} away, and this one reaches {reach}.")
-            }
-        }
-    }
 }
 
 /// What the dial decision reads of the world, beyond the catalog.
@@ -732,7 +715,16 @@ pub fn gate_network_state_checksum(state: &GateNetworkState) -> u64 {
             Ok(far) => put_str(&mut bytes, far),
             Err(refusal) => {
                 put_str(&mut bytes, refusal.kind());
-                put_str(&mut bytes, &refusal.message());
+                match refusal {
+                    DialRefusal::NoSuchChevron(chevron) => put_u64(&mut bytes, u64::from(*chevron)),
+                    DialRefusal::Offline(reason) | DialRefusal::Busy(reason) => put_str(&mut bytes, reason),
+                    DialRefusal::OutOfReach { distance, reach } => {
+                        put_u64(&mut bytes, u64::from(*distance));
+                        put_u64(&mut bytes, u64::from(*reach));
+                    }
+                    DialRefusal::Empty | DialRefusal::Malformed | DialRefusal::Unknown | DialRefusal::SameFacility
+                    | DialRefusal::WrongKind | DialRefusal::OtherDimension => {}
+                }
             }
         }
     }

@@ -401,7 +401,8 @@ mod tests {
             };
             app.update();
             let initial = view(&mut app);
-            assert_eq!(initial.title, "ALPHA");
+            assert_eq!(initial.title, "Fixture");
+            assert!(initial.entries[0].here && initial.entries[0].selected);
             let action = MenuPageAction::Map(MapAction::Open(initial.entries[0].id));
             let target = fixture::spawn_control(&mut app, action);
             app.world_mut().entity_mut(target).insert(Button);
@@ -441,11 +442,11 @@ mod tests {
                 app.update();
             };
             move_pair(&mut app, 1.0, 2.0);
-            let width = |view: MapBrowserView| view.entries[0].pieces[0].width();
-            let zoomed = width(view(&mut app));
-            assert!(zoomed > width(initial));
+            let height = |view: MapBrowserView| view.entries[0].pieces[0].height();
+            let zoomed = height(view(&mut app));
+            assert!(zoomed > height(initial));
             move_pair(&mut app, 2.0, 1.0);
-            assert!(width(view(&mut app)) < zoomed);
+            assert!(height(view(&mut app)) < zoomed);
             for id in fingers {
                 let mut interaction =
                     fixture::menu_component_mut::<MenuInteraction<MenuPageAction>>(app.world_mut());
@@ -469,13 +470,13 @@ mod tests {
                         source.apply(
                             &mut browsers.get_mut(menu).unwrap(),
                             Some(body),
-                            MapAction::Up,
+                            MapAction::Confirm,
                             aspect,
                         );
                     },
                 )
                 .unwrap();
-            assert!(!view(&mut app).room_detail);
+            assert_eq!(view(&mut app).title, "ALPHA");
             fixture::active_pages_mut(app.world_mut()).active = Some(MenuPage::Items);
             app.update();
             app.world_mut()
@@ -483,7 +484,9 @@ mod tests {
                 .insert(InRoomInstance(rooms[1]));
             fixture::active_pages_mut(app.world_mut()).active = Some(MenuPage::Map);
             app.update();
-            assert_eq!(view(&mut app).title, "BETA");
+            let reopened = view(&mut app);
+            assert_eq!(reopened.title, "Fixture");
+            assert!(reopened.entries[1].here && reopened.entries[1].selected);
         }
     }
 }

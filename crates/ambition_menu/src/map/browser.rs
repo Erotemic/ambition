@@ -119,6 +119,8 @@ pub struct MapAtlas<'a> {
 
 const ROOT: MapEntryId = MapEntryId(0);
 const MAP_BROWSER_ZOOM_MAX: f32 = 16.0;
+const OPENING_ZOOM_MAX: f32 = 6.0;
+const ROOM_CONTEXT: f32 = 2.5;
 
 impl<'a> MapAtlas<'a> {
     pub fn new(
@@ -219,14 +221,29 @@ fn world_title(id: &str) -> String {
     title_from_id(id.strip_suffix("_ldtk").unwrap_or(id))
 }
 
-/// Camera, location and selection for one menu. A new browser shows the owner's room.
+/// Camera, location, and selection for one menu. A new browser centers on the owner's room.
 #[derive(Component, Default)]
 pub struct MapBrowser {
     location: Option<Location>,
     selected: Option<Location>,
     tool: Option<MapAction>,
-    centre: Option<Vec2>,
-    zoom: Option<f32>,
+    viewport: Viewport,
+}
+
+#[derive(Default)]
+enum Viewport {
+    #[default]
+    FollowRoom,
+    Fit,
+    Manual {
+        centre: Vec2,
+        zoom: f32,
+    },
+}
+
+struct Frame {
+    rect: Rect,
+    zoom: f32,
 }
 
 struct Location {
@@ -269,7 +286,7 @@ impl MapBrowser {
                 .iter()
                 .position(|entry| location.matches(entry))
                 .map(MapEntryId),
-            None => current,
+            None => current.map(|room| atlas.entries[room.0].parent),
         }
         .unwrap_or(ROOT);
         let level = &atlas.entries[id.0];
@@ -360,22 +377,38 @@ impl MapBrowser {
             .or_else(|| level.entries.first().map(|(id, _, _)| *id))
     }
 
-    fn frame(&self, level: &Level, aspect: f32) -> Rect {
+    fn frame(&self, level: &Level, aspect: f32) -> Frame {
         let aspect = if aspect.is_finite() {
             aspect.clamp(0.1, 10.0)
         } else {
             1.0
         };
         let bounds = level.bounds;
-        let size = bounds.size().max(Vec2::ONE);
-        let height = size.y.max(size.x / aspect) * 1.10;
-        let extent = Vec2::new(height * aspect, height) / self.zoom.unwrap_or(1.0);
-        let overscroll = extent * 0.25;
-        let centre = self
-            .centre
-            .unwrap_or_else(|| bounds.center())
-            .clamp(bounds.min - overscroll, bounds.max + overscroll);
-        Rect::from_center_size(centre, extent)
+        let level_height = fit_height(bounds, aspect);
+        let fitted = (bounds.center(), 1.0);
+        let (centre, zoom) = match self.viewport {
+            Viewport::Fit => fitted,
+            Viewport::FollowRoom => {
+                level
+                    .current
+                    .and_then(|id| level.entry_bounds(id))
+                    .map_or(fitted, |room| {
+                        let room_height = fit_height(room, aspect) * ROOM_CONTEXT;
+                        let zoom = (level_height / room_height).clamp(1.0, OPENING_ZOOM_MAX);
+                        if zoom > 1.0 {
+                            (room.center(), zoom)
+                        } else {
+                            fitted
+                        }
+                    })
+            }
+            Viewport::Manual { centre, zoom } => (centre, zoom),
+        };
+        let extent = Vec2::new(level_height * aspect, level_height) / zoom;
+        Frame {
+            rect: Rect::from_center_size(clamp_centre(bounds, centre, extent), extent),
+            zoom,
+        }
     }
 
     fn tools(&self, level: &Level, travel_allowed: bool) -> Vec<MapAction> {
@@ -405,7 +438,7 @@ impl MapBrowser {
     pub fn view(&self, atlas: &MapAtlas, access: MapAccess<'_>, aspect: f32) -> MapBrowserView {
         let level = self.level(atlas, access);
         let entry = &atlas.entries[level.id.0];
-        let frame = self.frame(&level, aspect);
+        let frame = self.frame(&level, aspect).rect;
         let point = |p| (p - frame.min) / frame.size();
         let selected = self.selected(&level);
         let tools = self.tools(&level, access.can_travel);
@@ -512,37 +545,52 @@ impl MapBrowser {
             return;
         }
         let level = self.level(atlas, access);
-        let frame = self.frame(&level, aspect);
-        let zoom = self.zoom.unwrap_or(1.0);
+        let Frame { rect, zoom } = self.frame(&level, aspect);
         let new_zoom = (zoom * scale).clamp(MAP_ZOOM_MIN, MAP_BROWSER_ZOOM_MAX);
-        let extent = frame.size() * (zoom / new_zoom);
-        let anchor = frame.min + frame.size() * from;
-        self.zoom = Some(new_zoom);
-        self.centre = Some(anchor - extent * (to - Vec2::splat(0.5)));
-        self.centre = Some(self.frame(&level, aspect).center());
+        let extent = rect.size() * (zoom / new_zoom);
+        let anchor = rect.min + rect.size() * from;
+        let centre = clamp_centre(
+            level.bounds,
+            anchor - extent * (to - Vec2::splat(0.5)),
+            extent,
+        );
+        self.set_viewport(
+            &level,
+            Viewport::Manual {
+                centre,
+                zoom: new_zoom,
+            },
+        );
     }
 
     fn zoom_level(&mut self, level: &Level, aspect: f32, steps: f32) {
-        let frame = self.frame(level, aspect);
-        let zoom = self.zoom.unwrap_or(1.0);
-        let focus = (self.centre.is_none() && steps > 0.0)
-            .then(|| self.selected(level))
-            .flatten();
-        self.centre = Some(
-            level
-                .entries
-                .iter()
-                .find(|(id, _, _)| Some(*id) == focus)
-                .map_or(frame.center(), |(_, rect, _)| rect.center()),
-        );
-        self.zoom =
-            Some((zoom * MAP_ZOOM_STEP.powf(steps)).clamp(MAP_ZOOM_MIN, MAP_BROWSER_ZOOM_MAX));
+        let Frame { rect, zoom } = self.frame(level, aspect);
+        let centre =
+            if steps > 0.0 && zoom == 1.0 && !matches!(self.viewport, Viewport::Manual { .. }) {
+                self.selected(level)
+                    .and_then(|id| level.entry_bounds(id))
+                    .map_or(rect.center(), |bounds| bounds.center())
+            } else {
+                rect.center()
+            };
+        let zoom = (zoom * MAP_ZOOM_STEP.powf(steps)).clamp(MAP_ZOOM_MIN, MAP_BROWSER_ZOOM_MAX);
+        self.set_viewport(level, Viewport::Manual { centre, zoom });
     }
 
     fn pan_level(&mut self, level: &Level, aspect: f32, delta: Vec2) {
-        let frame = self.frame(level, aspect);
-        self.centre = Some(frame.center() + frame.size() * delta);
-        self.centre = Some(self.frame(level, aspect).center());
+        let Frame { rect, zoom } = self.frame(level, aspect);
+        let centre = clamp_centre(
+            level.bounds,
+            rect.center() + rect.size() * delta,
+            rect.size(),
+        );
+        self.set_viewport(level, Viewport::Manual { centre, zoom });
+    }
+
+    fn set_viewport(&mut self, level: &Level, viewport: Viewport) {
+        self.location
+            .get_or_insert_with(|| Location::of(&level.atlas.entries[level.id.0]));
+        self.viewport = viewport;
     }
 
     /// Apply one input. The host owns the effect of an accepted travel request.
@@ -610,10 +658,7 @@ impl MapBrowser {
             MapAction::Pan(x, y) => {
                 self.pan_level(&level, aspect, Vec2::new(f32::from(x), f32::from(y)) * 0.18)
             }
-            MapAction::Fit => {
-                self.centre = None;
-                self.zoom = None;
-            }
+            MapAction::Fit => self.set_viewport(&level, Viewport::Fit),
             MapAction::Travel if access.can_travel => {
                 if let Some(room) = detail {
                     return MapOutcome::TravelTo(room_id(room));
@@ -628,23 +673,39 @@ impl MapBrowser {
         let entry = &atlas.entries[id.0];
         *self = Self {
             location: Some(Location::of(entry)),
+            viewport: Viewport::Fit,
             ..Self::default()
         };
     }
 
     fn reveal(&mut self, level: &Level, id: MapEntryId, aspect: f32) {
         self.selected = Some(Location::of(&level.atlas.entries[id.0]));
-        let Some((_, rect, _)) = level.entries.iter().find(|(entry, _, _)| *entry == id) else {
+        let Some(bounds) = level.entry_bounds(id) else {
             return;
         };
-        let frame = self.frame(level, aspect);
-        if !frame.contains(rect.center()) {
-            self.centre = Some(rect.center());
+        let Frame { rect, zoom } = self.frame(level, aspect);
+        let centre = bounds.center();
+        if !rect.contains(centre) {
+            self.set_viewport(level, Viewport::Manual { centre, zoom });
+        } else if self.location.is_none() {
+            self.set_viewport(
+                level,
+                Viewport::Manual {
+                    centre: rect.center(),
+                    zoom,
+                },
+            );
         }
     }
 }
 
 impl Level<'_> {
+    fn entry_bounds(&self, id: MapEntryId) -> Option<Rect> {
+        self.entries
+            .iter()
+            .find_map(|&(entry, rect, _)| (entry == id).then_some(rect))
+    }
+
     fn directional(&self, selected: Option<MapEntryId>, direction: Vec2) -> Option<MapEntryId> {
         let (_, origin, _) = self
             .entries
@@ -664,6 +725,16 @@ impl Level<'_> {
             .min_by(|(_, left), (_, right)| left.total_cmp(right))
             .map(|(id, _)| id)
     }
+}
+
+fn fit_height(bounds: Rect, aspect: f32) -> f32 {
+    let size = bounds.size().max(Vec2::ONE);
+    size.y.max(size.x / aspect) * 1.10
+}
+
+fn clamp_centre(bounds: Rect, centre: Vec2, extent: Vec2) -> Vec2 {
+    let overscroll = extent * 0.25;
+    centre.clamp(bounds.min - overscroll, bounds.max + overscroll)
 }
 
 fn room_rect(room: &MapRoomNode) -> Rect {
@@ -721,10 +792,8 @@ mod tests {
         let view = |browser: &MapBrowser| browser.view(&atlas, access, 1.7);
         let apply = |browser: &mut MapBrowser, action| browser.apply(&atlas, access, 1.7, action);
         let initial = view(&browser);
-        assert_eq!(initial.title, "home");
-        assert!(initial.room_detail);
-        assert_eq!(apply(&mut browser, MapAction::Up), MapOutcome::Stay);
-        assert_eq!(view(&browser).title, "Sandbox");
+        assert_eq!(initial.title, "Sandbox");
+        assert!(initial.entries[0].selected && initial.entries[0].here);
         assert_eq!(apply(&mut browser, MapAction::Up), MapOutcome::Stay);
         assert_eq!(
             view(&browser)
@@ -790,16 +859,13 @@ mod tests {
             reveal_all: false,
             can_travel: true,
         };
-        let detail = browser.view(&atlas, access, 1.7);
-        assert!(detail.room_detail);
-        assert!(detail.entries[0].here);
-        assert_eq!(detail.entries[0].pieces.len(), 2);
-        browser.apply(&atlas, access, 1.7, MapAction::Up);
         let world = browser.view(&atlas, access, 1.7);
+        assert!(!world.room_detail);
         assert_eq!(world.entries.len(), 1);
         assert!(world.entries[0].here);
         assert_eq!(world.entries[0].pieces.len(), 2);
         browser.apply(&atlas, access, 1.7, MapAction::Open(world.entries[0].id));
+        assert!(browser.view(&atlas, access, 1.7).room_detail);
         assert_eq!(
             browser.apply(&atlas, access, 1.7, MapAction::Travel),
             MapOutcome::TravelTo("hub")
@@ -826,6 +892,7 @@ mod tests {
             can_travel: false,
         };
         let view = |browser: &MapBrowser| browser.view(&atlas, access, 1.7);
+        browser.apply(&atlas, access, 1.7, MapAction::Confirm);
         for title in ["home", "Sandbox", "Dimensions"] {
             let fitted = view(&browser);
             assert_eq!(fitted.title, title);
@@ -842,7 +909,10 @@ mod tests {
 
     #[test]
     fn pinch_tracks_its_midpoint_and_clamps_zoom() {
-        let rooms = [room("home", "sandbox", Vec2::ZERO)];
+        let rooms = [
+            room("home", "sandbox", Vec2::ZERO),
+            room("away", "sandbox", Vec2::new(2050.0, 500.0)),
+        ];
         let atlas = MapAtlas::new(&rooms, None);
         let visits = BTreeSet::new();
         let access = MapAccess {
@@ -857,7 +927,8 @@ mod tests {
             current_room: Some("home"),
             ..access
         };
-        let frame = |browser: &MapBrowser| browser.frame(&browser.level(&atlas, access), 1.7);
+        let frame = |browser: &MapBrowser| browser.frame(&browser.level(&atlas, access), 1.7).rect;
+        let zoom = |browser: &MapBrowser| browser.frame(&browser.level(&atlas, access), 1.7).zoom;
         let from = Vec2::new(0.4, 0.55);
         let to = Vec2::new(0.65, 0.7);
         let point = |frame: Rect, at: Vec2| frame.min + frame.size() * at;
@@ -872,8 +943,56 @@ mod tests {
         browser.pinch_viewport(&atlas, access, 1.7, to, from, 0.5);
         assert!((frame(&browser).min - initial.min).length() < 0.01);
         browser.pinch_viewport(&atlas, access, 1.7, from, from, 100.0);
-        assert_eq!(browser.zoom, Some(MAP_BROWSER_ZOOM_MAX));
+        assert_eq!(zoom(&browser), MAP_BROWSER_ZOOM_MAX);
         browser.pinch_viewport(&atlas, access, 1.7, from, from, 0.001);
-        assert_eq!(browser.zoom, Some(MAP_ZOOM_MIN));
+        assert_eq!(zoom(&browser), MAP_ZOOM_MIN);
+    }
+
+    #[test]
+    fn new_map_centres_on_the_room_in_its_group_and_zoom_out_shows_more() {
+        let rooms = [
+            room("home", "frontier", Vec2::ZERO),
+            room("near", "frontier", Vec2::new(350.0, 0.0)),
+            room("away", "frontier", Vec2::new(4600.0, 0.0)),
+        ];
+        let hierarchy = MapHierarchy {
+            room_groups: rooms
+                .iter()
+                .map(|room| (room.id.clone(), vec!["Railway".into()]))
+                .collect(),
+            ..Default::default()
+        };
+        let atlas = MapAtlas::new(&rooms, Some(&hierarchy));
+        let visits = BTreeSet::new();
+        let access = MapAccess {
+            current_room: Some("home"),
+            visited: &visits,
+            reveal_all: true,
+            can_travel: false,
+        };
+        for aspect in [1.2, 2.0] {
+            let mut browser = MapBrowser::default();
+            let view = |browser: &MapBrowser| browser.view(&atlas, access, aspect);
+            let local = view(&browser);
+            assert_eq!(local.title, "Railway");
+            assert_eq!(local.parent_title.as_deref(), Some("Frontier"));
+            assert!(!local.room_detail);
+            let home = &local.entries[0];
+            assert!(home.here && home.selected);
+            assert!((home.pieces[0].center() - Vec2::splat(0.5)).length() < 0.001);
+            assert!(!local.entries[1].pieces.is_empty());
+            assert!(local.entries[2].pieces.is_empty());
+
+            browser.apply(&atlas, access, aspect, MapAction::Zoom(-1));
+            let zoomed_out = view(&browser);
+            assert!(zoomed_out.entries[0].pieces[0].width() < home.pieces[0].width());
+            assert!(zoomed_out.entries[1].pieces[0].max.x < local.entries[1].pieces[0].max.x);
+
+            let mut browser = MapBrowser::default();
+            browser.apply(&atlas, access, aspect, MapAction::Fit);
+            let fitted = view(&browser);
+            assert!(fitted.entries.iter().all(|entry| !entry.pieces.is_empty()));
+            assert!(fitted.entries[0].selected);
+        }
     }
 }

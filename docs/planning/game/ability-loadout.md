@@ -57,7 +57,8 @@ item's index moved. Alice now sends Bob a Spare Battery for his survey lamp
 in place of the note. Exclusive groups: `projectile` (Fireball,
 Eye Laser, Lightning), `stance` (Sword, Axe, Whip), `blink` (Precision,
 Contextual), `burst` (Dash, Dash II, Dash III). Grapple and Mark / Recall are
-held gauntlets. Grapple moved from slot 10 to slot 13 (the Javelin's) on
+held gauntlets; the grapple's swing, pull, whip and Smash recovery are in
+[grapple](grapple.md). Grapple moved from slot 10 to slot 13 (the Javelin's) on
 2026-11-26 so the dashes share row 2; saves name items by `dialog_id`, so no
 save moved with it.
 

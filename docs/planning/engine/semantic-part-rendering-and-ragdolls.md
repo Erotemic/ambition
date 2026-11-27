@@ -136,7 +136,7 @@ particular, face and hat cannot both use the head joint's one angle.
   composed readers (flash and portal pieces). If ragdoll/posed content needs
   those effects, select a cell from the current pose reach or an authored
   envelope. This is already selected as
-  [RIG-IMPOSTOR-CONTAINMENT](../queue.md#rig-impostor-containment--a-part-drawn-body-is-drawn-whole-or-refused);
+  [RIG-IMPOSTOR-CONTAINMENT](../tracks.md#rig-impostor-containment--a-part-drawn-body-is-drawn-whole-or-refused);
   do not spin it into a duplicate campaign.
 - The part-visual `Ultra` realization still needs deliberate vector-source
   resolution/quality policy; do not upscale lower-tier rasters when SVG truth

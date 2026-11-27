@@ -635,3 +635,191 @@ Before promoting a card:
   paused the experiment. Keep `tactics` off in shipped profiles. A later
   selection starts with the failed punish trace, not a production rollout.
   Owner: [fighter tactical intent](engine/fighter-tactical-intent.md#5b-first-gate-run-2026-10-31-not-passed).
+
+## Moved from the queue (2026-11-27)
+
+These rows left [`queue.md`](queue.md) in the 2026-11-27 cleanup: each waits on a selection or a customer, not on engineering. Their text is unchanged.
+
+### SMALL-VIEWPORT-UI — screens fit a phone in landscape
+
+**Owner:** the menu backend (`crates/ambition_menu/src/render/bevy_ui/`) and
+each pixel-laid screen. Ruling: Q165 (2026-10-19), screen by screen.
+
+**Current failure (measured 2026-10-09 at 640x360):** the Smash select screen
+shows 3 of 6 roster columns and no START; the dialogue box covers half the
+screen; the touch stick covers each menu's left side.
+
+**Done 2026-11-17, the Smash select screen:** its layout was already a
+function of the viewport (six columns paged with arrows, START and the four
+player cards), but it read only a `Window`, so a windowless capture laid it
+out at 1280x720 and cropped it: the 2026-10-09 measurement above was that
+crop. It now falls back to the `HeadlessDisplaySurface` a capture declares,
+as the host's own layout does; `capture_scene --route smash_select` at
+640x360 shows the whole screen. What still covers it at 640x360 is the touch
+overlay: the stick's fixed footprint (about 210 px of a 360 px height) hides
+P1's card and the page arrow, and the action buttons sit over START.
+
+**Done 2026-11-17, the dialogue box:** at 640x360 its body drew four lines
+into a two-line box, under the choice window. A text node that is itself an
+item of the panel's column was measured at one line, and the 48 px floor hid
+that at 1280x720, where a greeting fits two lines. The body text now sits in a
+row of its own, as the hint does. The phone-landscape profile also stopped
+adding a 58 px inset to a reading rect that already leaves out the HUD band,
+and it uses a smaller portrait and gap. Witness: `capture_scene
+math_hotel_ballroom player OUT 640x360 --warmup 200 --player-beside
+npc_math_monty --interact-at 90 --include-ui` shows the whole box and its
+four body lines on screen; at 1280x720 the box is unchanged. (A capture on a
+machine without the generated fonts falls back to Bevy's font, which has no
+`·` or `–`.) What still covers the box is the touch action cluster.
+
+**Ruled 2026-11-26 (Q178):** the virtual gamepad is not hidden because a
+menu takes direct touch; it stays usable for menu navigation. A small
+toggle button (top-left, clear of other controls and safe areas) hides and
+restores it, under a setting **Toggle Gamepad Button**: Always visible,
+Auto visible (default: shown when the gamepad could conflict with other UI
+or touch controls), Never visible. Hiding the gamepad never removes the way
+back. Cover viewport sizes, a controller connecting or leaving, and the
+gameplay/menu transitions.
+
+**Blocked by:** none.
+
+**Q178 landed 2026-11-26** (`crates/ambition_touch_input/src/gamepad_toggle.rs`).
+A small drawn-gamepad button hides and restores the virtual gamepad. It sits at
+the safe area's top-left, moved right past whatever the layout already
+holds there (`toggle_corner` reads the resolved occupancy: the HUD, system
+buttons, touch clusters; not dialogue, which comes and goes), and below them
+when that row is full to the middle. Setting **Toggle Gamepad Button**
+(`ControlSettings::toggle_gamepad_button`, Controls page): `auto` (default:
+shown while a menu or dialogue owns the controls), `always visible`, `never
+visible`; a hidden gamepad always shows its button, and choosing never
+brings a hidden gamepad back. Hiding it also stops the overlay reserving its
+space (`TouchControlsVisible`). The press is hit-tested from raw touches
+and the cursor against the rect the button was drawn at, like the overlay's
+own buttons. The hidden state is session-local. Witnesses: the three
+`gamepad_toggle` tests; `capture_scene --route ambition_gameplay OUT
+640x360|1280x720 --press "wait:60,Escape,wait:30" --include-ui` shows it
+beside the HUD over the pause cube, and adding `touch:212x28,wait:20`
+(then `Escape`) shows the gamepad hidden with its button kept, in the menu
+and in play. With it, the headless occupancy collector measures against
+`HeadlessDisplaySurface` as the resolver does: a capture used to lay out a
+screen with no HUD occupancy at all. Open: with the gamepad hidden, the
+overlay's Menu button goes with it, so touch-only pause waits for the
+gamepad's return. The in-session pause cube is partly done (2026-11-17). Its page is laid in
+face-relative units (`Rl`/`Rh`, `game/ambition_menu_kaleidoscope/src/page.rs`),
+so the whole face shrinks with the screen: at 640x360 the six System rows
+read at about 8 px. `InventoryLayout` now carries the System row count with
+the item columns, from the menu region: under 480 px high the face shows 4
+taller rows and a 1.35x description, and the wheel, drag and window helpers
+take the count from the same region. Witness: `capture_scene --route
+ambition_gameplay OUT 640x360 --press "wait:60,Escape,wait:30" --include-ui`
+(1280x720 unchanged at six rows). The cube camera on a short screen also
+narrows its field of view so the active face fills 96% of the height, not
+80% (`SHORT_SCREEN_FACE_FILL`, `fit_cube_camera_regions`): labels read at
+about 13 px. The inventory face is next. Maintainer 2026-11-17: mobile UX
+waits behind higher-value queue items, so the rest of this row is deferred.
+
+### D72 — continue Smash parity from the inventory
+
+**Owner:** [Smash inventory](demos/smash-parity-inventory.md).
+**State:** later product pass, behind the main Ambition improvements
+(maintainer direction, 2026-11-22). The S0 gate is closed. Preserve its
+receipts; do not select another parity feature merely to keep the gate busy.
+
+**Next implementation when selected:** follow
+[§17](demos/smash-parity-inventory.md#17-current-implementation-order).
+Use shared ACT1/ACT2, the CR1 reaction refinement and CLIP1–CLIP3 from their
+engine owners, then one timed
+floor recovery and actual CPU return. Review a bounded short match before
+more roster art, strategy tuning or feature breadth. The
+[feel owner](demos/smash-feel-audit-2026-10-29.md) states the demo acceptance;
+it is not another feature ledger.
+
+**Acceptance:** the chosen short demo has coherent action/reaction timing,
+readable landing/roll/launch transitions and a CPU recovery that reaches
+support. Headless checks establish mechanics; timed captures and human play
+establish the presentation and feel. Product decisions and intentionally thin
+stand-ins retain the inventory's existing rulings.
+
+### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
+
+**The invariant:** every pixel a composited body draws lies in its cell. One
+camera draws a whole page with no per-cell scissor, so a part past its cell
+is cut from its own body and drawn into its neighbour's.
+
+**Owner:** `ambition_render::rendering::actors::rigged` (`impostor_margin`,
+`posed_reach`), `ambition_sprite_sheet::character::rigged` (`art_overhang`)
+and `scripts/measure/measure_rigged_parity.py`. Plan:
+[`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
+
+**Scope since 37497a444 (2026-10-05):** a part-drawn body draws its parts in
+the world, and uses an impostor cell only while something composes it
+(`ComposedBodyDemand`: hit flash, portal pieces, deep dream, quasar) or its
+frame fades as one picture. So the invariant applies to that composed road
+only.
+
+**Solved, by kind of draw:**
+
+- A published frame (2026-10-05). The cell is the frame plus
+  `impostor_margin`, which covers the flipbook's stated `art_overhang`. The
+  oni leader's banner is drawn whole (`a_cell_holds_every_draw_of_its_body`).
+- A tween's in-between (2026-10-06, review P2). `art_overhang` is a
+  conservative envelope of every draw `tween_into` can make, taken when the
+  flipbook is read: each moving draw is sampled finely enough that no corner
+  moves more than half a pixel between samples, and that slack is added
+  (`tween_overhang`). A part that turns between two frames reaches where
+  neither frame does (`the_overhang_of_a_tweened_clip_covers_its_in_betweens`;
+  the published corpus: `no_in_between_of_a_published_flipbook_reaches_past_its_overhang`).
+  Measured on the 123 published flipbooks with a tweened clip: the in-betweens
+  move the stated overhang of 12 of them, by 0.21 px at most; no cell changed.
+- Parts placed by a `PartPose` (2026-10-06, review P2). A pose is in no file,
+  so its reach is measured each frame (`posed_reach`). While it is more than
+  the margin, the body is drawn directly, as a body whose frame fits no cell
+  is: whole, and its readers see no image, with one warning. The hold that
+  smooths composition demand smooths this too
+  (`a_part_pose_that_reaches_past_its_cell_is_drawn_directly`).
+
+**Open:**
+
+1. `scripts/measure/measure_rigged_parity.py` still clips its oracle to the cell, so
+   a cut part cannot read as a parity failure there. The clip was added when
+   the cell was the frame plus 16 px (the oni leader's banner read as 1153
+   wrong pixels of a correct draw). With the margin from `art_overhang` the
+   clip should remove nothing. Remove it and run the harness on a GPU
+   (`rigged_sprite_parity`); acceptance: the oni leader passes unclipped, and
+   with `impostor_margin` poisoned back to 16 px it fails.
+   **2026-11-21:** the clip is removed, and both `ambition_render` examples
+   compile again: they disabled a `WinitPlugin` that this crate's bevy, built
+   without winit, does not have. The harness runs on this VM (llvmpipe, with
+   `AMBITION_CONTENT_LIBRARY=game/ambition_content_library/library.json`), but
+   it stops at the oni leader's baked sheet,
+   `sprites/npc_ninja_shadow_oni_leader_spritesheet.png`, which it reads from
+   the content library. PART-FIRST no longer publishes baked pages, and
+   `sprites.sh --reference` paints into `.agent/sprite_reference/<target>/`.
+   **Done 2026-11-21:** the acceptance's first half passes. With
+   `--reference .agent/sprite_reference`, the example draws the baked side
+   from a `sprites.sh --reference` paint. That paint is packed and trimmed by
+   its own record, so its atlas comes from that record
+   (`spec_from_manifest_text`). The scorer reads the paint's sheet and
+   flipbook too. A target is a sheet id: `ninja_shadow_oni_leader`. The
+   character's `npc_` id missed the flipbook, and the impostor margin then
+   quietly fell back to 16 px.
+
+   Unclipped, the oni leader's 864 gated frames, both facings, are inside the
+   bounds; the worst part blob is 4 px. 184 frames are art the baked frame
+   cuts off and the parts still draw.
+
+   The 18 blink frames read about 70% wrong. They are the engine's teleport
+   warp, drawn by design on a blink row that draws the body whole
+   (`body_warp`). Neither the baked road nor the published draws carry it, so
+   the scorer reports them and does not gate them.
+
+   The other half (`impostor_margin` poisoned to 16 px fails) was not run: no
+   poison runs without Jon asking. The scorer needs `scipy`, which the
+   renderer's venv lacks. Run it with `uv pip install --target DIR scipy` and
+   `PYTHONPATH=DIR`.
+2. A posed body that reaches past its cell loses its composed readers (its
+   hit flash overlay, its portal pieces) while it does. If a ragdoll must keep
+   them, give the presentation a cell chosen from the pose's reach, or let a
+   pose declare an envelope. No shipped body carries a `PartPose` today.
+3. A two-body shared-page test that reads the pixels of both cells needs a
+   GPU; the three proofs above are on the draw geometry.

@@ -9,8 +9,8 @@
 //!
 //! A volume either moves through whole or reaches from a point. A body (a
 //! hurtbox, a shot, a thrown thing) moves through square on: its part past
-//! the plane between the opening's ends goes through, and the snag holds it
-//! to fitting the opening ([`partition`]). A swing reaches from its owner
+//! the plane between the opening's ends goes through, and the opening's rims
+//! (`material_cast/rim.rs`) hold it to fitting the opening ([`partition`]). A swing reaches from its owner
 //! ([`partition_reaching`]): its part past the plane went through where the
 //! line from the owner to it crosses the plane inside the opening, the wedge
 //! from the owner through the ends ([`opening_from`]), as an eye sees through

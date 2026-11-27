@@ -1542,6 +1542,9 @@ fn portal_travel_is_clear(
                     })?;
                 hit.map.direction(hit.normal).dot(normal) > 0.5
             }
+            // The probe asks what is through the portal, not the opening's
+            // ends; the roll's own sweep meets those.
+            MaterialCollider::Rim(_) => false,
         })
     }), Ok(None))
 }

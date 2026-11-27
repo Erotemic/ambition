@@ -239,8 +239,8 @@ Keep axis, momentum, crawler and bounce/slide policy differences explicit.
 
 ### Canonical aperture contact replaces post-step snag repair
 
-[snag_straddlers](../../../crates/ambition_portal2d/src/snag.rs) projects the
-world AABB into the mouth frame, then writes a positional carry after motion.
+`snag_straddlers` (deleted 2026-11-27, see the P3 receipts) projected the
+world AABB into the mouth frame, then wrote a positional carry after motion.
 That envelope can reject a rotated body which actually fits. Its correction
 also needs admission against other obstacles.
 
@@ -719,11 +719,52 @@ A numeric refusal of the cast keeps the unadmitted push, which was the
 snag's answer before. portal2d 147, runtime portal 24 and app portal 52
 pass.
 
-Still open in P3: the rim constraint inside the accepted motion
-operation itself. The snag is still a second, post-step position writer,
-though its push is now admitted. The approach classification (from the
-front, sliding from within, already past the end) and the slope no-worse
-rule would move with it. Deleting the writer waits on that constraint.
+**Receipt (2026-11-27, the rim is contact; the snag writer is deleted).**
+The rule "a body goes through an opening only whole" is now a contact in
+the accepted motion operation. For a convex body, "cuts the plane past an
+end and over the opening" is the same fact as "an end of the opening lies
+inside the body". So each end of each opening the cast admits is a point
+obstacle that moves with its aperture.
+
+The material cast builds these rims (`frame/material_cast/rim.rs`,
+`RimObstacle`) per admitted link:
+- links closed to the body are skipped;
+- so is an opening the body is behind or out of reach of;
+- an end is a point (`RimKind::End`);
+- a body that already cuts the plane past an end at the start keeps the
+  slope no-worse rule as a floor segment beside the opening, at its current
+  depth (`RimKind::Floor`).
+
+`World::first_material_contact` meets the rims as
+`MaterialCollider::Rim`, in the same query as the room's solids. So the
+contact's time, normal and moving-frame velocity come from the one sweep,
+and the first contact also stops at any other obstacle. Each movement
+system is an adapter by its exhaustive `accepts` match:
+- the kernel axis sweep, righting, the body-translation preparation, and
+  the walkable lines meet a rim as a solid;
+- the held-item flight (ground items) meets it as a solid that is not
+  one-way;
+- shots, the axis repair and the surface-momentum probe do not meet it.
+
+Witnesses (`material_cast/rim/tests.rs`):
+- a turned body that fits passes, and one 30 long lands on the ends;
+- a body sliding along the face stops at the end;
+- a body falling over an end lands on it, while one beside the opening
+  meets nothing;
+- a body behind the opening meets no rim;
+- a body past an end goes no deeper but may move laterally or back out;
+- a moving end meets a still body.
+
+`snag_straddlers` and its parts (`snag_push`, `admitted_push`,
+`stop_into`, `openings_near`) are deleted, with the plugin registration
+and the writer's tests. `snag.rs` keeps the transit's and placement's fit
+questions (`Outline`, `fits_through`, `in_line_with`, `cuts_opening`).
+
+The writer was deleted only after a probe in it (removed) showed it never
+pushed a body once rims were live, in three lanes:
+- app portal: 52 passed, 0 pushes;
+- portal2d lib, without its own writer tests: 136 passed, 0 pushes;
+- held items: 61 passed, 0 pushes.
 
 ### P4 — Conservative query planning and proven fast cases
 

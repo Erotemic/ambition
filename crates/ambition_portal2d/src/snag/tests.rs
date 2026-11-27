@@ -1,10 +1,11 @@
-//! A body goes through an opening whole: part of it past an end holds it.
+//! A body goes through an opening whole: the transit takes only a body that
+//! fits, and a body behind an opening is on its back. (What holds a body past
+//! an end is its rim contact, `material_cast/rim.rs` in the core.)
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::{self as ae, BodyKinematics, SweepSample};
+use ambition_platformer2d_core::{self as ae, BodyKinematics};
 
-use super::snag_push;
 use crate::color::{PortalChannel, PortalGunColor};
 use crate::transit::{PortalTransit};
 use crate::types::PlacedPortal;
@@ -22,142 +23,6 @@ fn floor() -> PlacedPortal {
 
 fn exit() -> PlacedPortal {
     PlacedPortal::fixed(ORANGE, Vec2::new(600.0, 300.0), Vec2::new(0.0, -1.0), HALF).unwrap()
-}
-
-fn at(x: f32, y: f32) -> ae::Aabb {
-    ae::Aabb::new(Vec2::new(x, y), BODY)
-}
-
-#[test]
-fn a_body_over_the_opening_is_not_held() {
-    assert_eq!(snag_push(at(0.0, 300.0), Some(at(0.0, 290.0)), &floor().aperture()), None);
-}
-
-#[test]
-fn a_body_beside_the_opening_is_the_hosts_business() {
-    // Its corner dips into the host past the end, and none of it is over the
-    // opening: the host holds it, or lets its feet stand in it.
-    assert_eq!(snag_push(at(50.0, 305.0), Some(at(50.0, 300.0)), &floor().aperture()), None);
-}
-
-/// Half past an end, it came down onto the host there (from just touching
-/// it): it goes back out the way it came, along the normal, and stands on
-/// the host.
-#[test]
-fn a_body_half_past_an_end_is_held_on_the_host() {
-    let (push, against) = snag_push(at(30.0, 306.0), Some(at(30.0, 280.0)), &floor().aperture()).expect("held");
-    assert!((push - Vec2::new(0.0, -26.0)).length() < 1e-3, "{push:?}");
-    assert_eq!(against, Vec2::new(0.0, -1.0));
-}
-
-/// Straddling the opening and drifting sideways in it, it meets the end of
-/// the opening and goes back along the face.
-#[test]
-fn a_body_drifting_past_an_end_inside_the_opening_is_held_at_its_side() {
-    let x = 22.0;
-    let (push, _) = snag_push(at(x, 300.0), Some(at(x - 4.0, 300.0)), &floor().aperture()).expect("held");
-    assert!(push.y.abs() < 1e-3 && (push.x + 2.0).abs() < 1e-3, "back toward the middle by 2: {push:?}");
-}
-
-/// A free body that falls into a floor portal with part of it past the end
-/// is held on the host and does not go through; one over the opening does.
-fn probe(pos: Vec2, vel: Vec2, step: Option<(Vec2, Vec2)>) -> (BodyKinematics, SweepSample) {
-    let body = BodyKinematics { pos, vel, canonical_size: BODY * 2.0, ..Default::default() };
-    let mut sweep = SweepSample::at_rest(body, Vec2::Y);
-    if let Some((from, to)) = step {
-        sweep.prev = from;
-        sweep.curr = to;
-    } else {
-        sweep.time = [1.0, 1.0];
-    }
-    (body, sweep)
-}
-
-fn fall(mut bodies: Query<(&mut BodyKinematics, &mut SweepSample)>) {
-    for (mut body, mut sweep) in &mut bodies {
-        body.vel.y += 1400.0 / 60.0;
-        let from = body.pos;
-        let vel = body.vel;
-        body.pos += vel / 60.0;
-        *sweep = SweepSample { prev: from, ..SweepSample::at_rest(*body, Vec2::Y) };
-    }
-}
-
-/// Where a probe dropped from 20 px over the floor at `x` is after a second,
-/// and the furthest right it went (the exit is at x = 600; a floor pair
-/// bounces a body between its ends).
-fn dropped_at(x: f32) -> (Vec2, f32) {
-    let mut app = App::new();
-    app.init_resource::<crate::PortalTuning>();
-    app.add_message::<crate::PortalBodyEntered>();
-    app.add_message::<crate::PortalBodyTransited>();
-    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
-    app.add_systems(
-        Update,
-        (crate::publish_portal_apertures, fall, crate::snag_straddlers, crate::test_owner::cross_recorded_steps, crate::portal_transit).chain(),
-    );
-    app.world_mut().spawn(floor());
-    app.world_mut().spawn(exit());
-    let body = app.world_mut().spawn(probe(Vec2::new(x, 260.0), Vec2::ZERO, None)).id();
-    let mut furthest = x;
-    for _ in 0..60 {
-        app.update();
-        furthest = furthest.max(app.world().get::<BodyKinematics>(body).unwrap().pos.x);
-    }
-    (app.world().get::<BodyKinematics>(body).unwrap().pos, furthest)
-}
-
-#[test]
-fn a_body_falls_through_an_opening_whole_or_not_at_all() {
-    let (_, over) = dropped_at(0.0);
-    assert!(over > 500.0, "control: over the opening it goes through: furthest x {over}");
-    let (half_off, furthest) = dropped_at(30.0);
-    assert!(furthest < 100.0, "half past the end it went through: furthest x {furthest}");
-    assert!((half_off.y + BODY.y - 300.0).abs() < 1.0, "it stands on the host at the end: {half_off:?}");
-}
-
-/// The kernel body is held the same way, and loses the speed that carried
-/// it into the host.
-#[test]
-fn a_kernel_body_half_past_an_end_is_held() {
-    let mut app = App::new();
-    app.add_systems(Update, crate::snag_straddlers);
-    app.world_mut().spawn(floor());
-    app.world_mut().spawn(exit());
-    let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), canonical_size: BODY * 2.0, facing: 1.0 };
-    let record = SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
-    let body = app.world_mut().spawn((kin, record)).id();
-    app.update();
-    let kin = app.world().get::<BodyKinematics>(body).unwrap();
-    assert!((kin.pos - Vec2::new(30.0, 280.0)).length() < 1e-3, "{:?}", kin.pos);
-    assert_eq!(kin.vel, Vec2::ZERO);
-}
-
-/// A body sunk in a slope's opening that walks right along it toward the
-/// upper end (the robot on pair E, Jon 2026-10-16): where it cuts the slope
-/// reaches the end, and it is held there, back along the slope, not lifted
-/// out of the opening across the face.
-#[test]
-fn a_body_walking_past_an_end_in_a_slope_opening_meets_its_side() {
-    let normal = Vec2::new(-0.5, -0.866).normalize();
-    let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, normal, 46.0).unwrap().aperture();
-    let up_the_slope = ap.frame.tangent();
-    assert!(up_the_slope.x > 0.0, "premise: the tangent runs up the slope to the right");
-    // 27.5 along (and the squeeze) and 10 deep: a step of 4.5 px right took
-    // where it cuts the slope past the end.
-    let end = 46.0;
-    let centre = up_the_slope * 27.5 - normal * 10.0;
-    let half = Vec2::new(12.0, 20.0);
-    let body = ae::Aabb::new(centre, half);
-    let came_from = ae::Aabb::new(centre - Vec2::new(4.5, 0.0), half);
-    let (t0, t1) = super::cut(&super::corners(came_from, &ap)).expect("premise: it straddles");
-    assert!(t0 > -end && t1 < end, "premise: before the step it cut the plane within the opening: {t0}..{t1}");
-    let (_, t1) = super::cut(&super::corners(body, &ap)).expect("it straddles");
-    assert!(t1 > end, "premise: after the step it cuts the plane past the end: ..{t1}");
-    let (push, against) = snag_push(body, Some(came_from), &ap).expect("the end holds it");
-    assert!((push.length() - (t1 - end)).abs() < 1e-3, "back to the end: {push:?}");
-    assert!((against + up_the_slope).length() < 1e-3, "held back down the slope: {against:?}");
-    assert!(push.dot(normal).abs() < 1e-3, "not lifted across the face: {push:?}");
 }
 
 /// Its centre is past the plane, and it still cuts the plane past an end:
@@ -214,9 +79,8 @@ fn a_body_that_comes_at_an_opening_from_behind_is_on_its_back() {
 /// P3: a turned body is tested by its material box, not the world box
 /// around it. A 20 by 2 body turned 45 degrees, its long axis along the
 /// mouth's normal and 4 px along the face (material spans 3..5 of a ±12
-/// opening), is in line with the opening and is not snagged as it comes
-/// in from 12 px to 1 px in front of it. Its world box (half-span 11 in
-/// both mouth axes) said it was beside the opening and held it.
+/// opening), is in line with the opening 1 px in front of it. Its world box
+/// (half-span 11 in both mouth axes) says it is beside the opening.
 /// An oversized body, 30 long along the face, still does not fit.
 #[test]
 fn a_turned_body_that_fits_the_opening_passes_and_an_oversized_one_does_not() {
@@ -229,43 +93,10 @@ fn a_turned_body_that_fits_the_opening_passes_and_an_oversized_one_does_not() {
     let body = |size: Vec2, depth: f32| BodyKinematics { material, pos: tangent * 4.0 + ap.frame.normal * depth,
         canonical_size: size, vel: Vec2::ZERO, facing: 1.0 };
     let thin = Vec2::new(2.0, 20.0);
-    let (near, far) = (body(thin, 1.0), body(thin, 12.0));
+    let near = body(thin, 1.0);
     assert!(in_line_with(Outline::of(near), &ap), "its material is in line: {:?}", Outline::of(near));
     assert!(!in_line_with(near.aabb(), &ap), "premise: its world box is not");
-    assert_eq!(snag_push(Outline::of(near), Some(Outline::of(far)), &ap), None, "it comes in unsnagged");
-    assert!(snag_push(near.aabb(), Some(far.aabb()), &ap).is_some(), "premise: the world box was snagged");
     let wide = body(Vec2::new(30.0, 2.0), 0.0);
     assert!(!fits_through(Outline::of(wide), &ap), "30 along a 24 opening does not fit");
     assert!(!in_line_with(Outline::of(wide), &ap));
-}
-
-/// P3: the snag's push is admitted against the room's solids. The kernel
-/// body half past an end would go back up 6 px onto the host; a ceiling
-/// 3 px above its head stops it there, at y 283, instead of the push
-/// carrying it 3 px into the block. Control: the same body with no ceiling
-/// goes the whole 6 px, to y 280.
-#[test]
-fn a_snag_push_does_not_carry_a_body_into_another_solid() {
-    let held_at = |ceiling: bool| {
-        let mut app = App::new();
-        app.add_systems(Update, crate::snag_straddlers);
-        let blocks = if ceiling {
-            vec![ae::Block::solid("ceiling", Vec2::new(0.0, 243.0), Vec2::new(60.0, 20.0))]
-        } else {
-            Vec::new()
-        };
-        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
-            ae::RoomGeometry(ae::World::new("snag", Vec2::new(800.0, 600.0), Vec2::new(50.0, 50.0), blocks)));
-        app.world_mut().spawn(floor());
-        app.world_mut().spawn(exit());
-        let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), canonical_size: BODY * 2.0, facing: 1.0 };
-        let record = SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
-        let body = app.world_mut().spawn((kin, record)).id();
-        app.update();
-        app.world().get::<BodyKinematics>(body).unwrap().pos
-    };
-    let free = held_at(false);
-    assert!((free - Vec2::new(30.0, 280.0)).length() < 1e-3, "control: the whole push: {free:?}");
-    let stopped = held_at(true);
-    assert!((stopped - Vec2::new(30.0, 283.0)).length() < 1e-2, "stopped by the ceiling: {stopped:?}");
 }

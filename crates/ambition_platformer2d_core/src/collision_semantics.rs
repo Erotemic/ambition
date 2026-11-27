@@ -519,6 +519,10 @@ pub enum ContactSource {
     /// A segment of a [`crate::world::SurfaceChain`] (`chain` indexes
     /// `World::chains`, `segment` the chain's segment list).
     Chain { chain: u32, segment: u32 },
+    /// An end of a portal opening (`end` is `1` or `-1` along its tangent)
+    /// of the admitted link `link`, or the no-worse floor beside it
+    /// (portal P3).
+    Rim { link: u32, end: i8 },
 }
 
 /// One resolved world contact for a moving body this step.

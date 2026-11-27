@@ -1,8 +1,9 @@
 //! Straddle eviction: a pushout for a plane that moved or closed under a body.
 //!
 //! Pushout breaks position reversibility and hides real bugs, so the portal
-//! mechanic has two and no more: this one, and the snag ([`crate::snag`]),
-//! which holds a body that cuts a portal's plane past an end of its opening. When a portal moves, closes, or teleports while a body
+//! mechanic has this one and no other. (A body that would cut a portal's
+//! plane past an end of its opening is held by contact in its own motion, the
+//! opening's rims, not pushed after it.) When a portal moves, closes, or teleports while a body
 //! straddles its plane (a re-fired portal, a room reset, a vanished partner),
 //! the body is pushed fully to its centroid's side, so it lands in open space
 //! and not inside the wall.

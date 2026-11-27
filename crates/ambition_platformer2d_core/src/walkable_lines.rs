@@ -433,6 +433,7 @@ pub fn settle_on_line(world: &World, kinematics: &crate::BodyKinematics, down: V
     let obstruction = world.first_material_contact(&cells, |collider, _, _| Ok(match collider {
         crate::world::MaterialCollider::Block(block) => crate::collision_semantics::is_full_collision_surface(block.kind),
         crate::world::MaterialCollider::Chain { chain, .. } => chain.closed && chain.kind == crate::world::SurfaceKind::Solid,
+        crate::world::MaterialCollider::Rim(_) => true,
     }))?;
     if obstruction.is_some_and(|hit| hit.contact.toi < 1.0) { return Ok(None); }
     cells.admit_payloads(kinematics.vel, &[])?;

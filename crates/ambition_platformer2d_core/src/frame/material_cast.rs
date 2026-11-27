@@ -21,6 +21,8 @@ pub use payload::ContactVelocityFrame;
 mod source;
 mod sampled;
 mod moving;
+mod rim;
+pub use rim::{RimKind, RimObstacle};
 pub use sampled::SampledPieceHit;
 pub(super) use source::{SourceMotion, rotation_delta};
 pub use cell::MaterialCell;
@@ -74,6 +76,8 @@ pub struct MaterialCastCells<'a> {
     scene:Option<std::sync::Arc<arcs::Scene>>,
     initial_overlap: InitialOverlap,
     carrier: Option<u64>,
+    /// The ends of the openings the body may go through (portal P3).
+    rims: Option<rim::CastRims<'a>>,
 }
 
 enum CastCells {
@@ -356,6 +360,17 @@ impl<'a> MaterialCast<'a> {
             None => Vec::new(),
         };
         let admission = admission.map(|policy| MotionAdmission { links: &reachable, ..policy });
+        let rims = match admission {
+            Some(policy) if !policy.links.is_empty() => {
+                let obstacles = self.rims(policy)?;
+                if obstacles.is_empty() { None } else {
+                    let cells = Box::new(self.clone().cells(None)?);
+                    let whole = cells.parts()[0].clone();
+                    Some(rim::CastRims { obstacles, cells, whole })
+                }
+            }
+            _ => None,
+        };
         if !self.time.start.is_finite() || !self.time.end.is_finite() {
             return Err(numeric(NumericFault::NonFinite));
         }
@@ -429,6 +444,7 @@ impl<'a> MaterialCast<'a> {
             scene,
             initial_overlap: self.initial_overlap,
             carrier: self.carrier,
+            rims,
         })
     }
 }

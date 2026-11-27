@@ -291,6 +291,9 @@ fn prepare_flight(world: &ae::World, mut body: BodyKinematics, down: Vec2, dt: f
                         true
                     } else { false }
                 }
+                // An end of the opening it goes through holds it as a
+                // solid does: past the end the plane is the host (portal P3).
+                MaterialCollider::Rim(_) => false,
             };
             let surface = collider.velocity_in_root(hit, dt, policy)?;
             let approaching = (body.vel.as_dvec2() - surface.as_dvec2()).dot(hit.normal.as_dvec2()) < 0.0;

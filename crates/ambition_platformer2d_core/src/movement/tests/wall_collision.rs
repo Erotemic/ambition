@@ -1859,7 +1859,7 @@ fn a_pinch_names_the_claimant_that_closes_on_the_body() {
     };
     let named = |source: &ContactSource, name: &str, world: &[Block]| match source {
         ContactSource::Block { id, .. } => world.iter().any(|block| block.id == *id && block.name == name),
-        ContactSource::Chain { .. } => false,
+        ContactSource::Chain { .. } | ContactSource::Rim { .. } => false,
     };
 
     let still = conflict(vec![ceiling(0.0), platform(0.0)]);

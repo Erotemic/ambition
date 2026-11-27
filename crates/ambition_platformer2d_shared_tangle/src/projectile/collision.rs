@@ -142,6 +142,9 @@ pub fn query_world_collision_in<'w>(
     let down = super::body::projectile_down(gravity_dir);
     let contact = world.first_material_contact(cells, |collider, _, hit| {
         let one_way = match collider {
+            // A shot is not held at an opening's end; only bodies are
+            // (portal P3).
+            MaterialCollider::Rim(_) => return Ok(false),
             MaterialCollider::Block(block) => {
                 if !ae::collision_semantics::is_full_collision_surface(block.kind)
                     && block.kind != ae::BlockKind::OneWay

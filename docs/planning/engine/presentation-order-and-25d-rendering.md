@@ -782,6 +782,13 @@ shared value preparation are sufficient until source proves otherwise.
    The Clean / corrupted exhibit uses the same sky, fog, and front effects
    in both renderers. Medium captures show the front in all three views.
 
+   `capture_scene --renderer` fills the image with the selected renderer.
+   Each camera uses the same presented frame. An exact-tick Portal Lab
+   film at Medium shows an open gap. The floor opening and Scout are visible
+   in 2D at tick 74 and appear in the card views by tick 78. Use
+   `--at-tick 70 --frames 8 --stride 2 --player-at 1450,884@72:0,100`
+   with focus `1450,850` and size `1280x800` to inspect the gap.
+
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
    and a performance comparison are open.

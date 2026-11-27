@@ -786,18 +786,7 @@ pub fn step_projectiles(
     // rebuilding the boss's hurt geometry from those three; it reads the
     // published `DamageableVolumes` now, which is the same value the damage
     // applier uses and the only one the publisher's authored override reaches.
-    ecs_bosses: Query<
-        (
-            Entity,
-            &FeatureId,
-            &CenteredAabb,
-            &ambition_characters::actor::BodyHealth,
-            &ambition_combat::components::DamageableVolumes,
-            Option<&ambition_platformer2d_core::BodyKinematics>,
-            Option<&ambition_platformer2d_core::SweepSample>,
-        ),
-        (With<FeatureSimEntity>, With<BossConfig>),
-    >,
+    ecs_bosses: super::feature_contact::BossTargets,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,

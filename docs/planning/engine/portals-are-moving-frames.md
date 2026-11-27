@@ -141,9 +141,13 @@ queries that prefix over `[t0, tau]` and the arrival record only over
 `[tau, 1]`. Probe (deleted): a shot where the body was before it crossed now
 hits (t 0.15, was a miss); a shot at the exit before the crossing no longer
 hits (was a hit at t 0); a later one at the exit hits from t 0.5. The
-strike-victim road (projectiles) passes the record; the boss feature road,
-held items and the pose-held/kernel-collapsed `reconcile_transit` seed are
-unchanged, and the next-step seed still restarts at the arrival.
+strike-victim road (projectiles) passes the record, and since 2026-11-27 so
+does the boss feature road (`BossTargets`, same system, same tick). Held
+items do not, and must not: item physics runs in `CoreHeldItems`, before
+`PortalSet::Transit`, so a body's path there is still its whole tick in the
+entry chart and its `CrossedTravel` is the last tick's. The
+pose-held/kernel-collapsed `reconcile_transit` seed is unchanged, and the
+next-step seed still restarts at the arrival.
 
 **Landed (2026-11-25): generic transit takes every root crossing the
 budget admits.** After a transfer, the rest of the tick is a straight leg in
@@ -1151,6 +1155,10 @@ quarter of the tick, with an undeclared control row parked at x 510.
 Still open in M4:
 - ~~cost measurement on single-leg and chained traffic~~ (measured
   2026-11-25, below).
+- ~~retained target legs for every projectile road~~ (2026-11-27): the
+  boss feature road now passes its target's `CrossedTravel` as the body
+  road does. Held-item contact runs before transit, where no leg of this
+  tick exists yet (see the M1 receipt).
 
 **Cost of one transit step (2026-11-25).** `transit_step_with_tuning` on the
 two-pair fixture of `a_body_crosses_two_pairs_in_one_tick` (four wall

@@ -1,6 +1,6 @@
 # Grapple
 
-**Status:** asked by Jon 2026-11-27; G1–G4 landed the same day. Queue: GRAPPLE.
+**Status:** asked by Jon 2026-11-27; G1–G4 landed the same day; the queue row is retired.
 
 Jon (2026-11-27): *"make grapple a supported mechanic. The current
 implementation if any is broken. Grapple needs to be able to swing, it needs

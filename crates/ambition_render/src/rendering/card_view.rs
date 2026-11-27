@@ -291,6 +291,11 @@ impl CardRootDepths {
         self.roots.get(&subject?.0).map(|depth| depth.representation)
     }
 
+    fn held_depth(&self, root: Entity, source_z: f32) -> Option<f32> {
+        let depth = self.roots.get(&root)?;
+        Some(depth.plane_z + held_art_card_offset(source_z, depth.source_z) * depth.order_scale)
+    }
+
     fn effect_depth(&self, subject: Option<&PresentationOf>, source_z: f32) -> Option<f32> {
         let depth = self.roots.get(&subject?.0)?;
         let bias = source_z - depth.source_z;
@@ -1218,7 +1223,7 @@ fn realize_card_held_art(
     >,
     depths: Res<CardRootDepths>,
     mut cards: Query<
-        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut CardScope, &mut Visibility),
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
         With<CardHeldArt>,
     >,
     images: Option<Res<Assets<Image>>>,
@@ -1235,7 +1240,7 @@ fn realize_card_held_art(
     for (entity, sprite, anchor, place, HeldArtOf(root), visibility) in &art {
         let shown = visibility.is_none_or(|visibility| *visibility != Visibility::Hidden);
         let frame = shown
-            .then(|| depths.roots.get(root).copied())
+            .then(|| depths.held_depth(*root, place.translation.z))
             .flatten()
             .and_then(|depth| Some((depth, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
         let Some((depth, (frame, page_size))) = frame else {
@@ -1247,9 +1252,9 @@ fn realize_card_held_art(
             continue;
         };
         let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
-        let card_place = sprite_card_place(place, depth.plane_z + held_art_card_offset(place.translation.z, depth.source_z) * depth.order_scale);
+        let card_place = sprite_card_place(place, depth);
         match by_art.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-            Some((mut card_mesh, mut card_material, mut transform, mut scope, mut card_visibility)) => {
+            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
                 if card_mesh.0 != mesh {
                     card_mesh.0 = mesh;
                 }
@@ -1257,14 +1262,13 @@ fn realize_card_held_art(
                     card_material.0 = material;
                 }
                 transform.set_if_neq(card_place);
-                scope.set_if_neq(CardScope::Source(*root));
                 card_visibility.set_if_neq(Visibility::Inherited);
             }
             None => {
                 let card = commands
                     .spawn((
                         CardHeldArt,
-                        CardScope::Source(*root),
+                        CardScope::Source(entity),
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
                         card_place,
@@ -1683,6 +1687,9 @@ mod tests {
     /// whose holder draws no card, shows none.
     #[test]
     fn held_art_is_a_card_on_its_holders_depth() {
+        use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, PrivateCameraLayer};
+        use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
+
         let mut app = App::new();
         app.init_resource::<Assets<Image>>()
             .init_resource::<Assets<Mesh>>()
@@ -1690,7 +1697,18 @@ mod tests {
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<CardMeshes>()
             .init_resource::<CardRootDepths>()
-            .add_systems(Update, realize_card_held_art);
+            .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
+            .add_systems(Update, realize_card_held_art)
+            .add_systems(PostUpdate, (gameplay::route_card_outputs, gameplay::isolate_cards).chain());
+        let view = app.world_mut().spawn((LocalView, LocalViewId::FIRST)).id();
+        app.insert_resource(PresentedViewFrames::of_views(vec![(view, PresentedViewFrame {
+            room: LiveRoomInstance::ACTIVATION,
+            plane_center: Vec2::ZERO,
+            roll_radians: 0.0,
+            orthographic_scale: 1.0,
+        })]));
+        app.world_mut().spawn((Camera2d, MainCamera, PresentsView(view)));
+        app.world_mut().spawn((Camera3d::default(), CardViewCamera, PresentsView(view), RenderLayers::none()));
         let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
         let root = app.world_mut().spawn_empty().id();
         let no_card = app.world_mut().spawn_empty().id();
@@ -1707,9 +1725,9 @@ mod tests {
         };
         // Three slots in front of the root, as a hand's item is.
         let in_hand = app.world_mut().spawn(item(Vec3::new(30.0, 40.0, 5.0 + 3.0 * SLOT_STEP_2D), root)).id();
-        let at_no_hand = app.world_mut().spawn(item(Vec3::new(0.0, 0.0, 12.0), root)).id();
-        let hidden = app.world_mut().spawn((item(Vec3::ZERO, root), Visibility::Hidden)).id();
-        let unheld = app.world_mut().spawn(item(Vec3::ZERO, no_card)).id();
+        app.world_mut().spawn(item(Vec3::new(0.0, 0.0, 12.0), root));
+        app.world_mut().spawn((item(Vec3::ZERO, root), Visibility::Hidden));
+        app.world_mut().spawn(item(Vec3::ZERO, no_card));
         app.update();
         let world = app.world_mut();
         let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardHeldArt>>();
@@ -1722,7 +1740,24 @@ mod tests {
         assert_eq!(places.len(), 2, "the hidden item and the one whose holder has no card show none");
         assert_eq!(places[0], Vec3::new(0.0, 0.0, -20.0 + HELD_ART_REACH), "held to the body's band");
         assert!((places[1] - Vec3::new(30.0, 40.0, -20.0 + 3.0 * CARD_PART_STEP)).length() < 1e-4, "three part steps in front");
-        let _ = (in_hand, at_no_hand, hidden, unheld);
+
+        let item_card = world.query_filtered::<(Entity, &Transform), With<CardHeldArt>>()
+            .iter(world)
+            .find(|(_, place)| place.translation.x == 30.0)
+            .unwrap().0;
+        let private = RenderLayers::none().with(PrivateCameraLayer::PortalCarry.at(0));
+        let output = RenderLayers::none().with(PrivateCameraLayer::CardOutput.at(0));
+        world.entity_mut(root).insert(private.clone());
+        app.update();
+        assert!(app.world().get::<RenderLayers>(item_card).unwrap().intersects(&output));
+
+        app.world_mut().entity_mut(in_hand).insert(private);
+        app.update();
+        assert!(!app.world().get::<RenderLayers>(item_card).unwrap().intersects(&output));
+
+        app.world_mut().entity_mut(in_hand).remove::<RenderLayers>();
+        app.update();
+        assert!(app.world().get::<RenderLayers>(item_card).unwrap().intersects(&output));
     }
 
     #[test]

@@ -303,6 +303,10 @@ pub fn sync_worn_gear_visuals(
             Some(next) => {
                 next.taken = true;
                 transform.set_if_neq(next.transform);
+                #[cfg(feature = "portal_render")]
+                if drawn.order.root != next.order.root {
+                    commands.entity(entity).try_insert(ambition_portal2d_presentation::PortalDrawnWith(next.order.root));
+                }
                 drawn.map_unchanged(|drawn| &mut drawn.order).set_if_neq(next.order);
             }
             None => commands.entity(entity).despawn(),
@@ -318,17 +322,17 @@ pub fn sync_worn_gear_visuals(
         // A picture that is not published yet loads as nothing: the asset
         // server reports the missing file, and the sprite draws nothing.
         let sprite = Sprite { image: asset_server.load(path.to_owned()), custom_size: Some(size), ..default() };
-        commands.spawn_session_scoped(
-            session_scope.in_room(Some(room)),
-            (
-                WornGearVisual { body: fact.body, gear: fact.gear.clone(), layer, room, order },
-                ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(fact.body),
-                sprite,
-                anchor,
-                transform,
-                Name::new(format!("Worn gear {} ({layer:?})", fact.gear)),
-            ),
+        let bundle = (
+            WornGearVisual { body: fact.body, gear: fact.gear.clone(), layer, room, order },
+            ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(fact.body),
+            sprite,
+            anchor,
+            transform,
+            Name::new(format!("Worn gear {} ({layer:?})", fact.gear)),
         );
+        #[cfg(feature = "portal_render")]
+        let bundle = (bundle, ambition_portal2d_presentation::PortalDrawnWith(order.root));
+        commands.spawn_session_scoped(session_scope.in_room(Some(room)), bundle);
     }
 }
 

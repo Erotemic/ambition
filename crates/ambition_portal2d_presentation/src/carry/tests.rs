@@ -175,6 +175,40 @@ fn alone(budget: PieceBudget, y: f32) -> Outcome {
 }
 
 #[test]
+fn an_attachment_extends_the_body_capture_and_uses_the_same_cut() {
+    let mut app = test_app();
+    add_pair(&mut app, authored_entry(), 500.0, 800.0);
+    app.update();
+    let body = spawn_body(&mut app, PieceBudget::SINGLE_HOP, 300.0, authored_entry());
+    let top = app.world_mut().spawn((
+        Sprite::from_color(Color::WHITE, Vec2::new(44.0, 12.0)),
+        Transform::from_xyz(-2.0, 82.0, 20.1),
+        PortalDrawnWith(body),
+    )).id();
+    let private = app.world_mut().spawn((
+        Sprite::from_color(Color::WHITE, Vec2::splat(400.0)),
+        Transform::from_xyz(0.0, 300.0, 20.1),
+        PortalDrawnWith(body),
+        RenderLayers::none().with(PrivateCameraLayer::PortalCarry.at(WARM_SLOTS)),
+    )).id();
+    for _ in 0..3 { app.update(); }
+    let family = outcome(&mut app, body);
+    assert_eq!(app.world().resource::<PortalCarryAtlas>().load.families, 1);
+    assert!(family.active_capture && !family.on_world);
+    assert_eq!(family, outcome(&mut app, top));
+    assert!(app.world().get::<CarriedLayers>(private).is_none());
+    assert_eq!(family.pieces.len(), 2);
+    for piece in family.pieces {
+        let pose = Transform { translation: piece.at, scale: piece.scale, rotation: piece.rotation };
+        let top = piece.positions.iter()
+            .map(|point| pose.transform_point(Vec3::from_array(*point)).y)
+            .max_by(f32::total_cmp)
+            .unwrap();
+        assert!((top - 88.0).abs() < 0.01, "the quad includes the attachment on each side: {top}");
+    }
+}
+
+#[test]
 fn independent_bodies_keep_their_geometry_and_depth_on_the_same_link() {
     let scene = |indices: &[usize]| {
         let mut app = warm_app();

@@ -399,6 +399,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
     #[cfg(feature = "portal_render")] carry_orders: Query<&PortalCarryOrder>,
+    #[cfg(feature = "portal_render")] held_art: Query<&super::HeldArtOf>,
 ) {
     if !cards_are_visible(settings) {
         by_material.clear();
@@ -444,7 +445,13 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         let body_depth = depths.effect_depth(subject, global.translation().z);
         #[cfg(feature = "portal_render")]
         let body_depth = match carry_orders.get(source) {
-            Ok(PortalCarryOrder::Entry(root)) => depths.roots.get(root).map(|depth| depth.plane_z),
+            Ok(PortalCarryOrder::Entry(root)) => {
+                if let Ok(super::HeldArtOf(holder)) = held_art.get(*root) {
+                    depths.held_depth(*holder, global.translation().z)
+                } else {
+                    depths.roots.get(root).map(|depth| depth.plane_z)
+                }
+            }
             Ok(PortalCarryOrder::Exit) => None,
             Err(_) => body_depth,
         };
@@ -632,6 +639,17 @@ mod tests {
         app.update();
         let (entry_card, entry_place) = card(app.world_mut());
         assert_eq!(entry_place, Vec3::new(42.0, 13.0, 2.5));
+
+        let item = app.world_mut().spawn(super::super::HeldArtOf(root)).id();
+        let item_z = 20.0 + 3.0 * super::super::SLOT_STEP_2D;
+        app.world_mut().entity_mut(piece).insert((
+            PortalCarryOrder::Entry(item),
+            GlobalTransform::from_translation(Vec3::new(42.0, 13.0, item_z)),
+        ));
+        app.update();
+        let (item_card, item_place) = card(app.world_mut());
+        assert_eq!(entry_card, item_card);
+        assert!((item_place.z - (2.5 + 3.0 * super::super::CARD_PART_STEP)).abs() < 0.001);
 
         app.world_mut().entity_mut(piece).insert((
             PortalCarryOrder::Exit,

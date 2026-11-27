@@ -38,6 +38,9 @@ measurements, not a new repository or submodule.
 
 ## Point bounds and clipping
 
+The [reusable-kernel audit](../triage/2026-11-26-reusable-kernel-abstraction-audit.md)
+records the consumers and the remaining proposals.
+
 `ambition_geometry` returns point bounds as coordinate limits. Empty input has
 no box. Nonfinite input is an error. Each caller selects its own response. A
 point or segment can have a box of zero area.

@@ -45,11 +45,14 @@ python3 scripts/measure/measure_minimum_profile_closure.py --minimum
   any planning page that disagrees. It also fails if `ambition_render` re-enters
   the facade's mandatory graph.
 
-The capability-footprint sentinel (`fixtures/minimal_game`) links 75 other
+The capability-footprint sentinel (`fixtures/minimal_game`) links 77 other
 workspace packages besides the facade — the `ambition_closure` of
 `scripts/baselines/capability-footprint-baseline.json`, a different subject
 from the facade closure. Re-quote this sentence in the commit that changes the
 baseline.
+
+`ambition_snapshot` and `ambition_replay_messages` add two packages to this
+closure. They supply codecs and message readers to existing capabilities.
 
 The November 10 measurement includes the new geometry observation service
 from `21bab8c44` and the NPC planning contract from `dc206fea9`. The consumer

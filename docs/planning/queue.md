@@ -506,8 +506,10 @@ value as completion of that owner's contract.
 11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
     landed 2026-11-23 (`6fe56fb12`): a `TacticalWorld` body admits,
     refreshes, acquires and reports exactly its attended set; the cheap
-    road and omniscient target are unchanged. Open: a `TargetBelief`
-    direct-evidence budget and retention over time.
+    road and omniscient target are unchanged. Done 2026-11-27: a
+    `TargetBelief` body admits the same attended set (no view built), and
+    memory keeps at most `WorldMemory::RETAINED_AT_MOST` (32) rows, living
+    foes first.
     [OBS2](engine/world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
     landed 2026-11-23 (`4488b2d65`, schema 531): memory carries observed
     liveness and evidence source/`SimTick` cut; a hit keeps its hostility

@@ -1529,14 +1529,20 @@ pub(crate) fn perceive_for_decision(
         return (view, believed);
     }
     let cheap = nearest_hostile_peer(body, peers.iter(), relations, perception);
+    // The direct-evidence budget is the tactical one: the same `attend`
+    // admission, so both roads fold the same at most `TACTICAL_ATTENTION`
+    // rows. It ranks living hostiles first by distance, so the nearest foe
+    // the belief names is always among them.
+    let mut admitted = cheap.visible_count;
     if let Some(memory) = memory.as_deref_mut() {
+        let (attended, _) = attend(peers.iter(), body, relations, perception, &cheap.viewport);
+        admitted = attended.len();
         memory.0.update_from_seen(
             sim_time,
             cut,
             dt,
-            peers
-                .iter()
-                .filter(|p| peer_is_visible_to_body(perception, &cheap.viewport, body, p))
+            attended
+                .into_iter()
                 .map(|p| ambition_characters::perception::SeenActor {
                     id: p.id.as_str(),
                     pos: p.pos,
@@ -1559,7 +1565,7 @@ pub(crate) fn perceive_for_decision(
         // The cheap road's `kept` is its visible count, so a density sweep
         // over `TargetBelief` brains reads the population it decided over.
         kept: cheap.visible_count,
-        admitted: cheap.visible_count,
+        admitted,
         rich: 0,
         retained: retained(&memory),
     });

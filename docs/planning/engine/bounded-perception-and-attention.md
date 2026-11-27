@@ -93,15 +93,38 @@ The census row adds `admitted` (exact rows folded), `rich` (view rows
 built), `retained` (memory rows after the fold) and `reports` (eligible
 crew calls per view). `offered` and `visible` stay separate.
 
+**Direct-evidence budget and retention, 2026-11-27.** The two budgets
+the first slice left open:
+
+- *Admission.* A `TargetBelief` body folds the same `attend` set a
+  `TacticalWorld` view carries: visible peers, living hostiles first, then
+  squared distance, then id, cut at `TACTICAL_ATTENTION` (16). It still
+  builds no view, and its target is still the cheap scan's nearest foe.
+  Attention ranks living foes first by distance, so that foe is always
+  admitted. Below the cap the folded set is every visible peer, so no
+  shipped room's behavior changes; above it, the 17th and later peers are
+  neither refreshed nor called out. The census `admitted` now reports the
+  folded count on this road.
+- *Retention.* Decay bounds memory only in time. A body meeting fresh
+  squads faster than three-second half-lives fade grows without limit.
+  `WorldMemory::RETAINED_AT_MOST` is `2 × TACTICAL_ATTENTION`. A fold,
+  a heard report and a strike each evict past it. The ranking is: living
+  hostiles first, then confidence, then id. So the pursuit target
+  (`last_known_hostile`) is the last row to go, and every host evicts the
+  same rows. Under the cap nothing is evicted, and the bound costs one
+  length check.
+
+Guards: `the_tactical_attention_cap_bounds_the_evidence_a_body_admits`
+now drives both native roads through every arm. It checks memory, crew
+calls, the belief, and the decay of an unattended prior memory.
+`a_body_keeps_at_most_its_retention_budget_of_memories` runs one friendly
+squad and three foe squads, one second apart. It keeps 32 rows: the two
+newest foe squads. The friends and the oldest foes are evicted.
+
 **Still open:**
 
-- `TargetBelief` still admits every visible peer. Before changing that
-  population, specify its direct-evidence budget and retained-target
-  policy and prove it; that is a behavior/replay change.
 - [OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
   makes the effective demand include admitted module consumers.
-- Retention over time (how many old memories a body keeps) is a separate
-  budget.
 
 ### Cost model and the useful local optimization
 

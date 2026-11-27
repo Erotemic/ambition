@@ -1,6 +1,6 @@
 # Combat stances
 
-**Status:** asked by Jon 2026-11-27; S1–S3 landed the same day; S4–S5 below.
+**Status:** asked by Jon 2026-11-27; S1–S4 landed the same day; S5 below.
 Queue: COMBAT-STANCES.
 
 Jon (2026-11-27): *"I was wondering if you could implement variants of the
@@ -77,6 +77,12 @@ lists its tip first.
   does not, and the Crescent string is three steps.
 - **S4 — the look.** Bespoke rows in the v3 generator for the lunge, whirl,
   plunge and crescents (as the dash's smear was), republished; captures of
-  each stance.
+  each stance. *Landed 2026-11-27.* Four keyed strike rows in
+  `player_robot_v3_strikes.py`: `lunge_thrust` and `lunge_plunge` draw the
+  dash smear while they carry (`STRIKE_SMEAR` on the `dash_fx` channel), and
+  `crescent_arc` and `crescent_sweep` are wide straight-arm arcs. The whirl
+  spins the sheet on the move clock (`sprite_spin_hz: 8`) instead of a row.
+  The Lunge and Crescent moves play these clips; the rest of each stance
+  borrows the Edge's published rows.
 - **S5 — feel pass.** Play each stance headless against the dense-melee room
   and tune reach, frames and the pogo's bounce.

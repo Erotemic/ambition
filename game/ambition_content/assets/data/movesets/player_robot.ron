@@ -1902,7 +1902,7 @@
                             id: "lunge_thrust",
                             display_name: None,
                             clip: (
-                                clip: "dash_attack",
+                                clip: "lunge_thrust",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -2032,7 +2032,7 @@
                             id: "lunge_long",
                             display_name: None,
                             clip: (
-                                clip: "dash_attack",
+                                clip: "lunge_thrust",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -2379,7 +2379,8 @@
                             equips: None,
                             flow: None,
                         ),
-                        // Neutral air: a whirl that cuts both sides at once.
+                        // Neutral air: a whirl that cuts both sides at once; the drawn body flips
+                        // with the spin (`sprite_spin_hz`) over the ring of the neutral air.
                         (
                             id: "lunge_whirl",
                             display_name: None,
@@ -2489,7 +2490,7 @@
                             repeat: None,
                             landing_lag_s: Some(0.1),
                             autocancel_after_s: Some(0.3),
-                            sprite_spin_hz: None,
+                            sprite_spin_hz: Some(8.0),
                             equips: None,
                             flow: None,
                         ),
@@ -2705,7 +2706,7 @@
                             id: "lunge_plunge",
                             display_name: None,
                             clip: (
-                                clip: "air_down",
+                                clip: "lunge_plunge",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -3085,7 +3086,7 @@
                             id: "crescent_arc",
                             display_name: None,
                             clip: (
-                                clip: "attack_side",
+                                clip: "crescent_arc",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",
@@ -3347,7 +3348,7 @@
                             id: "crescent_sweep",
                             display_name: None,
                             clip: (
-                                clip: "slash",
+                                clip: "crescent_sweep",
                                 fallbacks: [
                                     "attack_side",
                                     "attack",

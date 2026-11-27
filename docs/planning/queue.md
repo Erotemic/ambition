@@ -2801,9 +2801,11 @@ asks for over a ring. Slice 2 (same day): the engine keeps no knowledge;
 its dial reports `GateAddressLearned` and the game records its
 `gate.known.*` flag (and decides what a terminal lists, `knows`).
 
+Slice 3: the posted addresses and `start_known` are Ambition's own file
+(`data/gate_directory.ron`, schema `gate_directory`).
+
 **Next action:** the rest, one move per slice, each leaving the game
-playable: posted addresses and `start_known` (catalog fields the engine
-still parses), the word spelling
+playable: the word spelling
 (`GateNetworkCatalog::spell`, the inscription in the catalog), facilities
 and dimensions as a directory, the refusal words, and the terminal panel's
 remaining engine pieces; the engine keeps dialed passages with opaque keys

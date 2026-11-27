@@ -274,8 +274,15 @@ no save: it reports `GateAddressLearned { ring }` when a ring answers or a
 portal's terminal is opened at it, and Ambition's
 `remember_learned_addresses` (in the same tick, after the dial) sets
 `gate.known.<ADDRESS>`. The flag's spelling and `knows` (what a terminal
-lists) are `ambition_content::gate_network`'s. The catalog still parses
-`start_known` and the posted addresses; they move with the directory.
+lists) are `ambition_content::gate_network`'s.
+
+*Slice 3 (2026-11-27).* What a terminal lists is Ambition's own file:
+`data/gate_directory.ron` (schema `gate_directory`,
+`ambition_content_schemas::gate_directory`) holds `start_known` and each
+ring's `posted` addresses by zone; the engine's catalog no longer has either.
+A content reload restates it. `the_directory_posts_only_addresses_of_the_network`
+checks the file against the network, which the engine's per-file check could
+not.
 
 ## Future expansion
 

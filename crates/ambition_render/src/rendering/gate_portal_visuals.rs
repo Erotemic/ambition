@@ -342,7 +342,6 @@ mod tests {
                     hidden: false,
                     terminal: None,
                     status: Default::default(),
-                    posted: Vec::new(),
                     note: String::new(),
                     kind: Default::default(),
                     reach: None,

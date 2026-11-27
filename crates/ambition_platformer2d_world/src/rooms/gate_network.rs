@@ -140,29 +140,13 @@ pub struct GateNetworkCatalog {
     pub facilities: Vec<GateFacility>,
     /// Each ring of the network.
     pub rings: Vec<GateRing>,
-    /// Which addresses a traveller knows before learning any. Knowledge only
-    /// decides what a terminal lists; a dial never reads it.
-    #[serde(default)]
-    pub start_known: GateStartKnowledge,
 }
 
 impl Default for GateNetworkCatalog {
     fn default() -> Self {
         Self { idle_timeout_secs: default_gate_idle_timeout_secs(), inscription: String::new(),
-            facilities: Vec::new(), rings: Vec::new(), start_known: Default::default() }
+            facilities: Vec::new(), rings: Vec::new() }
     }
-}
-
-/// Which addresses a traveller knows before learning any.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
-pub enum GateStartKnowledge {
-    /// Only what the traveller learned: a dial that answered
-    /// ([`GateAddressLearned`]), a sign, a person, a document.
-    #[default]
-    Discovered,
-    /// Every address of the network, hidden ones too: a development game that
-    /// starts with everything unlocked.
-    All,
 }
 
 /// One logistical facility: a gate station and the rings it holds.
@@ -210,10 +194,6 @@ pub struct GateRing {
     /// The ring's infrastructure state, from authored facts only.
     #[serde(default)]
     pub status: GateStatusRule,
-    /// Addresses written on the ring's terminal. A terminal always lists them,
-    /// so a traveller can go back without knowing an address.
-    #[serde(default)]
-    pub posted: Vec<String>,
     /// A line the terminal shows about the ring (its upkeep, its traffic).
     #[serde(default)]
     pub note: String,
@@ -631,9 +611,6 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
                 problems.push(format!("`{zone}.status` has an empty fact or reason"));
             }
         }
-        for address in &ring.posted {
-            address_ok(address, &mut problems, format!("`{zone}.posted` address"));
-        }
     }
     // No two rings answer the same chevrons, word or glyphs. Whether an
     // address keeps the game's spelling is the game's check.
@@ -644,14 +621,6 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
                 if ring.glyphs.is_some() || catalog.ring(other).is_some_and(|other| other.glyphs.is_some()) {
                     problems.push(format!("`{other}` and `{}` answer the same chevrons", ring.zone));
                 }
-            }
-        }
-    }
-    // A posting may only name an address the network has.
-    for ring in &catalog.rings {
-        for address in &ring.posted {
-            if !addresses.contains_key(&normalize_address(address)) {
-                problems.push(format!("`{}` names the address `{address}`, which no ring has", ring.zone));
             }
         }
     }
@@ -929,7 +898,6 @@ mod tests {
             hidden: false,
             terminal: Some(format!("{zone}_terminal")),
             status: GateStatusRule::Online,
-            posted: Vec::new(),
             note: String::new(),
             kind: RingKind::Gate,
             reach: None,
@@ -969,7 +937,6 @@ mod tests {
                 station,
                 ring("trail", "trail", Some("ASCENT")),
             ],
-            start_known: GateStartKnowledge::Discovered,
         }
     }
 
@@ -1271,7 +1238,6 @@ mod tests {
         bad.rings[2].address = Some("LEGAL".into());
         bad.rings[3].address = Some("SILENTO".into());
         bad.rings[4].facility = "nowhere".into();
-        bad.rings[1].posted = vec!["SAND".into()];
         bad.rings[5].terminal = None;
         bad.rings.push(ring("hub", "home", None));
         let mut twin = ring("twin", "trail", None);
@@ -1283,7 +1249,6 @@ mod tests {
             "the address `LEGAL` reaches both `hub` and `math`",
             "`ninja.address` `SILENTO` has 'O', which is on no chevron",
             "`fort.facility` `nowhere` is not a facility",
-            "`ring7` names the address `SAND`, which no ring has",
             "the ring `hub` is stated twice",
             "`hub` has no address: every ring can be dialed",
             "`station` has no terminal: every ring can be dialed from",

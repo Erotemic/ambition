@@ -417,6 +417,9 @@ bay sign beside the exit that loads that room.
 In the docking bay, show where a body leaves the east ladder at the
 service deck and the hauler walk. Use the ledge spans to place the
 gantry braces and the gaps in the rails.
+On the observation deck, show the planet from the floor and the center
+of the viewing walk. Use the slope points to draw the floor and braces.
+Show where holding Up joins the ramps.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

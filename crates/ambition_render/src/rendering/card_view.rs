@@ -122,7 +122,7 @@ use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
 use super::chain_skin::ChainEarth;
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
-use super::primitives::{AnimatedWorldSpriteTint, WorldSprite};
+use super::primitives::{AnimatedWorldSpriteTint, PropVisual, WorldSprite};
 use super::terrain_skin::TerrainSkinMesh;
 
 /// The distance from the play plane to a vessel's far sprite layer.
@@ -291,6 +291,10 @@ pub struct CardRootDepths {
 }
 
 impl CardRootDepths {
+    fn scenery_depth(&self, z: f32, room: Option<LiveRoomInstance>) -> f32 {
+        scenery_depth(z, self.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP))
+    }
+
     fn representation_of(&self, subject: Option<&PresentationOf>) -> Option<CardBodyRepresentation> {
         self.roots.get(&subject?.0).map(|depth| depth.representation)
     }
@@ -452,6 +456,9 @@ pub fn present_card_view_rigs(
         commands.spawn((
             CardViewCamera,
             Camera3d::default(),
+            // Indirect instance compaction can change the order of a
+            // batch. Alpha-blended cards need their sorted order.
+            bevy::render::view::NoIndirectDrawing,
             // As the TwinTrack spacetime view and the pause cube: a
             // higher-order Camera3d composited over the gameplay Camera2d,
             // its clear held to its own viewport.
@@ -936,7 +943,7 @@ pub(super) fn realize_card_bodies(
     roots: Query<
         (
             &Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>,
-            Option<&PresentedFlash>, Option<&MovingPlatformVisual>,
+            Option<&PresentedFlash>, Option<&MovingPlatformVisual>, Has<PropVisual>, Option<&Visibility>,
         ),
         (Without<CardBody>, Without<CardPart>),
     >,
@@ -978,7 +985,7 @@ pub(super) fn realize_card_bodies(
         if !drawable {
             continue;
         }
-        let Ok((root, seated, .., platform)) = roots.get(of.0) else {
+        let Ok((root, seated, .., platform, prop, _)) = roots.get(of.0) else {
             continue;
         };
         if let Some(platform) = platform {
@@ -990,7 +997,7 @@ pub(super) fn realize_card_bodies(
                 front_part: 0.0,
                 representation: CardBodyRepresentation::Sprite,
             });
-        } else {
+        } else if !prop {
             ranked.push((rooms.of(of.0), root.translation.z, owner, seated.map(|seat| seat.slot)));
         }
     }
@@ -1057,7 +1064,30 @@ pub(super) fn realize_card_bodies(
             // Spawned this frame: filled from the next.
             continue;
         };
-        let (Some(depth), Ok((root, _, root_sprite, root_anchor, flash, _))) = (placements.get(&owner), roots.get(of.0)) else {
+        let Ok((root, _, root_sprite, root_anchor, flash, _, prop, visibility)) = roots.get(of.0) else {
+            body_visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
+        let depth = placements.get(&owner).copied().or_else(|| {
+            if !prop || visibility == Some(&Visibility::Hidden) || (sample.baked.is_none() && sample.feet.is_none()) {
+                return None;
+            }
+            let source_z = root.translation.z;
+            let room = rooms.of(of.0);
+            let projected = |z| root_depths.as_deref()
+                .map_or_else(|| scenery_depth(z, CARD_BODY_STEP), |depths| depths.scenery_depth(z, room));
+            let plane_z = projected(source_z);
+            let span = projected(source_z + super::world::SCENERY_Z_STEP) - plane_z;
+            let count = sample.parts().map_or(1, |parts| parts.len()).max(1);
+            Some(CardBodyDepth {
+                plane_z,
+                source_z,
+                order_scale: span / (count as f32 * CARD_PART_STEP),
+                front_part: 0.0,
+                representation: CardBodyRepresentation::Sprite,
+            })
+        });
+        let Some(depth) = depth else {
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -1079,7 +1109,7 @@ pub(super) fn realize_card_bodies(
                 } else {
                     CardBodyRepresentation::RiggedParts
                 },
-                ..*depth
+                ..depth
             });
         }
         if let Some(baked) = baked {
@@ -1517,15 +1547,14 @@ pub(super) fn realize_card_scenery(
             let place = global.compute_transform();
             let z = place.translation.z;
             let depth = depths.effect_depth(subject, z).unwrap_or_else(|| {
-                let front = if z >= ambition_platformer2d_core::config::WORLD_Z_PLAYER {
-                    let room = rooms.stamped(entity)
+                let room = if z >= ambition_platformer2d_core::config::WORLD_Z_PLAYER {
+                    rooms.stamped(entity)
                         .or_else(|| parents.iter_ancestors(entity).find_map(|parent| rooms.stamped(parent)))
-                        .or_else(|| rooms.of(entity));
-                    depths.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP)
+                        .or_else(|| rooms.of(entity))
                 } else {
-                    CARD_BODY_STEP
+                    None
                 };
-                scenery_depth(z, front)
+                depths.scenery_depth(z, room)
             });
             sprite_card_place(&place, depth)
         };

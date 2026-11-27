@@ -2572,3 +2572,56 @@ fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
     let moved = placement(&mut app, near);
     assert_eq!(moved, (before.0, before.1 + Vec3::X * 30.0, before.2));
 }
+
+#[cfg(feature = "card_view")]
+#[test]
+fn parts_of_a_room_prop_stay_in_the_props_depth() {
+    use ambition_platformer2d_world::rooms::PropDraw;
+    use crate::rendering::card_view::{realize_card_bodies, realize_card_scenery, realize_card_sprite_bodies, CardBody, CardMeshes, CardRootDepths, CardScenery, CardSpriteBody};
+    use crate::rendering::primitives::{PlayerVisual, PropVisual, WorldSprite};
+    use crate::rendering::world::SCENERY_Z_STEP;
+    use ambition_platformer2d_core::config::{WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+
+    let content = ambition_sprite_sheet::test_support::shared_sprites();
+    let sheet = raider(&content, true);
+    let (mut app, prop) = app_direct(&content, sheet, Anchor::CENTER);
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<CardMeshes>()
+        .init_resource::<CardRootDepths>()
+        .add_systems(Update, (realize_card_bodies, realize_card_sprite_bodies, realize_card_scenery).chain().after(RiggedDriveSet));
+    app.world_mut().spawn((
+        PlayerVisual, Sprite::from_color(Color::WHITE, Vec2::ONE),
+        Transform::from_xyz(0.0, 0.0, WORLD_Z_PLAYER),
+    ));
+    app.world_mut().entity_mut(prop).insert(PropVisual {
+        id: "prop".into(), kind: "prop".into(), name: "Prop".into(), size: RENDER, draw: PropDraw::Decoration, flip_y: false,
+    });
+
+    for (z, above_player) in [(WORLD_Z_DUMMY + 0.55, false), (WORLD_Z_PLAYER + 1.0, true)] {
+        app.world_mut().get_mut::<Transform>(prop).unwrap().translation.z = z;
+        let next = spawn_scenery(&mut app, z + SCENERY_Z_STEP);
+        settle(&mut app);
+        let owner = owner(&app, prop);
+        let world = app.world_mut();
+        let free_depth = world.query_filtered::<&Transform, With<CardSpriteBody>>().single(world).unwrap().translation.z;
+        let next_depth = world.query_filtered::<&Transform, With<CardScenery>>().single(world).unwrap().translation.z;
+        let mut cards = world.query::<(&CardBody, &Transform)>();
+        let (body, place) = cards.iter(world).find(|(body, _)| body.owner == owner).unwrap();
+        assert!(body.parts.len() > 1);
+        let root_depth = place.translation.z;
+        let parts: Vec<_> = body.parts.iter().map(|part| world.get::<Transform>(*part).unwrap().translation.z).collect();
+        assert!(parts.windows(2).all(|pair| pair[0] < pair[1]), "the parts keep their paint order");
+        assert!(root_depth + parts.last().unwrap() < next_depth, "one prop stays behind the next prop");
+        assert_eq!(root_depth > free_depth, above_player);
+        world.entity_mut(next).despawn();
+    }
+
+    fn spawn_scenery(app: &mut App, depth: f32) -> Entity {
+        let place = Transform::from_xyz(0.0, 0.0, depth);
+        app.world_mut().spawn((
+            WorldSprite, Sprite::from_color(Color::WHITE, Vec2::ONE), place,
+            GlobalTransform::from(place), InheritedVisibility::VISIBLE,
+        )).id()
+    }
+}

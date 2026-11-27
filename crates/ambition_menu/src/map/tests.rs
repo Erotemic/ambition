@@ -508,6 +508,7 @@ mod view_tests {
             secret_exits: Vec::new(),
             doors: doors.iter().map(|(t, at)| MapDoor { at: Vec2::new(*at, 50.0), target_room: t.to_string() }).collect(),
             pins: vec![MapPin { at: Vec2::new(w * 0.5, h * 0.5), kind: MapPinKind::Resident }],
+            ..Default::default()
         }
     }
 

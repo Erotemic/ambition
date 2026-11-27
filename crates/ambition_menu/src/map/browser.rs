@@ -55,6 +55,7 @@ pub enum MapOutcome<'a> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MapEntryKind {
     Group,
+    Landmark,
     Room,
 }
 
@@ -79,6 +80,8 @@ pub struct MapBrowserView {
     pub focused_tool: Option<MapAction>,
     pub tools: Vec<MapAction>,
     pub doors: Vec<Vec2>,
+    /// Passages between visible rooms, in viewport coordinates.
+    pub links: Vec<[Vec2; 2]>,
     pub pins: Vec<MapPin>,
 }
 
@@ -87,7 +90,14 @@ struct Entry<'a> {
     children: Vec<MapEntryId>,
     title: String,
     pieces: Vec<&'a MapRoomNode>,
+    entrances: Vec<Entrance<'a>>,
     key: Vec<&'a str>,
+}
+
+struct Entrance<'a> {
+    outside: &'a MapRoomNode,
+    destination: MapEntryId,
+    at: Vec2,
 }
 
 impl<'a> Entry<'a> {
@@ -115,6 +125,7 @@ fn room_id(room: &MapRoomNode) -> &str {
 pub struct MapAtlas<'a> {
     entries: Vec<Entry<'a>>,
     room_ids: BTreeMap<&'a str, MapEntryId>,
+    piece_ids: BTreeMap<&'a str, MapEntryId>,
 }
 
 const ROOT: MapEntryId = MapEntryId(0);
@@ -135,15 +146,18 @@ impl<'a> MapAtlas<'a> {
                     .and_then(|h| h.root_title.clone())
                     .unwrap_or_else(|| "Dimensions".into()),
                 pieces: Vec::new(),
+                entrances: Vec::new(),
                 key: Vec::new(),
             }],
             room_ids: BTreeMap::new(),
+            piece_ids: BTreeMap::new(),
         };
         let mut groups = BTreeMap::new();
         for room in rooms {
             let room_id = room_id(room);
             if let Some(id) = atlas.room_ids.get(room_id) {
                 atlas.entries[id.0].pieces.push(room);
+                atlas.piece_ids.insert(&room.id, *id);
                 continue;
             }
             let mut key = vec![room.world.as_str()];
@@ -154,19 +168,53 @@ impl<'a> MapAtlas<'a> {
                     .unwrap_or_else(|| world_title(&room.world));
                 atlas.insert(ROOT, title, None, key.clone())
             });
-            if let Some(path) = hierarchy.and_then(|h| h.room_groups.get(room_id)) {
-                for group in path {
-                    key.push(group);
-                    parent = *groups
-                        .entry(key.clone())
-                        .or_insert_with(|| atlas.insert(parent, group.clone(), None, key.clone()));
-                }
+            let path = hierarchy
+                .and_then(|h| h.room_groups.get(room_id))
+                .unwrap_or(&room.group_path);
+            for group in path {
+                key.push(group);
+                parent = *groups
+                    .entry(key.clone())
+                    .or_insert_with(|| atlas.insert(parent, group.clone(), None, key.clone()));
             }
             key.push(room_id);
             let id = atlas.insert(parent, room.title.clone(), Some(room), key);
             atlas.room_ids.insert(room_id, id);
+            atlas.piece_ids.insert(&room.id, id);
         }
+        atlas.place_entrances();
         atlas
+    }
+
+    fn place_entrances(&mut self) {
+        let mut entrances = Vec::new();
+        for (&id, entry) in self.room_ids.values().map(|id| (id, &self.entries[id.0])) {
+            for &room in &entry.pieces {
+                for door in &room.doors {
+                    if let Some(destination) = self.find_room(&door.target_room) {
+                        if let Some(group) = self.entered_group(id, destination) {
+                            entrances.push((group, Entrance { outside: room, destination, at: room.world_min + door.at }));
+                        }
+                    }
+                }
+            }
+        }
+        for (group, entrance) in entrances {
+            self.entries[group.0].entrances.push(entrance);
+        }
+    }
+
+    fn entered_group(&self, outside: MapEntryId, target: MapEntryId) -> Option<MapEntryId> {
+        let parent = self.entries[outside.0].parent;
+        let mut child = self.entries[target.0].parent;
+        while child != ROOT && child != parent {
+            let ancestor = self.entries[child.0].parent;
+            if ancestor == parent {
+                return Some(child);
+            }
+            child = ancestor;
+        }
+        None
     }
 
     fn insert(
@@ -182,6 +230,7 @@ impl<'a> MapAtlas<'a> {
             children: Vec::new(),
             title,
             pieces: room.into_iter().collect(),
+            entrances: Vec::new(),
             key,
         });
         self.entries[parent.0].children.push(id);
@@ -204,12 +253,7 @@ impl<'a> MapAtlas<'a> {
     }
 
     fn find_room(&self, id: &str) -> Option<MapEntryId> {
-        self.room_ids.get(id).copied().or_else(|| {
-            self.entries
-                .iter()
-                .position(|entry| entry.pieces.iter().any(|piece| piece.id == id))
-                .map(MapEntryId)
-        })
+        self.room_ids.get(id).or_else(|| self.piece_ids.get(id)).copied()
     }
 }
 
@@ -267,9 +311,28 @@ impl Location {
 struct Level<'a> {
     id: MapEntryId,
     bounds: Rect,
-    entries: Vec<(MapEntryId, Rect, bool)>,
+    entries: Vec<PlacedEntry>,
     current: Option<MapEntryId>,
     atlas: &'a MapAtlas<'a>,
+}
+
+struct PlacedEntry {
+    id: MapEntryId,
+    bounds: Rect,
+    visited: bool,
+    markers: Vec<Rect>,
+}
+
+impl PlacedEntry {
+    fn room(id: MapEntryId, bounds: Rect, visited: bool) -> Self {
+        Self { id, bounds, visited, markers: Vec::new() }
+    }
+}
+
+fn entrance_marker(entrance: &Entrance) -> Rect {
+    let width = (entrance.outside.world_size.x * 0.32).clamp(260.0, 800.0);
+    let height = (entrance.outside.world_size.y * 0.30).clamp(120.0, 280.0);
+    Rect::from_center_size(entrance.at - Vec2::Y * height, Vec2::new(width, height))
 }
 
 impl MapBrowser {
@@ -306,20 +369,27 @@ impl MapBrowser {
                         other.world == room.world
                             && visited(other)
                             && (super::view::open_edge(other, room)
-                                || super::view::open_edge(room, other))
+                                || super::view::open_edge(room, other)
+                                || (!level.key.is_empty()
+                                    && level.parent != ROOT
+                                    && atlas.entries[atlas.room_ids[room_id(other)].0].parent == id
+                                    && other.doors.iter().any(|door| atlas.find_room(&door.target_room)
+                                        == atlas.room_ids.get(room_id(room)).copied())))
                     })
         };
         let mut entries = Vec::new();
         let mut bounds: Option<Rect> = None;
         if let Some(rect) = level.room_bounds() {
-            entries.push((id, rect, level.pieces.iter().any(|piece| visited(piece))));
+            entries.push(PlacedEntry::room(id, rect, level.pieces.iter().any(|piece| visited(piece))));
             bounds = Some(rect);
         }
         for &child in &level.children {
             let item = &atlas.entries[child.0];
-            if item.pieces.iter().any(|piece| visible(piece)) {
+            if item.pieces.iter().any(|piece| visible(piece))
+                || level.entrances.iter().any(|entrance| entrance.destination == child && visited(entrance.outside))
+            {
                 let rect = item.room_bounds().expect("a visible room has a piece");
-                entries.push((child, rect, item.pieces.iter().any(|piece| visited(piece))));
+                entries.push(PlacedEntry::room(child, rect, item.pieces.iter().any(|piece| visited(piece))));
                 bounds = Some(bounds.map_or(rect, |b| b.union(rect)));
             }
         }
@@ -330,7 +400,10 @@ impl MapBrowser {
             .children
             .iter()
             .copied()
-            .filter(|child| atlas.entries[child.0].pieces.is_empty())
+            .filter(|child| {
+                let group = &atlas.entries[child.0];
+                group.pieces.is_empty() && group.entrances.is_empty()
+            })
             .enumerate()
         {
             let row = (i / 4) as f32;
@@ -341,11 +414,26 @@ impl MapBrowser {
             );
             let min = card_origin + Vec2::new(column, row) * spacing;
             let rect = Rect::from_corners(min, min + Vec2::new(card_size, 100.0));
-            entries.push((child, rect, true));
+            entries.push(PlacedEntry { id: child, bounds: rect, visited: true, markers: vec![rect] });
+        }
+        for &child in &level.children {
+            let group = &atlas.entries[child.0];
+            let here = atlas.is_here(child, current);
+            let mut markers: Vec<_> = group.entrances.iter()
+                .filter(|entrance| visited(entrance.outside)
+                    || atlas.entries[entrance.destination.0].pieces.iter().any(|piece| visited(piece)))
+                .map(entrance_marker)
+                .collect();
+            if markers.is_empty() && here {
+                markers.extend(group.entrances.first().map(entrance_marker));
+            }
+            if let Some(bounds) = markers.iter().copied().reduce(|a, b| a.union(b)) {
+                entries.push(PlacedEntry { id: child, bounds, visited: true, markers });
+            }
         }
         let bounds = entries
             .iter()
-            .map(|(_, rect, _)| *rect)
+            .map(|entry| entry.bounds)
             .reduce(|a, b| a.union(b))
             .unwrap_or(Rect::from_corners(Vec2::ZERO, Vec2::ONE));
         Level {
@@ -364,17 +452,17 @@ impl MapBrowser {
                 level
                     .entries
                     .iter()
-                    .find(|(entry, _, _)| location.matches(&level.atlas.entries[entry.0]))
-                    .map(|(id, _, _)| *id)
+                    .find(|entry| location.matches(&level.atlas.entries[entry.id.0]))
+                    .map(|entry| entry.id)
             })
             .or_else(|| {
                 level
                     .entries
                     .iter()
-                    .find(|(id, _, _)| level.atlas.is_here(*id, level.current))
-                    .map(|(id, _, _)| *id)
+                    .find(|entry| level.atlas.is_here(entry.id, level.current))
+                    .map(|entry| entry.id)
             })
-            .or_else(|| level.entries.first().map(|(id, _, _)| *id))
+            .or_else(|| level.entries.first().map(|entry| entry.id))
     }
 
     fn frame(&self, level: &Level, aspect: f32) -> Frame {
@@ -444,19 +532,23 @@ impl MapBrowser {
         let tools = self.tools(&level, access.can_travel);
         let mut doors = Vec::new();
         let mut pins = Vec::new();
+        let links = if entry.parent != ROOT && entry.room().is_none() {
+            level.links().map(|[from, to]| [point(from), point(to)]).collect()
+        } else {
+            Vec::new()
+        };
         let entries = level
             .entries
             .iter()
-            .map(|&(id, rect, visited)| {
+            .map(|placed| {
+                let id = placed.id;
+                let visited = placed.visited;
                 let item = &atlas.entries[id.0];
                 let project = |rect: Rect| {
                     let clip = rect.intersect(frame);
                     (!clip.is_empty()).then(|| Rect::from_corners(point(clip.min), point(clip.max)))
                 };
-                let mut pieces = Vec::new();
-                if item.pieces.is_empty() {
-                    pieces.extend(project(rect));
-                }
+                let mut pieces: Vec<_> = placed.markers.iter().copied().filter_map(project).collect();
                 for room in &item.pieces {
                     let Some(piece) = project(room_rect(room)) else {
                         continue;
@@ -467,6 +559,8 @@ impl MapBrowser {
                         doors.extend(
                             room.doors
                                 .iter()
+                                .filter(|door| atlas.find_room(&door.target_room)
+                                    .is_none_or(|target| atlas.entered_group(id, target).is_none()))
                                 .map(|door| room.world_min + door.at)
                                 .filter(|&at| frame.contains(at))
                                 .map(point),
@@ -484,6 +578,8 @@ impl MapBrowser {
                     id,
                     kind: if item.room().is_some() {
                         MapEntryKind::Room
+                    } else if !item.entrances.is_empty() {
+                        MapEntryKind::Landmark
                     } else {
                         MapEntryKind::Group
                     },
@@ -503,6 +599,7 @@ impl MapBrowser {
             focused_tool: self.tool.filter(|tool| tools.contains(tool)),
             tools,
             doors,
+            links,
             pins,
         }
     }
@@ -624,7 +721,7 @@ impl MapBrowser {
                 self.reveal(&parent, level.id, aspect);
             }
             MapAction::Open(id)
-                if detail.is_none() && level.entries.iter().any(|(entry, _, _)| *entry == id) =>
+                if detail.is_none() && level.entries.iter().any(|entry| entry.id == id) =>
             {
                 self.open(atlas, id);
             }
@@ -649,10 +746,10 @@ impl MapBrowser {
                 let index = level
                     .entries
                     .iter()
-                    .position(|(id, _, _)| Some(*id) == selected)
+                    .position(|entry| Some(entry.id) == selected)
                     .unwrap_or(0);
                 let index = (index as i32 + i32::from(step)).rem_euclid(level.entries.len() as i32);
-                self.reveal(&level, level.entries[index as usize].0, aspect);
+                self.reveal(&level, level.entries[index as usize].id, aspect);
             }
             MapAction::Zoom(step) => self.zoom_level(&level, aspect, f32::from(step)),
             MapAction::Pan(x, y) => {
@@ -700,26 +797,55 @@ impl MapBrowser {
 }
 
 impl Level<'_> {
+    fn links(&self) -> impl Iterator<Item = [Vec2; 2]> + '_ {
+        let rooms: BTreeSet<_> = self.entries.iter()
+            .filter(|entry| entry.markers.is_empty())
+            .map(|entry| entry.id.0)
+            .collect();
+        let mut linked = BTreeSet::new();
+        let mut links = Vec::new();
+        for visible in self.entries.iter().filter(|entry| entry.visited) {
+            let source = &self.atlas.entries[visible.id.0];
+            for room in &source.pieces {
+                for door in &room.doors {
+                    let Some(target) = self.atlas.find_room(&door.target_room) else { continue };
+                    let (a, b) = (visible.id.0.min(target.0), visible.id.0.max(target.0));
+                    if a == b || !rooms.contains(&target.0) || !linked.insert((a, b)) {
+                        continue;
+                    }
+                    let other = &self.atlas.entries[target.0];
+                    let from = room.world_min + door.at;
+                    let to = other.pieces.iter().flat_map(|piece| piece.doors.iter().filter_map(|door| {
+                        (self.atlas.find_room(&door.target_room) == Some(visible.id))
+                            .then_some(piece.world_min + door.at)
+                    }))
+                    .min_by(|a, b| a.distance_squared(from).total_cmp(&b.distance_squared(from)))
+                    .or_else(|| other.room_bounds().map(|rect| rect.center()));
+                    links.extend(to.map(|to| [from, to]));
+                }
+            }
+        }
+        links.into_iter()
+    }
+
     fn entry_bounds(&self, id: MapEntryId) -> Option<Rect> {
         self.entries
             .iter()
-            .find_map(|&(entry, rect, _)| (entry == id).then_some(rect))
+            .find(|entry| entry.id == id)
+            .map(|entry| entry.markers.first().copied().unwrap_or(entry.bounds))
     }
 
     fn directional(&self, selected: Option<MapEntryId>, direction: Vec2) -> Option<MapEntryId> {
-        let (_, origin, _) = self
-            .entries
-            .iter()
-            .find(|(entry, _, _)| Some(*entry) == selected)?;
+        let origin = self.entry_bounds(selected?)?.center();
         let direction = direction.normalize_or_zero();
         self.entries
             .iter()
-            .filter_map(|(id, rect, _)| {
-                let offset = rect.center() - origin.center();
+            .filter_map(|entry| {
+                let offset = entry.markers.first().copied().unwrap_or(entry.bounds).center() - origin;
                 let ahead = offset.dot(direction);
                 (ahead > f32::EPSILON).then(|| {
                     let sideways = offset.perp_dot(direction).abs();
-                    (*id, ahead + 2.0 * sideways)
+                    (entry.id, ahead + 2.0 * sideways)
                 })
             })
             .min_by(|(_, left), (_, right)| left.total_cmp(right))
@@ -841,6 +967,51 @@ mod tests {
                 .title,
             "crypt"
         );
+    }
+
+    #[test]
+    fn a_dungeon_chart_opens_at_its_entrance_and_owns_its_rooms() {
+        use crate::map::view::MapDoor;
+        let mut moor = room("Moor", "Country", Vec2::ZERO);
+        moor.doors.push(MapDoor { at: Vec2::new(172.0, 205.0), target_room: "Vestibule".into() });
+        let mut vestibule = room("Vestibule", "Country", Vec2::new(9000.0, 500.0));
+        vestibule.group_path = vec!["Barrows".into()];
+        vestibule.doors.push(MapDoor { at: Vec2::new(200.0, 210.0), target_room: "Crypt".into() });
+        let mut crypt = room("Crypt", "Country", Vec2::new(9400.0, 950.0));
+        crypt.group_path = vestibule.group_path.clone();
+        let rooms = [moor, vestibule, crypt, room("Hub", "Sandbox", Vec2::ZERO)];
+        let atlas = MapAtlas::new(&rooms, None);
+        let visited = BTreeSet::new();
+        let outside = MapAccess { current_room: Some("Moor"), visited: &visited, reveal_all: false, can_travel: false };
+        let mut browser = MapBrowser::default();
+        let world = browser.view(&atlas, outside, 1.7);
+        assert_eq!(world.title, "Country");
+        assert_eq!(world.entries.iter().map(|e| e.title.as_str()).collect::<Vec<_>>(), ["Moor", "Barrows"]);
+        let barrows = &world.entries[1];
+        assert_eq!(barrows.kind, MapEntryKind::Landmark);
+        assert!(!barrows.pieces[0].intersect(world.entries[0].pieces[0]).is_empty());
+        assert!(world.doors.is_empty());
+
+        browser.apply(&atlas, outside, 1.7, MapAction::Open(barrows.id));
+        let map = browser.view(&atlas, outside, 1.7);
+        assert_eq!(map.title, "Barrows");
+        assert_eq!(map.parent_title.as_deref(), Some("Country"));
+        assert_eq!(map.entries.len(), 1);
+        assert_eq!(map.entries[0].title, "Vestibule");
+        assert!(!map.entries[0].visited);
+
+        let inside = MapAccess { current_room: Some("Vestibule"), ..outside };
+        let mut browser = MapBrowser::default();
+        let map = browser.view(&atlas, inside, 1.7);
+        assert!(map.entries[0].here && map.entries[0].selected);
+        assert_eq!(map.entries[1].title, "Crypt");
+        assert_eq!(map.links.len(), 1);
+        browser.apply(&atlas, inside, 1.7, MapAction::Up);
+        assert!(browser.view(&atlas, inside, 1.7).entries.iter().any(|e| e.id == barrows.id && e.here));
+        browser.apply(&atlas, inside, 1.7, MapAction::Up);
+        let root = browser.view(&atlas, inside, 1.7);
+        assert_eq!(root.title, "Dimensions");
+        assert_eq!(root.entries.iter().map(|e| e.title.as_str()).collect::<Vec<_>>(), ["Country", "Sandbox"]);
     }
 
     #[test]

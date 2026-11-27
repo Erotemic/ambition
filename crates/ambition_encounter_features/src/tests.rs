@@ -32,6 +32,7 @@ fn test_world_manifest() -> ambition_platformer2d_world::world_manifest::WorldMa
         ron_rooms: Vec::new(),
         worlds: vec![WorldSource {
             id: AssetId::new("world.sandbox_ldtk"),
+            map_title: None,
             asset_path: "game://worlds/sandbox.ldtk".to_string(),
             loose_path: Some(worlds_dir.join("sandbox.ldtk")),
             embedded_text: None,

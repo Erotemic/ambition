@@ -189,6 +189,9 @@ conscript starts on the wall. The spectral wolf starts on the road.
   fountain on the way to the lecture hall terrace. The café bench and
   awning give access from the street. The manhole below the patent
   balcony leads to the steam plant.
+- At the ground station, steps on both sides of the car lead to the
+  galleries. The west gallery has the departures board. The east
+  gallery has the altimeter. Board the car from the hall floor.
 - **Under:** down the manhole in the quad's street into the steam plant (catwalks, boilers), east on its floor into the Collider, up its stair to the quad: a loop.
 - **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
 - **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.

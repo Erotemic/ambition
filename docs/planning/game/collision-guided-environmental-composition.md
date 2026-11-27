@@ -405,6 +405,9 @@ At Eureka's Gate Court, show where the street and raised walk meet the
 quad. Show the gate and dialer clearance beside the first step.
 In the quad, show the jumps between the raised walks and the drop to
 the manhole. Show the sign positions with the ladder and door frames.
+At the tether ground station, show the gallery ends and the car's
+travel from the floor to the roof. Include the width of a rider at the
+gallery height.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

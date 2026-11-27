@@ -10,8 +10,9 @@
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt as _;
+use ambition_content::gate_network::gate_address_known_flag;
 use ambition_platformer2d::world::rooms::{
-    gate_address_known_flag, GateNetworkState, GatePortalPhases, GateTerminalAction, GateTerminalIntent,
+    GateNetworkState, GatePortalPhases, GateTerminalAction, GateTerminalIntent,
 };
 
 use crate::common::walk::{walk_to, Pad};

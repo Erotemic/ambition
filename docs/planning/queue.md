@@ -2797,10 +2797,13 @@ grids, the sixteen-chevron and four-use limits) and the ring's lit address
 are the game's (`ambition_content::gate_inscription`, the terminal
 presentation). The engine's dial asks the game's `GateAddressRule` and
 refuses `Malformed`; its render draws whatever `GateRingOverlays` a game
-asks for over a ring.
+asks for over a ring. Slice 2 (same day): the engine keeps no knowledge;
+its dial reports `GateAddressLearned` and the game records its
+`gate.known.*` flag (and decides what a terminal lists, `knows`).
 
 **Next action:** the rest, one move per slice, each leaving the game
-playable: posted and known addresses (`gate.known.*`), the word spelling
+playable: posted addresses and `start_known` (catalog fields the engine
+still parses), the word spelling
 (`GateNetworkCatalog::spell`, the inscription in the catalog), facilities
 and dimensions as a directory, the refusal words, and the terminal panel's
 remaining engine pieces; the engine keeps dialed passages with opaque keys

@@ -11,10 +11,34 @@
 
 use ambition_app::rl_sim::AmbitionSim as _;
 
-use crate::common::walk::{through_the_raid, walk_through, Pad, RaidStart};
+use crate::common::walk::{through_the_raid, walk_through, walk_through_zone, Pad, RaidStart};
 use crate::common::{base, fixed_60hz_room_options};
 
 const HUB: &str = "central_hub_complex";
+
+#[test]
+fn scroll_lab_shares_a_walkable_edge_with_the_developer_wing() {
+    const LAB: &str = "scroll_lab";
+    let mut sim = crate::common::fixed_60hz_room_sim(LAB);
+    sim.step_n(base(), 30);
+
+    walk_through_zone(&mut Pad::new(&mut sim), HUB, "west_exit")
+        .expect("walk west into the developer wing");
+    assert_eq!(sim.observation().active_room, HUB);
+    walk_through_zone(&mut Pad::new(&mut sim), LAB, "east_exit")
+        .expect("walk east back into Scroll Lab");
+    assert_eq!(sim.observation().active_room, LAB);
+}
+
+#[test]
+fn scroll_lab_has_a_return_door_on_the_ledge() {
+    let mut sim = crate::common::fixed_60hz_room_sim("scroll_lab");
+    sim.step_n(base(), 30);
+
+    walk_through_zone(&mut Pad::new(&mut sim), HUB, "scroll_lab_door")
+        .expect("reach the ledge and take the return door");
+    assert_eq!(sim.observation().active_room, HUB);
+}
 
 /// The rooms from the hub to Alice and Bob, each through an exit of the room
 /// before: the playthrough's route. Alice is in the lane outside the

@@ -583,6 +583,16 @@ fn a_carrying_route_gets_home_exactly_as_far_as_its_author_claimed() {
         blink.best_route(at).regained(),
         "a teleport that reaches the ledge did not count as a way home"
     );
+
+    // A tether is the same question again: its line's reach, with no burst
+    // under it here, so the line alone must carry the verdict.
+    let line = |reach: f32| {
+        lens_with(&view, drifter(), &[RecoveryRoute::Tether { reach, speed: 0.0, side: 0.0, at_s: 0.0 }])
+            .best_route(at)
+            .regained()
+    };
+    assert!(line(gap + 120.0), "a tether that reaches the ledge did not count as a way home");
+    assert!(!line(gap * 0.25), "a tether a quarter of the gap long still got home");
 }
 
 /// ⭐ MIRROR (Q49): TWO SUPPORTS AT ONE DISTANCE ARE TOLD APART BY THE BODY.

@@ -391,15 +391,17 @@ ambition_extension_sdk::script_port!(SetVelocityPort);
 ///   (`ambition_platformer2d_core::catch_the_grapple`): the rope's length and
 ///   angle are where the body is, and the body's velocity along the swing
 ///   becomes the swing's speed. Gravity and the stick swing it, up and down
-///   reel it within `min_length` and `max_length`, and Jump lets go with the
-///   swing's speed plus `release_hop`. A hit cuts it.
+///   reel it within `min_length` and `max_length`, `winch_speed` takes it in
+///   on its own, and Jump lets go with the swing's speed plus `release_hop`.
+///   A hit cuts it.
 /// * **Owner** — `ambition_abilities::extension` (the body's `MotionModel`).
 /// * **Refusal** — a body that is not swept, a rope longer than
 ///   `max_length`, or an anchor more than `max_angle` from straight above the
 ///   body: the request changes nothing ([`Wielder::swept`] says which bodies
 ///   can hang).
-/// * **Time** — `wielded_use`, after the body stepped this tick: the rope
-///   swings it from the next tick.
+/// * **Time** — `wielded_use` (a wielded item's line) and
+///   `technique_execution` (a special's: a Smash tether), after the body
+///   stepped this tick: the rope swings it from the next tick.
 ///
 /// [`Wielder::swept`]: crate::Wielder::swept
 pub struct HangOnRopePort;
@@ -413,10 +415,11 @@ pub struct HangOnRope {
     pub min_length: f32,
     pub max_length: f32,
     pub release_hop: f32,
+    pub winch_speed: f32,
 }
 
 impl Port for HangOnRopePort {
-    const KEY: PortKey = PortKey::new("ambition.motion.hang_on_rope", 1);
+    const KEY: PortKey = PortKey::new("ambition.motion.hang_on_rope", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = HangOnRope;
 
@@ -446,6 +449,10 @@ ambition_extension_sdk::port_record! {
         max_length: f32,
         /// The rise a jump off the rope adds to the swing's speed (units/s).
         release_hop: f32,
+        /// How fast the rope takes itself in on top of the stick's reel
+        /// (units/s), down to `min_length`: a tether that swings the body up
+        /// to what it bit. `0` leaves the length to the stick.
+        winch_speed: f32,
     }
 }
 

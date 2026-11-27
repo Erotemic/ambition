@@ -65,8 +65,8 @@ pub fn install(app: &mut App) {
     app.install_extension_submitted_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_bursts::<InWieldedUse>);
     app.install_extension_submitted_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
     app.install_extension_submitted_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
-    app.install_extension_submitted_request::<HangOnRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_hangs);
-    app.install_extension_submitted_request::<LetGoOfRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_releases);
+    app.install_extension_submitted_request::<HangOnRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_hangs::<InWieldedUse>);
+    app.install_extension_submitted_request::<LetGoOfRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_releases::<InWieldedUse>);
     app.install_extension_submitted_request::<ambition_combat_port::ReelInItemPort, _>(
         WIELDED_USE,
         "ambition_abilities",
@@ -100,6 +100,21 @@ pub fn install_for_technique_execution(app: &mut App) {
     );
     app.install_extension_cost::<SpendManaPort>(TECHNIQUE_EXECUTION, "ambition_abilities");
     app.settle_extension_costs(TECHNIQUE_EXECUTION, settle_costs::<InTechniqueExecution>);
+    // A special's line (a Smash tether that swings): the same held rope a
+    // wielded grapple hangs on. Registered BEFORE the velocity, because the
+    // host lowers a phase's requests in registration order: a line that
+    // brought the body to its ledge lets go AND stops it dead, and a let-go
+    // after the stop would hand it the swing's speed again.
+    app.install_extension_submitted_request::<HangOnRopePort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        lower_rope_hangs::<InTechniqueExecution>,
+    );
+    app.install_extension_submitted_request::<LetGoOfRopePort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        lower_rope_releases::<InTechniqueExecution>,
+    );
     app.install_extension_submitted_request::<SetVelocityPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
@@ -654,10 +669,10 @@ fn lower_reel_ins(
     }
 }
 
-/// The first ledge along `scope`'s facing, by the ledge authority's own
+/// The first ledge along `scope`'s facing, or else above it, by the ledge authority's own
 /// probe, within the host's reach (`ambition.body.ledge_ahead`).
 fn ledge_ahead_of(world: &World, scope: Entity) -> Option<ambition_combat_port::LedgeAhead> {
-    use ambition_combat_port::ledge::{LedgeAhead, LedgeSight, LEDGE_SAMPLE_PX, LEDGE_SEARCH_REACH};
+    use ambition_combat_port::ledge::{LedgeAhead, LedgeSight, LEDGE_LIFT_PX, LEDGE_SAMPLE_PX, LEDGE_SEARCH_REACH};
     let (Some(kin), Some(frame)) = (world.get::<BodyKinematics>(scope), world.get::<ResolvedMotionFrame>(scope)) else {
         return Some(LedgeAhead { ledge: None });
     };
@@ -667,19 +682,37 @@ fn ledge_ahead_of(world: &World, scope: Entity) -> Option<ambition_combat_port::
     let wall_normal_x = -kin.facing.signum();
     let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(scope);
     let samples = (LEDGE_SEARCH_REACH / LEDGE_SAMPLE_PX) as u32;
+    let lifts = (LEDGE_SEARCH_REACH / LEDGE_LIFT_PX) as u32;
+    let up = -frame.down();
     let ledge = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
         let solids = room.solids()?;
-        (0..=samples).find_map(|sample| {
-            let distance = sample as f32 * LEDGE_SAMPLE_PX;
+        let probe = |at: Vec2| {
             ambition_platformer2d_core::ledge_grab::probe_ledge_grab_in_frame(
-                kin.pos + reach_dir * distance,
+                at,
                 kin.size(),
                 wall_normal_x,
                 &solids,
                 frame.down(),
                 ambition_platformer2d_core::ledge_grab::LedgeReach::of(kin.material),
             )
-            .map(|contact| LedgeSight { anchor: [contact.anchor.x, contact.anchor.y], distance })
+        };
+        let sight = |contact: ambition_platformer2d_core::ledge_grab::LedgeContact, distance: f32| LedgeSight {
+            anchor: [contact.anchor.x, contact.anchor.y],
+            distance,
+        };
+        // Level with her first, the nearest first; only then above her, the
+        // nearest probe point within the reach.
+        let level = (0..=samples).find_map(|sample| {
+            let distance = sample as f32 * LEDGE_SAMPLE_PX;
+            probe(kin.pos + reach_dir * distance).map(|contact| sight(contact, distance))
+        });
+        level.or_else(|| {
+            (0..=samples)
+                .flat_map(|sample| (1..=lifts).map(move |lift| (sample as f32 * LEDGE_SAMPLE_PX, lift as f32 * LEDGE_LIFT_PX)))
+                .map(|(ahead, lift)| (ahead.hypot(lift), reach_dir * ahead + up * lift))
+                .filter(|(distance, _)| *distance <= LEDGE_SEARCH_REACH)
+                .filter_map(|(distance, offset)| probe(kin.pos + offset).map(|contact| sight(contact, distance)))
+                .min_by(|a, b| a.distance.total_cmp(&b.distance))
         })
     })
     .flatten();
@@ -984,11 +1017,11 @@ fn lower_velocities<L: LowersIn>(mut outbox: ResMut<ExtensionOutbox>, mut bodies
 /// Lower `ambition.motion.hang_on_rope`: the body hangs from the anchor on a
 /// held rope, from where and how fast it is now. The kernel refuses a body
 /// that is not swept and a bite out of the rope's reach.
-fn lower_rope_hangs(
+fn lower_rope_hangs<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut bodies: Query<(&BodyKinematics, &ResolvedMotionFrame, &mut ambition_platformer2d_core::movement::MotionModel)>,
 ) {
-    for submitted in outbox.drain::<HangOnRopePort>(&WIELDED_USE) {
+    for submitted in outbox.drain::<HangOnRopePort>(&L::PHASE) {
         let hang = submitted.value;
         let Ok((kin, frame, mut model)) = bodies.get_mut(submitted.scope) else {
             warn!("extension entry {} asked a body with no motion to hang on a rope; refused", submitted.entry);
@@ -1001,6 +1034,7 @@ fn lower_rope_hangs(
             min_length: hang.min_length,
             max_length: hang.max_length,
             release_hop: hang.release_hop,
+            winch_speed: hang.winch_speed,
         };
         let anchor = Vec2::from(hang.anchor);
         if !ambition_platformer2d_core::catch_the_grapple(&mut model, kin.pos, kin.vel, frame.get(), anchor, rope) {
@@ -1011,7 +1045,7 @@ fn lower_rope_hangs(
 
 /// Lower `ambition.motion.let_go_of_rope`: a body on a held rope leaves with
 /// the swing's speed, carried as the world's momentum.
-fn lower_rope_releases(
+fn lower_rope_releases<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut bodies: Query<(
         &mut BodyKinematics,
@@ -1020,7 +1054,7 @@ fn lower_rope_releases(
         Option<&mut ambition_platformer2d_core::BodyFlightState>,
     )>,
 ) {
-    for submitted in outbox.drain::<LetGoOfRopePort>(&WIELDED_USE) {
+    for submitted in outbox.drain::<LetGoOfRopePort>(&L::PHASE) {
         let Ok((mut kin, frame, mut model, flight)) = bodies.get_mut(submitted.scope) else {
             continue;
         };

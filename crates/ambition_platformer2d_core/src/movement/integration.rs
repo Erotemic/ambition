@@ -1766,9 +1766,10 @@ pub(super) fn integrate_wire_clusters(
     if wire.held {
         // ⭐ A GRAPPLE'S REEL IS THE STICK'S: up takes rope in, down lets it
         // out, within the rope's authored bounds. Local `+y` is toward the
-        // feet, so up is negative and shortens.
+        // feet, so up is negative and shortens. A held rope's winch (a
+        // tether's) takes it in on its own as well.
         let along = input.local_axis().y;
-        wire.length = (wire.length + along * wire.reel_speed * dt)
+        wire.length = (wire.length + (along * wire.reel_speed - wire.winch_speed) * dt)
             .clamp(wire.min_length.max(WIRE_MIN_LENGTH), wire.max_length.max(WIRE_MIN_LENGTH));
     } else {
         let reel = wire.release_rise + (wire.winch_speed - wire.release_rise) * eased * eased;

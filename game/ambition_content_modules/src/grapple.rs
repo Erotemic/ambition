@@ -52,6 +52,8 @@ pub const ROPE: HangOnRope = HangOnRope {
     min_length: 48.0,
     max_length: RANGE,
     release_hop: 280.0,
+    // The stick reels; the rope does not take itself in.
+    winch_speed: 0.0,
 };
 /// The whip's crack at the line's end: how wide, how hard, and how much of
 /// the victim's launch the tug toward the wielder is.

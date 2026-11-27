@@ -124,6 +124,7 @@ fn a_tether_thrown_at_a_ledge_ends_in_a_hang() {
                 reach: 150.0,
                 speed: 900.0,
                 timeout_s: 0.35,
+                winch: 0.0,
             },
         )
         .expect("tether params serialize"),
@@ -178,6 +179,7 @@ fn a_line_thrown_away_from_the_stage_does_not_end_in_a_hang() {
                 reach: 150.0,
                 speed: 900.0,
                 timeout_s: 0.35,
+                winch: 0.0,
             },
         )
         .expect("tether params serialize"),
@@ -194,4 +196,50 @@ fn a_line_thrown_away_from_the_stage_does_not_end_in_a_hang() {
              body and not the tether delivering her",
         );
     }
+}
+
+/// A winched line (G4: the grapple's rope as a Smash recovery) thrown from
+/// well under the lip swings her on a held rope that takes itself in, then
+/// hands her to the reel, and she ends up on the ledge.
+#[test]
+fn a_winched_tether_from_below_swings_her_up_to_the_ledge() {
+    let mut app = a_live_stage();
+    let lip = the_main_platforms_left_lip(&mut app);
+    let her = a_seated_fighter(&mut app);
+    let start = ae::Vec2::new(lip.x - 40.0, lip.y + 110.0);
+    {
+        let world = app.world_mut();
+        let mut kin = world.get_mut::<ae::BodyKinematics>(her).unwrap();
+        kin.pos = start;
+        kin.vel = ae::Vec2::new(-120.0, 0.0);
+        kin.facing = 1.0;
+    }
+    app.update();
+    let request = ActionRequest::Special {
+        spec: SpecialActionSpec::Special(TETHER_PULL.to_string()),
+        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&TetherPullParams {
+            reach: 170.0,
+            speed: 900.0,
+            timeout_s: 0.9,
+            winch: 520.0,
+        })
+        .expect("tether params serialize"),
+    };
+    app.world_mut()
+        .write_message(ActorActionMessage { action_interval: None, actor: her, request, move_instance: None });
+
+    let mut swung = false;
+    for tick in 0..60 {
+        app.update();
+        swung |= matches!(
+            app.world().get::<ae::MotionModel>(her),
+            Some(ae::MotionModel::AxisSwept(axis)) if axis.state.wire.is_some_and(|wire| wire.held)
+        );
+        if hanging(&mut app, her) {
+            assert!(swung, "she reached the ledge on tick {tick} without ever riding the rope");
+            return;
+        }
+    }
+    let kin = app.world().get::<ae::BodyKinematics>(her).unwrap().clone();
+    panic!("a second after the winched line she is at {:?}, not hanging (lip {lip:?}, start {start:?}, swung {swung})", kin.pos);
 }

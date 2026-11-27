@@ -433,7 +433,7 @@ Port `ambition.motion.velocity@1`, request: `this.requests.push(request("<alias>
 
 ## `hang_on_rope`
 
-Port `ambition.motion.hang_on_rope@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.motion.hang_on_rope@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
@@ -444,6 +444,7 @@ Port `ambition.motion.hang_on_rope@1`, request: `this.requests.push(request("<al
 | `min_length` | number | required | The shortest the reel takes the rope. |
 | `max_length` | number | required | The longest the rope pays out, and the longest it may bite at. |
 | `release_hop` | number | required | The rise a jump off the rope adds to the swing's speed (units/s). |
+| `winch_speed` | number | required | How fast the rope takes itself in on top of the stick's reel (units/s), down to `min_length`: a tether that swings the body up to what it bit. `0` leaves the length to the stick. |
 
 ## `let_go_of_rope`
 

@@ -1178,6 +1178,7 @@ fn hang_the_player(
         min_length: rope.min_length,
         max_length: rope.max_length,
         release_hop: rope.release_hop,
+        winch_speed: rope.winch_speed,
     };
     let hung = ae::catch_the_grapple(&mut model, kin.pos, kin.vel, frame.get(), anchor, rope);
     eprintln!("capture_scene: the player at {:?} hangs from {anchor:?} on tick {on}: {hung}", kin.pos);

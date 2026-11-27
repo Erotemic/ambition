@@ -4,7 +4,7 @@
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
-/// How far the host looks along a body's facing for [`LedgeAheadPort`]. A
+/// How far the host looks ahead of a body for [`LedgeAheadPort`]. A
 /// module that reaches less far reads [`LedgeSight::distance`].
 pub const LEDGE_SEARCH_REACH: f32 = 400.0;
 
@@ -12,6 +12,10 @@ pub const LEDGE_SEARCH_REACH: f32 = 400.0;
 /// is 28 px up and 30 px down (`LEDGE_REACH_UP`, `LEDGE_REACH_DOWN`), so a
 /// 16 px step cannot step over one.
 pub const LEDGE_SAMPLE_PX: f32 = 16.0;
+
+/// How far apart the host's probes sit up a column above the line. The grab
+/// band is 58 px tall, so a 48 px lift cannot step over a lip either.
+pub const LEDGE_LIFT_PX: f32 = 48.0;
 
 /// The observation port marker for the first ledge ahead of a body.
 ///
@@ -21,10 +25,12 @@ pub const LEDGE_SAMPLE_PX: f32 = 16.0;
 ///   facing in its own frame's side axis, from where it is, within
 ///   [`LEDGE_SEARCH_REACH`]: the host asks the ledge authority's own probe
 ///   (`probe_ledge_grab_in_frame`, with the body's size and the wall facing
-///   back at it) every [`LEDGE_SAMPLE_PX`]. `anchor` is where the body would
-///   hang; `distance` is how far along the line the probe that found it sat.
-///   A `distance` of `0` is a ledge the authority would catch the body on
-///   where it is now.
+///   back at it) every [`LEDGE_SAMPLE_PX`]. When nothing is level with the
+///   body, it probes up a column above each of those points every
+///   [`LEDGE_LIFT_PX`] and keeps the nearest probe point within the reach.
+///   `anchor` is where the body would hang; `distance` is how far from the
+///   body the probe that found it sat. A `distance` of `0` is a ledge the
+///   authority would catch the body on where it is now.
 /// * **Owner** — `ambition_abilities::extension` (the collision world).
 /// * **Scope** — the body; the ledges of the live room it is in.
 /// * **Time** — `technique_execution`, read when the entry runs. The host
@@ -45,7 +51,7 @@ pub struct LedgeAhead {
 }
 
 impl Port for LedgeAheadPort {
-    const KEY: PortKey = PortKey::new("ambition.body.ledge_ahead", 1);
+    const KEY: PortKey = PortKey::new("ambition.body.ledge_ahead", 2);
     const ROLE: PortRole = PortRole::Observation;
     type Value = LedgeAhead;
 

@@ -1,6 +1,6 @@
 # Grapple
 
-**Status:** asked by Jon 2026-11-27; G1–G3 landed the same day; G4 below. Queue: GRAPPLE.
+**Status:** asked by Jon 2026-11-27; G1–G4 landed the same day. Queue: GRAPPLE.
 
 Jon (2026-11-27): *"make grapple a supported mechanic. The current
 implementation if any is broken. Grapple needs to be able to swing, it needs
@@ -89,4 +89,22 @@ A line is cast along the aim. What it bites decides what it does:
   `the_grapple_swings.rs`.
 - **G4 — Smash recovery.** The same wire as a Smash move: a tether that swings
   to a ledge, with the ledge authority catching the body; authored on a
-  fighter; the recovery planner knows the route.
+  fighter; the recovery planner knows the route. *Landed 2026-11-27.* A held
+  rope can winch itself in (`GrappleRope::winch_speed`, on
+  `ambition.motion.hang_on_rope@2`), so a rope shortens with no stick. The
+  tether module (`smash.tether_pull`, `winch` > 0) hangs her on such a rope
+  when its line bites a ledge above her (within 1.2 rad of straight up): she
+  swings up under the ledge, and within 48 px of the hang anchor the rope lets
+  go and the straight reel carries the last of it into the ledge authority's
+  catch. Bites level with her or below reel straight, as before. The
+  ledge-ahead observation (`ambition.body.ledge_ahead@2`) now looks up a
+  column above each point on her facing (every 48 px) when nothing is level
+  with her, and keeps the nearest within its reach. The recovery planner
+  knows the route: `RecoveryRoute::Tether { reach, .. }` (authored as
+  `AuthoredRecoveryRoute::Tether`, and set by `author_tether_pull`) counts as
+  home when the move's own burst gets home, or when the nearest support is
+  within the line's reach. projectile_polygon's up-B (`polygon_projectile_recoil_lift`)
+  winches at 480 px/s. Witnesses: `a_winched_rope_takes_itself_in` (kernel),
+  `a_winched_line_swings_from_above_and_hands_off_short` (module),
+  `a_winched_tether_from_below_swings_her_up_to_the_ledge` (Smash app), and
+  the tether arm of the planner's carry test.

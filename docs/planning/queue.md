@@ -2817,7 +2817,7 @@ through the same capability; the gate network app and content tests pass.
 
 **Blocked by:** none.
 
-### GRAPPLE — the grapple swings, grabs from a distance, whips, and recovers in Smash
+### GRAPPLE — the grapple swings, grabs from a distance, whips, and recovers in Smash — ✅ DONE 2026-11-27
 
 **Owner:** [grapple](game/grapple.md).
 
@@ -2836,7 +2836,13 @@ drawn from the motion facts (`the_grapple_swings`).
 G3 landed the same day: the aim cast sees bodies and loose items before the
 wall; a body is whipped toward the wielder, a loose item reeled to the hand.
 
-**Next action:** G4 (Smash recovery), after COMBAT-STANCES S1–S3.
+G4 landed the same day: a held rope winches itself in, and the Smash tether
+hangs her on one when it bites a ledge above her, swings her up and hands the
+last 48 px to the straight reel; the ledge-ahead search looks above her; the
+recovery planner knows `RecoveryRoute::Tether`; projectile_polygon's up-B
+winches.
+
+**Next action:** none; G1–G4 are done.
 
 **Acceptance:** [grapple](game/grapple.md#stages) G1–G4.
 

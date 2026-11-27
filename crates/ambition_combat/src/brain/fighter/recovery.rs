@@ -325,6 +325,28 @@ impl RecoveryLens {
         ae::movement::recovery::probe_recovery(&self.world, &body, self.frame, self.probe)
     }
 
+    /// A tether from `at`: its move's burst, when that alone gets home;
+    /// otherwise the line, which takes her up to `reach` toward the nearest
+    /// support. The line is judged from where she throws the move, before
+    /// the burst lifts her, so it never certifies more than the line reaches.
+    fn tethered(
+        &self,
+        at: RecoveryQuery,
+        body: &ae::BodyClusterScratch,
+        reach: f32,
+        speed: f32,
+        side: f32,
+        at_s: f32,
+    ) -> ae::movement::recovery::RecoveryOutlook {
+        if speed > 0.0 {
+            let burst = ae::movement::recovery::probe_recovery(&self.world, body, self.frame, self.armed(speed, side, at_s));
+            if burst.regained() {
+                return burst;
+            }
+        }
+        self.carried(at, reach)
+    }
+
     /// ASK THE KERNEL WHICH OF THIS BODY'S ACTIONS IS USEFUL FROM HERE.
     ///
     /// The buttons-only search first, then each route in order, stopping at the
@@ -371,6 +393,9 @@ impl RecoveryLens {
                 // filters these out, and the arm is here so a future kind cannot
                 // be silently probed as a burst.
                 ambition_entity_catalog::RecoveryRoute::None => continue,
+                ambition_entity_catalog::RecoveryRoute::Tether { reach, speed, side, at_s } => {
+                    self.tethered(at, &body, reach, speed, side, at_s)
+                }
                 carrying => self.carried(at, carrying.carry()),
             };
             if last.regained() {
@@ -409,6 +434,9 @@ impl RecoveryLens {
                     self.armed(speed, side, at_s),
                 )
                 .regained()
+            }
+            ambition_entity_catalog::RecoveryRoute::Tether { reach, speed, side, at_s } => {
+                self.tethered(at, &self.scratch(at), reach, speed, side, at_s).regained()
             }
             carrying => self.carried(at, carrying.carry()).regained(),
         }

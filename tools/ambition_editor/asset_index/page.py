@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 
 WEB = Path(__file__).resolve().parents[1] / "web"
-FILES = ("index.html", "catalog-loader.js", "app.js", "app.css", "inventory.js", "characters.js", "table_sort.js", "reviews.js", "items.js",
+FILES = ("index.html", "catalog-loader.js", "app.js", "app.css", "inventory.js", "characters.js", "table_sort.js", "reviews.js", "items.js", "edits.js",
          "preflight.html")
 
 

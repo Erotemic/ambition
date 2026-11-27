@@ -67,6 +67,11 @@ _TRACK = re.compile(r'id:\s*"([^"]+)",\s*display_name:\s*"((?:[^"\\]|\\.)*)"(?:,
 _TRACK_PATH = "audio/music/generated/{id}/full.ogg"
 
 
+def read_music_registry(path: Path) -> dict:
+    return {tid: (display.replace('\\"', '"'), asset or _TRACK_PATH.format(id=tid))
+            for tid, display, asset in _TRACK.findall(path.read_text())}
+
+
 def music_reviews_module(tool: Path):
     """The music tool's review owner (`ambition_music_renderer.music_reviews`), which
     names render versions and writes review files. It needs only PyYAML."""
@@ -209,8 +214,7 @@ def music(ctx: dict) -> list[dict]:
     tracks = {}
     ctx["registry_present"] = bool(registry and registry.is_file())
     if ctx["registry_present"]:
-        for tid, display, path in _TRACK.findall(registry.read_text()):
-            tracks[tid] = (display.replace('\\"', '"'), path or _TRACK_PATH.format(id=tid))
+        tracks = read_music_registry(registry)
     else:
         ctx["notices"].append(f"The music registry {registry} is missing; tracks are listed from their scores only.")
     ctx["versions"] = _render_versions(tool, ctx["notices"])
@@ -478,17 +482,21 @@ def fonts(ctx: dict) -> list[dict]:
 _ROOM_FIELDS = ("music_track", "fight_music_track", "parallax_theme", "biome", "visual_theme", "ambient_profile")
 
 
-def worlds(ctx: dict) -> list[dict]:
-    repo, out, pack = ctx["repo"], ctx["out"], ctx["pack"]
+def world_files(pack: Path) -> list[Path]:
     manifest = pack / "data" / "worlds.ron"
     names = re.findall(r'"([^"]+\.ldtk)"', manifest.read_text()) if manifest.is_file() else []
     files = [pack / "worlds" / Path(name).name for name in names] or sorted((pack / "worlds").glob("*.ldtk"))
+    return list(dict.fromkeys(files))
+
+
+def worlds(ctx: dict) -> list[dict]:
+    repo, out, pack = ctx["repo"], ctx["out"], ctx["pack"]
     items = []
-    for path in dict.fromkeys(files):
+    for path in world_files(pack):
         item = _item("world", path.stem)
         if not path.is_file():
             item.update(state="missing", fix=None)
-            item["reasons"].append(f"{_rel(repo, manifest)} names {path.name}, which does not exist.")
+            item["reasons"].append(f"{_rel(repo, pack / 'data/worlds.ron')} names {path.name}, which does not exist.")
             items.append(item)
             continue
         item["state"] = "present"

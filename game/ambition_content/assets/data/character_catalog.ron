@@ -3629,7 +3629,7 @@
         // dedicated sheets ship.
         "npc_alice": (
             display_name: "Alice",
-            cast: (roles: {"service": ["quest-giver"]}),
+            cast: (importance: Secondary, roles: {"story": ["ally"], "service": ["cartographer", "quest-giver"]}),
             // The v2 look (chargen body, Jon 10-25); `alice` stays renderable
             // in her lineage.
             manifest: "sprites/alice_v2_spritesheet.ron",

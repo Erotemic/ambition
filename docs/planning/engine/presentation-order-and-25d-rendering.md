@@ -761,6 +761,13 @@ shared value preparation are sufficient until source proves otherwise.
    At Ultra, both outputs use the same animated tunnel material inside
    the gate membrane.
 
+   A moving platform keeps its depth when its sprite sheet draws from
+   parts. Both paths place each cart panel on its own layer. The parts
+   stay inside that layer's depth range. The cart test checks that the
+   rider stays between the panels and that a moving panel keeps its card.
+   An Ultra offscreen fixture shows Scout in the published cart and in
+   front of the part-drawn burning shark.
+
    Sprite masks and shader glows follow the depth of the actor that
    owns the effect. The card view also uses the authored shaders for
    the Puppy Slug dream, the Flying Spaghetti Monster's sauce, and the

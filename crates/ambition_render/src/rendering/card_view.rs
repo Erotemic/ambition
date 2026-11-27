@@ -22,7 +22,8 @@
 //! - a body's parts are [`CARD_PART_STEP`] apart in paint order.
 //!
 //! A moving platform uses the same sprite frame in both views. A vessel's
-//! near and far sprite layers enclose its riders.
+//! near and far layers enclose its riders. A platform keeps its layer when
+//! its sheet draws from parts.
 //!
 //! # One picture, when the 2D view has one
 //!
@@ -101,6 +102,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ClearColorConfig, ScalingMode};
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::sprite::{SpriteImageMode, TextureSlice};
@@ -162,6 +164,8 @@ const BACKDROP_DISTANCE: f32 = 1500.0;
 const FOREGROUND_DISTANCE: f32 = 1000.0;
 /// The near sprite layer's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
+/// The depth available to a platform layer's parts.
+const PLATFORM_PART_DEPTH: f32 = 0.05;
 /// How far the camera stands from what it looks at.
 const CAMERA_DISTANCE: f32 = 2000.0;
 
@@ -918,8 +922,9 @@ pub fn card_part_local(draw: &PartDraw, index: usize) -> Transform {
 #[derive(Default)]
 pub(super) struct CardBodyScratch {
     by_owner: RetainedEntities<Entity>,
+    rigged_roots: EntityHashSet,
     ranked: Vec<(Option<LiveRoomInstance>, f32, Entity, Option<usize>)>,
-    rank_of: HashMap<Entity, CardBodyDepth>,
+    placements: HashMap<Entity, CardBodyDepth>,
     shown: Vec<(Handle<Mesh>, PartMaterial, Transform)>,
 }
 
@@ -929,7 +934,10 @@ pub(super) fn realize_card_bodies(
     mut commands: Commands,
     owners: Query<(Entity, &RiggedPresentationOf, &RiggedPresentation, &RiggedLocalSample)>,
     roots: Query<
-        (&Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>, Option<&PresentedFlash>),
+        (
+            &Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>,
+            Option<&PresentedFlash>, Option<&MovingPlatformVisual>,
+        ),
         (Without<CardBody>, Without<CardPart>),
     >,
     atlas: Option<Res<RiggedImpostorAtlas>>,
@@ -949,6 +957,7 @@ pub(super) fn realize_card_bodies(
         SpriteBodyFilter,
     >,
     rooms: LiveRooms,
+    platform_looks: Option<Res<PlatformLooks>>,
     mut scratch: Local<CardBodyScratch>,
 ) {
     let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
@@ -956,21 +965,35 @@ pub(super) fn realize_card_bodies(
     };
     let layer = RenderLayers::layer(CARD_VIEW_LAYER);
 
-    let CardBodyScratch { by_owner, ranked, rank_of, shown } = &mut *scratch;
+    let CardBodyScratch { by_owner, rigged_roots, ranked, placements, shown } = &mut *scratch;
     by_owner.reconcile(&mut commands, |owner| owners.contains(*owner));
 
     // Rank the drawn bodies on each depth by their logical order.
+    rigged_roots.clear();
     ranked.clear();
+    placements.clear();
     for (owner, of, _, sample) in &owners {
+        rigged_roots.insert(of.0);
         let drawable = (sample.parts().is_some() && sample.feet.is_some()) || sample.baked.is_some();
         if !drawable {
             continue;
         }
-        if let Ok((root, seated, ..)) = roots.get(of.0) {
+        let Ok((root, seated, .., platform)) = roots.get(of.0) else {
+            continue;
+        };
+        if let Some(platform) = platform {
+            let part_count = sample.parts().map_or(1, <[PartDraw]>::len).max(1);
+            placements.insert(owner, CardBodyDepth {
+                plane_z: platform_depth(platform, platform_looks.as_deref()),
+                source_z: root.translation.z,
+                order_scale: (PLATFORM_PART_DEPTH / (part_count as f32 * CARD_PART_STEP)).min(1.0),
+                front_part: 0.0,
+                representation: CardBodyRepresentation::Sprite,
+            });
+        } else {
             ranked.push((rooms.of(of.0), root.translation.z, owner, seated.map(|seat| seat.slot)));
         }
     }
-    let rigged_roots: Vec<Entity> = owners.iter().map(|(_, of, ..)| of.0).collect();
     for (entity, place, seated, kind, visibility) in &sprite_bodies {
         let body = kind.is_none_or(|kind| kind.kind == FeatureVisualKind::Actor);
         let shown = visibility.is_none_or(|visibility| *visibility != Visibility::Hidden);
@@ -979,7 +1002,6 @@ pub(super) fn realize_card_bodies(
         }
     }
     ranked.sort_unstable_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.cmp(&b.2)));
-    rank_of.clear();
     if let Some(depths) = root_depths.as_deref_mut() {
         depths.roots.clear();
         depths.fronts.clear();
@@ -999,7 +1021,7 @@ pub(super) fn realize_card_bodies(
                 }
                 (depth, scale)
             };
-            rank_of.insert(owner, CardBodyDepth {
+            placements.insert(owner, CardBodyDepth {
                 plane_z,
                 source_z,
                 order_scale,
@@ -1010,7 +1032,7 @@ pub(super) fn realize_card_bodies(
     }
     if let Some(depths) = root_depths.as_deref_mut() {
         for (entity, ..) in &sprite_bodies {
-            if let Some(depth) = rank_of.get(&entity) {
+            if let Some(depth) = placements.get(&entity) {
                 depths.roots.insert(entity, *depth);
             }
         }
@@ -1035,7 +1057,7 @@ pub(super) fn realize_card_bodies(
             // Spawned this frame: filled from the next.
             continue;
         };
-        let (Some(depth), Ok((root, _, root_sprite, root_anchor, flash))) = (rank_of.get(&owner), roots.get(of.0)) else {
+        let (Some(depth), Ok((root, _, root_sprite, root_anchor, flash, _))) = (placements.get(&owner), roots.get(of.0)) else {
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };

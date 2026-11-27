@@ -2488,3 +2488,87 @@ fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
     app.update();
     assert_eq!(cards(&mut app).len(), sampled, "no cue, no silhouette");
 }
+
+#[cfg(feature = "card_view")]
+#[test]
+fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
+    use ambition_platformer2d_core::Vec2 as WorldPoint;
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, PlayerVisual, RoomInstanceRoot};
+    use ambition_platformer2d_world::{collision::MovingPlatformSet, platforms::MovingPlatformState};
+    use ambition_sim_view::{BodyPoseView, FeatureViewIndex};
+    use crate::rendering::card_view::{realize_card_bodies, realize_card_sprite_bodies, CardBody, CardMeshes, CardRootDepths, CardSpriteBody};
+    use crate::rendering::moving_platforms::{seat_bodies_in_vessels, MovingPlatformVisual, PlatformLook, PlatformLooks, SeatedInVessel};
+
+    let content = ambition_sprite_sheet::test_support::shared_sprites();
+    let sheet = raider(&content, true);
+    let (mut app, rider) = app_direct(&content, sheet, Anchor::CENTER);
+    let sheet = app.world().resource::<GameAssets>().characters.sheet("raider").unwrap().clone();
+    let room = LiveRoomInstance::ACTIVATION;
+    let cart = MovingPlatformState::from_authored(
+        WorldPoint::new(100.0, 108.0), WorldPoint::new(96.0, 16.0), 0.0, 0.0,
+    ).with_visual("cart");
+    app.world_mut().spawn((RoomInstanceRoot, room, MovingPlatformSet(vec![cart])));
+    app.world_mut().entity_mut(rider).insert((
+        PlayerVisual,
+        BodyPoseView { pos: WorldPoint::new(100.0, 84.0), size: WorldPoint::new(16.0, 32.0), ..default() },
+    ));
+    app.insert_resource(PlatformLooks(HashMap::from([("cart".into(), PlatformLook {
+        sheet: None,
+        row: "idle".into(),
+        frame_px: [100.0, 60.0],
+        span_px: [2.0, 98.0],
+        top_px: 40.0,
+        faces_right: true,
+        front_row: Some("rail".into()),
+        rim_px: Some(12.0),
+    })])))
+    .init_resource::<FeatureViewIndex>()
+    .init_resource::<Assets<Mesh>>()
+    .init_resource::<Assets<StandardMaterial>>()
+    .init_resource::<CardMeshes>()
+    .init_resource::<CardRootDepths>()
+    .add_systems(Update, seat_bodies_in_vessels.before(RiggedDriveSet))
+    .add_systems(Update, (realize_card_bodies, realize_card_sprite_bodies).chain().after(RiggedDriveSet));
+    let mut layer = |index, kind: Option<&str>, front, z| {
+        let (sprite, anchor, animator) = build_character_presentation_with_render_size(&sheet, RENDER, Anchor::CENTER);
+        app.world_mut().spawn((
+            sprite, anchor, animator, BoundSpriteQuality::of(&sheet),
+            Transform::from_xyz(0.0, 0.0, z),
+            MovingPlatformVisual { room, index, sheet: kind.map(str::to_owned), front },
+        )).id()
+    };
+    let far = layer(0, Some("cart"), false, 11.0);
+    let near = layer(0, Some("cart"), true, 14.5);
+    let deck = layer(1, Some("deck"), false, 11.0);
+    app.world_mut().spawn((
+        PlayerVisual, Sprite::from_color(Color::WHITE, Vec2::ONE),
+        Transform::from_xyz(0.0, 0.0, 20.0),
+    ));
+    settle(&mut app);
+    assert!(app.world().get::<SeatedInVessel>(rider).is_some(), "the rider is inside the cart");
+
+    let placement = |app: &mut App, source| {
+        let owner = owner(app, source);
+        let world = app.world_mut();
+        let mut cards = world.query::<(Entity, &CardBody, &Transform)>();
+        let (entity, body, place) = cards.iter(world).find(|(_, body, _)| body.owner == owner).unwrap();
+        assert!(body.parts.len() > 1);
+        let last_depth = body.parts.iter()
+            .map(|part| world.get::<Transform>(*part).unwrap().translation.z + place.translation.z)
+            .max_by(f32::total_cmp).unwrap();
+        (entity, place.translation, last_depth)
+    };
+    let far = placement(&mut app, far);
+    let rider = placement(&mut app, rider);
+    let before = placement(&mut app, near);
+    let deck = placement(&mut app, deck);
+    let free_depth = app.world_mut().query_filtered::<&Transform, With<CardSpriteBody>>()
+        .single(app.world()).unwrap().translation.z;
+    assert!(far.2 < rider.1.z && rider.2 < before.1.z && before.2 < free_depth);
+    assert!(deck.2 < free_depth, "all parts of the deck are behind the free actor");
+
+    app.world_mut().get_mut::<Transform>(near).unwrap().translation.x += 30.0;
+    app.update();
+    let moved = placement(&mut app, near);
+    assert_eq!(moved, (before.0, before.1 + Vec3::X * 30.0, before.2));
+}

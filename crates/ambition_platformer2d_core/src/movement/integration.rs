@@ -730,7 +730,8 @@ pub(super) fn integrate_velocity_clusters(
         && steer * travel > 0.0
         && stick_at_a_run
         && travel.abs() >= tuning.locomotion.run_commit_frac * tuning.locomotion.max_run_speed;
-    events.motion_refusal = refusal;
+    // An earlier refusal of this tick (the environment sample's) stands.
+    if refusal.is_some() { events.motion_refusal = refusal; }
 
 }
 

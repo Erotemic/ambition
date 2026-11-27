@@ -535,8 +535,22 @@ fn update_body_simulation_inner(
     // The box that touches a region is the box the step moves: the body's
     // box turned to the frame's DOWN. The level box found water beside a body
     // in sideways gravity, and missed water under its own end.
+    //
+    // Water is met by the body's admitted material: a body through an opening
+    // is in the pool its far part is in, and not in one behind the entry that
+    // only the cut-away part of its root box reaches. A refusal is no answer:
+    // the last contact stands and the refusal is reported.
     let step_box = clusters.kinematics.aabb();
-    clusters.env_contact.water = world.water_at(step_box);
+    let cut = admission.filter(|a| !a.links.is_empty() && !world.water_regions.is_empty())
+        .map(|admission| clusters.kinematics.occupied(admission));
+    clusters.env_contact.water = match cut {
+        None | Some(Ok(None)) => world.water_at(step_box),
+        Some(Ok(Some(parts))) => world.water_touched(&parts, crate::AabbExt::height(step_box)),
+        Some(Err(reason)) => {
+            events.motion_refusal = Some(reason);
+            clusters.env_contact.water
+        }
+    };
     clusters.env_contact.climbable = world.climbable_at(step_box);
     if !clusters.abilities.abilities.ledge_grab {
         state.ledge_grab = None;

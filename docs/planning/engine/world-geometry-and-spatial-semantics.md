@@ -43,7 +43,7 @@ spatial architecture program.
 
 | Source | Established source fact | Owner of the change |
 | --- | --- | --- |
-| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Environment contact still tests the whole root AABB. | Present material occupancy below |
+| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Water membership reads the admitted material parts (landed 2026-11-27). Climbing still tests the whole root AABB. | Present material occupancy below |
 | [Interaction reach](../../../crates/ambition_platformer2d_interaction/src/lib.rs) | Touch, facing and preference are shared by selection and consumption, but use root-box/root-chart facts. | [Physical touch](interaction-opportunities-and-activation.md#physical-touch-retains-its-admitted-material-map) |
 | [Standing surfaces](../../../crates/ambition_platformer2d_world/src/navigation/surfaces.rs), [flight map](../../../crates/ambition_platformer2d_world/src/navigation/flight.rs) | Painted fill admits support; polygon bounds remove standing spans; flight occupancy omits chains. | [Static geometry coverage](platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation) |
 | [Room replay](../../../crates/ambition_hosted_world/src/room_rollback.rs), [body publication](../../../crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs), [portal publication](../../../crates/ambition_portal2d/src/passages.rs) | Replay hides foreign rooms. The portal publishers replace only the replayed room and keep the hidden rooms' entries (T3, landed 2026-11-27). | [T3 publication coverage](portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population) |
@@ -209,6 +209,21 @@ known.
    the real body integration road, with an ordinary no-portal control. Reuse
    current core material admission. Both body adapters must reach that same
    owner. Observe contact and the resulting drowning/swimming decision.
+   **Landed 2026-11-27.** `MotionAdmission::occupied` partitions the canonical
+   body box under its material map, the admission's links, budget and first
+   link. Moving links are posed at the start of the window. The result is
+   each part's world polygon, or `None` when nothing cuts the body.
+   `World::water_touched` takes the first region in native order that any
+   part overlaps strictly. A separating-axis test treats a shared face as
+   apart. Depth is measured down from that region's top to the highest point
+   of the parts in it, over the root box height. One whole box part answers
+   exactly as `water_at` does. An uncut body, a room with no links and a
+   room with no water keep `water_at` of the step box. A refusal leaves the
+   last contact in place and is reported as the tick's `motion_refusal`.
+   Both adapters reach this through `update_body_simulation_inner`.
+   Witness: `movement/tests/water_through_openings.rs`. It has the
+   far-pool and behind-the-entry cases, a no-portal control, and a turned
+   face-only touch whose bounds overlap.
 2. **A second consumer.** Extend physical switch touch through the same
    material query. Keep strict overlap, mapped facing/preference, stable
    target selection and revalidation. This proves shared geometry without

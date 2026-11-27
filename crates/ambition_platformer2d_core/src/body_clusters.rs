@@ -226,6 +226,17 @@ impl BodyKinematics {
         Ok(crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, half)))
     }
 
+    /// The world regions this body's physical material occupies under
+    /// `admission` (`MotionAdmission::occupied`): `None` when no opening cuts
+    /// it, so its root box is its material.
+    pub fn occupied(self, admission: crate::frame::thread::MotionAdmission<'_>)
+        -> Result<Option<Vec<Vec<Vec2>>>, crate::frame::thread::Refusal> {
+        use crate::frame::thread::{MaterialPrimitive, Refusal, RefusalReason};
+        let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
+        let domain = self.canonical_box().map_err(numeric)?;
+        admission.occupied(MaterialPrimitive { domain: &domain, to_world: self.material_map().map_err(numeric)? }, self.pos)
+    }
+
     /// Project the canonical box onto a world-space axis.
     pub fn projected_half_extent(self, axis: bevy_math::DVec2) -> Result<f64, crate::frame::NumericFault> {
         use crate::frame::NumericFault;

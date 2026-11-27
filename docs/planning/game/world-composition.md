@@ -93,6 +93,8 @@ conscript starts on the wall. The spectral wolf starts on the road.
   crypt. Climb from the wood box or the bar to read it. Tobias and
   Gudrun meet visitors on the floor.
 - **Under:** the crypt stair in the moor, west through the catacombs, up the shaft under plot 13 into the allotments.
+  In the Founder's Crypt, plinths give access to the funeral walk and the
+  sarcophagus. A Shock Warden guards the floor below.
   In the catacombs, the broken vault has a raised walk to the shrine. A
   conscript is on the walk and a crawler is below it.
 - **Over:** the moor's watchtower up onto the ridge; west along it, over the plank bridge, onto Gallows Hill and down the hamlet's bell tower. The bridge is dropped through onto the allotments' greenhouse (a shortcut down).

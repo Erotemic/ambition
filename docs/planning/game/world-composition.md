@@ -61,7 +61,9 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
   The floor route passes the hearth and the staff.
 - At Complaints, the paperwork crates give access to the counter. The
   floor passes the ticket queue and leads to the cells.
-- **Shortcut:** the lever in the cells opens the cracked trapdoor in the barracks' floor.
+- In the cells, the filing shelf connects the desk and the ladder to
+  the barracks trapdoor. The floor continues to the tower.
+- The lever in the cells opens the cracked trapdoor from both sides.
 - **Secret:** the kitchens' west wall is false at the floor, and the Guild's room is behind it.
 - **Doors left:** the front door (forest to gatehouse), and the great hall to the throne room. The throne room is the Wolfenstein/Inugami fight and its chase; a boss cannot cross rooms, so it stays one room, under the castle.
 - **Tests:** `game/ambition_app/tests/the_castle_kitchens.rs`.

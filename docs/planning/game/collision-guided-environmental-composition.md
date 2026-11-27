@@ -398,6 +398,10 @@ In the throne arena, preview the steps with the light set for the sleeping
 boss. Check that the deck edges are visible from the floor.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
+For the barracks trapdoor, show both ends of the shaft with the lever
+open and closed. Use the same flag when the preview evaluates both ends.
+Show where a ladder overlaps a gate. A body can climb through blocks
+that overlap its ladder.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

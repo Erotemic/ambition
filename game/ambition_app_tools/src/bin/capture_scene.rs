@@ -17,7 +17,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_platformer2d::platformer::schedule::SimScheduleExt;
 use ambition_platformer2d::render::rendering::card_view::{
-    place_card_view_cameras, CardViewCamera, CardViewMode, CardViewPlugin, CardViewSettings,
+    CardViewCamera, CardViewMode, CardViewPlugin, CardViewSettings,
 };
 use ambition_platformer2d::render::rendering::{
     apply_view_frames_to_2d_cameras, present_view_frames, sync_parallax_layers,
@@ -1592,9 +1592,7 @@ fn install_room_capture(app: &mut App) {
     let renderer = app.world().resource::<SceneCaptureConfig>().renderer;
     eprintln!("capture_scene: room renderer {renderer:?}");
     if renderer != CardViewMode::Plane {
-        if renderer != CardViewMode::Inset {
-            app.insert_resource(CardViewSettings::for_game(renderer));
-        }
+        app.insert_resource(CardViewSettings::for_game(renderer));
         app.add_plugins(CardViewPlugin);
     }
     if app.world().resource::<SceneCaptureConfig>().limbs_unseen.is_some() {
@@ -1676,7 +1674,6 @@ fn install_room_capture(app: &mut App) {
                 .before(ambition_platformer2d::render::rendering::daylight::light_the_world),
             request_capture.after(sync_parallax_layers),
             adopt_menu_camera,
-            adopt_card_view_cameras.after(place_card_view_cameras),
             finish_after_capture,
             fail_after_timeout,
             fail_when_the_shell_refuses_the_route,
@@ -3253,33 +3250,6 @@ fn place_player_beside(
     );
 }
 
-/// Point each card-view camera (`--card-view`, RV2) at the capture image, as
-/// [`adopt_menu_camera`] does the cube's, so the one picture holds both
-/// views. Its viewport is measured on its own target, so it follows.
-fn adopt_card_view_cameras(
-    mut commands: Commands,
-    config: Res<SceneCaptureConfig>,
-    target: Option<Res<SceneCaptureTarget>>,
-    mut cameras: Query<
-        (Entity, &mut Projection),
-        (
-            With<CardViewCamera>,
-            Without<AdoptedCaptureCamera>,
-        ),
-    >,
-) {
-    let Some(target) = target.filter(|_| config.renderer != CardViewMode::Plane) else {
-        return;
-    };
-    let want = RenderTarget::Image(ImageRenderTarget::from(target.image.clone()));
-    for (entity, mut projection) in &mut cameras {
-        projection.set_changed();
-        commands
-            .entity(entity)
-            .insert((want.clone(), Msaa::Off, AdoptedCaptureCamera));
-    }
-}
-
 /// The camera already draws to the capture image.
 #[derive(Component)]
 struct AdoptedCaptureCamera;
@@ -4061,7 +4031,7 @@ fn request_capture(
     let Some(target) = target else {
         return;
     };
-    if matches!(config.renderer, CardViewMode::SideOn | CardViewMode::Gameplay)
+    if config.renderer != CardViewMode::Plane
         && !card_cameras.iter().any(|(camera, output)| {
             camera.is_active && camera.physical_target_size().is_some()
                 && output.as_image() == Some(&target.image)

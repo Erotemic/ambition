@@ -298,8 +298,8 @@ taxonomy for every render entity.
 Current [carry](../../../crates/ambition_portal2d_presentation/src/carry.rs)
 recognizes Sprite/Mesh2d/Text2d, capture cameras are Camera2d, and
 [`clip_material`](../../../crates/ambition_portal2d_presentation/src/clip_material.rs)
-implements Material2d. The current observer registry also admits only one
-eye per live room. The existing P5/P6 work owns those view boundaries.
+implements Material2d. The portal cone renderer keeps each window by room,
+observer, and channel. P5/P6 own the remaining portal view boundaries.
 A 3D adapter needs its own capture/clip realization of the same admitted
 material partitions, path, art coverage and presentation order; a new mesh
 bundle does not inherit the 2D shader contract.
@@ -721,12 +721,12 @@ shared value preparation are sufficient until source proves otherwise.
    the view's centre and its size are the 2D ones times `1 / zoom`, since
    the card view shows `1 / zoom` of the 2D view's width. So the card view
    frames the backdrop as the 2D view does. Only the panels the 2D view
-   draws for that view are used (shown, and kept for it or for no view);
-   portal capture copies are left to their capture cameras. Witness
-   `a_parallax_panel_is_a_card_facing_the_card_camera`: a background
-   panel 200 right of the centre is a card at 80 right, 1 516 behind, facing
-   the camera, at scale 0.4, and a foreground one is in front. A panel kept
-   for another view, or hidden, makes no card. Render lib with
+   draws for that view are used.
+   Portal capture copies stay with their capture cameras. A background
+   card faces the camera's tilt and keeps the 2D orientation and offset
+   when the view rolls. A foreground card follows the same rule in front
+   of the play plane. A panel kept for another view, or hidden, makes
+   no card. Render lib with
    `card_view,portal_render`: 7 card-view tests passed. The `intro_fell`
    capture's card view shows the sky, its clouds, the distant hills,
    windmills and the triangle gate behind the shepherd, the sheep and
@@ -734,10 +734,12 @@ shared value preparation are sufficient until source proves otherwise.
 
    **Desktop rollout.** `./run_game.sh --card-view` starts in side-on 2.5D.
    A build with `card_view` can switch outputs during a session. The card
-   camera takes its view's viewport and target. The comparison inset and
-   the gameplay camera read the same observer frame. The plane camera
-   retains its sample request while the card camera draws in its place.
-   Card masks follow the room and view masks of their sources.
+   camera uses the target, viewport, and sample count of the gameplay
+   camera for its view. The comparison inset fits inside that viewport.
+   Both outputs read the same observer frame. The plane camera retains
+   its sample request while the card camera draws in its place. The same
+   gameplay camera supplies the room and view mask for the card output.
+   A gameplay camera without a mask draws layer zero.
 
    World labels use the glyph atlas and layout from Bevy. A private
    visibility camera keeps that layout available when the plane output
@@ -794,6 +796,12 @@ shared value preparation are sufficient until source proves otherwise.
    channel label, and the ground pickup are visible at tick 73 in 2D,
    side-on 2.5D, and oblique 2.5D. To inspect the approach and exit, use
    `--at-tick 70 --frames 8 --stride 2` for the same player movement.
+
+   A Medium capture at `900x1200 --camera-roll 90` shows the backdrop
+   at the same orientation and offset in 2D and side-on 2.5D. A
+   `--card-view` capture uses the game inset settings and draws both
+   outputs to the selected gameplay target. The live F3 panel can
+   switch between the inset and 2D while the simulation is stopped.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,

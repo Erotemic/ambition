@@ -98,7 +98,7 @@ use std::collections::HashMap;
 
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::visibility::RenderLayers;
-use bevy::camera::{ClearColorConfig, ScalingMode, Viewport};
+use bevy::camera::{ClearColorConfig, ScalingMode};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -338,14 +338,14 @@ impl Plugin for CardViewPlugin {
         );
         app.add_systems(
             PostUpdate,
-            (retire_card_outputs, gameplay::select_gameplay_cameras)
+            (retire_card_outputs, gameplay::route_card_outputs)
                 .chain()
                 .before(bevy::camera::CameraUpdateSystems),
         );
         app.add_systems(
             PostUpdate,
             labels::prepare_label_layout
-                .after(gameplay::select_gameplay_cameras)
+                .after(gameplay::route_card_outputs)
                 .after(super::view_isolation::isolate_live_rooms)
                 .before(bevy::camera::CameraUpdateSystems),
         );
@@ -359,7 +359,7 @@ impl Plugin for CardViewPlugin {
             PostUpdate,
             gameplay::isolate_cards
                 .after(super::view_isolation::isolate_live_rooms)
-                .after(gameplay::select_gameplay_cameras)
+                .after(gameplay::route_card_outputs)
                 .after(world_mesh::CardWorldMeshSet)
                 .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility)
                 .run_if(card_outputs_enabled),
@@ -424,7 +424,7 @@ pub fn present_card_view_rigs(
             Camera {
                 // Below the pause scrim (7) and the front HUD (9).
                 order: 6,
-                // Until its target is measured (`place_card_view_cameras`).
+                // The output router activates this camera.
                 is_active: false,
                 clear_color: ClearColorConfig::Custom(Color::srgb(0.07, 0.08, 0.11)),
                 ..default()
@@ -442,50 +442,17 @@ pub fn present_card_view_rigs(
     }
 }
 
-/// The card renderer's camera adapter: look at the view's presented frame
-/// from the settings' turn and tilt, through a viewport in the window's lower
-/// right corner, showing the middle of what the 2D view shows ([`CardViewSettings::zoom`]). A
-/// camera stays inactive until its target is measured, so it never covers the
-/// 2D view with a whole-target clear.
+/// Set the card camera's pose and scale from the view's presented frame.
 pub fn place_card_view_cameras(
     frames: Res<PresentedViewFrames>,
     settings: Res<CardViewSettings>,
-    plane: Query<
-        (&Camera, Option<&ambition_sim_view::PresentsView>),
-        (With<Camera2d>, With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>, Without<CardViewCamera>),
-    >,
     mut cameras: Query<
-        (&mut Camera, &mut Transform, &mut Projection, &ambition_sim_view::PresentsView),
+        (&mut Transform, &mut Projection, &ambition_sim_view::PresentsView),
         With<CardViewCamera>,
     >,
 ) {
-    for (mut camera, mut transform, mut projection, presents) in &mut cameras {
-        let frame = frames.of(presents.0);
-        if settings.mode == CardViewMode::Inset {
-            let plane_viewport = plane.iter().find_map(|(camera, view)| {
-                (view.is_none_or(|view| view.0 == presents.0))
-                    .then_some(camera.viewport.as_ref()).flatten()
-            });
-            let size = plane_viewport.map(|v| v.physical_size).or_else(|| camera.physical_target_size());
-            let viewport = size.and_then(|size| card_viewport(size, settings.viewport_fraction))
-                .map(|mut viewport| {
-                    if let Some(plane) = plane_viewport {
-                        viewport.physical_position += plane.physical_position;
-                    }
-                    viewport
-                });
-            let active = viewport.is_some() && frame.is_some();
-            let rect = |v: &Option<Viewport>| v.as_ref().map(|v| (v.physical_position, v.physical_size));
-            if rect(&camera.viewport) != rect(&viewport) {
-                camera.viewport = viewport;
-            }
-            if camera.order != 6 || camera.is_active != active {
-                camera.order = 6;
-                camera.is_active = active;
-                camera.clear_color = ClearColorConfig::None;
-            }
-        }
-        let Some(frame) = frame else {
+    for (mut transform, mut projection, presents) in &mut cameras {
+        let Some(frame) = frames.of(presents.0) else {
             continue;
         };
         *transform = card_camera_transform(frame, &settings);
@@ -511,20 +478,6 @@ pub fn card_camera_transform(frame: &PresentedViewFrame, settings: &CardViewSett
     };
     let rotation = Quat::from_euler(EulerRot::YXZ, yaw, -pitch, frame.roll_radians);
     Transform::from_translation(target + rotation * Vec3::Z * CAMERA_DISTANCE).with_rotation(rotation)
-}
-
-fn card_viewport(target: UVec2, fraction: f32) -> Option<Viewport> {
-    let (width, height) = (target.x, target.y);
-    if width < 64 || height < 64 {
-        return None;
-    }
-    let w = ((width as f32 * fraction) as u32).clamp(32, width);
-    let h = ((w as f32 * height as f32 / width as f32) as u32).clamp(32, height);
-    Some(Viewport {
-        physical_position: UVec2::new(width - w, height - h),
-        physical_size: UVec2::new(w, h),
-        ..default()
-    })
 }
 
 /// The depth of a body in the policy (module docs): the play plane, or the
@@ -1523,20 +1476,23 @@ pub(super) fn realize_card_scenery(
     }
 }
 
-/// Where a parallax panel's card stands for a card camera: facing the
-/// camera, along its view from the view's centre `target`, at the panel's 2D
-/// offset from that centre scaled by `scale`; behind the play plane for a
-/// background layer, in front of it for a foreground one.
-pub fn backdrop_card_place(camera: &Transform, target: Vec2, panel: Vec2, layer_z: f32, scale: f32) -> Transform {
+/// Face the panel toward the camera. Keep its 2D orientation when the view rolls.
+fn backdrop_card_place(
+    camera: &Transform,
+    frame: &PresentedViewFrame,
+    panel: Vec2,
+    layer_z: f32,
+    scale: f32,
+) -> Transform {
     let along = if layer_z < FOREGROUND_PARALLAX_Z {
         -(BACKDROP_DISTANCE - layer_z)
     } else {
         FOREGROUND_DISTANCE + (layer_z - FOREGROUND_PARALLAX_Z) * BAND_ORDER_SCALE
     };
-    let offset = (panel - target) * scale;
-    let rotation = camera.rotation;
+    let offset = (panel - frame.plane_center) * scale;
+    let rotation = camera.rotation * Quat::from_rotation_z(-frame.roll_radians);
     Transform {
-        translation: target.extend(0.0) + rotation * Vec3::new(offset.x, offset.y, along),
+        translation: frame.plane_center.extend(0.0) + rotation * Vec3::new(offset.x, offset.y, along),
         rotation,
         scale: Vec3::new(scale, scale, 1.0),
     }
@@ -1597,7 +1553,7 @@ pub(super) fn realize_card_backdrop(
             };
             let (mesh, material) = sprite_card(sprite, &cell, page_size, &mut meshes, &mut materials, &mut cache);
             let card_place =
-                backdrop_card_place(camera_place, frame.plane_center, place.translation.truncate(), layer.z, scale);
+                backdrop_card_place(camera_place, frame, place.translation.truncate(), layer.z, scale);
             match by_panel.get(&(panel, camera)).and_then(|card| cards.get_mut(*card).ok()) {
                 Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
                     if card_mesh.0 != mesh {
@@ -1969,7 +1925,7 @@ mod tests {
     /// front of the play plane. A panel kept for another view, or hidden,
     /// shows none here.
     #[test]
-    fn a_parallax_panel_is_a_card_facing_the_card_camera() {
+    fn a_parallax_panel_keeps_its_2d_orientation_in_a_rolled_card_view() {
         let mut app = App::new();
         app.init_resource::<Assets<Image>>()
             .init_resource::<Assets<Mesh>>()
@@ -1983,7 +1939,7 @@ mod tests {
         let frame = super::super::camera::PresentedViewFrame {
             room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
             plane_center: Vec2::new(100.0, 50.0),
-            roll_radians: 0.0,
+            roll_radians: std::f32::consts::FRAC_PI_2,
             orthographic_scale: 1.0,
         };
         app.insert_resource(PresentedViewFrames::of_views(vec![(view, frame)]));
@@ -2016,9 +1972,11 @@ mod tests {
         let back = shown.iter().find(|place| local(place).z < 0.0).expect("a background card");
         let front = shown.iter().find(|place| local(place).z > 0.0).expect("a foreground card");
         let scale = 1.0 / settings.zoom;
-        assert!(local(back).distance(Vec3::new(200.0 * scale, 0.0, -(BACKDROP_DISTANCE + 16.0))) < 1e-2, "{:?}", local(back));
-        assert!(local(front).distance(Vec3::new(0.0, 100.0 * scale, FOREGROUND_DISTANCE + 0.5)) < 1e-2, "{:?}", local(front));
-        assert!(back.rotation.angle_between(rotation) < 1e-5, "facing the card camera");
+        assert!(local(back).distance(Vec3::new(0.0, -200.0 * scale, -(BACKDROP_DISTANCE + 16.0))) < 1e-2, "{:?}", local(back));
+        assert!(local(front).distance(Vec3::new(100.0 * scale, 0.0, FOREGROUND_DISTANCE + 0.5)) < 1e-2, "{:?}", local(front));
+        let panel_in_view = rotation.inverse() * back.rotation;
+        assert!((panel_in_view * Vec3::X).distance(-Vec3::Y) < 1e-5);
+        assert!((panel_in_view * Vec3::Z).distance(Vec3::Z) < 1e-5);
         assert_eq!(back.scale, Vec3::new(scale, scale, 1.0));
         assert!(local(back).z.abs() < CAMERA_DISTANCE, "inside the camera's far plane");
     }

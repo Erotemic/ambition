@@ -903,9 +903,12 @@ separately.
   (`a_window_over_the_capture_budget_shows_no_stale_picture`: two windows
   drawn, the budget lowered to one, and every drawn window has a current
   capture). A Low-tier capture of `portal_lab` shows rims and no stale or
-  blank opaque pane. Still open in V4: deterministic admission priority
-  (rigs are still offered captures in query order, seam portals first) and
-  targets allocated only on demand.
+  blank opaque pane. Admission order landed the same day: rigs
+  are offered the budget at the seam first, then nearest to their eye, then
+  by channel slot, not in query order
+  (`the_capture_budget_goes_to_the_window_nearest_the_eye`). Still open in
+  V4: targets allocated only on demand (a rig still exists for each visible
+  paired endpoint).
 - **V5 — the card view's far-side window**, the remaining card-view item
   ([presentation order](presentation-order-and-25d-rendering.md)).
 

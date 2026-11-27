@@ -247,6 +247,40 @@ fn a_window_over_the_capture_budget_shows_no_stale_picture() {
     assert!(one.iter().all(|(drawn, active)| !drawn || *active), "a drawn window has a current capture: {one:?}");
 }
 
+/// The capture budget goes to the nearest window, not the first rig the
+/// query yields (V4). The eye stands nearer the second-spawned portal
+/// (yellow, 32 px past purple); with one capture, yellow's window takes it.
+#[test]
+fn the_capture_budget_goes_to_the_window_nearest_the_eye() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let mut app = two_rooms_with_eyes(&[(room, Some(Vec2::new(300.0, 300.0)))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let mut viewers = app.world_mut().resource_mut::<PortalViewers>();
+    let mut moved = PortalViewers::default();
+    for viewer in viewers.iter() {
+        moved.publish(PortalViewer { eye: Vec2::new(640.0, 300.0), ..viewer.clone() });
+    }
+    *viewers = moved;
+    let step = |app: &mut App| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+    };
+    let shown = |app: &mut App| -> Vec<(String, bool, bool)> {
+        app.world_mut().query::<(&PortalViewRig, &Camera)>().iter(app.world())
+            .filter(|(rig, _)| rig.room() == LiveRoomInstance::ACTIVATION)
+            .map(|(rig, camera)| (rig.channel.name().to_string(), rig.drawn, camera.is_active)).collect()
+    };
+    step(&mut app);
+    let both = shown(&mut app);
+    assert!(both.iter().filter(|(_, drawn, _)| *drawn).count() >= 2, "premise: both windows drawn: {both:?}");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 1;
+    step(&mut app);
+    let one = shown(&mut app);
+    let active: Vec<_> = one.iter().filter(|(_, _, active)| *active).map(|(name, ..)| name.clone()).collect();
+    assert_eq!(active.len(), 1, "{one:?}");
+    assert!(active[0].to_lowercase().contains("yellow"), "the nearer window is captured: {one:?}");
+}
+
 /// The windows of a room are made for the camera of the view that frames it.
 ///
 /// The parallax anchor of a rig is the centre of the camera, taken through

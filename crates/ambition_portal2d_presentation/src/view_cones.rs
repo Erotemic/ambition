@@ -1013,7 +1013,31 @@ pub fn sync_portal_view_cones(
     // gone / it needs a full rebuild.
     let mut served: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PortalChannel)> =
         Vec::new();
-    for (entity, mut rig, mut cam_tf, mut proj, mut cam, mut target, mut layers) in &mut rigs {
+    // Rigs are offered the capture budget in a fixed order, not the query's:
+    // a window at the seam being crossed first, then the nearest to its eye,
+    // then by channel slot.
+    let mut order: Vec<(Entity, bool, f32, usize)> = rigs
+        .iter()
+        .map(|(entity, rig, ..)| {
+            let eye = eyes.iter().find(|eye| eye.placement.room == rig.room);
+            let portal = eye.and_then(|eye| eye.all.iter().find(|p| p.channel == rig.channel));
+            let partner = eye.zip(portal).and_then(|(eye, p)| find_portal(&eye.all, p.channel.partner()));
+            let (seam, distance) = match (eye, portal) {
+                (Some(eye), Some(portal)) => (
+                    portal_at_seam(Some(eye.viewer), portal.pos)
+                        || partner.is_some_and(|partner| portal_at_seam(Some(eye.viewer), partner.pos)),
+                    eye.viewer.eye.distance(portal.pos),
+                ),
+                _ => (false, f32::INFINITY),
+            };
+            (entity, seam, distance, portal_channel_render_slot(rig.channel))
+        })
+        .collect();
+    order.sort_by(|a, b| b.1.cmp(&a.1).then(a.2.total_cmp(&b.2)).then(a.3.cmp(&b.3)).then(a.0.cmp(&b.0)));
+    for (entity, ..) in order {
+        let Ok((entity, mut rig, mut cam_tf, mut proj, mut cam, mut target, mut layers)) = rigs.get_mut(entity) else {
+            continue;
+        };
         let Some(eye) = eyes.iter().find(|eye| eye.placement.room == rig.room) else {
             retire_rig(&mut commands, entity, &rig);
             continue;

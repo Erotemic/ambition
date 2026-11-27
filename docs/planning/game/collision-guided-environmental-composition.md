@@ -415,11 +415,14 @@ At the terminus, show the arrival position, the gap at the shaft,
 and the view through the window from the deck. Place the docking
 bay sign beside the exit that loads that room.
 In the docking bay, show where a body leaves the east ladder at the
-service deck and the hauler walk. Use the ledge spans to place the
-gantry braces and the gaps in the rails.
+hauler walk and enters the shaft to the observation deck. Use the ledge
+spans to place the gantry braces and the gaps in the rails.
 On the observation deck, show the planet from the floor and the center
 of the viewing walk. Use the slope points to draw the floor and braces.
 Show where holding Up joins the ramps.
+On the service deck, show the top of each ladder and both sides of the
+jump between the maintenance walks. Use the same platform bounds for the
+preview and the floor edges in the prop art.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

@@ -683,6 +683,33 @@ and the post-step AABB snag writer once their replacements cover the case.
 blocked; moving-frame contact cannot be discarded by a contrary static sign;
 contact correction cannot push the body through another obstacle.
 
+**Receipt (2026-11-27, the fit is the material box).** The snag and the
+transit's fit tests (`snag_push`, `fits_through`, `in_line_with`,
+`cuts_opening`; the transit's begin test and its backside test call the
+last two) read a body as `snag::Outline`: its canonical box's four
+corners under its material map. Before, they read the world box around
+it. An axis-aligned body's outline is its world box, so every existing
+case is unchanged (portal2d lib 146, runtime portal 24, app portal 52
+pass). The plan's own example is the witness
+(`a_turned_body_that_fits_the_opening_passes_and_an_oversized_one_does_not`):
+- a 20 by 2 body turned 45 degrees, its long axis along the mouth normal
+  and 4 px along the face, is in line with a ±12 opening and is not
+  snagged coming in from 12 px to 1 px;
+- its world box, asserted in the same test, was not in line and was
+  snagged;
+- a 30-long body along the face does not fit.
+
+The broad phases (`openings_near`, the capture box) stay world boxes,
+which is conservative.
+
+Still open in P3: the rim constraint inside the accepted motion
+operation. The snag is still a post-step position writer whose push is
+not admitted against other obstacles, so "contact correction cannot
+push the body through another obstacle" is not met. The approach
+classification (from the front, sliding from within, already past the
+end) and the slope no-worse rule move with it. Deleting the writer
+waits on that constraint.
+
 ### P4 — Conservative query planning and proven fast cases
 
 **Owner:** core material query preparation and the room geometry adapter.

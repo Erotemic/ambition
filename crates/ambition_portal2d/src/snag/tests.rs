@@ -210,3 +210,31 @@ fn a_body_that_comes_at_an_opening_from_behind_is_on_its_back() {
     app.update();
     assert!(app.world().get::<crate::PortalBackside>(body).is_none(), "past the plane, it is on no back");
 }
+
+/// P3: a turned body is tested by its material box, not the world box
+/// around it. A 20 by 2 body turned 45 degrees, its long axis along the
+/// mouth's normal and 4 px along the face (material spans 3..5 of a ±12
+/// opening), is in line with the opening and is not snagged as it comes
+/// in from 12 px to 1 px in front of it. Its world box (half-span 11 in
+/// both mouth axes) said it was beside the opening and held it.
+/// An oversized body, 30 long along the face, still does not fit.
+#[test]
+fn a_turned_body_that_fits_the_opening_passes_and_an_oversized_one_does_not() {
+    use super::{fits_through, in_line_with, Outline};
+    let turn = std::f64::consts::FRAC_PI_4;
+    let material = ae::frame::BodyMaterial::IDENTITY.turned(turn).unwrap();
+    let long = Vec2::new(-(turn.sin() as f32), turn.cos() as f32);
+    let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, long, 12.0).unwrap().aperture();
+    let tangent = ap.frame.tangent();
+    let body = |size: Vec2, depth: f32| BodyKinematics { material, pos: tangent * 4.0 + ap.frame.normal * depth,
+        canonical_size: size, vel: Vec2::ZERO, facing: 1.0 };
+    let thin = Vec2::new(2.0, 20.0);
+    let (near, far) = (body(thin, 1.0), body(thin, 12.0));
+    assert!(in_line_with(Outline::of(near), &ap), "its material is in line: {:?}", Outline::of(near));
+    assert!(!in_line_with(near.aabb(), &ap), "premise: its world box is not");
+    assert_eq!(snag_push(Outline::of(near), Some(Outline::of(far)), &ap), None, "it comes in unsnagged");
+    assert!(snag_push(near.aabb(), Some(far.aabb()), &ap).is_some(), "premise: the world box was snagged");
+    let wide = body(Vec2::new(30.0, 2.0), 0.0);
+    assert!(!fits_through(Outline::of(wide), &ap), "30 along a 24 opening does not fit");
+    assert!(!in_line_with(Outline::of(wide), &ap));
+}

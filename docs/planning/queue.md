@@ -22,15 +22,19 @@ Take the first item with an actionable next step. Skip a gated step without
 calling it done, and go on to the next.
 
 1. **Portals (Jon, 2026-11-26 and 2026-11-27).** [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-portals):
-   the current campaign is P3, canonical aperture-rim contact inside accepted
-   motion through one contact primitive with adapters for character and
-   ground-item movement, ending with the post-step snag writer deleted. RV3
-   is handled separately.
-2. **Hobford polish (Jon, 2026-11-14).** [Hobford polish](game/hobford-polish.md)
+   P3 is done (2026-11-27): aperture-rim contact is one cast primitive
+   (`material_cast/rim.rs`), with adapters for character and ground-item
+   movement, and the post-step snag writer is deleted. What remains in the
+   row is its bounded continuations (T3, and the SUP1 cases that still read
+   the rigid fit). RV3 is handled separately.
+2. **Combat stances (Jon, 2026-11-27).** [STANCE-POLISH](#stance-polish--multi-hit-combos-and-distinct-stance-ii-and-iii):
+   Stance II and III re-authored for multi-hit combos and their own feel,
+   with the directed-successor engine slice they need.
+3. **Hobford polish (Jon, 2026-11-14).** [Hobford polish](game/hobford-polish.md)
    with [LEVEL-1](#level-1--the-lab-raid-and-the-first-level-after-it) and [LEVEL-TRUTH](#level-truth--authored-level-data-in-the-map-submodule-one-owner-per-room) for the level data. Story
    sequences SS1–SS6 and dark rooms and tunnels (DR1–DR3, TN1–TN3) are done;
    SS7/SS8 continue in [story sequences](engine/story-sequences.md).
-3. **Script-first gameplay (Jon, 2026-11-20).** New flagship gameplay follows
+4. **Script-first gameplay (Jon, 2026-11-20).** New flagship gameplay follows
    the [capability program](engine/script-first-ambition-gameplay.md); the
    [capability census](engine/script-first-capability-census.md) records the
    contracts and the next gaps, and its P0/P1 gaps are closed.
@@ -42,15 +46,15 @@ calling it done, and go on to the next.
    proves A1–A10 on desktop Linux (`9c1ccf62d`); keep its fixtures. The older
    [runtime authoring audit](engine/runtime-authoring-audit-2026-11-14/README.md)
    proposes migrations that need their own product benefit first.
-4. **Architecture and correctness.** [ARCHITECTURE-COMPOSITION](#architecture-composition--link-owned-facts-and-preserve-causal-boundaries) (the
+5. **Architecture and correctness.** [ARCHITECTURE-COMPOSITION](#architecture-composition--link-owned-facts-and-preserve-causal-boundaries) (the
    2026-11-21 plan), [EXECUTION-COST](#execution-cost--specialize-gameplay-work-at-its-actual-inputs), [BUILD-BOUNDARIES](#build-boundaries--share-implementation-after-typed-selection),
    [AP14](#ap14--actor-kernel-decomposition), [A7](#a7--make-item-occurrence-authority-explicit-where-it-carries-a-real-invariant) and [TEST-LANES](#test-lanes--keep-required-test-lanes-executable). The
    [reassessment](engine/architecture-reassessment-and-composable-multiplayer.md)
    does not by itself authorize networking, physics or rollback rewrites.
-5. **Network (direction set 2026-11-10).** A hybrid world: rollback inside a
+6. **Network (direction set 2026-11-10).** A hybrid world: rollback inside a
    room, hosted authority around it. [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) and
    [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs); Smash keeps its bounded rollback.
-6. **Gameplay and presentation.** [GNUTON-POLISH](#gnuton-polish--the-gnu-ton-fight-presentable-jon-2026-11-21), [FINAL-BOSS](#final-boss--the-bossofthegame-on-the-shoulders-of-a-giant),
+7. **Gameplay and presentation.** [GNUTON-POLISH](#gnuton-polish--the-gnu-ton-fight-presentable-jon-2026-11-21), [FINAL-BOSS](#final-boss--the-bossofthegame-on-the-shoulders-of-a-giant),
    [ABILITY-VARIANTS](#ability-variants--finish-the-authored-loadout-through-shared-capability-seams) (Q179's press-hold-release blink),
    [POSE-CONTINUITY](#pose-continuity--one-visual-transition-path-after-the-completed-base-poses), [PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view),
    [MOUNT-RIDER-CUSTOMER](#mount-rider-customer--a-shipped-rider-controls-a-shipped-mount), [BRAIN](#brain--finish-truthful-fighter-attack-selection) and [ASSET-AUTHORING](#asset-authoring--edit-owned-sources-and-prepare-the-meaning-once).
@@ -789,6 +793,14 @@ history and replay; keep foreign lifecycle work out of hidden-world replay.
 Body/custody and input membership change at one publication cut. CW4's
 scoped finality query remains a later optimization, not a prerequisite.
 The owner also records a smaller late-input edge disposition correction.
+
+### STANCE-POLISH — multi-hit combos and distinct Stance II and III
+
+**State:** IN PROGRESS (Jon 2026-11-27: "stance 3 and stance 2 ... feel
+slapdash"). **Owner:** [combat stances](game/combat-stances.md#second-pass-combos-and-identities-stance-polish).
+**Next action:** SP1, a directed successor in the cancel table
+(`Cancelable.press`); then SP2 (Lunge), SP3 (Crescent), SP4 (the look) and SP5
+(the headless feel measurement).
 
 ### GNUTON-POLISH — the GNU-ton fight, presentable (Jon 2026-11-21)
 
@@ -2055,9 +2067,10 @@ owner's P4 section), and an unreachable moving portal is witnessed not to
 change a straight query's cells 2026-11-27; exact cell dependencies (a
 reuse cache keyed by what each cell reads) were measured the same day and not
 built: in `portal_lab`, 93 % of portal-cut preparations repeat their inputs,
-but all of them cost at most 2.4 % of step time. P3 removes
-static contact-velocity reconstruction and the AABB snag authority after the
-accepted motion contract is in place. P5/P6 complete observer identity,
+but all of them cost at most 2.4 % of step time. P3 landed
+2026-11-27: the rim is contact inside the accepted motion, and the AABB snag
+writer is deleted (M3 had already removed the static velocity
+reconstruction). P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools
 (V1, a window for each view of a room, V2, a window clipped to a rolled
 view, V3, a moving opening drawn when its bodies are, and the rest of V4

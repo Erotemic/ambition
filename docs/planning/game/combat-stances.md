@@ -95,3 +95,101 @@ lists its tip first.
   thrust carries it past the foes it reached into fresh ones, which is the
   stance's role. The pogo bounces at the same rate in every stance. A
   retune waits for hands-on play.
+
+## Second pass: combos and identities (STANCE-POLISH)
+
+Jon (2026-11-27): *"I'd also like you to take on a revision and improvement of
+stance 3 and stance 2, I don't think they are very polished at the moment. I'm
+looking for things that give us multihit combos (might require backend game or
+engine work) or distinctive feeling movesets for the character attacks. Feels
+slapdash to me right now."*
+
+**What was wrong.** Every Lunge and Crescent move was one Active window with
+nearly the same frames (startup 0.05–0.10 s, active 0.08–0.12 s, recovery to
+0.4–0.5 s), damage 1–2. No move routed on hit. Most borrowed Edge rows. The
+stances differed in reach and carry, not in how a fight is played.
+
+**What the engine already had.** It needed no new machinery for multi-hits:
+- A gap between two Active windows starts a new pulse, and a new pulse hits
+  again (`moveset/mod.rs`, "HITBOX TRACKS").
+- `VolumeReaction::Autolink` holds the victim in the next box. With `carry`,
+  it drags the victim along with the striker.
+- `MoveSpec.repeat` (a `MoveLoop`) is the held flurry.
+- `Cancelable { condition: OnHit }` is the hit-confirm.
+- `"jump"` and `"dash"` are cancel classes.
+- `StrikeRank` gives the tip first claim.
+
+The one gap was a string that branches by the stick. A press inside a string
+takes the window's named successor only when the press is undirected (or the
+same move again). A directed press always plays its own tilt, so Marth's
+Dancing Blade (each step up, down or level) could not be authored.
+
+**Engine: directed successors.** `WindowTag::Cancelable` gets an optional
+`press: Option<AttackDir>`:
+- A window with `press: Some(d)` names the successor that a press aimed `d`
+  takes in that window.
+- Windows without `press` keep today's rule: undirected follow-ups only.
+- A directed press finds no branch for its direction plays its tilt, as
+  today.
+
+### Stance II, Lunge: rushdown and drills
+
+Identity: the needle. It closes ground, and once it touches a foe it keeps
+touching it. Lunge hits come in drills (several autolinked pulses and one
+release), and a confirmed hit routes into more.
+
+| Verb | Move | What it is |
+| --- | --- | --- |
+| attack | `lunge_thrust` | Fast stepping thrust. On hit: the needle flurry. On whiff: the long lunge. |
+| (string) | `lunge_flurry` | Rapid stabs, autolinked at the tip, looping while Attack is held (up to 0.6 s), ending in a push-out thrust. |
+| (string) | `lunge_long` | The far lunge (as before). On hit it also opens the flurry. |
+| attack_up | `lunge_corkscrew` | A rising drill: three autolinked pulses that carry the foe up, then a launch. On hit, cancel into jump: the juggle starter. |
+| attack_down | `lunge_slide` | A sliding stab that pops the foe up. On hit: the corkscrew (up) or a jump. |
+| attack_air | `lunge_whirl` | A spin of four autolinked pulses around the body; the last throws out. |
+| attack_air_forward | `lunge_air_thrust` | A diving air thrust that carries forward. On hit it hops the body back up (bounce) and opens any air attack. |
+| attack_air_back | `lunge_back_kick` | The air kill: a heavy back thrust with a sweet spot at the point. |
+| attack_air_up | `lunge_corkscrew` | The same drill in the air (no lift: a lift on a move that repeats in the air is a climb). |
+| attack_air_down | `lunge_plunge` | A diagonal plunge pogo. On hit it bounces and opens any air attack. |
+| smash_forward | `lunge_smash_forward` | Needle rush: a charged drive that drags what it meets (autolink with carry) over four pulses and bursts at the end. |
+| smash_up | `lunge_smash_up` | Pillar drill: pulses that pull the foe up the blade, then the launch. |
+| smash_down | `lunge_smash_down` | Needle ring: alternating stabs to both sides, then both at once. |
+
+Routes: thrust → flurry. Slide → corkscrew → jump → whirl → plunge →
+(bounce) air thrust.
+
+### Stance III, Crescent: spacing and a branching string
+
+Identity: the swordsman's spacing. Most single hits are clean, and they hit
+hardest at the tip. The string branches by the stick each step, and the
+down-branch ends in the stance's one flurry. The air moves chain into
+themselves on a hit.
+
+| Verb | Move | What it is |
+| --- | --- | --- |
+| attack | `crescent_arc` | Step 1: a level arc, tip first. |
+| (string 2) | `crescent_return` / `crescent_rise` / `crescent_dip` | Level, up or down by the stick. |
+| (string 3) | `crescent_sweep` / `crescent_rise_finish` / `crescent_flurry` | Level: the big tipper sweep. Up: a launcher arc. Down: a multi-stab flurry that ends in a low finisher. |
+| attack_up | `crescent_overhead` | A wide anti-air arc, front to back, with a tip at the apex. On hit, cancel into jump. |
+| attack_down | `crescent_low` | A long, quick low poke. On hit, cancel into the string's first step. |
+| attack_air | `crescent_air` | Two hits: a front arc and then a back arc (a spin). |
+| attack_air_forward | `crescent_air_forward` | A fast forward crescent with low landing lag. On hit it cancels into itself (the chain). |
+| attack_air_back | `crescent_air_back` | A back crescent, the stance's air kill, tip first. |
+| attack_air_up | `crescent_air_up` | An overhead arc. |
+| attack_air_down | `crescent_pogo` | A crescent beneath that bounces. The tip spikes. |
+| smash_forward | `crescent_smash_forward` | The big tipper (as before, with more reach). |
+| smash_up | `crescent_smash_up` | A column: small pulses pull the foe up the blade, and the tip launches. |
+| smash_down | `crescent_smash_down` | Front, then back; the back is the stronger. |
+
+### Stages
+
+- **SP1:** directed successors in the engine (catalog schema, trigger road,
+  readout), with a combat unit test.
+- **SP2:** Lunge re-authored, and the witnesses in `combat_stances.rs`
+  updated: the flurry hits several times, and the corkscrew carries the foe
+  up.
+- **SP3:** Crescent re-authored. Witnesses: the string's down branch reaches
+  the flurry, and the up branch launches.
+- **SP4:** the look. Rows for the flurry, the corkscrew and the crescent
+  branches, republished, with captures.
+- **SP5:** a headless feel measurement against `dense_melee_pit`: hits per
+  confirmed combo and juggle height, per stance.

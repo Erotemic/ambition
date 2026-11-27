@@ -102,6 +102,9 @@ conscript starts on the wall. The spectral wolf starts on the road.
 - **Over:** the moor's watchtower up onto the ridge; west along it, over the plank bridge, onto Gallows Hill and down the hamlet's bell tower. The bridge is dropped through onto the allotments' greenhouse (a shortcut down).
   On the ridge, jump between the gantries and the sentry hut roof.
   A Searchlight Crawler starts above the patrol lane on the east gantry.
+  On Gallows Hill, hold Up at either foot of the terrace to take the
+  stone walk. The old wall gives access from the footpath. The Spectral
+  Wolf starts on the terrace.
 - **Tests:** `game/ambition_app/tests/the_searchlight_moor.rs`.
 
 ## The Pirate Port (the third)

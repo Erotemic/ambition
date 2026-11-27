@@ -13,6 +13,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 
 /// Marks the visual for a [`GravityZone`].
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct GravityZoneVisual;
 
 /// What one zone draws: its live room, a tinted fill, and a brighter band on

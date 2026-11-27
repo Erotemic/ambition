@@ -19,6 +19,11 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
     LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual,
 };
 
+/// A sprite with a position in the world. Both outputs draw it at that
+/// position and use its world draw order.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct WorldSprite;
+
 /// Standing-stance render size of the textured player sprite, recorded when
 /// the sprite is built. The crouch squash in `sync_visuals` uses it to scale
 /// the sprite vertically to the current `body_mode` height with the feet
@@ -66,6 +71,7 @@ pub struct LockWallVisual {
 /// `block_name` is the authored [`Block::name`](ambition_platformer2d_core::Block),
 /// the same key `removed_block_names` carries.
 #[derive(Component, Clone, Debug)]
+#[require(WorldSprite)]
 pub struct BlockVisual {
     pub block_name: String,
     /// Durable geometry identity. `block_name` is the label the removal
@@ -91,6 +97,7 @@ pub struct BlockVisual {
 pub struct EntityArt(pub ambition_sprite_sheet::game_assets::EntitySprite);
 
 #[derive(Component)]
+#[require(WorldSprite)]
 pub struct FeatureVisual {
     pub id: String,
 }
@@ -116,6 +123,7 @@ pub struct PropTint(pub Color);
 /// the portal systems.
 #[derive(Component, Clone, Debug)]
 #[require(Visibility)]
+#[require(WorldSprite)]
 pub struct PropVisual {
     /// LDtk iid — for debug overlay + future save-key joins.
     #[allow(dead_code)]

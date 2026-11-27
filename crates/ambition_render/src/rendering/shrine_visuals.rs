@@ -18,6 +18,7 @@ use std::hash::{Hash, Hasher};
 
 /// Marks the shrine's visual.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct ShrineVisual;
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]

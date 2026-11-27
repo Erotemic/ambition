@@ -31,6 +31,7 @@ use ambition_sprite_sheet::SheetRegistry;
 
 /// Marker on the persistent per-projectile sprite entity.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct ProjectileVisual;
 
 #[derive(Component, Clone, Copy)]
@@ -480,6 +481,7 @@ const CHARGE_LOOKS: [&str; 3] = ["robot_charge_0", "robot_charge_1", "robot_char
 /// tier, animated, at its hand. Kept from frame to frame (it animates), and
 /// rebuilt when the tier changes.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct PlayerChargeVisual {
     owner: Entity,
     tier: u8,

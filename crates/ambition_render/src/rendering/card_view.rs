@@ -58,8 +58,8 @@
 //!
 //! # Room scenery
 //!
-//! A room's props ([`PropVisual`]) and the trim pieces on its lines
-//! ([`ChainTurfPiece`]) are cards of the cells the 2D view draws, at their
+//! A room's props and the trim pieces on its lines
+//! are cards of the cells the 2D view draws, at their
 //! 2D places, in the 2D view's order: backdrop props behind a vessel's back
 //! panel ([`BACKDROP_DEPTH`]); the turf just in front of the block skin
 //! ([`TURF_DEPTH`]); scenery props in front of the turf and behind the
@@ -123,9 +123,9 @@ use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
-use super::chain_skin::{ChainEarth, ChainTurfPiece};
+use super::chain_skin::ChainEarth;
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
-use super::primitives::{BlockVisual, FeatureVisual, LoadingZoneVisual, PropVisual};
+use super::primitives::WorldSprite;
 use super::terrain_skin::TerrainSkinMesh;
 
 /// The distance from the play plane to a vessel's far sprite layer.
@@ -322,7 +322,6 @@ impl Plugin for CardViewPlugin {
                 realize_card_sprite_bodies,
                 realize_card_held_art,
                 realize_card_terrain,
-                realize_card_scenery,
             )
                 .chain()
                 .run_if(card_outputs_enabled)
@@ -361,6 +360,12 @@ impl Plugin for CardViewPlugin {
                 .after(gameplay::select_gameplay_cameras)
                 .after(super::view_isolation::isolate_live_rooms)
                 .before(bevy::camera::CameraUpdateSystems),
+        );
+        app.add_systems(
+            PostUpdate,
+            realize_card_scenery
+                .in_set(world_mesh::CardWorldMeshSet)
+                .run_if(card_outputs_enabled),
         );
         app.add_systems(
             PostUpdate,
@@ -1311,7 +1316,8 @@ fn scenery_depth(z: f32, front: f32) -> f32 {
     } else if z >= WORLD_Z_DUMMY {
         SCENERY_DEPTH + (z - WORLD_Z_DUMMY) * BAND_ORDER_SCALE
     } else if z >= WORLD_Z_BLOCK {
-        TURF_DEPTH
+        let fraction = (z - WORLD_Z_BLOCK) / (WORLD_Z_DUMMY - WORLD_Z_BLOCK);
+        TURF_DEPTH.lerp(SCENERY_DEPTH, fraction)
     } else {
         BACKDROP_DEPTH + (z - WORLD_Z_BLOCK) * BAND_ORDER_SCALE
     }
@@ -1327,42 +1333,25 @@ fn platform_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>
     }
 }
 
-/// Realize each room prop and each piece of a line's turf as a card of the
-/// cell it draws, at its 2D place, on the depth its 2D band maps to
-/// ([`scenery_depth`]). A prop ranked as a body is left to the bodies.
+/// Draw world sprites at their propagated positions. A prop ranked as a
+/// body uses the body renderer.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn realize_card_scenery(
     mut commands: Commands,
     scenery: Query<
         (
             Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
-            Option<&InheritedVisibility>, Option<&MovingPlatformVisual>,
+            &InheritedVisibility, Option<&MovingPlatformVisual>,
         ),
-        (
-            Or<(
-                With<PropVisual>,
-                With<ChainTurfPiece>,
-                With<MovingPlatformVisual>,
-                With<super::item_visuals::GroundItemVisual>,
-                With<super::item_visuals::WorldItemVisual>,
-                With<super::projectile_visuals::ProjectileVisual>,
-                With<BlockVisual>,
-                With<FeatureVisual>,
-                With<LoadingZoneVisual>,
-                With<super::gate_portal_visuals::GateRingLitGlyph>,
-                With<super::slash_visuals::SlashVisual>,
-                With<crate::fx::BlinkPreviewVisual>,
-                With<crate::fx::EffectVisual>,
-                With<crate::fx::ImpactVisual>,
-            )>,
-            Without<CardScenery>,
-        ),
+        (With<WorldSprite>, Without<CardScenery>),
     >,
     depths: Res<CardRootDepths>,
     platform_looks: Option<Res<PlatformLooks>>,
     rooms: LiveRooms,
+    parents: Query<&ChildOf>,
     mut cards: Query<
-        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform,
+            &mut GlobalTransform, &mut Visibility, &mut InheritedVisibility),
         (With<CardScenery>, Without<Sprite>),
     >,
     images: Option<Res<Assets<Image>>>,
@@ -1377,14 +1366,15 @@ pub(super) fn realize_card_scenery(
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
     for (entity, sprite, anchor, local, global, visibility, platform) in &scenery {
-        let shown = visibility.is_none_or(|visibility| visibility.get())
+        let shown = visibility.get()
             && sprite.color.alpha() > 0.0
             && !depths.roots.contains_key(&entity);
         let Some((mut frame, page_size)) =
             sprite_frame(sprite, anchor, &images, layouts.as_deref()).filter(|_| shown)
         else {
-            if let Some((.., mut card_visibility)) = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+            if let Some((.., mut card_visibility, mut inherited)) = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
                 card_visibility.set_if_neq(Visibility::Hidden);
+                inherited.set_if_neq(InheritedVisibility::HIDDEN);
             }
             continue;
         };
@@ -1392,7 +1382,14 @@ pub(super) fn realize_card_scenery(
             sprite_card_place(local, platform_depth(platform, platform_looks.as_deref()))
         } else {
             let place = global.compute_transform();
-            let front = depths.fronts.get(&rooms.of(entity)).copied().unwrap_or(CARD_BODY_STEP);
+            let front = if place.translation.z >= ambition_platformer2d_core::config::WORLD_Z_PLAYER {
+                let room = rooms.stamped(entity)
+                    .or_else(|| parents.iter_ancestors(entity).find_map(|parent| rooms.stamped(parent)))
+                    .or_else(|| rooms.of(entity));
+                depths.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP)
+            } else {
+                CARD_BODY_STEP
+            };
             sprite_card_place(&place, scenery_depth(place.translation.z, front))
         };
         if frame.image == Handle::default() {
@@ -1402,7 +1399,7 @@ pub(super) fn realize_card_scenery(
         let (mesh, material) =
             sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
         match by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+            Some((mut card_mesh, mut card_material, mut transform, mut global, mut card_visibility, mut inherited)) => {
                 if card_mesh.0 != mesh {
                     card_mesh.0 = mesh;
                 }
@@ -1410,7 +1407,9 @@ pub(super) fn realize_card_scenery(
                     card_material.0 = material;
                 }
                 transform.set_if_neq(card_place);
+                global.set_if_neq(GlobalTransform::from(card_place));
                 card_visibility.set_if_neq(Visibility::Inherited);
+                inherited.set_if_neq(InheritedVisibility::VISIBLE);
             }
             None => {
                 let card = commands
@@ -1420,7 +1419,9 @@ pub(super) fn realize_card_scenery(
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
                         card_place,
+                        GlobalTransform::from(card_place),
                         Visibility::Inherited,
+                        InheritedVisibility::VISIBLE,
                         RenderLayers::layer(CARD_VIEW_LAYER),
                         Name::new("Card scenery"),
                     ))
@@ -1606,6 +1607,8 @@ pub(super) fn realize_card_portals(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rendering::chain_skin::ChainTurfPiece;
+    use crate::rendering::PropVisual;
 
     #[test]
     fn texture_flips_keep_an_asymmetric_anchor_and_reverse_uvs() {
@@ -1827,7 +1830,7 @@ mod tests {
         assert!(near(depth(10.0), SCENERY_DEPTH + 0.06), "scenery in its band: {}", depth(10.0));
         assert!(near(depth(20.0), front + 0.175), "in front of the front-most body: {}", depth(20.0));
         assert!(near(depth(30.0), BACKDROP_DEPTH - 1.1), "backdrop: {}", depth(30.0));
-        assert!(near(depth(40.0), TURF_DEPTH), "turf: {}", depth(40.0));
+        assert!(depth(40.0) >= TURF_DEPTH, "turf: {}", depth(40.0));
         assert!(depth(30.0) < -VESSEL_DEPTH, "a backdrop is behind the cart's back panel");
         assert!(TERRAIN_DEPTH + 0.04 < depth(40.0) && depth(40.0) < depth(10.0) && depth(10.0) < PORTAL_DEPTH,
             "skin, turf, scenery, then the portal line");
@@ -1847,6 +1850,80 @@ mod tests {
         app.world_mut().entity_mut(scenery).despawn();
         app.update();
         assert_eq!(shown(&mut app).len(), 3, "a prop that goes takes its card");
+    }
+
+    #[test]
+    fn a_ladder_keeps_its_place_when_room_art_replaces_its_rungs() {
+        use ambition_platformer2d_core as core;
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+        use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxTheme, RoomDressingPart};
+        use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
+        use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+        use crate::rendering::terrain_skin::{FixtureArtPiece, ThemedFixture};
+
+        let mut app = App::new();
+        app.add_plugins((bevy::transform::TransformPlugin, bevy::camera::visibility::VisibilityPlugin))
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<SkinnedMeshInverseBindposes>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<CardMeshes>()
+            .init_resource::<CardRootDepths>()
+            .add_systems(Startup, |mut commands: Commands| {
+                let mut world = core::World::new(
+                    "ladder", Vec2::splat(256.0), Vec2::ZERO, Vec::new(),
+                );
+                world.climbable_regions.push(core::ClimbableRegion::ladder(
+                    core::aabb_from_min_size(Vec2::new(144.0, 32.0), Vec2::new(16.0, 64.0)),
+                ));
+                let mut room = ambition_platformer2d_world::rooms::RoomSpec::new("ladder", world);
+                room.metadata.visual_profile.parallax_theme = Some("cave".into());
+                super::super::world::spawn_room_visuals(
+                    &mut commands, SessionSpawnScope::UNSCOPED, &room,
+                    &|_| ambition_platformer2d_world::rooms::ZoneWay::BothWays, None, None,
+                );
+            })
+            .add_systems(Update, super::super::terrain_skin::dress_themed_fixtures)
+            .configure_sets(
+                PostUpdate,
+                world_mesh::CardWorldMeshSet
+                    .after(bevy::transform::TransformSystems::Propagate)
+                    .after(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
+            )
+            .add_systems(PostUpdate, realize_card_scenery.in_set(world_mesh::CardWorldMeshSet));
+
+        let cards = |app: &mut App| {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<(&CardScope, &GlobalTransform, &Visibility), With<CardScenery>>();
+            query.iter(world).filter_map(|(scope, transform, visibility)| {
+                let CardScope::Source(source) = *scope else { return None };
+                (*visibility != Visibility::Hidden).then_some((source, transform.translation()))
+            }).collect::<Vec<_>>()
+        };
+        app.update();
+        let plain = cards(&mut app);
+        assert_eq!(plain.len(), 5, "the ladder body and four rungs are visible");
+        let (root, body) = *plain.iter().find(|(source, _)| app.world().get::<ThemedFixture>(*source).is_some()).unwrap();
+        assert_eq!(body.truncate(), Vec2::new(24.0, 64.0));
+        assert!(plain.iter().all(|(source, at)| *source == root || at.x == body.x && at.z > body.z));
+
+        let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::new_fill(
+            Extent3d { width: 16, height: 32, depth_or_array_layers: 1 },
+            TextureDimension::D2,
+            &[255; 4],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        ));
+        let mut assets = GameAssets::default();
+        assets.room_dressing.insert(ParallaxTheme::new("cave"), RoomDressingPart::Ladder, image);
+        app.insert_resource(assets);
+        app.update();
+        let themed = cards(&mut app);
+        assert_eq!(themed.len(), 2, "two tiles replace the body and rungs");
+        assert!(themed.iter().all(|(source, at)| {
+            app.world().get::<FixtureArtPiece>(*source).is_some()
+                && at.x == body.x && (at.y - body.y).abs() == 16.0 && at.z > body.z
+        }));
     }
 
     /// RV3: a parallax panel the 2D view draws for a view is a card facing

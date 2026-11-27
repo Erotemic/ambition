@@ -55,6 +55,7 @@ const SHADOW_Z: f32 = WORLD_Z_BLOCK + 7.0;
 /// The shadow sprite of one body. `key` says whose: the id of a feature, or
 /// [`PLAYER_KEY`].
 #[derive(Component, Clone, Debug)]
+#[require(crate::rendering::WorldSprite)]
 pub struct GroundShadow {
     pub key: String,
 }

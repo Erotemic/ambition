@@ -218,6 +218,7 @@ const GROUND_ITEM_Z: f32 = super::world::CLIMBABLE_Z + 0.01;
 
 /// Marks a sprite entity visualizing a [`GroundItem`]: the item it draws.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct GroundItemVisual(pub Entity);
 
 /// Loaded held and inventory item art, resolved from every provider's
@@ -449,6 +450,7 @@ fn fuse_color(base: Color, fuse_left_s: Option<f32>) -> Color {
 
 /// Marks a sprite entity visualizing a `WorldItem` (`ambition_world_items`).
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct WorldItemVisual;
 
 /// Game-supplied art for walk-into world items, keyed by the `sprite` id a

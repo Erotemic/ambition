@@ -236,6 +236,7 @@ pub struct SkinTookSprite {
 /// A piece of the art of a fixture (a ladder, a body of water): a child of
 /// the fixture.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[require(crate::rendering::WorldSprite)]
 pub struct FixtureArtPiece;
 
 /// An edge of a block.

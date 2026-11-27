@@ -11,7 +11,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 use crate::PortalWorldFrame;
 
 /// Texture and colour for a clipped material region.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct PortalClipMaterial {
     #[uniform(0)]
     pub uv_rect: Vec4,
@@ -28,11 +28,6 @@ pub struct PortalClipMaterial {
 impl PortalClipMaterial {
     pub fn new(uv_rect: Vec4, control: Vec4, tint: Vec4, color_texture: Handle<Image>) -> Self {
         Self { uv_rect, control, tint, color_texture }
-    }
-
-    fn same_as(&self, other: &Self) -> bool {
-        self.uv_rect == other.uv_rect && self.control == other.control
-            && self.tint == other.tint && self.color_texture == other.color_texture
     }
 }
 
@@ -137,7 +132,7 @@ impl ClipQuadPool {
         let geometry = PieceMesh::clipped(&transform, planes);
         let entity = match self.slots.get_mut(self.used) {
             Some(slot) => {
-                if materials.get(&slot.material).is_none_or(|old| !old.same_as(&material)) {
+                if materials.get(&slot.material) != Some(&material) {
                     materials.insert(slot.material.id(), material).ok();
                 }
                 if slot.geometry != geometry {

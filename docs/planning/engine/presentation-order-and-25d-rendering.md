@@ -747,7 +747,11 @@ shared value preparation are sufficient until source proves otherwise.
    active and kept it paused while the cube was open.
 
    A card uses the existing portal capture mesh and texture for the far-side
-   window. Partial body traversal still needs P5/P6 work. Moving platforms
+   window. The card follows the source window's visibility even when the
+   source keeps its image. Portal pieces use the existing clip mesh and
+   shader. In a Medium Portal Lab capture, Scout stays visible while
+   straddling the floor opening in 2D, side-on 2.5D, and oblique 2.5D.
+   P5/P6 still own cross-room and observer order. Moving platforms
    use their sprite frames. The cart's near layer covers seated riders and
    its far layer stays behind them. Sprite cards blend texture alpha and
    use plane depth for paint order in tilted views. Card quads use a

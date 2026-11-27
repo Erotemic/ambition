@@ -47,7 +47,10 @@ pub(super) fn install(app: &mut App) {
         install_card_mesh_material::<crate::rendering::daylight::DaylightMaterial>(app);
         install_card_mesh_material::<crate::rendering::daylight::LampGlowMaterial>(app);
         #[cfg(feature = "portal_render")]
-        install_card_mesh_material::<ambition_portal2d_presentation::PortalGlowMaterial>(app);
+        {
+            install_card_mesh_material::<ambition_portal2d_presentation::PortalGlowMaterial>(app);
+            install_card_mesh_material::<ambition_portal2d_presentation::PortalClipMaterial>(app);
+        }
     }
 }
 
@@ -64,6 +67,8 @@ impl CardMaterialSource for crate::rendering::darkness::DarknessMaterial {}
 impl CardMaterialSource for crate::bubble_shield_fx::BubbleShieldFxMaterial {}
 #[cfg(feature = "portal_render")]
 impl CardMaterialSource for ambition_portal2d_presentation::PortalGlowMaterial {}
+#[cfg(feature = "portal_render")]
+impl CardMaterialSource for ambition_portal2d_presentation::PortalClipMaterial {}
 
 /// Draw a planar material with the same bindings in the card view. Its fragment
 /// shader must accept the 3D vertex output when `AMBITION_CARD_MESH` is set.

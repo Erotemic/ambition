@@ -18,6 +18,10 @@ use bevy::prelude::*;
 const SKY: &str = "mockingbird_sky";
 const SHORE: &str = "mockingbird_arena";
 const PLACEMENT: &str = "cove.mockingbird";
+const CHASES: [(&str, &str, &str); 2] = [
+    (SHORE, SKY, PLACEMENT),
+    ("hall_mockingbird_arena", "hall_mockingbird_sky", "hall.mockingbird"),
+];
 
 fn boot(room: &str) -> Platformer2dSimHarness {
     let opts = crate::common::sandbox_options()
@@ -549,26 +553,36 @@ fn its_treasure_falls_onto_the_shore() {
 /// Once it is dead, a fall is a fall: the sky's bottom drops you to the shore.
 #[test]
 fn after_it_is_dead_a_fall_drops_you_to_the_shore() {
-    let mut sim = sky();
-    sim.world_mut()
-        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-        .data_mut()
-        .set_boss(PLACEMENT, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
-    for _ in 0..5 {
-        sim.step(AgentAction::default());
-    }
-    assert!(bird(&mut sim).hp <= 0, "precondition: a cleared Mockingbird is dead");
-    let room = bird(&mut sim).view.room.expect("room");
-    place_player(&mut sim, ae::Vec2::new(room.x * 0.5, room.y - 120.0));
-    let mut landed = false;
-    for _ in 0..60 * 4 {
-        sim.step(AgentAction::default());
-        if active_room(&mut sim) == SHORE {
-            landed = true;
-            break;
+    for ((shore, sky, placement), fraction) in CHASES.into_iter().zip([0.1, 0.9]) {
+        let mut sim = boot(sky);
+        untouchable_player(&mut sim, true);
+        sim.world_mut()
+            .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data_mut()
+            .set_boss(placement, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
         }
+        assert!(bird(&mut sim).hp <= 0, "the cleared boss in {sky} is dead");
+        let room = bird(&mut sim).view.room.expect("room");
+        place_player(&mut sim, ae::Vec2::new(room.x * fraction, room.y - 120.0));
+        let returned = (0..60 * 4).any(|_| sim.step(AgentAction::default()).active_room == shore);
+        assert!(returned, "fall from {sky} to {shore}");
+        assert!((576.0..736.0).contains(&sim.observation().player_pos.0), "arrive under the shore opening");
+        let reached_ledge = (0..60 * 4).any(|_| {
+            let observation = sim.step(AgentAction::default());
+            let feet_y = observation.player_pos.1 + observation.player_size.1 * 0.5;
+            observation.active_room == shore && observation.on_ground && (feet_y - 480.0).abs() < 2.0
+        });
+        assert!(reached_ledge, "land on the shore ledge: {:?}", sim.observation().player_pos);
+        let reached_floor = (0..60 * 4).any(|_| {
+            let x = sim.observation().player_pos.0;
+            let move_x = ((432.0 - x) / 24.0).clamp(-1.0, 1.0);
+            let observation = sim.step(AgentAction { move_x, ..Default::default() });
+            observation.active_room == shore && observation.on_ground && observation.player_pos.1 > 700.0
+        });
+        assert!(reached_floor, "land on the shore floor: {} {:?}", active_room(&mut sim), sim.observation().player_pos);
     }
-    assert!(landed, "the fall did not drop the player to the shore (in {})", active_room(&mut sim));
 }
 
 /// The way up: on the shore a shark waits by a gap in the ceiling; stand on it
@@ -576,32 +590,35 @@ fn after_it_is_dead_a_fall_drops_you_to_the_shore() {
 /// you.
 #[test]
 fn the_shore_shark_carries_you_up_into_the_sky() {
-    let mut sim = boot(SHORE);
-    untouchable_player(&mut sim, true);
-    let (lift, pos) = platforms(&mut sim)
-        .into_iter()
-        .find(|(_, _, visual, ferry)| visual.is_some() && !ferry)
-        .map(|(id, pos, ..)| (id, pos))
-        .expect("the shore has its shark");
-    let (kin, _) = player(&mut sim);
-    place_player(&mut sim, ae::Vec2::new(pos.x, pos.y - 11.0 - kin.size().y * 0.5 - 1.0));
-    let mut reached = false;
-    for _ in 0..60 * 6 {
-        sim.step(AgentAction::default());
-        if active_room(&mut sim) == SKY {
-            reached = true;
-            break;
+    for (shore, sky, _) in CHASES {
+        let mut sim = boot(shore);
+        untouchable_player(&mut sim, true);
+        let (_, lift, ..) = platforms(&mut sim)
+            .into_iter()
+            .find(|(_, _, visual, ferry)| visual.is_some() && !ferry)
+            .expect("the shore has its shark");
+        let reached_lift = (0..240).any(|_| {
+            let gap = lift.x - sim.observation().player_pos.0;
+            sim.step(AgentAction { move_x: (gap / 24.0).clamp(-1.0, 1.0), ..Default::default() });
+            gap.abs() < 4.0 && sim.observation().on_ground
+        });
+        assert!(reached_lift, "walk to the mooring in {shore}");
+        let mut highest = sim.observation().player_pos.1;
+        let reached = (0..60 * 6).any(|tick| {
+            let observation = sim.step(AgentAction { jump: tick == 0, jump_held: true, ..Default::default() });
+            highest = highest.min(observation.player_pos.1);
+            observation.active_room == sky
+        });
+        assert!(reached, "ride the shark from {shore} to {sky}: highest y={highest}");
+        let hp = player(&mut sim).1;
+        for _ in 0..60 * 3 {
+            sim.step(AgentAction::default());
         }
+        assert_eq!(active_room(&mut sim), sky, "stay in the sky after arrival");
+        let (now, hp_after) = player(&mut sim);
+        assert!(now.pos.y < 700.0, "the arrival ferry carries the robot up: {:?}", now.pos);
+        assert_eq!(hp_after, hp);
     }
-    assert!(reached, "the shark ({lift}) did not carry the player up into the sky");
-    let hp = player(&mut sim).1;
-    for _ in 0..60 * 3 {
-        sim.step(AgentAction::default());
-    }
-    assert_eq!(active_room(&mut sim), SKY, "arriving, the player fell back out of the sky");
-    let (now, hp_after) = player(&mut sim);
-    assert!(now.pos.y < 700.0, "arriving from below, the player was not carried up: {:?}", now.pos);
-    assert_eq!(hp_after, hp);
 }
 
 /// A4: in its shipped sky the Mockingbird's path is its conductor's, and its

@@ -44,14 +44,10 @@ def zones(world: dict) -> dict:
 
 
 def side(z) -> str:
-    lv = z["level"]
-    if z["rx"] <= TOLERANCE:
-        return "left"
-    if z["rx"] + z["w"] >= lv["pxWid"] - TOLERANCE:
-        return "right"
-    if z["ry"] <= TOLERANCE:
-        return "top"
-    return "bottom"
+    # Use the same axis as the game. A bottom strip can touch both side walls.
+    if z["w"] >= z["h"]:
+        return "top" if z["ry"] <= TOLERANCE else "bottom"
+    return "left" if z["rx"] <= TOLERANCE else "right"
 
 
 def check(path: Path) -> list[str]:

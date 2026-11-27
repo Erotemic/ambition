@@ -1141,15 +1141,23 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
 #[cfg(feature = "shell_settings_pages")]
 #[test]
 fn sanic_pause_shows_the_optional_settings_pages() {
-    use ambition_platformer2d::game_shell::{PauseRequested, ShellPauseMenu};
+    use ambition_platformer2d::audio::AudioBackendState;
+    use ambition_platformer2d::game_shell::{PauseRequested, ShellFailureLog, ShellPauseMenu};
     use ambition_platformer2d::persistence::PersistenceRoot;
 
     let mut app = rendered_app();
     app.insert_resource(PersistenceRoot::isolated());
+    // This fixture uses the pause menu without generated entry music.
+    app.world_mut().remove_resource::<AudioBackendState>();
     settle(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo("sanic_gameplay".into()));
     settle(&mut app);
-    assert_eq!(active_route(&app).as_deref(), Some("sanic_gameplay"));
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some("sanic_gameplay"),
+        "route failures: {:?}",
+        app.world().resource::<ShellFailureLog>().reasons(),
+    );
 
     app.world_mut().write_message(PauseRequested);
     app.update();

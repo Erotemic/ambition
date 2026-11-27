@@ -27,7 +27,6 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::body_rig::PreparedBodyRig;
 use ambition_characters::actor::{BodyLandmarkTable, Landmark, CharacterForm};
-use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d_core as ae;
 
 use crate::body_rig::{select_pose_frame, BodyRig, BodyRigPose};
@@ -136,7 +135,8 @@ pub fn drawn_world_per_pixel(
 #[derive(SystemParam)]
 pub struct BodyLandmarks<'w, 's> {
     sprite_content: Res<'w, ambition_sprite_sheet::SpriteContent>,
-    characters: Option<Res<'w, PreparedCharacterRegistry>>,
+    /// The running session's frozen cast (`SessionCast`), not the App's.
+    characters: ambition_characters::prepared::SessionCast<'w>,
     bodies: Query<
         'w,
         's,
@@ -161,7 +161,7 @@ impl BodyLandmarks<'_, '_> {
         if let Some(point) = rig.and_then(|rig| rig_landmark(landmark, pose, rig.0.as_ref(), resolved)) {
             return Some(point);
         }
-        let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
+        let sheet = self.characters.get()?.get(worn?.id())?.sheet.as_deref()?;
         let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
         let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
         let clocks = PoseClocks {
@@ -185,7 +185,7 @@ impl BodyLandmarks<'_, '_> {
         self.bodies
             .get(body)
             .ok()
-            .and_then(|(worn, ..)| Some(self.characters.as_ref()?.get(worn?.id())?.gesture_hand))
+            .and_then(|(worn, ..)| Some(self.characters.get()?.get(worn?.id())?.gesture_hand))
             .unwrap_or_default()
     }
 
@@ -213,7 +213,7 @@ impl BodyLandmarks<'_, '_> {
         inset_px: f32,
     ) -> Option<(bevy::math::Rect, String)> {
         let (worn, posed, render_size, _, playback, clock, _) = self.bodies.get(body).ok()?;
-        let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
+        let sheet = self.characters.get()?.get(worn?.id())?.sheet.as_deref()?;
         let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
         let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
         let (clip, frame) = select_pose_frame(
@@ -248,7 +248,7 @@ impl BodyLandmarks<'_, '_> {
         inset_px: f32,
     ) -> Option<bevy::math::Rect> {
         let (worn, posed, render_size, ..) = self.bodies.get(body).ok()?;
-        let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
+        let sheet = self.characters.get()?.get(worn?.id())?.sheet.as_deref()?;
         let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
         let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
         let (name, clip) = table.first_clip(rows.iter().copied())?;

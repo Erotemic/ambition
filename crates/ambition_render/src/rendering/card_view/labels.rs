@@ -109,7 +109,6 @@ pub(super) fn realize_card_labels(
             &TextColor,
             &Visibility,
             &InheritedVisibility,
-            bevy::prelude::Has<WorldLabel>,
         ),
         LabelSource,
     >,
@@ -138,7 +137,7 @@ pub(super) fn realize_card_labels(
     retained.reconcile(&mut commands, |(source, atlas)| {
         labels
             .get(*source)
-            .is_ok_and(|(_, layout, .., visibility, inherited, _)| {
+            .is_ok_and(|(_, layout, .., visibility, inherited)| {
                 shown(visibility, inherited)
                     && layout
                         .glyphs
@@ -146,7 +145,7 @@ pub(super) fn realize_card_labels(
                         .any(|glyph| glyph.atlas_info.texture == *atlas)
             })
     });
-    for (source, layout, bounds, anchor, place, color, visibility, inherited, world_label) in &labels {
+    for (source, layout, bounds, anchor, place, color, visibility, inherited) in &labels {
         if !shown(visibility, inherited) {
             continue;
         }
@@ -163,11 +162,7 @@ pub(super) fn realize_card_labels(
             .copied()
             .unwrap_or(CARD_BODY_STEP);
         let mut place = place.compute_transform();
-        place.translation.z = if world_label {
-            front + 0.5
-        } else {
-            super::scenery_depth(place.translation.z, front)
-        };
+        place.translation.z = super::scenery_depth(place.translation.z, front);
         let color = color.0.to_srgba().to_u8_array();
         for &page in &*pages {
             let Some(page_size) = images.get(page).map(|image| image.size().as_vec2()) else {

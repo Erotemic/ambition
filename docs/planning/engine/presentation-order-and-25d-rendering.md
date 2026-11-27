@@ -770,8 +770,9 @@ shared value preparation are sufficient until source proves otherwise.
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same
    fragment shaders in both views. The portal channel uses the world text
-   layout. Gravity zone sprites keep their identity when a zone moves. The
-   shield keeps its card mesh and material as its size and color change.
+   layout. The card view keeps the source text order relative to scenery
+   and lighting. Gravity zone sprites keep their identity when a zone moves.
+   The shield keeps its card mesh and material as its size and color change.
    Medium captures show these fixes in Castle Godwin, the blueprint room,
    the military gate annex, Gravity Lab, Portal Lab, and the central hub.
 

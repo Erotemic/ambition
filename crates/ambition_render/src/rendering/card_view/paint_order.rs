@@ -46,6 +46,7 @@ fn extract_cards(
                 With<CardSpriteBody>,
                 With<CardScenery>,
                 With<CardTerrain>,
+                With<super::labels::CardLabel>,
                 With<super::world_mesh::CardWorldMesh>,
             )>,
         >,

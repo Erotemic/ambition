@@ -68,6 +68,9 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
   the upper walk. Jump across the hoist opening to reach the parts chest
   from the boiler. The floor route leads to Sprocket.
 - **Secret:** the kitchens' west wall is false at the floor, and the Guild's room is behind it.
+- In the Guild Room, jump from the floor to the lectern or the minutes
+  desk. A jump also connects the two platforms. The strike fund and the
+  Clubman are on the floor.
 - **Doors left:** the front door (forest to gatehouse), and the great hall to the throne room. The throne room is the Wolfenstein/Inugami fight and its chase; a boss cannot cross rooms, so it stays one room, under the castle.
 - **Tests:** `game/ambition_app/tests/the_castle_kitchens.rs`.
 

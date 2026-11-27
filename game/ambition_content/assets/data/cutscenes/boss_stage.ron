@@ -44,51 +44,51 @@
         ],
         seen_flag: Some("boss_vibe_kill_seen"),
     ),
-    // The green room's volume, past the grille that his retirement opens:
-    // he is the bossofthegame until the day he dies, or retires.
     (
-        id: "boss_retirement",
+        id: "boss_leaves_the_stage",
+        roles: [("boss", Placement("boss_stage.bossofthegame"))],
+        beats: [
+            Command(line: "actor.pose @boss death hold"),
+            CameraTrack(roles: ["boss"], seconds: 0.5),
+            Wait(seconds: 0.8),
+            Dialogue(
+                speaker_character_id: "npc_bossofthegame",
+                text: "...Okay. That was a good one.",
+            ),
+            Command(line: "actor.release @boss"),
+            Wait(seconds: 0.4),
+            Dialogue(
+                speaker_character_id: "npc_bossofthegame",
+                text: "I'm taking five. Full Stack, leave the lights on.",
+            ),
+            Command(line: "actor.leave_through @boss boss_stage_green_door keeps_to_its_tasks"),
+            CameraRelease(seconds: 0.8),
+            WaitFor(condition: "actor.gone @boss", seconds_at_most: 24.0),
+        ],
+        seen_flag: None,
+    ),
+    (
+        id: "boss_early_access",
         beats: [
             Dialogue(
                 speaker_character_id: "npc_bossofthegame",
-                text: "...Okay. Okay. That was a good one.",
+                text: "The bossofthegame is the bossofthegame until the day he dies…",
+            ),
+            Wait(seconds: 0.55),
+            Dialogue(
+                speaker_character_id: "npc_bossofthegame",
+                text: "…or retires. I said I was taking five.",
             ),
             Dialogue(
                 speaker_character_id: "npc_bossofthegame",
-                text: "I never wanted to be the villain. I wanted to be challenged. And I was. Thanks for that.",
+                text: "You reached the end of Early Early Access. The game's still unfinished. We're still working on what comes next.",
             ),
             Dialogue(
                 speaker_character_id: "npc_bossofthegame",
-                text: "The bossofthegame is the bossofthegame until the day he dies, or retires.",
+                text: "You can keep exploring. Full Stack, where did we put the rest of the game?",
             ),
-            Dialogue(
-                speaker_character_id: "npc_bossofthegame",
-                text: "I'm not dying today. So.",
-            ),
-            Wait(
-                seconds: 0.6,
-            ),
-            Dialogue(
-                speaker_character_id: "npc_bossofthegame",
-                text: "I retire.",
-            ),
-            Dialogue(
-                speaker_character_id: "npc_full_stack",
-                text: "Would you like me to write a retirement speech? I have prepared seven.",
-            ),
-            Dialogue(
-                speaker_character_id: "npc_bossofthegame",
-                text: "No.",
-            ),
-            Banner(
-                text: "THE BOSSOFTHEGAME HAS RETIRED",
-                seconds: 2.4,
-            ),
-            SetFlag(
-                id: "bossofthegame_retired",
-                on: true,
-            ),
+            Banner(text: "END OF EARLY EARLY ACCESS", seconds: 2.4),
         ],
-        seen_flag: Some("bossofthegame_retired"),
+        seen_flag: Some("boss_early_access_seen"),
     ),
 ]

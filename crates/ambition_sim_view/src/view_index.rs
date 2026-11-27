@@ -1059,10 +1059,18 @@ pub fn rebuild_boss_render_index(
         let fighting = awake && phase != ambition_boss_encounter::BossEncounterPhase::Intro && !escort;
         let finish = ambition_boss_encounter::finish::finish_of(boss.config, boss.status);
         let stage = staged_with_its_card(boss.config, boss.status);
+        let behavior = &boss.config.behavior;
+        let elapsed = boss.status.encounter.as_ref().and_then(|phases| {
+            phases.seconds_since_wake(boss.config.seed.encounter.intro_seconds)
+        });
+        let title = behavior.title_reveal.as_ref()
+            .filter(|reveal| elapsed.is_none_or(|time| time < reveal.seconds_after_wake))
+            .map(|reveal| reveal.lead.as_str())
+            .or(behavior.title.as_deref());
         let fresh = |view: &BossRenderView| {
             view.name == boss.config.name
                 && view.behavior_id == boss.config.behavior.id
-                && view.title == boss.config.behavior.title
+                && view.title.as_deref() == title
                 && view.stage == stage
                 && view.awake == awake
                 && view.fighting == fighting
@@ -1079,7 +1087,7 @@ pub fn rebuild_boss_render_index(
             BossRenderView {
                 name: boss.config.name.clone(),
                 behavior_id: boss.config.behavior.id.clone(),
-                title: boss.config.behavior.title.clone(),
+                title: title.map(str::to_owned),
                 stage,
                 awake,
                 fighting,

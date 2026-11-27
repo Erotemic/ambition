@@ -237,3 +237,77 @@ fn his_named_agents_join_the_fight() {
     );
     assert!(band_rows(&mut sim).is_empty(), "and the band has left its instruments");
 }
+
+#[test]
+fn the_stage_defeat_leaves_the_boss_alive_and_the_game_open() {
+    use ambition_app::AgentAction;
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::cutscene::ActiveCutscene;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use crate::common::walk::{Pad, walk_through, walk_to};
+
+    const PLACEMENT: &str = "boss_stage.bossofthegame";
+    const GREEN: &str = "boss_green_room";
+    let mut sim = fixed_60hz_room_sim(STAGE);
+    let boss_entity = {
+        let world = sim.world_mut();
+        world.query::<(Entity, &BossConfig)>().iter(world)
+            .find(|(_, config)| config.id == PLACEMENT).unwrap().0
+    };
+    let advance = |sim: &mut ambition_app::Platformer2dSimHarness, tick| {
+        sim.step(AgentAction { confirm: tick % 6 == 0, ..base() });
+    };
+    let mut saw_lead = false;
+    let mut saw_full = false;
+    for tick in 0..600 {
+        advance(&mut sim, tick);
+        if let Some(title) = sim.world().resource::<ambition_platformer2d::sim_view::BossRenderIndex>()
+            .get(PLACEMENT).filter(|view| view.stage.card > 0.0).and_then(|view| view.title.as_deref())
+        {
+            saw_lead |= title == "Until the day he dies…";
+            if title == "Until the day he dies… or retires" {
+                assert!(saw_lead, "the start of the title comes before the reveal");
+                saw_full = true;
+                break;
+            }
+        }
+    }
+    assert!(saw_lead && saw_full, "show both parts of the title");
+
+    let start_x = boss(&mut sim).pos.x;
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, PLACEMENT, 420);
+    let mut left_its_saddle = false;
+    let mut walked = false;
+    for tick in 0..1700 {
+        advance(&mut sim, tick);
+        if let Some(body) = sim.world().get::<ae::BodyKinematics>(boss_entity) {
+            assert!(sim.world().get::<BodyHealth>(boss_entity).unwrap().alive(), "the boss yields alive");
+            left_its_saddle |= sim.world().get::<ambition_platformer2d::mount::RidingOn>(boss_entity).is_none();
+            walked |= body.pos.x > start_x + 250.0;
+        }
+        if sim.world().get_entity(boss_entity).is_err()
+            && !sim.world().resource::<ActiveCutscene>().is_playing()
+        {
+            break;
+        }
+    }
+    assert!(left_its_saddle && walked, "the body from the fight walks to the exit");
+    assert!(sim.world().get_entity(boss_entity).is_err(), "the stage body went through the door");
+    assert!(crate::boss_lifecycle::boss_cleared(&sim, PLACEMENT));
+
+    let half_height = player(&mut sim).size().y * 0.5;
+    place_player(&mut sim, ae::Vec2::new(2470.0, 1088.0 - half_height));
+    walk_through(&mut Pad::new(&mut sim), GREEN).expect("the green room is open");
+    walk_to(&mut Pad::new(&mut sim), ae::Vec2::new(310.0, 576.0)).expect("reach the green room scene");
+    for tick in 0..700 {
+        advance(&mut sim, tick);
+        if sim.world().resource::<AmbitionGameSave>().data().flag("boss_early_access_seen") {
+            break;
+        }
+    }
+    let save = sim.world().resource::<AmbitionGameSave>().data();
+    assert!(save.flag("boss_early_access_seen"));
+    assert!(!save.flag("bossofthegame_retired"));
+    assert!(!sim.world().resource::<ActiveCutscene>().is_playing());
+    walk_through(&mut Pad::new(&mut sim), "boss_lobby").expect("keep exploring after the scene");
+}

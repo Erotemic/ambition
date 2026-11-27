@@ -41,6 +41,13 @@ impl StrikeRect {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TitleReveal {
+    pub lead: String,
+    pub seconds_after_wake: f32,
+}
+
 /// Authored boss behavior: movement, contact/damage, attack geometry, and rewards.
 /// Encounter HP and phase thresholds are owned separately. Providers assemble rows
 /// into the App-local catalog; unknown authored bosses use the generic profile.
@@ -57,6 +64,12 @@ pub struct BossBehaviorProfile {
     /// Wolf"). `None` shows the name alone.
     #[serde(default)]
     pub title: Option<String>,
+    /// The first part of the title, shown until the reveal time.
+    #[serde(default)]
+    pub title_reveal: Option<TitleReveal>,
+    /// A scene that takes control after a nonlethal defeat.
+    #[serde(default)]
+    pub retreat_scene: Option<String>,
     /// Sprite-registry target. `None` uses this profile's `id`.
     #[serde(default)]
     pub sprite_target: Option<String>,

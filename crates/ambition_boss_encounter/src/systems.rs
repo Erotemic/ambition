@@ -17,6 +17,32 @@ use ambition_persistence::quest::QuestRegistry;
 
 use super::{BossCatalog, BossEncounterRegistry, default_boss_profiles, events::publish_events};
 
+fn release_retreating_boss(commands: &mut Commands, boss: Entity) {
+    use ambition_characters::{
+        actor::ActorFaction,
+        brain::{BossAttackIntent, BossAttackState, BossCapability},
+        control::ActorControl,
+    };
+    use ambition_combat::{components::ActorDisposition, moveset::MovePlayback};
+    commands.entity(boss)
+        .remove::<(
+            crate::BossConfig, crate::BossEncounter, BossCapability,
+            BossAttackIntent, BossAttackState, MovePlayback, ambition_mount::CanPilot,
+        )>()
+        .insert((
+            ActorFaction::Npc, ActorDisposition::Peaceful, ActorControl::default(),
+            ae::BodyFlightState::default(),
+        ));
+    commands.queue(move |world: &mut World| {
+        if world.contains_resource::<Messages<ambition_mount::DismountRequested>>() {
+            world.write_message(ambition_mount::DismountRequested {
+                rider: boss,
+                reason: ambition_mount::DismountReason::RiderBailed,
+            });
+        }
+    });
+}
+
 pub fn populate_boss_encounter_registry(
     catalog: Res<BossCatalog>,
     mut registry: ResMut<BossEncounterRegistry>,
@@ -180,6 +206,11 @@ pub fn update_boss_encounters(
             feature.config.seed.reward.clone(),
         );
 
+        let retreats = !feature.config.practice && feature.config.behavior.retreat_scene.is_some();
+        if retreats {
+            feature.status.health_floor = 1;
+        }
+
         // Seed entity-local state once from the profile (phase triggers, HP),
         // so two of the same boss have independent state. The per-spawn
         // `BossOverrides` (hp / phase triggers) are applied here, so the
@@ -214,6 +245,10 @@ pub fn update_boss_encounters(
         // predicate (`boss_is_cleared`) is shared with construction, so they
         // agree.
         if crate::boss_is_cleared(&save, &feature.config) {
+            if retreats {
+                commands.entity(boss_entity).despawn();
+                continue;
+            }
             health.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {
                 // A death this room saw (its first Death tick counted) keeps
@@ -285,12 +320,19 @@ pub fn update_boss_encounters(
             {
                 phase_events.extend(phase.kill());
             }
+            if retreats && health.current() <= 1 && dt > 0.0
+                && !matches!(phase.phase, crate::BossEncounterPhase::Death)
+            {
+                phase_events.extend(phase.kill());
+            }
             phase_events.extend(phase.tick(dt, hp_fraction));
         }
         for ev in &phase_events {
             let bill = super::events::BossBillName {
                 name: &feature.config.name,
-                title: feature.config.behavior.title.as_deref(),
+                title: feature.config.behavior.title_reveal.as_ref()
+                    .map(|reveal| reveal.lead.as_str())
+                    .or(feature.config.behavior.title.as_deref()),
             };
             publish_events(&archetype_id, &bill, ev, cutscene_queue.as_deref_mut(), &mut banner,
                 rooms.live().of(boss_entity),
@@ -329,7 +371,7 @@ pub fn update_boss_encounters(
         if matches!(phase, crate::BossEncounterPhase::Death) && death_done {
             // A scripted or environmental kill can reach Death with HP left;
             // zero it so `alive()`, the liveness authority, agrees.
-            if health.alive() {
+            if !retreats && health.alive() {
                 health.health.current = 0;
             }
             // The edge, not the resting state: recorded on the tick the death
@@ -376,6 +418,14 @@ pub fn update_boss_encounters(
                         ),
                         runtime_id.clone(),
                     );
+                }
+                if let Some(scene) = feature.config.behavior.retreat_scene.as_deref().filter(|_| retreats) {
+                    health.health.current = health.current().max(1);
+                    release_retreating_boss(&mut commands, boss_entity);
+                    if let (Some(queue), Some(room)) = (cutscene_queue.as_deref_mut(), rooms.live().of(boss_entity)) {
+                        queue.request_in(scene, room.ordinal());
+                    }
+                    continue;
                 }
             }
         }

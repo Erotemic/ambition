@@ -3233,7 +3233,7 @@
             // A body of his own, standing: the green room's dais and the hall
             // build it. The fight's body is the boss encounter's
             // (`boss_encounters/bossofthegame.ron`, whose voice is this row).
-            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            locomotion: Some((run_speed: 112.0, move_style: Walk)),
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             tags: ["boss", "story"],
             barks: (

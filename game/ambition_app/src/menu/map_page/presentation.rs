@@ -170,7 +170,7 @@ fn draw_entries(
         let layer = 0.1 + stride * index as f32;
         let action = (!view.room_detail).then_some(MenuPageAction::Map(MapAction::Open(entry.id)));
         let tile_bounds = if landmark {
-            Rect::from_center_size(tile.bounds.center(), tile.bounds.size().max(Vec2::new(2.7, 3.5)))
+            Rect::from_center_size(tile.bounds.center(), tile.bounds.size().max(Vec2::new(3.25, 4.05)))
                 .intersect(chart_bounds())
         } else {
             tile.bounds
@@ -226,7 +226,7 @@ fn draw_entries(
         if landmark {
             anchor.y = inner.min.y + (inner.height() - 1.7).max(font) * 0.45;
         } else if !group && !view.links.is_empty() {
-            anchor.y = inner.min.y + font * 0.95;
+            anchor.y = inner.min.y + font * 1.26;
         }
         let label = Rect::from_center_size(
             anchor,

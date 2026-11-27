@@ -22,6 +22,9 @@ const KNOCKBACK = 0.25;
 // An arc is asked for again each tick it crackles; this only outlives one.
 const ARC_LIFETIME_S = 0.1;
 const ARC_WIDTH = 5.0;
+const JUMP_CHANCE = 0.35;
+const JUMP_RANGE = 96.0;
+const JUMP_DAMAGE = 1;
 // How far the aim may lift or drop the cone from level (a slope).
 const MAX_SLOPE = 0.9;
 // Pulses between crackles of sound.
@@ -119,6 +122,7 @@ fn zap() {
             slot: arc, generation: c.generation, from: hand, toward: dir,
             reach: reach, width: global::ARC_WIDTH, damage: global::DAMAGE,
             knockback: global::KNOCKBACK, lifetime_s: global::ARC_LIFETIME_S, look: "force",
+            jump: #{ chance: global::JUMP_CHANCE, range: global::JUMP_RANGE, damage: global::JUMP_DAMAGE },
         }));
     }
     this.requests.push(request("drawn_row", #{ on: "upper_body", names: rows,

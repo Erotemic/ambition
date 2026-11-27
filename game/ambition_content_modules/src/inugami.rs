@@ -749,6 +749,7 @@ fn bolt_down_with_launch(inv: &mut Invocation<'_>, slot: u32, generation: u32, x
         launch_dir,
         lifetime_s: life,
         look: "strike".into(),
+        jump: None,
     })?;
     burst(inv, Vec2::new(x, floor - 4.0), 14, 300.0, SPARK, "spark")
 }

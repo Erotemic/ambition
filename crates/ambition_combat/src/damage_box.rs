@@ -102,6 +102,7 @@ impl DamageBoxOrigins<'_, '_> {
                         },
                     ),
                     projectile: None,
+                    ray_jump: None,
                 }),
             owner,
             scope,

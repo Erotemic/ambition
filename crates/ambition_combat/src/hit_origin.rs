@@ -17,10 +17,19 @@ pub struct HitIdentity {
 }
 
 /// Credit and optional shot identity at native hit publication.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, PartialEq)]
 pub struct HitOrigin {
     pub attacker: Option<HitIdentity>,
     pub projectile: Option<HitIdentity>,
+    pub ray_jump: Option<RayJumpOnDamage>,
+}
+
+/// The ray settings that a confirmed damage hit uses for a jump.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RayJumpOnDamage {
+    pub jump: ambition_combat_port::ray::RayJump,
+    pub width: f32,
+    pub look: std::sync::Arc<str>,
 }
 
 impl HitOrigin {
@@ -41,6 +50,7 @@ impl HitOrigin {
                 session,
                 room,
             }),
+            ray_jump: None,
         }
     }
 
@@ -56,6 +66,13 @@ impl HitOrigin {
                     wire::put_u32(out, room.ordinal());
                 }
             }
+        }
+        if let Some(ray) = &self.ray_jump {
+            wire::put_u32(out, ray.jump.chance.to_bits());
+            wire::put_u32(out, ray.jump.range.to_bits());
+            wire::put_u32(out, ray.jump.damage as u32);
+            wire::put_u32(out, ray.width.to_bits());
+            wire::put_str(out, &ray.look);
         }
     }
 
@@ -90,6 +107,7 @@ impl HitWriter<'_, '_> {
                         })
                 }),
                 projectile: None,
+                ray_jump: None,
             });
         }
         self.messages.write(hit)

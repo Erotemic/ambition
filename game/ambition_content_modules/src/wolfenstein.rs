@@ -1287,6 +1287,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     launch_dir: None,
                     lifetime_s: BOLT_S,
                     look: "strike".into(),
+                    jump: None,
                 })?;
             }
         }
@@ -1336,6 +1337,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     launch_dir: None,
                     lifetime_s: BOLT_S,
                     look: "force".into(),
+                    jump: None,
                 })?;
             }
         }

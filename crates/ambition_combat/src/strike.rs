@@ -239,6 +239,16 @@ pub struct HitboxExclusions {
     pub bodies: std::collections::BTreeSet<Entity>,
 }
 
+/// This strike can hit only the selected body.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct HitboxTarget(pub Entity);
+
+impl bevy::ecs::entity::MapEntities for HitboxTarget {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.0 = mapper.get_mapped(self.0);
+    }
+}
+
 impl bevy::ecs::entity::MapEntities for HitboxExclusions {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         self.bodies = std::mem::take(&mut self.bodies)

@@ -155,11 +155,28 @@ pub struct HeldRay {
     /// How it is drawn: a name of the presentation's ray looks (`"strike"`,
     /// `"force"`, `"laser"`).
     pub look: String,
+    /// Optional arc to a second target after the ray does damage.
+    pub jump: Option<RayJump>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RayJump {
+    pub chance: f32,
+    pub range: f32,
+    pub damage: i32,
+}
+
+impl RayJump {
+    pub fn is_valid(self) -> bool {
+        (0.0..=1.0).contains(&self.chance)
+            && self.range.is_finite()
+            && self.range > 0.0
+            && self.damage > 0
+    }
 }
 
 impl Port for HeldRayPort {
-    /// Version 5 (2026-11-17): a ray from a hand (`ArtPart::Hand`).
-    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 5);
+    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 6);
     const ROLE: PortRole = PortRole::Request;
     type Value = HeldRay;
 
@@ -197,6 +214,7 @@ mod tests {
             launch_dir: Some(crate::LaunchDirection::World([-1.0, -0.4])),
             lifetime_s: 0.3,
             look: "force".into(),
+            jump: Some(RayJump { chance: 0.4, range: 88.0, damage: 1 }),
         };
         let mut out = Vec::new();
         HeldRayPort::encode(&ray, &mut out);
@@ -280,6 +298,16 @@ impl ambition_extension_sdk::structure::Field<Spot> for Spot {
 }
 
 ambition_extension_sdk::port_record! {
+    RayJump {
+        /// Probability from zero to one for each damage hit.
+        chance: f32,
+        /// Maximum distance from the body that took damage.
+        range: f32,
+        damage: i32,
+    }
+}
+
+ambition_extension_sdk::port_record! {
     HeldRay {
         slot: u32 = 0,
         generation: u32,
@@ -292,6 +320,8 @@ ambition_extension_sdk::port_record! {
         launch_dir: Option<crate::LaunchDirection> = None,
         lifetime_s: f32,
         look: String,
+        /// Settings for one jump after a body takes damage. The jump stops at solid walls.
+        jump: Option<RayJump> = None,
     }
 }
 ambition_extension_sdk::script_port!(HeldRayPort);

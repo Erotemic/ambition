@@ -710,6 +710,7 @@ struct RankedStrike<'a> {
     meets_guard: bool,
     targets: ambition_hit_spec::HitTargets,
     exclusions: Option<&'a crate::strike::HitboxExclusions>,
+    target: Option<&'a crate::strike::HitboxTarget>,
 }
 
 /// A guard of a body and its pieces, cut by the body's own room and transit.
@@ -868,6 +869,7 @@ pub fn apply_hitbox_damage(
         &mut crate::strike::FixedStrikeFeaturePulse,
         Option<&crate::strike::HitboxExclusions>,
         Option<&crate::HitOrigin>,
+        Option<&crate::strike::HitboxTarget>,
     )>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
     // (bare test bodies); every real body — player included — publishes one.
@@ -899,7 +901,10 @@ pub fn apply_hitbox_damage(
     //
     // This is the whole of the sweetspot rule's input: which other volumes one
     // move has live right now, and which of them the author wrote first.
-    strike_ranks: Query<(Entity, &Hitbox, &crate::moveset::StrikeRank, Option<&crate::strike::HitboxExclusions>)>,
+    strike_ranks: Query<(
+        Entity, &Hitbox, &crate::moveset::StrikeRank,
+        Option<&crate::strike::HitboxExclusions>, Option<&crate::strike::HitboxTarget>,
+    )>,
     // EVERY VICTIM'S GUARD, taken mutably and looked up by entity like the
     // attacker rows below. This is where a perfect shield CATCHES a strike, so
     // the guard is written, not read — see the parry arm in the victim loop.
@@ -969,7 +974,7 @@ pub fn apply_hitbox_damage(
     // about each sibling for each body.
     let ranked: Vec<RankedStrike<'_>> = strike_ranks
         .iter()
-        .filter_map(|(entity, hitbox, rank, exclusions)| {
+        .filter_map(|(entity, hitbox, rank, exclusions, target)| {
             let owner_pos = owner_position(hitbox)?;
             Some(RankedStrike {
                 entity,
@@ -980,10 +985,11 @@ pub fn apply_hitbox_damage(
                 meets_guard: hitbox.meets_guard(),
                 targets: hitbox.properties.targets,
                 exclusions,
+                target,
             })
         })
         .collect();
-    for (hitbox_entity, hitbox, cause, mut hits, move_instance, captured, mut feature_pulse, exclusions, origin) in &mut hitboxes {
+    for (hitbox_entity, hitbox, cause, mut hits, move_instance, captured, mut feature_pulse, exclusions, origin, target) in &mut hitboxes {
         let Some(owner_pos) = owner_position(hitbox) else {
             continue;
         };
@@ -1082,7 +1088,9 @@ pub fn apply_hitbox_damage(
                 if victim.entity == hitbox.owner && hitbox.source != HitSide::Environment {
                     continue;
                 }
-                if exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity)) {
+                if target.is_some_and(|target| target.0 != victim.entity)
+                    || exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity))
+                {
                     continue;
                 }
                 // Spent contacts are the common case for a sustained strike.
@@ -1235,6 +1243,7 @@ pub fn apply_hitbox_damage(
                         if outranked { return Ok(true); }
                         if !sibling.targets.permits(victim.hit_posture())
                             || sibling.owner != hitbox.owner || sibling.rank >= me.rank
+                            || sibling.target.is_some_and(|target| target.0 != victim.entity)
                             || sibling.exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity)) {
                             return Ok(false);
                         }
@@ -1499,7 +1508,7 @@ pub fn apply_hitbox_damage(
             // must not damage bodies again. A fixed strike publishes this pulse once.
             // A moving strike uses the move's feature hit list.
             let fixed = matches!(hitbox.anchor, HitboxAnchor::World { .. });
-            if !fixed || !feature_pulse.emitted {
+            if target.is_none() && (!fixed || !feature_pulse.emitted) {
                 if fixed { feature_pulse.emitted = true; }
                 out.hit_events.write(HitEvent { status: None,
                     origin: origin.cloned(),
@@ -1537,14 +1546,14 @@ pub fn apply_hitbox_damage(
     // grants.
     let siblings: Vec<(Entity, Entity)> = strike_ranks
         .iter()
-        .map(|(entity, hitbox, _, _)| (entity, hitbox.owner))
+        .map(|(entity, hitbox, ..)| (entity, hitbox.owner))
         .collect();
     for (striker, owner, victim) in pulse_records {
         for (sibling, sibling_owner) in &siblings {
             if *sibling_owner != owner || *sibling == striker {
                 continue;
             }
-            if let Ok((_, _, _, mut hits, _, _, _, _, _)) = hitboxes.get_mut(*sibling) {
+            if let Ok((_, _, _, mut hits, ..)) = hitboxes.get_mut(*sibling) {
                 hits.hit.insert(victim);
             }
         }

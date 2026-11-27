@@ -61,6 +61,31 @@ reusable character identity.
 If the character needs genuinely new shared behavior, extend the corresponding
 engine action/body vocabulary and make the authoring path express it.
 
+### Classify the character in the cast
+
+Add a `cast` field to the character's catalog row:
+
+```ron
+cast: (
+    importance: Secondary,
+    roles: {
+        "story": ["ally", "mentor"],
+        "service": ["quest-giver"],
+    },
+),
+```
+
+Choose `Primary`, `Secondary`, `Tertiary`, or `Background` for importance
+in the pack's story. If you omit importance, the inspector shows the character
+as unclassified.
+
+A character can have more than one role. Use `story` for roles such as foil
+or antagonist, `encounter` for roles such as boss or mob, and `service` for
+roles such as quest giver or shopkeeper. Use lower-case words joined by
+hyphens for role names. A pack can add groups and roles. Filters in the asset
+inspector read the groups and roles that the pack supplies. Use the placement
+or encounter source to set behavior for each instance.
+
 ## 3. Prepare the art
 
 A sprite target with `ACTOR_METADATA` can seed authoring notes and the catalog

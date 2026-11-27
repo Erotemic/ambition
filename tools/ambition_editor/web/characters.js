@@ -6,7 +6,7 @@
   const I = C.inventory;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent;
-  const defaultFilters = {family: "", lineage: "", attention: "", view: "", sort: "added-newest", role: "", history: ""};
+  const defaultFilters = {family: "", lineage: "", attention: "", view: "", sort: "added-newest", importance: "", role: "", history: ""};
   const filters = {...defaultFilters};
   const badge = (text, warn = false) => `<span class="chip ${warn ? 'c-warn' : 'c-info'}">${esc(text)}</span>`;
   const characterLink = (key, label) => `<a href="#character/${enc(key)}">${esc(label || I.identities[key]?.display || key)}</a>`;
@@ -43,7 +43,28 @@
   const gapsFor = actor => actor.coverage_gaps;
   // A review can name an action or a published animation row.
   const animations = actor => [...new Set([...actor.coverage.map(row => row.action), ...assetsFor(actor).flatMap(asset => (asset.layout?.rows || []).map(row => row.name))])].sort();
-  const isBoss = actor => (actor.catalog.tags || []).includes('boss');
+  const importance = actor => actor.catalog.cast?.importance || 'Unclassified';
+  const importanceLevels = ['Primary', 'Secondary', 'Tertiary', 'Background', 'Unclassified'];
+  const hasBossTag = actor => (actor.catalog.tags || []).includes('boss');
+  function rolesFor(actor) {
+    const roles = actor.catalog.cast?.roles || {};
+    return hasBossTag(actor) && !roles.encounter?.length ? {...roles, encounter: ['boss']} : roles;
+  }
+  const roleKey = (group, role) => JSON.stringify([group, role]);
+  const roleLabel = role => role.replace(/[-_]+/g, ' ').replace(/\b[a-z]/g, letter => letter.toUpperCase());
+  function matchesRole(actor, roles) {
+    if (!filters.role) return true;
+    if (filters.role === 'other-characters') {
+      return !hasBossTag(actor) && !(roles.encounter || []).some(role => ['boss', 'mini-boss', 'miniboss'].includes(role));
+    }
+    return Object.entries(roles).some(([group, labels]) => labels.some(label => roleKey(group, label) === filters.role));
+  }
+  function castBadges(actor) {
+    const level = importance(actor);
+    const roles = Object.entries(rolesFor(actor)).flatMap(([group, labels]) => labels.map(label =>
+      `<span class="chip" title="${esc(roleLabel(group))}">${esc(roleLabel(label))}</span>`));
+    return [level !== 'Unclassified' ? badge(level) : '', ...roles].filter(Boolean).join(' ');
+  }
   const needsArt = actor => I.identities[actor.key].needs_art;
   const table = (heads, rows) => `<div class="tablebox"><table><thead><tr>${heads.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 
@@ -63,9 +84,11 @@
   function card(actor) {
     const gaps = gapsFor(actor), history = lineageItemCount(actor);
     const lineages = lineagesFor(actor).map(id => I.lineages[id]?.name || id);
+    const labels = castBadges(actor);
     return `<a class="card character-card" data-character="${esc(actor.key)}" href="#character/${enc(actor.key)}">
       <div class="img checker">${window.ArtCatalog.previews() ? actor.cover ? `<img src="${esc(actor.cover)}" loading="lazy" alt="${esc(actor.display)}">` : '<span class="empty">No published preview</span>' : ''}</div>
       <div class="meta"><div class="nm">${esc(actor.display)}</div><code>${esc(actor.id)}</code>
+        ${labels ? `<div class="sub">${labels}</div>` : ''}
         <div class="sub">${familiesFor(actor).map(name => badge(name)).join(' ')}${actor.relations.form_of ? badge('form') : actor.relations.part_of ? badge('part') : ''}
           ${history ? badge(history + ' lineage items') : ''}
           ${needsArt(actor) ? badge('Needs generation', true) : ''}${gaps.length ? badge('Check ' + gaps.join(', '), true) : ''}
@@ -78,11 +101,14 @@
   function roster() {
     const actors = Object.values(I.identities).sort((a, b) => compare(a, b));
     const query = document.getElementById('q').value.trim().toLowerCase();
-    const shown = actors.filter(actor => (!filters.role || (filters.role === 'boss' ? isBoss(actor) : !isBoss(actor))) && (!filters.family || familiesFor(actor).includes(filters.family)) &&
+    const roles = new Map(actors.map(actor => [actor.key, rolesFor(actor)]));
+    const shown = actors.filter(actor => (!filters.importance || importance(actor) === filters.importance)
+      && matchesRole(actor, roles.get(actor.key)) && (!filters.family || familiesFor(actor).includes(filters.family)) &&
       (!filters.lineage || lineagesFor(actor).includes(filters.lineage)) &&
       (filters.history === '' || lineageItemCount(actor) > Number(filters.history)) &&
       (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : filters.attention === 'reviews' ? window.AssetReviews.workCount(actor.key) : gapsFor(actor).length)) &&
-      JSON.stringify([actor.display, actor.key, actor.catalog.tags, actor.relations, familiesFor(actor),
+      JSON.stringify([actor.display, actor.key, actor.catalog.tags, actor.relations, familiesFor(actor), importance(actor),
+        Object.entries(roles.get(actor.key)).flatMap(([group, labels]) => [roleLabel(group), ...labels.map(roleLabel)]),
         lineagesFor(actor).map(id => [id, I.lineages[id]?.name])]).toLowerCase().includes(query));
     const matched = new Set(shown.map(actor => actor.key));
     const groupDates = new Map(I.character_groups.map(group => {
@@ -92,21 +118,38 @@
     }));
     const groups = I.character_groups.filter(group => group.members.some(key => matched.has(key)))
       .sort((a, b) => compare(I.identities[a.root], I.identities[b.root], groupDates));
+    const filteringCast = Boolean(filters.importance || filters.role);
     const grouped = group => {
-      const children = group.members.filter(key => key !== group.root).sort((a, b) => compare(I.identities[a], I.identities[b]));
+      const children = group.members.filter(key => key !== group.root && (!filteringCast || matched.has(key)))
+        .sort((a, b) => compare(I.identities[a], I.identities[b]));
       const work = group.members.reduce((sum, key) => sum + window.AssetReviews.workCount(key), 0);
+      const open = query || filters.attention || (filteringCast && !matched.has(group.root));
       return `<article class="character-group" data-character-root="${esc(group.root)}">${card({...I.identities[group.root], generated_at: groupDates.get(group.root)?.generated_at, generated_at_evidence: groupDates.get(group.root)?.generated_at_evidence})}
-        ${children.length ? `<details class="character-variants"${query || filters.attention ? ' open' : ''}><summary>${children.length} forms and parts${work ? ` · ${work} reviews need work` : ''}</summary>
+        ${children.length ? `<details class="character-variants"${open ? ' open' : ''}><summary>${children.length} forms and parts${work ? ` · ${work} reviews need work` : ''}</summary>
           <div class="character-children">${children.map(key => card(I.identities[key])).join('')}</div></details>` : ''}</article>`;
     };
     function select(name, label, values) {
       return `<label>${label} <select data-character-filter="${name}"><option value="">${name === 'view' ? 'Characters with forms and parts' : name === 'sort' ? 'Name (A–Z)' : 'All'}</option>${values.map(([value, text]) => `<option value="${esc(value)}"${filters[name] === value ? ' selected' : ''}>${esc(text)}</option>`).join('')}</select></label>`;
     }
+    const roleOptions = new Map();
+    for (const entries of roles.values()) {
+      for (const [group, labels] of Object.entries(entries)) {
+        if (!roleOptions.has(group)) roleOptions.set(group, new Set());
+        for (const role of labels) roleOptions.get(group).add(role);
+      }
+    }
+    const roleOption = (value, text) => `<option value="${esc(value)}"${filters.role === value ? ' selected' : ''}>${esc(text)}</option>`;
+    const roleSelect = `<label>Role <select data-character-filter="role">
+      ${roleOption('', 'All')}${roleOption('other-characters', 'Exclude bosses')}
+      ${[...roleOptions.keys()].sort().filter(group => roleOptions.get(group).size).map(group =>
+        `<optgroup label="${esc(roleLabel(group))}">${[...roleOptions.get(group)].sort().map(role => roleOption(roleKey(group, role), roleLabel(role))).join('')}</optgroup>`).join('')}
+      </select></label>`;
     return `<h1>Characters</h1><p class="lede">The current ${esc(I.profile.provider || 'game')} character and boss roster. Forms and parts are under their character. Each entry has a detail page. Shared ancestry does not merge distinct characters.</p>
       <div class="controls character-controls">
         ${select('sort', 'Sort by', [['added-newest', 'Added to game (newest first)'], ['added-oldest', 'Added to game (oldest first)'], ['generated-newest', 'Art generated (newest first)'], ['generated-oldest', 'Art generated (oldest first)']])}
         ${select('view', 'Show', [['entries', 'All entries']])}
-        ${select('role', 'Role', [['boss', 'Bosses'], ['catalog', 'Other characters']])}
+        ${select('importance', 'Importance', importanceLevels.map(level => [level, level]))}
+        ${roleSelect}
         ${select('family', 'Art family', [...new Set(actors.flatMap(familiesFor))].sort().map(name => [name, name]))}
         ${select('lineage', 'Lineage', [...new Set(actors.flatMap(lineagesFor))].sort().map(id => [id, I.lineages[id]?.name || id]))}
         <label title="Count distinct recorded looks, including earlier lineage branches. Excludes the current published preview.">Lineage items &gt; <input type="number" min="0" step="1" placeholder="Any" aria-label="Lineage item threshold" data-character-filter="history" value="${esc(filters.history)}"></label>
@@ -162,7 +205,7 @@
     return `<div class="detail character-detail"><p><a href="#characters">← Characters</a></p>
       <h1>${esc(actor.display)}</h1><p class="lede"><code>${esc(actor.key)}</code> ${familiesFor(actor).map(name => badge(name)).join(' ')}</p>
       ${descriptions.map(text => `<p class="lede">${esc(text)}</p>`).join('')}
-      <div class="chips">${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}</div>
+      <div class="chips">${castBadges(actor)} ${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}</div>
       <p class="controls"><a href="#character-lineage" data-jump="character-lineage">Character lineage</a><a href="#asset-reviews" data-jump="asset-reviews">Reviews</a><a href="#character-coverage" data-jump="character-coverage">Animation coverage</a><a href="#character-products" data-jump="character-products">Art and generation</a></p>
       <div id="character-reference">${selected ? ui.referenceBox(selected) : ''}</div>
       ${sameArt.length ? `<p>Entries using the same art: ${sameArt.map(other => characterLink(other.key)).join(' · ')}</p>` : ''}

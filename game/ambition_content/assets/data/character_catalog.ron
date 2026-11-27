@@ -1803,6 +1803,7 @@
         "player_robot_v3": (
             sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
             display_name: "Scout",
+            cast: (importance: Primary, roles: {"story": ["protagonist"]}),
             manifest: "sprites/player_robot_v3_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3150,6 +3151,7 @@
         // does not talk to the player. He talks to his agent.
         "npc_bossofthegame": (
             display_name: "bossofthegame",
+            cast: (roles: {"story": ["antagonist"], "encounter": ["boss"]}),
             manifest: "sprites/bossofthegame_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -3614,6 +3616,7 @@
         // dedicated sheets ship.
         "npc_alice": (
             display_name: "Alice",
+            cast: (roles: {"service": ["quest-giver"]}),
             // The v2 look (chargen body, Jon 10-25); `alice` stays renderable
             // in her lineage.
             manifest: "sprites/alice_v2_spritesheet.ron",

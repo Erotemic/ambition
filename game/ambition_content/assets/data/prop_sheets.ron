@@ -1332,6 +1332,7 @@
     "mine_lock_screen": (),
     "mine_cage": (),
     "mine_ore_cart": (),
+    "mine_fault_wave": (),
     "mine_falling_crystal": (),
     "mine_lamp": (),
     "mine_air_line": (),

@@ -1068,6 +1068,14 @@
             scale: 1.0,
         )),
     ),
+    "lode_fault_wave": (
+        source: Sheet(target: "mine_fault_wave", animation: "idle", animate: false),
+        size: FixedWidth(44.0),
+        rotation: FlipToTravel,
+        debug_tint: (0.46, 0.82, 0.71, 1.0),
+        label: "floor fracture",
+        expiry_vfx: Some((fx: "classic_burst", scale: 0.42)),
+    ),
     "lode_falling_crystal": (
         source: Sheet(target: "mine_falling_crystal", animation: "idle", animate: false),
         size: Body(min: 12.0, scale: 1.1),

@@ -38,7 +38,7 @@ fn fault() {
         this.requests.push(request("projectile", #{
             origin: start, dir: [side, 0.0], speed: 390.0,
             half_extent: [17.0, 12.0], max_lifetime: 1.35, damage: 2,
-            visual_id: "sound_ring",
+            visual_id: "lode_fault_wave",
         }));
         this.requests.push(request("effect", #{ at: start, fx: "phase_ripple", scale: 1.34 }));
     }

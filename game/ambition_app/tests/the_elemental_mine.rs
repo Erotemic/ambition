@@ -173,7 +173,7 @@ fn mother_lode_releases_both_hazards_and_leaves_the_sample_chest_accessible() {
         let world = sim.world_mut();
         let mut visuals = world.query::<&ProjectileVisualId>();
         for visual in visuals.iter(world) {
-            saw_fault |= visual.0 == "sound_ring";
+            saw_fault |= visual.0 == "lode_fault_wave";
             saw_crystals |= visual.0 == "lode_falling_crystal";
         }
         let phase = boss_phase(sim.world_mut(), LODE);

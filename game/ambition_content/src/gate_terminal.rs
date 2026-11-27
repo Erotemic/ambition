@@ -20,15 +20,16 @@
 //! road. While a terminal is open it takes the seat's input
 //! ([`GATE_TERMINAL_CONTEXT`]), so the body at the terminal stands still.
 
+use crate::gate_inscription::address_fits;
 use ambition_platformer2d::world::rooms::{
-    address_fits, Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalAction, GateTerminalIntent,
+    Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalAction, GateTerminalIntent,
     RingKind,
 };
 use bevy::prelude::*;
 
 /// The most chevrons an address field holds: the longest address a ring's
 /// position grids can spell (`MAX_ADDRESS_LEN`).
-pub const ADDRESS_FIELD_LEN: usize = ambition_platformer2d::world::rooms::MAX_ADDRESS_LEN;
+pub const ADDRESS_FIELD_LEN: usize = crate::gate_inscription::MAX_ADDRESS_LEN;
 
 /// The slice of the wheel with no chevron, at the bottom: on the ring the
 /// base it stands in, on a terminal the engage press. The ring's art draws
@@ -486,7 +487,7 @@ impl TerminalUi {
         } else if let Some(report) = self.subject.as_ref().and_then(|subject| state.report_for(subject, ring_id)) {
             match &report.outcome {
                 Ok(far) => (format!("The link to {} has closed.", far_name(far)), false),
-                Err(refusal) => (refusal.message(), true),
+                Err(refusal) => (crate::gate_inscription::refusal_words(refusal), true),
             }
         } else if self.focus == TerminalFocus::List {
             (list_status.to_string(), false)

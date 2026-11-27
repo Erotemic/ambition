@@ -98,6 +98,7 @@ pub(crate) mod gate_portals;
 /// The gate network its rings form: the pack's `data/gate_network.ron`.
 pub(crate) mod gate_network;
 /// The gate terminal's model and input claim.
+pub mod gate_inscription;
 pub mod gate_terminal;
 pub mod intro;
 /// Ambition's day: its length, its phases, its light.

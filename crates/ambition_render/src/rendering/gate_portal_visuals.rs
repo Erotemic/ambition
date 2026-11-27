@@ -231,84 +231,33 @@ pub fn sync_wormhole_destination_hue(
     }
 }
 
-/// The chevrons a terminal's user has entered and not yet dialed, by the
-/// ring whose terminal is open. Presentation state a terminal writes: the
-/// ring lights them as they are entered.
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
-pub struct GateDialPreview {
-    pub by_ring: std::collections::BTreeMap<String, Vec<ambition_platformer2d_world::rooms::Chevron>>,
+/// What a game lights over each ring, by the ring's zone: frames of the
+/// ring's glyph sheet, drawn over it. The game decides what a ring shows
+/// (Ambition spells the address being dialed); this draws it.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct GateRingOverlays {
+    pub by_ring: std::collections::BTreeMap<String, Vec<RingOverlay>>,
 }
 
-/// What lights on a ring's plaque: its glyph, or one cell of its position
-/// grid, a set bit or a used row's clear bit.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum GateRingMark {
-    Glyph(ambition_platformer2d_world::rooms::Chevron),
-    Bit { chevron: ambition_platformer2d_world::rooms::Chevron, cell: u8 },
-    Used { chevron: ambition_platformer2d_world::rooms::Chevron, cell: u8 },
+/// One frame over a ring: a row of the ring's glyph sheet, and where along
+/// the row (the middle of the frame, as a fraction of the row).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RingOverlay {
+    pub row: String,
+    pub at: f32,
 }
 
-impl GateRingMark {
-    /// The row of the `gate_glyphs` sheet, and the middle of the mark's
-    /// frame as a fraction of the row, for a sheet of `chevrons` glyphs.
-    fn frame(self, chevrons: usize) -> (&'static str, f32) {
-        let cells = (ambition_platformer2d_world::rooms::MAX_CHEVRON_USES * ambition_platformer2d_world::rooms::GRID_BITS) as f32;
-        let (row, index, count) = match self {
-            Self::Glyph(chevron) => ("lit", f32::from(chevron), chevrons as f32),
-            Self::Bit { chevron, cell } => ("bit", f32::from(chevron) * cells + f32::from(cell), chevrons as f32 * cells),
-            Self::Used { chevron, cell } => ("used", f32::from(chevron) * cells + f32::from(cell), chevrons as f32 * cells),
-        };
-        (row, (index + 0.5) / count)
-    }
-}
+/// One lit overlay over a ring: a child of the ring's sprite.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct GateRingLitGlyph(pub RingOverlay);
 
-/// One lit mark over a ring: a child of the ring's sprite.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GateRingLitGlyph(pub GateRingMark);
-
-/// The address a ring shows lit: the one its terminal's user is entering,
-/// else the one of the link it sends, else none.
-pub fn ring_lit_address(
-    zone: &str,
-    preview: Option<&GateDialPreview>,
-    network: Option<&ambition_platformer2d_world::rooms::GateNetworkState>,
-) -> Vec<ambition_platformer2d_world::rooms::Chevron> {
-    let entering = preview.and_then(|preview| preview.by_ring.get(zone));
-    let sending = network.and_then(|network| network.route_from(zone)).map(|link| link.address);
-    entering.map(Vec::as_slice).filter(|chevrons| !chevrons.is_empty()).or(sending).unwrap_or_default().to_vec()
-}
-
-/// The marks `address` lights: each chevron it uses once, and each cell of
-/// that chevron's used rows (`position_grid`), so the lit ring spells the
-/// whole address, its order too.
-pub fn ring_lit_marks(address: &[ambition_platformer2d_world::rooms::Chevron]) -> Vec<GateRingMark> {
-    use ambition_platformer2d_world::rooms::{position_grid, GRID_BITS, MAX_CHEVRON_USES};
-    let mut chevrons = address.to_vec();
-    chevrons.sort_unstable();
-    chevrons.dedup();
-    let mut marks = Vec::new();
-    for chevron in chevrons {
-        marks.push(GateRingMark::Glyph(chevron));
-        let uses = address.iter().filter(|used| **used == chevron).count().min(MAX_CHEVRON_USES);
-        for (row, bits) in position_grid(address, chevron).iter().enumerate().take(uses) {
-            for (column, set) in bits.iter().enumerate() {
-                let cell = (row * GRID_BITS + column) as u8;
-                marks.push(if *set { GateRingMark::Bit { chevron, cell } } else { GateRingMark::Used { chevron, cell } });
-            }
-        }
-    }
-    marks
-}
-
-/// Light the dialed address on each ring: one child sprite per lit mark,
-/// drawing that mark's frame of the `gate_glyphs` sheet over the ring.
-#[allow(clippy::too_many_arguments)]
+/// Draw each ring's overlays ([`GateRingOverlays`]): one child sprite per
+/// overlay, showing its frame of the ring's glyph sheet. An overlay whose row
+/// the sheet does not have is not drawn.
 pub fn sync_ring_lit_glyphs(
     mut commands: Commands,
     portals: Res<GatePortalRegistry>,
-    preview: Option<Res<GateDialPreview>>,
-    network: Option<Res<ambition_platformer2d_world::rooms::GateNetworkState>>,
-    catalog: Option<Res<ambition_platformer2d_world::rooms::GateNetworkCatalog>>,
+    overlays: Option<Res<GateRingOverlays>>,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     rings: Query<(Entity, &PropVisual, Option<&Children>)>,
     mut glyphs: Query<(&GateRingLitGlyph, &mut Sprite, &mut CharacterAnimator, &mut bevy::sprite::Anchor)>,
@@ -316,53 +265,35 @@ pub fn sync_ring_lit_glyphs(
     let Some(assets) = assets.as_deref() else {
         return;
     };
-    // The rows have frames per chevron, in the inscription's order.
-    let Some(count) = catalog.as_deref().map(|catalog| catalog.chevrons()).filter(|count| *count > 0) else {
-        return;
-    };
+    let none = Vec::new();
     for (zone_id, config) in portals.iter() {
-        // A travel portal is no chevron ring: it lights no address (its own
-        // frame sheet's `charge` row is its opening).
-        let portal = catalog.as_deref().and_then(|catalog| catalog.ring(zone_id)).is_some_and(|ring| {
-            ring.kind == ambition_platformer2d_world::rooms::RingKind::Portal
-        });
-        let lit = if portal {
-            Vec::new()
-        } else {
-            ring_lit_marks(&ring_lit_address(zone_id, preview.as_deref(), network.as_deref()))
-        };
+        let wanted = overlays.as_deref().and_then(|overlays| overlays.by_ring.get(zone_id)).unwrap_or(&none);
         for (ring, prop, children) in &rings {
             if prop.name != config.ring_sprite_name {
                 continue;
             }
             // The glyph sheet of this ring's own shape.
-            let Some(asset) = ring_glyphs_kind(&prop.kind)
-                .and_then(|kind| assets.characters.prop_asset_for_kind(&kind))
-                .filter(|asset| asset.spec.clip_slot(["lit"]).is_some())
+            let Some(asset) = ring_glyphs_kind(&prop.kind).and_then(|kind| assets.characters.prop_asset_for_kind(&kind))
             else {
                 continue;
             };
-            let mut lit = lit.clone();
-            // A sheet without the grid rows still lights its glyphs.
-            if asset.spec.clip_slot(["bit"]).is_none() || asset.spec.clip_slot(["used"]).is_none() {
-                lit.retain(|mark| matches!(mark, GateRingMark::Glyph(_)));
-            }
-            let mut shown = Vec::new();
+            let lit: Vec<&RingOverlay> =
+                wanted.iter().filter(|overlay| asset.spec.clip_slot([overlay.row.as_str()]).is_some()).collect();
+            let mut shown: Vec<&RingOverlay> = Vec::new();
             for child in children.into_iter().flatten() {
                 let Ok((glyph, mut sprite, mut animator, mut anchor)) = glyphs.get_mut(*child) else {
                     continue;
                 };
-                if !lit.contains(&glyph.0) {
+                let Some(overlay) = lit.iter().find(|overlay| ***overlay == glyph.0) else {
                     commands.entity(*child).try_despawn();
                     continue;
-                }
-                shown.push(glyph.0);
-                let (row, at) = glyph.0.frame(count);
-                animator.request_clip([row], CharacterAnim::Idle);
-                animator.slave_clip_to(Some(at));
+                };
+                shown.push(overlay);
+                animator.request_clip([overlay.row.as_str()], CharacterAnim::Idle);
+                animator.slave_clip_to(Some(overlay.at));
                 let _ = draw_animator_frame(&mut sprite, &mut animator, Some(&mut anchor), 0.0, false, StanceSquash::NONE);
             }
-            for mark in lit.iter().filter(|mark| !shown.contains(mark)) {
+            for overlay in lit.iter().filter(|overlay| !shown.contains(overlay)) {
                 let (sprite, anchor, animator) =
                     super::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
                 let glyph = commands
@@ -372,9 +303,9 @@ pub fn sync_ring_lit_glyphs(
                         animator,
                         // Over the ring, by less than the membrane's step.
                         Transform::from_xyz(0.0, 0.0, 0.002),
-                        GateRingLitGlyph(*mark),
+                        GateRingLitGlyph((*overlay).clone()),
                         PortalSprite,
-                        Name::new(format!("Gate lit {mark:?}")),
+                        Name::new(format!("Gate lit {} {:.3}", overlay.row, overlay.at)),
                     ))
                     .id();
                 commands.entity(ring).add_child(glyph);
@@ -639,29 +570,5 @@ mod tests {
         // The spawn frame (the opening's first) trims to its own ink, so the
         // open membrane's quad is not the one it spawned with.
         assert_ne!(drawn, spawned, "the open membrane is drawn in the spawn frame's quad {spawned}");
-    }
-
-    /// An address lights each chevron's glyph once and a row of its grid
-    /// per use: the place's bits bright, the rest of the row dim.
-    #[test]
-    fn a_lit_address_spells_its_order_in_the_grids() {
-        // Chevron 3 at places 0 and 5 (0b0101), chevron 1 at place 1 (0b0001).
-        let marks = ring_lit_marks(&[3, 1, 9, 9, 9, 3]);
-        let of = |chevron| marks.iter().filter(|mark| match mark {
-            GateRingMark::Glyph(c) => *c == chevron,
-            GateRingMark::Bit { chevron: c, .. } | GateRingMark::Used { chevron: c, .. } => *c == chevron,
-        }).copied().collect::<Vec<_>>();
-        let three = of(3);
-        assert_eq!(three.len(), 1 + 2 * 4, "{three:?}");
-        assert!(three.contains(&GateRingMark::Glyph(3)));
-        for cell in [0, 1, 2, 3, 4, 6] {
-            assert!(three.contains(&GateRingMark::Used { chevron: 3, cell }), "{cell}");
-        }
-        for cell in [5, 7] {
-            assert!(three.contains(&GateRingMark::Bit { chevron: 3, cell }), "{cell}");
-        }
-        assert!(of(1).contains(&GateRingMark::Bit { chevron: 1, cell: 3 }));
-        assert_eq!(of(9).len(), 1 + 3 * 4);
-        assert!(of(0).is_empty());
     }
 }

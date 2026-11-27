@@ -1826,7 +1826,7 @@ fn gate_terminal_fits_handheld_screens() {
 fn terminal_presentation_retires_with_its_gameplay_session() {
     use ambition_content::gate_terminal::TerminalUi;
     use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
-    use ambition_platformer2d::render::rendering::gate_portal_visuals::GateDialPreview;
+    use ambition_content::presentation::gate_terminal::GateDialPreview;
     use ambition_platformer2d::world::rooms::GateNetworkState;
     let (mut app, _) = session(0, false);
     let body = the_primary(&mut app);

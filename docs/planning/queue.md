@@ -2792,12 +2792,19 @@ sandbox hub is reached by its own address; the gate network tests pass.
 
 **Owner:** [gate network, engine and game parts](game/gate-network.md#engine-and-game-parts-planned-2026-11-26).
 
-**Next action:** move the inscription spelling, chevron grid, posted and
-known addresses, directory and terminal panel out of
-`ambition_platformer2d_world::rooms::gate_network` and `ambition_render`
-into the game; the engine keeps dialed passages with opaque keys (dial,
-link, idle timeout, phases, rollback, navigation). One move per slice,
-each leaving the game playable.
+**State:** slice 1 landed 2026-11-27: the inscription spelling (position
+grids, the sixteen-chevron and four-use limits) and the ring's lit address
+are the game's (`ambition_content::gate_inscription`, the terminal
+presentation). The engine's dial asks the game's `GateAddressRule` and
+refuses `Malformed`; its render draws whatever `GateRingOverlays` a game
+asks for over a ring.
+
+**Next action:** the rest, one move per slice, each leaving the game
+playable: posted and known addresses (`gate.known.*`), the word spelling
+(`GateNetworkCatalog::spell`, the inscription in the catalog), facilities
+and dimensions as a directory, the refusal words, and the terminal panel's
+remaining engine pieces; the engine keeps dialed passages with opaque keys
+(dial, link, idle timeout, phases, rollback, navigation).
 
 **Acceptance:** no engine crate names an inscription, chevron, dimension
 directory or Ambition address; a fixture game dials numbered endpoints

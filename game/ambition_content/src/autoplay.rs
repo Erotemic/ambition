@@ -162,6 +162,7 @@ impl GateTravel<'_, '_> {
         let distance = |a: &str, b: &str| self.positions.distance(a, b);
         self.catalog.route(rooms, &self.state, from, to, &GateFacts {
             switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance,
+            fits: &crate::gate_inscription::address_fits,
         })
     }
 

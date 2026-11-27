@@ -20,6 +20,8 @@ pub(super) fn register(app: &mut App) {
     let pack = crate::pack::select(app.world_mut());
     let catalog = lowered_gate_network(&pack);
     app.world_mut().insert_resource(catalog);
+    // The dial asks Ambition's spelling whether an address can be dialed.
+    app.insert_resource(crate::gate_inscription::address_rule());
     app.init_resource::<GateRingPositions>();
     app.add_systems(PreUpdate, place_gate_rings.run_if(the_rings_or_the_worlds_changed));
 }

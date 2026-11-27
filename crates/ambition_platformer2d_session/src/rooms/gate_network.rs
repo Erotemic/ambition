@@ -42,7 +42,9 @@ pub fn run_gate_network(
     passages: Query<&super::passage::ZonePassage, Without<ambition_combat::death_rules::OutOfPlay>>,
     pending: Option<Res<crate::lifecycle_commit::PendingLifecycleCommit>>,
     phases: Option<Res<ambition_platformer2d_world::rooms::GatePortalPhases>>,
+    rule: Option<Res<ambition_platformer2d_world::rooms::GateAddressRule>>,
 ) {
+    let fits = rule.as_deref().copied().unwrap_or_default().0;
     let Some(catalog) = catalog else {
         intents.clear();
         return;
@@ -95,7 +97,7 @@ pub fn run_gate_network(
                 let zone_exists = |room: &str, zone: &str| rooms.rooms().has_zone(room, zone);
                 let distance = |a: &str, b: &str| positions.as_deref().and_then(|positions| positions.distance(a, b));
                 let facts =
-                    GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance };
+                    GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance, fits: &fits };
                 match resolve_dial(&catalog, &state, &intent.ring, address, &facts) {
                     Ok(far) => {
                         let far_zone = far.zone.clone();

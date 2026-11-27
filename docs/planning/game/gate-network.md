@@ -258,6 +258,17 @@ same engine capability serves a fixture game that dials numbered endpoints
 with no inscription, and Ambition's gate tests pass unchanged. Queue:
 GATE-SPLIT. Changing the addresses (GATE-LEGAL) touched only game data.
 
+*Slice 1 (2026-11-27).* The spelling is the game's: `position_grid`, the
+limits and `address_fits` live in `ambition_content::gate_inscription`, and
+the content plugin installs them as the engine's `GateAddressRule`, which
+the dial asks before it looks an address up (`DialRefusal::Malformed`;
+Ambition words it with its limits). The engine's catalog check no longer
+knows the limits; `every_shipped_address_keeps_the_inscription` checks
+Ambition's rings. What a ring lights is the game's too: the terminal
+presentation turns the address being entered (`GateDialPreview`, moved to
+content) or sent into `GateRingOverlays`, and the engine draws each
+overlay's row and place of the ring's glyph sheet.
+
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).

@@ -100,34 +100,18 @@ impl GateRingPositions {
 /// One chevron of a ring: its place in the inscription, from the first.
 pub type Chevron = u8;
 
-/// The longest address: a place in it fits in [`GRID_BITS`] bits.
-pub const MAX_ADDRESS_LEN: usize = 1 << GRID_BITS;
-/// The most times one chevron is used in an address.
-pub const MAX_CHEVRON_USES: usize = 4;
-/// The bits of a place in an address.
-pub const GRID_BITS: usize = 4;
+/// Which addresses a game's rings can be dialed by, beyond having chevrons
+/// the ring has: the game's spelling (how long an address may be, how often a
+/// chevron may repeat) is its own. The dial asks it before it looks the
+/// address up ([`GateFacts::fits`]); a session reads it from this resource,
+/// which a game inserts. Absent, every address can be dialed.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct GateAddressRule(pub fn(&[Chevron]) -> bool);
 
-/// The position grid of `chevron` in `address` (Jon, 2026-10-24): row k is
-/// the chevron's k-th use, its columns the bits of that use's place in the
-/// address, most significant first. A ring lights each used chevron's grid,
-/// so the lit ring spells the whole address. Uses past
-/// [`MAX_CHEVRON_USES`] are not drawn.
-pub fn position_grid(address: &[Chevron], chevron: Chevron) -> [[bool; GRID_BITS]; MAX_CHEVRON_USES] {
-    let mut grid = [[false; GRID_BITS]; MAX_CHEVRON_USES];
-    let uses = address.iter().enumerate().filter(|(_, used)| **used == chevron).map(|(at, _)| at);
-    for (row, at) in uses.take(MAX_CHEVRON_USES).enumerate() {
-        for (bit, cell) in grid[row].iter_mut().enumerate() {
-            *cell = at >> (GRID_BITS - 1 - bit) & 1 == 1;
-        }
+impl Default for GateAddressRule {
+    fn default() -> Self {
+        Self(|_| true)
     }
-    grid
-}
-
-/// Whether `address` keeps the limits: at most [`MAX_ADDRESS_LEN`]
-/// chevrons, each used at most [`MAX_CHEVRON_USES`] times.
-pub fn address_fits(address: &[Chevron]) -> bool {
-    address.len() <= MAX_ADDRESS_LEN
-        && address.iter().all(|chevron| address.iter().filter(|used| *used == chevron).count() <= MAX_CHEVRON_USES)
 }
 
 /// The save flag that records that the player knows `address` (its word). A dial that
@@ -263,9 +247,8 @@ pub enum DialRefusal {
     Empty,
     /// A chevron the ring does not have.
     NoSuchChevron(Chevron),
-    /// Longer than [`MAX_ADDRESS_LEN`], or a chevron used more than
-    /// [`MAX_CHEVRON_USES`] times.
-    TooLong,
+    /// The game's spelling refuses it ([`GateAddressRule`]).
+    Malformed,
     /// No ring answers the address.
     Unknown,
     /// The address is a ring in the dialing ring's own facility.
@@ -289,7 +272,7 @@ impl DialRefusal {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Empty => "empty",
-            Self::NoSuchChevron(_) | Self::TooLong => "illegal",
+            Self::NoSuchChevron(_) | Self::Malformed => "illegal",
             Self::Unknown => "unknown",
             Self::SameFacility => "same_facility",
             Self::Offline(_) => "offline",
@@ -305,9 +288,7 @@ impl DialRefusal {
         match self {
             Self::Empty => "Enter an address first.".to_string(),
             Self::NoSuchChevron(chevron) => format!("The ring has no chevron {chevron}."),
-            Self::TooLong => format!(
-                "An address is at most {MAX_ADDRESS_LEN} chevrons, each used at most {MAX_CHEVRON_USES} times."
-            ),
+            Self::Malformed => "That is no address this ring can dial.".to_string(),
             Self::Unknown => "No ring answers that address.".to_string(),
             Self::SameFacility => "That ring is in this facility. Walk there.".to_string(),
             Self::Offline(reason) => format!("OFFLINE: {reason}"),
@@ -332,6 +313,8 @@ pub struct GateFacts<'a> {
     /// The flat-map distance between two rings (by zone), when both are
     /// placed in one world file ([`GateRingPositions::distance`]).
     pub distance: &'a dyn Fn(&str, &str) -> Option<f32>,
+    /// Whether the game's spelling admits an address ([`GateAddressRule`]).
+    pub fits: &'a dyn Fn(&[Chevron]) -> bool,
 }
 
 impl GateNetworkCatalog {
@@ -515,8 +498,8 @@ pub fn resolve_dial<'a>(
     if let Some(chevron) = address.iter().find(|chevron| usize::from(**chevron) >= catalog.chevrons()) {
         return Err(DialRefusal::NoSuchChevron(*chevron));
     }
-    if !address_fits(address) {
-        return Err(DialRefusal::TooLong);
+    if !(facts.fits)(address) {
+        return Err(DialRefusal::Malformed);
     }
     let Some(from) = catalog.ring(source) else {
         return Err(DialRefusal::Offline("this terminal has no ring".to_string()));
@@ -657,17 +640,11 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
             address_ok(address, &mut problems, format!("`{zone}.posted` address"));
         }
     }
-    // No two rings answer the same chevrons, word or glyphs, and each
-    // address keeps the limits its position grids can show.
+    // No two rings answer the same chevrons, word or glyphs. Whether an
+    // address keeps the game's spelling is the game's check.
     let mut reached: BTreeMap<Vec<Chevron>, &str> = BTreeMap::new();
     for ring in &catalog.rings {
         if let Some(address) = catalog.address_of(ring) {
-            if !address_fits(&address) {
-                problems.push(format!(
-                    "`{}`'s address is longer than {MAX_ADDRESS_LEN} chevrons or uses one more than {MAX_CHEVRON_USES} times",
-                    ring.zone
-                ));
-            }
             if let Some(other) = reached.insert(address, ring.zone.as_str()) {
                 if ring.glyphs.is_some() || catalog.ring(other).is_some_and(|other| other.glyphs.is_some()) {
                     problems.push(format!("`{other}` and `{}` answer the same chevrons", ring.zone));
@@ -1026,7 +1003,7 @@ mod tests {
         let state = GateNetworkState::default();
         let facts = GateFacts {
             switch_on: &|_| false, flag: &|_| false,
-            zone_exists: &|room, zone| rooms.has_zone(room, zone), distance: &|_, _| None,
+            zone_exists: &|room, zone| rooms.has_zone(room, zone), distance: &|_, _| None, fits: &|_| true,
         };
         assert!(rooms.route(0, 3).is_none());
         let path = catalog.route(&rooms, &state, 0, 3, &facts).expect("door, gate, door");
@@ -1052,7 +1029,7 @@ mod tests {
         let flag = |id: &str| on.contains(&id);
         let zone_exists = |_: &str, _: &str| true;
         let distance = |_: &str, _: &str| Some(0.0);
-        let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance };
+        let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance, fits: &|address: &[Chevron]| address.len() <= 16 };
         resolve_dial(catalog, state, from, address, &facts).map(|ring| ring.zone.as_str())
     }
 
@@ -1090,7 +1067,7 @@ mod tests {
                 let (a, b) = (at(a)?, if b == "deep_arch" { Some(far_at) } else { at(b) }?);
                 Some(((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt())
             };
-            let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance };
+            let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance, fits: &|address: &[Chevron]| address.len() <= 16 };
             resolve_dial(&catalog, &state, from, &spelled(&catalog, word), &facts).map(|ring| ring.zone.clone())
         };
         // 5000 away, and it reaches 5000: in reach.
@@ -1179,32 +1156,14 @@ mod tests {
         assert_eq!(dial(&catalog, &state, "trail", &spelled(&catalog, "GALACTIC"), &[]), Ok("station"));
     }
 
-    /// A chevron's grid: row k is its k-th use, the columns its place in
-    /// bits, most significant first; the grids of a lit ring spell the
-    /// address back.
+    /// The game's spelling refuses an address before it is looked up (the
+    /// test's rule: at most 16 chevrons).
     #[test]
-    fn the_position_grids_spell_the_address() {
+    fn the_games_rule_refuses_an_address_it_can_not_spell() {
         let catalog = catalog();
-        let tangent = spelled(&catalog, "TANGENT"); // [10, 3, 12, 2, 1, 12, 14]
-        let nu = position_grid(&tangent, 12);
-        assert_eq!(nu[0], [false, false, true, false], "first Ν at place 2");
-        assert_eq!(nu[1], [false, true, false, true], "second Ν at place 5");
-        assert_eq!(nu[2], [false; 4]);
-        let mut back = vec![None; tangent.len()];
-        for chevron in 0..15u8 {
-            for row in position_grid(&tangent, chevron) {
-                if row.iter().any(|bit| *bit) || (chevron == tangent[0] && back[0].is_none()) {
-                    let at = row.iter().fold(0, |n, bit| n * 2 + usize::from(*bit));
-                    if at < back.len() && back[at].is_none() && tangent[at] == chevron {
-                        back[at] = Some(chevron);
-                    }
-                }
-            }
-        }
-        assert_eq!(back.into_iter().map(Option::unwrap).collect::<Vec<_>>(), tangent);
-        assert!(address_fits(&[3; 4]) && !address_fits(&[3; 5]) && !address_fits(&[0; 17]));
         let state = GateNetworkState::default();
-        assert_eq!(dial(&catalog, &state, "hub", &[3; 5], &[]), Err(DialRefusal::TooLong));
+        assert_eq!(dial(&catalog, &state, "hub", &[3; 17], &[]), Err(DialRefusal::Malformed));
+        assert_ne!(dial(&catalog, &state, "hub", &[3; 16], &[]), Err(DialRefusal::Malformed));
     }
 
     /// A ring whose address is no word is dialed by its glyphs.

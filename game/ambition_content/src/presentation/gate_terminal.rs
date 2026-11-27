@@ -27,9 +27,10 @@
 //! owns the seat, the terminal reads nothing. The chevrons being entered light
 //! on the ring (`GateDialPreview`).
 
-use ambition_platformer2d::render::rendering::gate_portal_visuals::GateDialPreview;
+use crate::gate_inscription::{position_grid, ring_lit_marks, GRID_BITS};
+use ambition_platformer2d::render::rendering::gate_portal_visuals::{GateRingOverlays, RingOverlay};
 use ambition_platformer2d::world::rooms::{
-    position_grid, Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalIntent, GRID_BITS,
+    Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalIntent, RingKind,
 };
 use ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
@@ -124,12 +125,56 @@ struct GlyphIcons {
     layout: Option<Handle<TextureAtlasLayout>>,
 }
 
+/// The chevrons a terminal's user has entered and not yet dialed, by the
+/// ring whose terminal is open. Presentation state a terminal writes: the
+/// ring lights them as they are entered.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct GateDialPreview {
+    pub by_ring: std::collections::BTreeMap<String, Vec<Chevron>>,
+}
+
+/// The address each ring shows lit, as overlays the engine draws over it:
+/// the one its terminal's user is entering, else the one of the link it
+/// sends, else none. A travel portal is no chevron ring and lights nothing
+/// (its own sheet's `charge` row is its opening).
+fn light_dialed_addresses(
+    catalog: Option<Res<GateNetworkCatalog>>,
+    state: Option<Res<GateNetworkState>>,
+    preview: Res<GateDialPreview>,
+    mut overlays: ResMut<GateRingOverlays>,
+) {
+    let mut by_ring = std::collections::BTreeMap::new();
+    // The rows have frames per chevron, in the inscription's order.
+    if let Some(catalog) = catalog.as_deref().filter(|catalog| catalog.chevrons() > 0) {
+        for ring in catalog.rings.iter().filter(|ring| ring.kind != RingKind::Portal) {
+            let entering = preview.by_ring.get(&ring.zone).map(Vec::as_slice).filter(|chevrons| !chevrons.is_empty());
+            let sending = state.as_deref().and_then(|state| state.route_from(&ring.zone)).map(|link| link.address);
+            let address = entering.or(sending).unwrap_or_default();
+            if address.is_empty() {
+                continue;
+            }
+            let lit = ring_lit_marks(address).into_iter().map(|mark| {
+                let (row, at) = mark.frame(catalog.chevrons());
+                RingOverlay { row: row.to_string(), at }
+            });
+            by_ring.insert(ring.zone.clone(), lit.collect::<Vec<_>>());
+        }
+    }
+    if overlays.by_ring != by_ring {
+        overlays.by_ring = by_ring;
+    }
+}
+
 /// Install the terminal panel. Visible builds only.
 pub(super) fn install(app: &mut App) {
     // Both sleep while no terminal is open. Each runs once more after a
     // terminal closes: the drive to forget its state, the draw to take its
     // panel down.
     app.init_resource::<GateDialPreview>()
+        .init_resource::<GateRingOverlays>()
+        .add_systems(Update, light_dialed_addresses
+            .after(drive_gate_terminal)
+            .before(ambition_platformer2d::render::rendering::gate_portal_visuals::sync_ring_lit_glyphs))
         .init_resource::<ambition_input::SeatMenuFrames>()
         .init_resource::<ambition_input::participant::SeatInputContexts>()
         .add_systems(Startup, load_glyph_icons)

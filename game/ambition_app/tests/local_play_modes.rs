@@ -215,18 +215,22 @@ fn two_pads_join_open_and_close_their_own_menus_on_both_backends() {
         assert_eq!(focused_menu_action(&mut app, two), Some(rebind), "{backend:?}: the second pad reaches Rebind");
         assert_eq!(app.world().get::<Pages>(one).unwrap().active, Some(MenuPage::Items));
         tap(&mut app, pads[1], GamepadButton::South);
-        assert_eq!(focused_menu_action(&mut app, two), Some(MenuPageAction::SystemOption(SystemOptionId::Rebind(0))));
-        // The first row a button can rebind, in the screen's canonical order
-        // (by action name, so an axis action such as AimStick may come first).
+        let actions: Vec<_> = app.world().resource::<ambition_platformer2d::input::SeatBindings>()
+            .for_seat(1).all()
+            .filter_map(|(name, _)| ambition_platformer2d::input::action_named(name))
+            .collect();
+        assert_eq!(focused_menu_action(&mut app, two),
+            Some(MenuPageAction::SystemOption(SystemOptionId::Rebind(actions[0]))));
+        // The first action that accepts a button can follow a stick action.
         let row = {
             use leafwing_input_manager::prelude::Actionlike;
-            app.world().resource::<ambition_platformer2d::input::SeatBindings>().for_seat(1).all()
-                .position(|(name, _)| ambition_platformer2d::input::action_named(name)
-                    .is_some_and(|action| action.input_control_kind() == leafwing_input_manager::InputControlKind::Button))
+            actions.iter()
+                .position(|action| action.input_control_kind() == leafwing_input_manager::InputControlKind::Button)
                 .expect("a button row")
         };
         for _ in 0..row { tap(&mut app, pads[1], GamepadButton::DPadDown); }
-        assert_eq!(focused_menu_action(&mut app, two), Some(MenuPageAction::SystemOption(SystemOptionId::Rebind(row))),
+        assert_eq!(focused_menu_action(&mut app, two),
+            Some(MenuPageAction::SystemOption(SystemOptionId::Rebind(actions[row]))),
             "{backend:?}: the second pad reaches the first button row");
         let before = {
             let bindings = app.world().resource::<ambition_platformer2d::input::SeatBindings>();

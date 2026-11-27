@@ -25,6 +25,7 @@ use bevy::transform::TransformSystems;
 
 use super::{CARD_BODY_STEP, EARTH_BEHIND_SKIN, TERRAIN_DEPTH, scenery_depth, sprite_material};
 use super::{CardBodyRepresentation, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
+use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
 use crate::folded_mesh::FoldedMesh;
@@ -89,6 +90,12 @@ pub trait CardMaterialSource: Material2d + PartialEq {
     /// A material such as a terrain skin can have no body as its subject.
     fn draws_on_card(&self, _body: Option<CardBodyRepresentation>) -> bool {
         true
+    }
+
+    /// Keep the source's paint order across bodies. Use this for light that
+    /// can reach other bodies and has its own place in the room's draw order.
+    fn paints_in_scene_order(&self) -> bool {
+        false
     }
 }
 
@@ -237,6 +244,7 @@ struct MeshProducts<'w, 's, M: Material> {
             &'static mut MeshMaterial3d<M>,
             &'static mut Transform,
             &'static mut GlobalTransform,
+            Option<&'static mut CardPaintDepth>,
         ),
         With<CardWorldMesh>,
     >,
@@ -250,22 +258,27 @@ impl<M: Material> MeshProducts<'_, '_, M> {
         material: &Handle<M>,
         place: Transform,
         skip_culling: bool,
+        paint_depth: Option<f32>,
     ) {
         let global = GlobalTransform::from(place);
-        if let Some((mut drawn_mesh, mut drawn_material, mut transform, mut drawn_global)) = self
-            .retained
-            .get(&source)
-            .and_then(|entity| self.meshes.get_mut(*entity).ok())
-        {
-            if drawn_mesh.0 != *mesh {
-                drawn_mesh.0 = mesh.clone();
+        if let Some(&entity) = self.retained.get(&source) {
+            if let Ok((mut drawn_mesh, mut drawn_material, mut transform, mut drawn_global, order)) = self.meshes.get_mut(entity) {
+                if drawn_mesh.0 != *mesh {
+                    drawn_mesh.0 = mesh.clone();
+                }
+                if drawn_material.0 != *material {
+                    drawn_material.0 = material.clone();
+                }
+                transform.set_if_neq(place);
+                drawn_global.set_if_neq(global);
+                match (order, paint_depth) {
+                    (Some(mut order), Some(depth)) => { order.set_if_neq(CardPaintDepth(depth)); }
+                    (None, Some(depth)) => { self.commands.entity(entity).insert(CardPaintDepth(depth)); }
+                    (Some(_), None) => { self.commands.entity(entity).remove::<CardPaintDepth>(); }
+                    (None, None) => {}
+                }
+                return;
             }
-            if drawn_material.0 != *material {
-                drawn_material.0 = material.clone();
-            }
-            transform.set_if_neq(place);
-            drawn_global.set_if_neq(global);
-            return;
         }
         let mut entity = self
             .commands
@@ -282,6 +295,9 @@ impl<M: Material> MeshProducts<'_, '_, M> {
             ));
         if skip_culling {
             entity.insert(NoFrustumCulling);
+        }
+        if let Some(depth) = paint_depth {
+            entity.insert(CardPaintDepth(depth));
         }
         self.retained.insert(source, entity.id());
     }
@@ -377,7 +393,7 @@ fn realize_color_meshes(
         } else {
             effect_place(source, global, &rooms, &depths)
         };
-        products.show(source, &mesh.0, card, place, skip_culling);
+        products.show(source, &mesh.0, card, place, skip_culling, None);
     }
     by_material.retain(|id, _| used.contains(id));
 }
@@ -472,7 +488,12 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         } else {
             effect_place(source, global, &rooms, &depths)
         };
-        products.show(source, &mesh.0, card, place, skip_culling);
+        let paint_depth = if draw.paints_in_scene_order() {
+            depths.scene_paint_depth(global.translation().z, rooms.of(source))
+        } else {
+            None
+        };
+        products.show(source, &mesh.0, card, place, skip_culling, paint_depth);
     }
     by_material.retain(|id, _| used.contains(id));
 }

@@ -282,6 +282,15 @@ type SpriteBodyFilter = (
 pub struct CardRootDepths {
     roots: HashMap<Entity, CardBodyDepth>,
     fronts: HashMap<Option<LiveRoomInstance>, f32>,
+    paint_slots: Vec<BodyPaintSlot>,
+}
+
+#[derive(Debug)]
+struct BodyPaintSlot {
+    room: Option<LiveRoomInstance>,
+    source_z: f32,
+    plane_z: f32,
+    order_scale: f32,
 }
 
 impl CardRootDepths {
@@ -316,6 +325,21 @@ impl CardRootDepths {
             depth.front_part + fraction * FLASH_STEP
         };
         Some(depth.plane_z + offset * depth.order_scale)
+    }
+
+    fn scene_paint_depth(&self, source_z: f32, room: Option<LiveRoomInstance>) -> Option<f32> {
+        let index = self.paint_slots.partition_point(|body| {
+            body.room < room || (body.room == room && body.source_z.total_cmp(&source_z).is_lt())
+        });
+        let next = self.paint_slots.get(index).filter(|body| body.room == room)?;
+        let before = index.checked_sub(1)
+            .and_then(|index| self.paint_slots.get(index))
+            .filter(|body| body.room == room)
+            .map_or(next.source_z - 1.0, |body| body.source_z);
+        let fraction = ((next.source_z - source_z) / (next.source_z - before).max(f32::EPSILON)).clamp(0.0, 1.0);
+        // Keep the gap behind the body's back gear. Order lights in the gap
+        // by the depth of their source draws.
+        Some(next.plane_z - (2.0 + fraction) * FLASH_STEP * next.order_scale)
     }
 
     fn gear_depth(&self, order: WornGearOrder, layer: GearLayer) -> Option<f32> {
@@ -1052,6 +1076,7 @@ pub(super) fn realize_card_bodies(
     if let Some(depths) = root_depths.as_deref_mut() {
         depths.roots.clear();
         depths.fronts.clear();
+        depths.paint_slots.clear();
     }
     for row in ranked.chunk_by(|a, b| a.0 == b.0) {
         let count = row.iter().filter(|(_, _, _, seat)| seat.is_none()).count();
@@ -1063,11 +1088,14 @@ pub(super) fn realize_card_bodies(
             } else {
                 let depth = card_body_depth(false, rank) * scale;
                 rank += 1;
-                if let Some(depths) = root_depths.as_deref_mut() {
-                    depths.fronts.insert(room, depth + CARD_BODY_STEP * scale);
-                }
                 (depth, scale)
             };
+            if let Some(depths) = root_depths.as_deref_mut() {
+                if seat.is_none() {
+                    depths.fronts.insert(room, plane_z + CARD_BODY_STEP * scale);
+                }
+                depths.paint_slots.push(BodyPaintSlot { room, source_z, plane_z, order_scale });
+            }
             placements.insert(owner, CardBodyDepth {
                 plane_z,
                 source_z,
@@ -1876,6 +1904,14 @@ mod tests {
             vec![Vec3::new(-10.0, 0.0, card_body_depth(false, 0)), Vec3::new(10.0, 0.0, card_body_depth(false, 1))],
             "the player and the actor, in logical order; no prop, no hidden body"
         );
+        let depths = world.resource::<CardRootDepths>();
+        let under_both = depths.scene_paint_depth(2.95, None).unwrap();
+        let between = depths.scene_paint_depth(6.94, None).unwrap();
+        let nearer_light = depths.scene_paint_depth(6.96, None).unwrap();
+        assert!(under_both < places[0].z);
+        assert!(places[0].z < between && between < nearer_light && nearer_light < places[1].z);
+        assert!(depths.scene_paint_depth(7.5, None).is_none());
+        assert!(depths.scene_paint_depth(2.95, Some(LiveRoomInstance::ACTIVATION)).is_none());
     }
 
     /// RV3: a room's props and its turf are cards at their 2D places, in the

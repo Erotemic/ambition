@@ -98,6 +98,10 @@ conscript starts on the wall. The spectral wolf starts on the road.
   to the greenhouse roof from the west. The crop trellis and the watering
   shelf give access from the east. The Failed Prototype starts on the
   trellis. A Crawling Conscript starts in the soil lane below it.
+- On Searchlight Moor, cross the bog by the broken boardwalk or through
+  the water. A Searchlight Crawler starts on the boardwalk. The cargo deck
+  and the founder's statue give access to the watchtower from opposite
+  sides. The mast ladder leads to the ridge.
 - In the Crooked Lantern, the map shows the road, the ridge, and the
   crypt. Climb from the wood box or the bar to read it. Tobias and
   Gudrun meet visitors on the floor.

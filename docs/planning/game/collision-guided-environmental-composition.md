@@ -432,6 +432,10 @@ from each approach.
 At the allotments, show both routes to the greenhouse roof and the
 drop to the roof from the ridge. Show the gap above the Plot 13 ladder
 and the clear space below the trellis.
+On Searchlight Moor, show the water and the bank cells with the
+boardwalk above them. Show the gaps where a body can leave the
+boardwalk. Use the deck spans and the ladder cells to draw the
+watchtower braces and the mast.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

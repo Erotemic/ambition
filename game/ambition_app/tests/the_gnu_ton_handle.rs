@@ -453,16 +453,3 @@ fn the_lift_from_the_approach_is_let_go_from_inside() {
     assert!(!standing(&mut later).iter().any(|name| name.contains("spoke_lift_gate")), "{:?}", standing(&mut later));
 }
 
-/// THE WORKS AND THE STATION ARE ONE PLACE. The orchard's spoke door leads
-/// to the spoke, and the spoke's far door to the station's service deck.
-#[test]
-fn the_spoke_joins_the_works_to_the_station() {
-    let mut sim = room(ORCHARD);
-    for (from, to) in [(ORCHARD, SPOKE), (SPOKE, "orbital_station_service_deck")] {
-        assert_eq!(walk_through_the_door_to(&mut sim, to), to, "`{from}` has a door to `{to}`");
-    }
-    for (from, to) in [("orbital_station_service_deck", SPOKE), (SPOKE, ORCHARD)] {
-        assert_eq!(walk_through_the_door_to(&mut sim, to), to, "`{from}` has a door back to `{to}`");
-    }
-}
-

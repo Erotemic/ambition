@@ -3,7 +3,7 @@
 //! the robot's own inputs, the gates its errand opens, the tram over the open
 //! spoke, and the damaged spur.
 
-use crate::common::{base, fixed_60hz_room_options, walk_through_the_door_to};
+use crate::common::{base, fixed_60hz_room_options};
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
 
 const DOCK: &str = "orbital_station_gate_dock";
@@ -13,8 +13,8 @@ const HAB: &str = "orbital_station_habitation";
 const SERVICE: &str = "orbital_station_service_deck";
 const SPUR: &str = "orbital_station_damaged_spur";
 const SPOKE: &str = "orbital_station_spoke";
-const ORCHARD: &str = "gnu_ton_orchard";
 const TERMINUS: &str = "orbital_station_tether_terminus";
+const ORCHARD: &str = "gnu_ton_orchard";
 
 fn room_with(id: &str, save: ambition_platformer2d::session::AmbitionGameSaveData) -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(id).with_save(save))
@@ -65,32 +65,24 @@ fn walk(sim: &mut Platformer2dSimHarness, target: &str) {
     assert_eq!(sim.observation().active_room, target, "the walk from `{from}` ended elsewhere");
 }
 
-/// ⭐ THE STATION IS WALKED. From the gate deck the robot climbs the stairs
-/// to the habitation ring, walks out of its west side to the service deck and
-/// back, on through its east side to the observation deck, down the stairs to
-/// the docking bay, through its east side to the tether terminus and back,
-/// and by the freight lane (customs has cleared the crate) to the gate deck:
-/// a loop, with its own inputs. Between the rooms of a deck there are no
-/// doors.
+/// Walk the decks in both directions. Customs has opened the freight lane.
 #[test]
 fn the_station_is_one_loop_of_walked_decks() {
     let mut sim = room_with(DOCK, with_flags(&["orbital_consignment_cleared"]));
     for target in [HAB, SERVICE, HAB, VIEW, BAY, TERMINUS, BAY, DOCK] {
         walk(&mut sim, target);
     }
+    for target in [BAY, VIEW, HAB, DOCK] {
+        walk(&mut sim, target);
+    }
 }
 
-/// The spoke leaves the service deck for the gravity works, and the spur's
-/// door is behind its hatch. Each door has its way back.
+/// The open hatch connects the service deck to the spur's safe end.
 #[test]
-fn the_service_deck_leads_to_the_spoke_and_the_spur() {
+fn the_service_deck_leads_to_the_spur() {
     let mut sim = room_with(SERVICE, with_flags(&["orbital_spur_pass"]));
-    for (to, back) in [(SPOKE, SERVICE), (SPUR, SERVICE)] {
-        assert_eq!(walk_through_the_door_to(&mut sim, to), to);
-        assert_eq!(walk_through_the_door_to(&mut sim, back), back, "`{to}` has its door back");
-    }
-    assert_eq!(walk_through_the_door_to(&mut sim, SPOKE), SPOKE);
-    assert_eq!(walk_through_the_door_to(&mut sim, ORCHARD), ORCHARD, "the spoke ends at the gravity works");
+    walk(&mut sim, SPUR);
+    walk(&mut sim, SERVICE);
 }
 
 /// THE FREIGHT LANE. The quarantine pen's gates (one on the gate deck, one
@@ -115,6 +107,12 @@ fn the_freight_lane_opens_when_customs_clears_the_crate() {
 fn the_spur_hatch_opens_with_the_pass() {
     let mut shut = room(SERVICE);
     assert!(stands(&mut shut, "service_spur_hatch"), "{:?}", standing(&mut shut));
+    for _ in 0..180 {
+        shut.step(AgentAction { move_x: -1.0, ..base() });
+    }
+    let blocked = shut.observation();
+    assert_eq!(blocked.active_room, SERVICE, "the closed hatch blocks the exit");
+    assert!(blocked.player_pos.0 > 272.0, "the robot stops east of the hatch");
     let mut open = room_with(SERVICE, with_flags(&["orbital_spur_pass"]));
     assert!(!stands(&mut open, "service_spur_hatch"), "{:?}", standing(&mut open));
 }
@@ -147,35 +145,101 @@ fn the_damaged_spur_has_foes_and_a_breaker() {
     assert!(breaker, "the spur's breaker is a lever");
     // A fall into a gap is a fall onto live cable: the spur starts again.
     let half = sim.observation().player_size.1 * 0.5;
-    sim.teleport_player((624.0, 700.0 - half));
+    sim.teleport_player((1936.0, 700.0 - half));
     for _ in 0..90 {
         sim.step(base());
     }
     assert!(sim.observation().resets > 0, "a fall into the first gap is a reset");
 }
 
-/// THE TRAM carries a robot that stands on it over the open part of the
-/// spoke, and the robot steps off on the works' deck.
-#[test]
-fn the_tram_carries_the_robot_over_the_open_spoke() {
-    let mut sim = room(SPOKE);
-    // The car starts at the station's end and runs east: drop onto it.
-    let half = sim.observation().player_size.1 * 0.5;
-    sim.teleport_player((1340.0, 576.0 - 80.0 - half));
-    let mut rode = false;
-    for _ in 0..900 {
+fn tram(sim: &Platformer2dSimHarness) -> ambition_platformer2d::engine_core::Aabb {
+    use ambition_platformer2d::platformer::lifecycle::sole_live_room_component;
+    use ambition_platformer2d::world::collision::MovingPlatformSet;
+
+    sole_live_room_component::<MovingPlatformSet>(sim.world())
+        .expect("the spoke has moving platforms")
+        .0.iter()
+        .find(|platform| platform.id == "spoke_tram")
+        .expect("the spoke has a tram")
+        .aabb()
+}
+
+fn ride_tram(sim: &mut Platformer2dSimHarness, from: f32, to: f32) {
+    use ambition_platformer2d::engine_core::{AabbExt, Vec2};
+
+    let direction = (to - from).signum();
+    crate::common::walk::walk_to(
+        &mut crate::common::walk::Pad::new(sim),
+        Vec2::new(from - 32.0 * direction, 576.0),
+    ).expect("walk to the tram stop");
+    let start_resets = sim.observation().resets;
+    let mut boarded = false;
+    let mut got_off = false;
+    for frame in 0..1200 {
+        let car = tram(sim);
         let o = sim.observation();
-        if o.player_pos.0 > 1900.0 && o.on_ground {
+        let near_edge = if direction > 0.0 { car.left() } else { car.right() };
+        let far_edge = if direction > 0.0 { car.right() } else { car.left() };
+        let mut action = base();
+        if got_off {
+            if (o.player_pos.0 - to) * direction > 32.0 && o.on_ground {
+                assert_eq!(o.resets, start_resets, "cross the gap without falling");
+                return;
+            }
+            action.move_x = direction;
+            action.jump_held = true;
+        } else if boarded {
+            if (to - far_edge) * direction <= 12.0 {
+                got_off = true;
+                action = AgentAction { move_x: direction, jump: true, jump_held: true, ..base() };
+            }
+        } else if (o.player_pos.0 - from) * direction > 48.0 && o.on_ground {
+            boarded = true;
+        } else if (near_edge - from) * direction <= 8.0 || !o.on_ground {
+            action = AgentAction {
+                move_x: if (o.player_pos.0 - car.center().x).abs() > 12.0 {
+                    (car.center().x - o.player_pos.0).signum()
+                } else {
+                    0.0
+                },
+                jump: o.on_ground,
+                jump_held: true,
+                ..base()
+            };
+        }
+        sim.step(action);
+        assert_eq!(sim.observation().resets, start_resets, "fell from the tram at frame {frame}");
+    }
+    panic!("tram ride {from} to {to} stopped at {:?}", sim.observation().player_pos);
+}
+
+/// Ride the tram in both directions between the orchard and the station.
+#[test]
+fn the_tram_joins_the_station_to_the_orchard() {
+    let mut sim = room(ORCHARD);
+    walk(&mut sim, SPOKE);
+    ride_tram(&mut sim, 1840.0, 1200.0);
+    walk(&mut sim, VIEW);
+    walk(&mut sim, SPOKE);
+    ride_tram(&mut sim, 1200.0, 1840.0);
+
+    crate::common::walk::walk_to(
+        &mut crate::common::walk::Pad::new(&mut sim),
+        ambition_platformer2d::engine_core::Vec2::new(2800.0, 576.0),
+    ).expect("walk to the orchard ladder");
+    for _ in 0..180 {
+        if sim.observation().player_pos.1 < 388.0 {
             break;
         }
-        rode |= o.on_ground && (1200.0..1840.0).contains(&o.player_pos.0);
-        // Ride until the car is at the works' end, then step off.
-        let action = if o.player_pos.0 > 1670.0 { AgentAction { move_x: 1.0, ..base() } } else { base() };
-        sim.step(action);
+        sim.step(AgentAction { move_y: -1.0, ..base() });
     }
-    let o = sim.observation();
-    assert!(rode && o.player_pos.0 > 1900.0 && o.on_ground, "rode {rode}, at {:?}", o.player_pos);
-    assert_eq!(o.resets, 0, "the robot did not fall into the gap");
+    assert!(sim.observation().player_pos.1 < 388.0, "climb above the orchard walk");
+    for _ in 0..240 {
+        if sim.step(AgentAction { move_x: 1.0, ..base() }).active_room == ORCHARD {
+            return;
+        }
+    }
+    panic!("walk from the ladder to the orchard: {:?}", sim.observation().player_pos);
 }
 
 /// The arrival of the gate network's address GALACTIC is on the gate deck:

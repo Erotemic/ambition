@@ -12,9 +12,10 @@
 
 use bevy::prelude::*;
 
-use ambition_sprite_sheet::game_assets::GameAssets;
+use ambition_sprite_sheet::game_assets::{GameAssets, RoomDressingPart};
 
 use super::primitives::{EntityArt, FeatureVisual, LoadingZoneVisual, PlayerVisual};
+use super::terrain_skin::ThemedDoor;
 use super::world::BoundEntitySprite;
 
 #[cfg(test)]
@@ -165,6 +166,7 @@ pub fn sync_door_openings(
         &mut Sprite,
         Option<&EntityArt>,
         Option<&BoundEntitySprite>,
+        Option<&ThemedDoor>,
         Option<&mut DoorOpening>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -172,13 +174,25 @@ pub fn sync_door_openings(
     let (Some(passages), Some(assets), Some(images), Some(mut layouts)) = (passages, assets, images, layouts) else {
         return;
     };
-    for (entity, visual, mut sprite, art, bound, opening) in &mut doors {
+    for (entity, visual, mut sprite, art, bound, themed, opening) in &mut doors {
+        let strip_for = |closed: &Handle<Image>| {
+            themed
+                .zip(catalog.as_deref())
+                .and_then(|(&ThemedDoor(theme), catalog)| {
+                    let dressing = &catalog.room_dressing;
+                    (dressing.get(theme, RoomDressingPart::Door) == Some(closed))
+                        .then(|| dressing.get(theme, RoomDressingPart::DoorOpening))
+                        .flatten()
+                })
+                .cloned()
+                .or_else(|| opening_strip(&assets, closed))
+        };
         let open = passages.door_open(rooms.of(entity), &visual.id).filter(|open| *open > 0.0);
         match (open, opening) {
             (Some(open), Some(mut opening)) => {
                 let closed = closed_door_image(&sprite, Some(&opening), art, bound, catalog.as_deref());
                 if closed != opening.closed {
-                    let Some(strip) = opening_strip(&assets, &closed) else {
+                    let Some(strip) = strip_for(&closed) else {
                         // The new art has no strip. Draw its closed image,
                         // not an opening of the previous kind of door.
                         sprite.image = closed;
@@ -222,7 +236,7 @@ pub fn sync_door_openings(
                 if sprite.image != closed {
                     sprite.image = closed.clone();
                 }
-                let Some(strip) = opening_strip(&assets, &closed) else {
+                let Some(strip) = strip_for(&closed) else {
                     continue;
                 };
                 commands.entity(entity).try_insert(DoorOpening { closed, strip, layout: None });

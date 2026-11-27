@@ -84,6 +84,11 @@ pub(crate) fn parallax_keep_set(
                     keep.push(theme);
                 }
             }
+            for skin in crate::sprite_sheet::game_assets::door_skins(room) {
+                if !keep.contains(&skin) {
+                    keep.push(skin);
+                }
+            }
         }
     };
     for &index in live {

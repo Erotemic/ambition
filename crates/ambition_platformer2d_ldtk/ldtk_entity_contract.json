@@ -250,6 +250,14 @@
           "on_invalid": "refused",
           "default": "Default",
           "sample": "SceneLabel"
+        },
+        {
+          "name": "door_skin",
+          "presence": "optional",
+          "on_invalid": "open",
+          "requires_fields": ["presentation"],
+          "sample": "gallery_characters",
+          "note": "For a Door with SceneLabel presentation. Select a room dressing key for the door and its opening strip."
         }
       ]
     },

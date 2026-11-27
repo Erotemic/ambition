@@ -48,7 +48,9 @@ pub fn present_live_room_visuals(
         &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
         With<PresentedRoomVisuals>,
     >,
-    assets: Option<Res<GameAssets>>,
+    mut assets: Option<ResMut<GameAssets>>,
+    asset_server: Option<Res<AssetServer>>,
+    catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
     prop_sheets: Option<Res<PropSheets>>,
     active_session: Option<Res<ActiveSessionScope>>,
 ) {
@@ -62,10 +64,18 @@ pub fn present_live_room_visuals(
             continue;
         }
         let scope = session_scope.in_room(Some(room));
+        let spec = rooms.rooms().spec(definition);
+        if let (Some(assets), Some(catalog), Some(server)) = (assets.as_deref_mut(), catalog.as_deref(), asset_server.as_deref()) {
+            for skin in game_assets::door_skins(spec) {
+                if !assets.room_dressing.attempted(skin) {
+                    assets.room_dressing.ensure_theme_loaded(catalog, server, skin);
+                }
+            }
+        }
         spawn_room_visuals(
             &mut commands,
             scope,
-            rooms.rooms().spec(definition),
+            spec,
             &|zone| rooms.rooms().way_of(definition, zone),
             assets.as_deref(),
             prop_sheets.as_deref(),
@@ -1330,6 +1340,7 @@ pub fn spawn_loading_zone(
             BoundEntitySprite::new(sprite_key),
         ),
     );
+    let theme = zone.door_skin().and_then(game_assets::ParallaxTheme::from_key).or(theme);
     if let (LoadingZoneActivation::Door, Some(theme)) = (zone.activation, theme) {
         visual.insert(super::terrain_skin::ThemedDoor(theme));
     }

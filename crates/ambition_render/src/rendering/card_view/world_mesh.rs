@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 use bevy::asset::AssetEventSystems;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems};
 use bevy::ecs::system::{SystemParam, SystemParamItem};
@@ -57,6 +57,8 @@ pub(super) fn install(app: &mut App) {
         install_card_mesh_material::<crate::gate_portal_fx::GatePortalFxMaterial>(app);
         install_card_mesh_material::<crate::rendering::daylight::DaylightMaterial>(app);
         install_card_mesh_material::<crate::rendering::daylight::LampGlowMaterial>(app);
+        #[cfg(not(target_os = "android"))]
+        install_card_mesh_material::<crate::rendering::actor_glow::ActorGlowMaterial>(app);
         #[cfg(feature = "portal_render")]
         {
             install_card_mesh_material::<ambition_portal2d_presentation::PortalGlowMaterial>(app);
@@ -288,6 +290,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
             &InheritedVisibility,
             Has<TerrainSkinMesh>,
             Has<NoFrustumCulling>,
+            Option<&PresentationOf>,
         ),
         Without<CardWorldMesh>,
     >,
@@ -317,7 +320,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
                 })
         });
     used.clear();
-    for (source, mesh, material, local, global, visible, terrain, skip_culling) in &sources {
+    for (source, mesh, material, local, global, visible, terrain, skip_culling, subject) in &sources {
         if !visible.get() {
             continue;
         }
@@ -342,6 +345,8 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
                 &global.compute_transform(),
                 TERRAIN_DEPTH + local.translation.z,
             )
+        } else if let Some(depth) = depths.effect_depth(subject, global.translation().z) {
+            super::sprite_card_place(&global.compute_transform(), depth)
         } else {
             effect_place(source, global, &rooms, &depths)
         };

@@ -214,7 +214,7 @@ fn glow_visibility(body_hidden_by_another: bool) -> Visibility {
 /// dithered on the screen, so a faint glow has no rings. One quad per glow,
 /// like the mask; blended premultiplied, so the same pipeline paints the
 /// smooth look over what is behind and adds the light look to it.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct ActorGlowMaterial {
     /// `rgb`: the hue at full brightness, linear. `a`: the strength at the
     /// middle, the passage fade folded in.
@@ -226,6 +226,14 @@ pub struct ActorGlowMaterial {
 }
 
 const GLOW_SHADER: &str = "embedded://ambition_render/rendering/actor_glow.wgsl";
+const GLOW_BLEND: BlendState = BlendState::PREMULTIPLIED_ALPHA_BLENDING;
+
+#[cfg(feature = "card_view")]
+impl super::card_view::CardMaterialSource for ActorGlowMaterial {
+    fn card_blend() -> Option<BlendState> {
+        Some(GLOW_BLEND)
+    }
+}
 
 impl Material2d for ActorGlowMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -243,7 +251,7 @@ impl Material2d for ActorGlowMaterial {
     ) -> Result<(), SpecializedMeshPipelineError> {
         if let Some(fragment) = descriptor.fragment.as_mut() {
             for target in fragment.targets.iter_mut().flatten() {
-                target.blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+                target.blend = Some(GLOW_BLEND);
             }
         }
         Ok(())
@@ -449,7 +457,12 @@ pub fn sync_actor_glows(
             _ => {
                 commands.spawn_session_scoped(
                     scope,
-                    (glow_sprite(glow, &picture.0, diameter, tick, alpha), Transform::from_translation(at), common),
+                    (
+                        glow_sprite(glow, &picture.0, diameter, tick, alpha),
+                        Transform::from_translation(at),
+                        super::primitives::AnimatedWorldSpriteTint,
+                        common,
+                    ),
                 );
             }
         }

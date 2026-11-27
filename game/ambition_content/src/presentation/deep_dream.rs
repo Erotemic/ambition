@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    InRoomInstance, SessionScopedEntity, SpawnSessionScopedExt,
+    InRoomInstance, PresentationOf, SessionScopedEntity, SpawnSessionScopedExt,
 };
 use ambition_sprite_sheet::character::rigged::FrameInSprite;
 use ambition_render::rendering::{
@@ -94,6 +94,10 @@ pub fn install(app: &mut App) {
     }
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/puppy_slug_deep_dream.wgsl");
     app.add_plugins(Material2dPlugin::<PuppySlugDeepDreamMaterial>::default());
+    #[cfg(feature = "card_view")]
+    if app.get_sub_app(bevy::render::RenderApp).is_some() {
+        ambition_render::rendering::card_view::install_card_mesh_material::<PuppySlugDeepDreamMaterial>(app);
+    }
     app.init_resource::<PuppySlugDreamSettings>();
     app.register_type::<PuppySlugDreamSettings>();
     app.add_systems(
@@ -153,7 +157,7 @@ fn declare_deep_dream_demand(
 ///   (`FrameInSprite`), normalized, unflipped. The pattern is laid over the
 ///   frame, not over a composited body's whole square cell, where a wide slug
 ///   is a thin band and the pattern magnified onto it reads as stripes.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct PuppySlugDeepDreamMaterial {
     #[uniform(0)]
     pub uv_rect: Vec4,
@@ -180,6 +184,9 @@ pub struct PuppySlugDeepDreamMaterial {
     #[texture(9)]
     pub faces: Handle<Image>,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_render::rendering::card_view::CardMaterialSource for PuppySlugDeepDreamMaterial {}
 
 impl Material2d for PuppySlugDeepDreamMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -273,6 +280,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
                     PuppySlugDeepDreamOverlay {
                         source: source_entity,
                     },
+                    PresentationOf(source_entity),
                     // Room cleanup should remove this sibling alongside the regular
                     // feature visuals. The explicit cleanup system below also handles
                     // encounter-mob despawns before a room unload.

@@ -6,7 +6,11 @@
 // takes a glow and a bright windward edge. The sky blows to the left, so the flames
 // rise and trail left, whichever way the body faces. Red fire and cold fire
 // are one field with two colour ramps.
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#endif
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif

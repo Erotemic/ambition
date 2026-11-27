@@ -144,7 +144,7 @@ const REFERENCE_PARRY_SECONDS: f32 = 0.18;
 /// [`super::ActorOverlaySet`] seam, for example the puppy-slug deep-dream
 /// material) use ~0.9, and the HazardColumn telegraph quad uses +1.0 of boss
 /// z. HUD layers are in the hundreds.
-const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
+pub(super) const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
 // Under the plane of an enclosure, so a pipe hides a flash with its body.
 const _: () = assert!(FLASH_OVERLAY_Z_BIAS < super::BODY_DEPTH_BAND);
 

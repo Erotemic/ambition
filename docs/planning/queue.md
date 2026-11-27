@@ -1080,10 +1080,12 @@ and recovers once released.
 On 2026-11-27 `one_way_yields` became the game's input to the step (on
 each room's world), the policy names bodies by their catalog character,
 and C6 landed: Ambition's policy (lifts yield, Scout takes damage, soft
-creatures squash and survive) and the squashed body drawn flat.
+creatures squash and survive) and the squashed body drawn flat, and C4's
+app-level witness: a pinched Scout dies through the ordinary death path,
+the same under a rewind. Every stage has landed.
 
-**Next action:** the app-level witnesses (death at zero health through the
-ordinary path, a rewind replaying a response).
+**Next action:** none; the row is complete. New crush content (a press
+room, a crusher with its own authority) is level work, not this row.
 
 **Acceptance:** the stage tests in the owner page, stage by stage: C3 a
 yielding or limited mover stalls with riders carried by the accepted

@@ -97,6 +97,7 @@ mod a_game_governs_only_its_own_rooms;
 mod a_hit_on_the_player_freezes_the_match;
 mod a_move_keeps_its_occurrence_across_a_rewind;
 mod a_ledge_trump_survives_a_rewind;
+mod a_crushed_body_dies_the_ordinary_death;
 mod two_effects_expire_apart_under_a_rewind;
 mod a_replayed_room_is_built_whole;
 mod a_hostile_body_is_drawn_at_its_built_quad;

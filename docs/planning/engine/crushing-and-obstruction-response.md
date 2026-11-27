@@ -5,9 +5,9 @@ The design below follows from the ruling; the numerical model and the
 deterministic fallback were decided the same day (below). C0–C3 and C5 landed
 2026-11-26, with C4's pinch report, compression and failure responses (receipts
 under [Stages](#stages)). C4's `one_way_yields` input and per-body names, and
-C6's policy and squash presentation, landed 2026-11-27; C4's two app-level
-witnesses (death through the ordinary path, a rewound response) are open.
-Work: queue CRUSH.
+C6's policy and squash presentation, landed 2026-11-27, with C4's app-level
+witness (death through the ordinary path, the same under a rewind). Every
+stage is landed. Work: queue CRUSH.
 
 ## The ruling
 
@@ -402,8 +402,14 @@ ceiling claim the body) beside C0's
 `the_game_one_way_rule_reaches_the_room`. **Body names.** The policy names
 a body by the catalog character it wears (`CharacterForm`), between its own
 resistance and the game's: `the_policy_names_a_body_by_the_character_it_wears`.
-**Still open in C4:** the app-level witnesses (a rigid body dies at zero
-health through the death path; a rewind replays a response).
+*C4 receipt, the running game (2026-11-27).* A ceiling dropped just above
+Scout's feet in the calibration lab pinches it against the floor every
+tick; the game's policy answers with capped damage through the hit path,
+and at zero health Scout dies by an `ActorDiedMessage` whose cause is the
+world (`Hazard`). Under a GGRS sync-test session (4 ticks rewound each
+tick) the health on every tick and the tick of death are the same:
+`a_pinched_body_dies_through_the_death_path_and_a_rewind_replays_it`
+(`ambition_app` `app_it`).
 
 **C5 — portal hosts.** `refresh_hosted_portal_frames` becomes a
 proposal: the host's motion is admitted through C3, with the host as
@@ -449,7 +455,12 @@ publishes each squashed body's size over its rest size, and
 `ambition_render::rendering::squash_visuals` draws the body that flat along
 the squash and wider across it (the square root), by the body for a player
 and by its feature id for an actor; a rigged body's parts are children of its
-root, so they flatten with it.
+root, so they flatten with it. The pose-sized bodies
+(`sync_sprite_posed_bodies`) wrote the pose's height back every tick and so
+undid a pinch on the next; a `Squash` now owns the box until it has
+recovered to rest. Witness in the running game: `capture_scene
+central_hub_complex player out.png --squash 0.4@20` against the same capture
+without it (Scout flat, wide, feet on the floor).
 
 ## Independence from portal work
 

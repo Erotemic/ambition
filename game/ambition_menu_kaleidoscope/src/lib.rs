@@ -20,6 +20,7 @@ use bevy::picking::backend::{HitData, PointerHits};
 use bevy::picking::pointer::{PointerId, PointerLocation};
 use bevy::picking::{Pickable, PickingSystems};
 use bevy::prelude::*;
+use bevy::render::view::NoIndirectDrawing;
 use bevy::window::PrimaryWindow;
 use bevy_lunex::prelude::*;
 
@@ -424,6 +425,7 @@ where
         app.add_systems(PostUpdate, page::fit_text_width
             .after(bevy_lunex::system_text_3d_size_from_dimension)
             .in_set(bevy_lunex::UiSystems::PostCompute));
+        app.add_systems(PostUpdate, resize_panel_quads.in_set(UiSystems::PostCompute));
         if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
             app.insert_resource(KaleidoscopeMenuConfig::default());
         }
@@ -526,6 +528,33 @@ where
     }
 }
 
+/// A leaf panel uses a shared quad. Its transform sets the size.
+#[derive(Component)]
+#[require(Mesh3d)]
+struct PanelQuad;
+
+fn resize_panel_quads(
+    mut mesh: Local<Option<Handle<Mesh>>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut panels: Query<(&Dimension, &mut Mesh3d, &mut Transform), (With<PanelQuad>, Changed<Dimension>)>,
+) {
+    for (dimension, mut panel, mut transform) in &mut panels {
+        let quad = mesh.get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0)));
+        if panel.0 != *quad {
+            panel.0 = quad.clone();
+        }
+        let size = **dimension;
+        if transform.scale.xy() != size {
+            transform.scale.x = size.x;
+            transform.scale.y = size.y;
+        }
+    }
+}
+
+fn local_plane_size(dimension: &Dimension, panel_quad: bool) -> Vec2 {
+    if panel_quad { Vec2::ONE } else { **dimension }
+}
+
 fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
     mut commands: Commands,
     config: Res<KaleidoscopeMenuConfig>,
@@ -539,6 +568,8 @@ fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
             ambition_menu::render::MenuPresentationOf(menu),
             ambition_menu::MenuSurface(menu),
             Camera3d::default(),
+            // Draw the small menu scene directly. Keep opaque draws valid when page meshes change.
+            NoIndirectDrawing,
             // The cube is an unlit UI scene, not an HDR-lit world. Opt out of the
             // default LUT-backed Camera3d tonemapper: it adds measurable frame cost and,
             // when its optional LUT payload is trimmed, Bevy substitutes a magenta
@@ -631,6 +662,7 @@ fn cube_3d_picking(
             Option<&Pickable>,
             &ViewVisibility,
             &ambition_menu::MenuSurface,
+            Has<PanelQuad>,
         ),
         (
             With<KaleidoscopeControlStyle>,
@@ -649,14 +681,15 @@ fn cube_3d_picking(
         // query filter above.
         let candidates: Vec<_> = nodes
             .iter()
-            .filter(|(_, _, transform, pickable, vis, surface)| {
+            .filter(|(_, shape, transform, pickable, vis, surface, _)| {
                 surface.0 == camera_surface.0
                     && vis.get()
+                    && shape.min_element() > 0.0
                     && !transform.affine().is_nan()
                     && pickable.map(|p| p.is_hoverable).unwrap_or(true)
             })
-            .map(|(entity, dimension, transform, pickable, _, _)| {
-                (entity, dimension, transform, pickable)
+            .map(|(entity, dimension, transform, _, _, _, quad)| {
+                (entity, local_plane_size(dimension, quad), transform)
             })
             .collect();
 
@@ -688,7 +721,7 @@ fn cube_3d_picking(
             };
 
             let mut picks: Vec<(Entity, HitData)> = Vec::new();
-            for (entity, dimension, node_transform, _pickable) in candidates.iter().copied() {
+            for (entity, size, node_transform) in candidates.iter().copied() {
                 // Intersect the cursor ray with the node's local Z=0 plane.
                 let world_to_node = node_transform.affine().inverse();
                 let ray_origin_node = world_to_node.transform_point3(ray.origin);
@@ -701,7 +734,7 @@ fn cube_3d_picking(
                     continue; // behind the camera
                 }
                 let hit_node = ray_origin_node + ray_dir_node * t;
-                let rect = Rect::from_center_size(Vec2::ZERO, **dimension);
+                let rect = Rect::from_center_size(Vec2::ZERO, size);
                 if !rect.contains(hit_node.xy()) {
                     continue;
                 }
@@ -1312,7 +1345,7 @@ pub struct KaleidoscopeControlGeometry<'w, 's> {
     controls: Query<
         'w,
         's,
-        (&'static Dimension, &'static GlobalTransform, &'static ambition_menu::MenuSurface),
+        (&'static Dimension, &'static GlobalTransform, &'static ambition_menu::MenuSurface, Has<PanelQuad>),
         With<KaleidoscopeActiveFaceControl>,
     >,
 }
@@ -1320,15 +1353,15 @@ pub struct KaleidoscopeControlGeometry<'w, 's> {
 impl KaleidoscopeControlGeometry<'_, '_> {
     /// Return the bounds in logical pixels of the render target.
     pub fn logical_rect(&self, control: Entity) -> Option<Rect> {
-        let (size, transform, surface) = self.controls.get(control).ok()?;
+        let (size, transform, surface, quad) = self.controls.get(control).ok()?;
         let (camera, camera_transform, _) = self
             .cameras
             .iter()
             .find(|(camera, _, owner)| camera.is_active && owner.0 == surface.0)?;
-        let half = **size * 0.5;
-        if half.min_element() <= 0.0 {
+        if size.min_element() <= 0.0 {
             return None;
         }
+        let half = local_plane_size(size, quad) * 0.5;
         let project = |point: Vec2| {
             camera
                 .world_to_viewport(

@@ -59,6 +59,7 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
     draw_chart(&mut model, &palette);
     ornament::folio(&mut model, &palette);
     let marks = landmarks(view);
+    draw_footer(&mut model, view, &palette, &marks);
     draw_entries(&mut model, view, &palette, &marks);
     let stride = 0.25 / marks.len().max(1) as f32;
     let chart = chart_bounds();
@@ -72,7 +73,6 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
             Some(chart),
         );
     }
-    draw_footer(&mut model, view, &palette, &marks);
     model
 }
 
@@ -342,8 +342,10 @@ fn draw_symbol(
     };
     match mark.symbol {
         Symbol::Door => {
-            draw(bounds, accent, layer);
-            draw(inset(bounds, Vec2::new(0.23, 0.33)), ink, layer + step);
+            let opening = inset(bounds, Vec2::new(0.23, 0.33));
+            for rail in outline_strips(bounds, opening) {
+                draw(rail, accent, layer);
+            }
         }
         Symbol::Resident => {
             draw(
@@ -371,6 +373,21 @@ fn draw_symbol(
             );
         }
     }
+}
+
+fn outline_strips(bounds: Rect, opening: Rect) -> [Rect; 4] {
+    [
+        Rect::from_corners(bounds.min, Vec2::new(bounds.max.x, opening.min.y)),
+        Rect::from_corners(Vec2::new(bounds.min.x, opening.max.y), bounds.max),
+        Rect::from_corners(
+            Vec2::new(bounds.min.x, opening.min.y),
+            Vec2::new(opening.min.x, opening.max.y),
+        ),
+        Rect::from_corners(
+            Vec2::new(opening.max.x, opening.min.y),
+            Vec2::new(bounds.max.x, opening.max.y),
+        ),
+    ]
 }
 
 fn draw_footer(model: &mut MapModel, view: &MapBrowserView, palette: &MapLook, marks: &[Landmark]) {

@@ -426,8 +426,7 @@ where
                 });
 
             // --- Active page body -----------------------------------------------
-            panel
-                .spawn((
+            let mut body = panel.spawn((
                     Node {
                         width: Val::Percent(100.0),
                         flex_grow: 1.0,
@@ -440,12 +439,15 @@ where
                     // would empty this panel.
                     BevyUiMenuBody,
                     Name::new("menu body"),
-                ))
-                .with_children(|body| {
-                    for node in &view.page.nodes {
-                        spawn_node(body, view.menu, node, view.focused, assets, font);
-                    }
-                });
+                ));
+            let mut nodes = Vec::with_capacity(view.page.nodes.len());
+            body.with_children(|body| {
+                for node in &view.page.nodes {
+                    let entity = spawn_node(body, view.menu, node, view.focused, assets, font);
+                    nodes.push(entity.map(|entity| (entity, node.clone())));
+                }
+            });
+            body.insert(body::RenderedBody { nodes, focused: view.focused });
         });
     });
 
@@ -830,6 +832,8 @@ pub fn install_bevy_ui_menu_scroll(app: &mut App) {
 mod tests;
 
 mod spawn;
+mod body;
+pub use body::BevyUiMenuPageBodies;
 mod text;
 mod pointer;
 pub use pointer::logical_node_rect;

@@ -127,41 +127,30 @@ pub(super) fn reconcile_face<PageId, Action>(
             drawn[node.index] = Some((entity, node, parts));
         }
     }
-    for index in 0..drawn.len().max(model.nodes.len()) {
-        let old = drawn.get(index).copied().flatten();
-        let new = model.nodes.get(index);
-        match (old, new) {
-            (Some((_, old, _)), Some(new)) if old.node == *new => {}
-            (Some((entity, old, parts)), Some(new)) if node_shape(&old.node) == node_shape(new) => {
-                patch_node(out, live, entity, parts, &old.node, new, active);
-                out.commands.entity(entity).insert(RenderedNode {
-                    index,
-                    node: new.clone(),
-                });
-            }
-            (old, new) => {
-                if let Some((entity, _, _)) = old {
-                    out.commands.entity(entity).despawn();
+    let previous: Vec<_> = drawn.iter().map(|node| node.map(|(_, old, _)| &old.node)).collect();
+    let matches = ambition_menu::render::match_page_nodes(&previous, &model.nodes);
+    for (index, (new, matched)) in model.nodes.iter().zip(matches).enumerate() {
+        if let Some((entity, old, parts)) = matched.and_then(|before| drawn[before].take()) {
+            if node_shape(&old.node) == node_shape(new) {
+                if old.node != *new {
+                    patch_node(out, live, entity, parts, &old.node, new, active);
                 }
-                if let Some(new) = new {
-                    let (materials, asset_server, config) =
-                        (&mut *out.materials, out.asset_server, out.config);
-                    let menu = out.menu;
-                    out.commands.entity(face).with_children(|ui| {
-                        spawn_node(
-                            ui,
-                            materials,
-                            asset_server,
-                            config,
-                            menu,
-                            index,
-                            new,
-                            active,
-                        );
-                    });
+                if old.index != index || old.node != *new {
+                    out.commands.entity(entity).insert(RenderedNode { index, node: new.clone() });
                 }
+                continue;
             }
+            out.commands.entity(entity).despawn();
         }
+        let (materials, asset_server, config) =
+            (&mut *out.materials, out.asset_server, out.config);
+        let menu = out.menu;
+        out.commands.entity(face).with_children(|ui| {
+            spawn_node(ui, materials, asset_server, config, menu, index, new, active);
+        });
+    }
+    for (entity, _, _) in drawn.into_iter().flatten() {
+        out.commands.entity(entity).despawn();
     }
 }
 

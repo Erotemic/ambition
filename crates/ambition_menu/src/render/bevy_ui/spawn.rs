@@ -19,16 +19,15 @@ pub(super) fn spawn_node<Action>(
     focused: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
     font: Option<&bevy::text::FontSource>,
-) where
+) -> Option<Entity> where
     Action: Clone + Send + Sync + 'static,
 {
     match node {
         MenuNode::Panel { rect, color, action, layer } => {
-            let order = layer.map_or_else(|| panel_layer(rect), |layer| 3 + (layer * 8192.0).round() as i32);
             let mut panel = body.spawn((
                 node_from_rect(*rect),
                 BackgroundColor(to_color(*color)),
-                ZIndex(order),
+                ZIndex(panel_order(rect, *layer)),
                 Name::new("panel"),
             ));
             if let Some(action) = action {
@@ -45,6 +44,7 @@ pub(super) fn spawn_node<Action>(
             } else {
                 panel.insert(Pickable::IGNORE);
             }
+            Some(panel.id())
         }
         MenuNode::Text {
             x,
@@ -53,19 +53,17 @@ pub(super) fn spawn_node<Action>(
             text,
             align,
             color,
-        } => {
-            spawn_text_line(body, menu, *x, *y, *size, text, *align, *color, font, None);
-        }
+        } => Some(spawn_text_line(body, menu, *x, *y, *size, text, *align, *color, font, None)),
         MenuNode::Image { rect, image } => {
             // No asset server (a headless app) draws no picture.
-            if let Some(assets) = assets {
+            assets.map(|assets| {
                 body.spawn((
                     node_from_rect(*rect),
                     ImageNode::new(assets.load(image.clone())),
                     ZIndex(panel_layer(rect)),
                     Name::new("picture"),
-                ));
-            }
+                )).id()
+            })
         }
         MenuNode::DynamicText {
             slot,
@@ -74,8 +72,7 @@ pub(super) fn spawn_node<Action>(
             size,
             align,
             color,
-        } => {
-            spawn_text_line(
+        } => Some(spawn_text_line(
                 body,
                 menu,
                 *x,
@@ -86,8 +83,7 @@ pub(super) fn spawn_node<Action>(
                 *color,
                 font,
                 Some(*slot),
-            );
-        }
+        )),
         MenuNode::Control {
             rect,
             kind,
@@ -99,8 +95,7 @@ pub(super) fn spawn_node<Action>(
             action,
             dimmed,
             thumb,
-        } => {
-            spawn_control(
+        } => Some(spawn_control(
                 body,
                 menu,
                 *rect,
@@ -116,9 +111,12 @@ pub(super) fn spawn_node<Action>(
                 focused,
                 assets,
                 font,
-            );
-        }
+        )),
     }
+}
+
+pub(super) fn panel_order(rect: &MenuRect, layer: Option<f32>) -> i32 {
+    layer.map_or_else(|| panel_layer(rect), |layer| 3 + (layer * 8192.0).round() as i32)
 }
 
 /// Place an absolutely positioned text node so its alignment is honored. A
@@ -136,7 +134,7 @@ fn spawn_text_line(
     color: MenuColor,
     font: Option<&bevy::text::FontSource>,
     slot: Option<u32>,
-) {
+) -> Entity {
     body.spawn((text_node(x, y, align), ZIndex(LAYER_TEXT), Pickable::IGNORE))
         .with_children(|line| {
             let mut entity = line.spawn((
@@ -163,7 +161,7 @@ fn spawn_text_line(
                     crate::MenuDynamicTextContent(String::new()),
                 ));
             }
-        });
+        }).id()
 }
 
 pub(super) fn text_node(x: f32, y: f32, align: MenuTextAlign) -> Node {
@@ -224,7 +222,7 @@ fn spawn_control<Action>(
     focused_key: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
     font: Option<&bevy::text::FontSource>,
-) where
+) -> Entity where
     Action: Clone + Send + Sync + 'static,
 {
     let is_scrollbar = matches!(kind, MenuControlKind::Scrollbar);
@@ -348,6 +346,7 @@ fn spawn_control<Action>(
             });
         }
     }
+    control.id()
 }
 
 fn spawn_caption(

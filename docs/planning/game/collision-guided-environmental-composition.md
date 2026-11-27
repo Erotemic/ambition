@@ -378,6 +378,8 @@ car with the gangway between cars. Show the ladder ends and the clearance
 for a body in each passage.
 On the Number 9 sorting car, show the coin path above the solid roof. Show
 the gangways from the ore hopper and to the flat car in the same view.
+On the Rustler, show the footplate ramp and the clearance under the cab
+roof. Show the Multi-Armed Bandit's fist and strike volume in the same frame.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

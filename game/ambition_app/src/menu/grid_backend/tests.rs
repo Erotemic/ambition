@@ -1281,6 +1281,23 @@ fn an_open_grid_map_follows_the_owner_without_a_map_resource_change() {
     let before = text(&mut app);
     assert!(before.iter().any(|text| text == "Fixture"), "{before:?}");
     assert!(before.iter().any(|text| text == "ALPHA · You are here"), "{before:?}");
+    let retained: Vec<_> = app.world_mut().query::<(Entity, &Text)>()
+        .iter(app.world())
+        .filter(|(_, label)| matches!(label.0.as_str(), "Equipment" | "Fixture" | "ALPHA · You are here"))
+        .map(|(entity, label)| (entity, label.0.clone()))
+        .collect();
+    let menu = crate::menu::test_support::menu_id(app.world());
+    for action in [
+        ambition_platformer2d::menu::map::browser::MapAction::Pan(1, 0),
+        ambition_platformer2d::menu::map::browser::MapAction::Zoom(1),
+    ] {
+        app.world_mut().write_message(MenuActionActivated { menu, action: MenuPageAction::Map(action) });
+        app.update();
+    }
+    assert_eq!(retained.len(), 3);
+    for (entity, label) in retained {
+        assert_eq!(app.world().get::<Text>(entity).map(|text| &text.0), Some(&label));
+    }
     app.world_mut().entity_mut(body).insert(InRoomInstance(rooms[1]));
     app.update();
     let shown = text(&mut app);

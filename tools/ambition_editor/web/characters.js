@@ -6,7 +6,8 @@
   const I = C.inventory;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent;
-  const filters = {family: "", lineage: "", attention: "", view: "", sort: "", role: "", history: ""};
+  const defaultFilters = {family: "", lineage: "", attention: "", view: "", sort: "added-newest", role: "", history: ""};
+  const filters = {...defaultFilters};
   const badge = (text, warn = false) => `<span class="chip ${warn ? 'c-warn' : 'c-info'}">${esc(text)}</span>`;
   const characterLink = (key, label) => `<a href="#character/${enc(key)}">${esc(label || I.identities[key]?.display || key)}</a>`;
   const unitLink = unit => `<a href="#inventory/unit/${enc(unit.id)}">${esc(unit.id)}</a>`;
@@ -195,7 +196,8 @@
     });
     const clear = document.getElementById('clear-character-filters');
     if (clear) clear.onclick = () => {
-      Object.keys(filters).forEach(key => filters[key] = ''); document.getElementById('q').value = '';
+      Object.assign(filters, defaultFilters);
+      document.getElementById('q').value = '';
       window.renderArtCharacters('', ui);
     };
     app.querySelectorAll('[data-jump]').forEach(element => element.onclick = event => {

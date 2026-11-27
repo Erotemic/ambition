@@ -68,7 +68,8 @@ pack, so another engine game is inspected the same way (`--profile`,
   many distinct historical looks. The count includes variations, milestones,
   and earlier lineage branches. It excludes the current published preview and
   counts each commit/target pair once. A blank field shows all entries.
-  Sort characters by name, date added to the game, or art generation date.
+  Characters show the most recently added entries first by default.
+  Use Sort by to change the order by name, date added, or art generation date.
   Both date sorts offer newest and oldest first. Added dates use the first
   character key in available catalog Git history, across file renames. Boss
   profile dates use the same lookup in the boss profile sources.

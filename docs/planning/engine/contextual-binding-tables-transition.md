@@ -62,16 +62,32 @@ The transition landed with app and unit tests red. Fixed 2026-11-26:
   frontend Escape is Back by the contract, so the test now presses controller
   Start, which keeps the shell-menu behaviour.
 
+Also fixed 2026-11-26, later the same day:
+
+- `ActionBindings::label` documents that a mixed map gives its keyboard half,
+  but it took the first control, now a pad's. It names the keyboard control
+  when there is one (the four `bindings::tests`). The menu-Back prompt test
+  expects Backspace, the one key that is Back in every interface (Escape
+  pauses over a session interface).
+- `two_pads_join_open_and_close_their_own_menus_on_both_backends`: row 0 of
+  the Rebind page is now the axis action AimStick, which correctly refuses a
+  button; the test arms the first button row. It leaves the page with Back
+  (Start resumes), and one open menu of two no longer pauses the world
+  (`lifecycle::menu_pause`, nonempty unanimity).
+- `two_participants_start_a_match_and_can_still_pause_it` is on the select
+  screen, a frontend, so it presses controller Start.
+- `every_reaction_pose_is_drawn_by_human_and_cpu_seats`: a CPU that acts out
+  of its tumble in the air (an `air_*` row) and lands (`LandRecovery`) is the
+  outcome the test's own rule allows.
+
 Still red, all present at the pre-fix tree:
 
-- `local_play_modes::two_pads_join_open_and_close_their_own_menus_on_both_backends`:
-  the join now succeeds; the second seat's Rebind capture of `RightThumb`
-  leaves its bindings unchanged.
-- `smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`,
-  `smash_reaction_poses::every_reaction_pose_is_drawn_by_human_and_cpu_seats`.
-- `ambition_input` lib: four `bindings::tests` that read a preset's first
-  label (now a pad's `A`) and `presets::tests::a_menu_confirms_on_a_and_backs_out_on_b_and_their_keyboard_stand_ins`
-  (`Backspace` where it expected another Back key).
+- `smash_in_the_host::quitting_a_smash_match_gives_the_pad_back` and
+  `on_the_smash_pad_y_starts_the_fighters_authored_grab`: the seat's
+  in-match binding projection has no control for Jump or Grab.
+- `smash_in_the_host::an_unattended_four_cpu_smash_profile_enters_a_live_round`
+  and `an_unattended_smash_profile_enters_a_live_all_cpu_round`: the autoplay
+  reports a captured menu, held ceremony or empty stage.
 - `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`
   and `a_hosted_game_plays_the_bank_cues_its_moves_name` are environmental on a
   machine without the generated SFX family (`ambition_shared` reports sfx

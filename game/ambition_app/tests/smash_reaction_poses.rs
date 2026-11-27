@@ -259,8 +259,13 @@ fn floor_game(app: &mut App, centre_x: f32, who: &str, acts: bool) {
             // prone row a human draws, or the tech the CPU made.
             let landed = [expected[1], "tech", "roll", "tech_roll", "getup_roll"];
             let launched_at = drawn.iter().position(|row| bare(row) == expected[0]);
+            // Or it acted out of the tumble in the air and landed on its feet.
+            let acted_and_landed = |rows: &[String]| rows.iter()
+                .position(|row| bare(row).starts_with("air_"))
+                .is_some_and(|air| rows[air..].iter().any(|row| bare(row) == "LandRecovery"));
             assert!(
-                launched_at.is_some_and(|at| drawn[at..].iter().any(|row| landed.contains(&bare(row)))),
+                launched_at.is_some_and(|at| drawn[at..].iter().any(|row| landed.contains(&bare(row)))
+                    || acted_and_landed(&drawn[at..])),
                 "{who} {label}: drew {drawn:?}, wanted {} then one of {landed:?}",
                 expected[0]
             );

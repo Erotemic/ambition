@@ -236,8 +236,11 @@ mod tests {
             // A menu prompt names the keyboard's own keys.
             assert_eq!(bindings.controls(&A::MenuSelect).iter().find(|c| matches!(c, PhysicalControl::Key(_))),
                 Some(&key(KeyCode::Enter)));
+            // Backspace, the one key that is Back in every interface: Escape
+            // pauses over a session interface (the binding contract,
+            // docs/planning/contextual-input-and-island-pause-2026-11-24.md).
             assert_eq!(bindings.controls(&A::MenuBack).iter().find(|c| matches!(c, PhysicalControl::Key(_))),
-                Some(&key(KeyCode::Escape)));
+                Some(&key(KeyCode::Backspace)));
         }
     }
 

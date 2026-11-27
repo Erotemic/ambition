@@ -216,6 +216,18 @@ fn two_pads_join_open_and_close_their_own_menus_on_both_backends() {
         assert_eq!(app.world().get::<Pages>(one).unwrap().active, Some(MenuPage::Items));
         tap(&mut app, pads[1], GamepadButton::South);
         assert_eq!(focused_menu_action(&mut app, two), Some(MenuPageAction::SystemOption(SystemOptionId::Rebind(0))));
+        // The first row a button can rebind, in the screen's canonical order
+        // (by action name, so an axis action such as AimStick may come first).
+        let row = {
+            use leafwing_input_manager::prelude::Actionlike;
+            app.world().resource::<ambition_platformer2d::input::SeatBindings>().for_seat(1).all()
+                .position(|(name, _)| ambition_platformer2d::input::action_named(name)
+                    .is_some_and(|action| action.input_control_kind() == leafwing_input_manager::InputControlKind::Button))
+                .expect("a button row")
+        };
+        for _ in 0..row { tap(&mut app, pads[1], GamepadButton::DPadDown); }
+        assert_eq!(focused_menu_action(&mut app, two), Some(MenuPageAction::SystemOption(SystemOptionId::Rebind(row))),
+            "{backend:?}: the second pad reaches the first button row");
         let before = {
             let bindings = app.world().resource::<ambition_platformer2d::input::SeatBindings>();
             [bindings.for_seat(0).clone(), bindings.for_seat(1).clone()]
@@ -228,12 +240,16 @@ fn two_pads_join_open_and_close_their_own_menus_on_both_backends() {
         assert_ne!(bindings.for_seat(1), &before[1], "the second pad changes its own binding profile");
         assert_eq!(app.world().get::<Pages>(two).unwrap().active, Some(MenuPage::System),
             "capturing the Inventory button must keep the Rebind page open");
-        tap(&mut app, pads[1], GamepadButton::Start);
-        assert!(inventory_menus(&mut app)[&1].1, "Start first exits the Rebind page");
+        // Back returns to the parent page; Start resumes (the binding contract,
+        // docs/planning/contextual-input-and-island-pause-2026-11-24.md).
+        tap(&mut app, pads[1], GamepadButton::East);
+        assert!(inventory_menus(&mut app)[&1].1, "Back exits the Rebind page and keeps the menu");
         tap(&mut app, pads[1], GamepadButton::Start);
         assert!(!inventory_menus(&mut app)[&1].1);
         assert!(inventory_menus(&mut app)[&0].1);
-        assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Paused);
+        // A menu pauses the world only when every admitted seat has one open
+        // (`lifecycle::menu_pause`, nonempty unanimity).
+        assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Playing);
         tap(&mut app, pads[0], GamepadButton::Start);
         assert!(inventory_menus(&mut app).values().all(|(_, visible)| !visible));
         assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Playing);

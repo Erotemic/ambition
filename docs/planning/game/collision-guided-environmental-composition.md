@@ -410,6 +410,11 @@ minutes desk. Show where a body on the floor can talk to either speaker.
 At the Crooked Lantern, use the door and stair connections to check the
 routes on the map. Show the map at the camera scale of a body on the
 gallery.
+In the Founder's Crypt, use the collision cells to place the sarcophagus
+lid under the chest. Show which paths the floor guards can reach from
+their start positions.
+For route tests, load the room once. Restore the same start state for
+each set of inputs so the guards and doors start in the same state.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

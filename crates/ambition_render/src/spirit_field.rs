@@ -12,21 +12,15 @@
 //! its view and the device has a budget for screen shaders, so a room with no
 //! spirit pays nothing. A spirit is whole without the field: its glow and its
 //! fire are drawn in its sheet.
-//!
-//! The camera, view and layer rules are the void field's
-//! ([`crate::void_field`]), which this pass shares.
 
 use bevy::{
     asset::embedded_asset,
-    camera::visibility::RenderLayers,
     prelude::*,
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
 };
 
 use crate::screen_pass::{view_in_target, ScreenPass, ScreenPassPlugin, ScreenPassStage};
-use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-
-use crate::void_field::{drawn_through, nearest, source_in_view};
+use crate::screen_pass::fields::{FieldSite, FieldViews, nearest};
 
 /// The most auras one camera draws. The nearest to the middle of its view win.
 pub const MAX_SPIRIT_SOURCES: usize = 4;
@@ -58,7 +52,11 @@ impl Plugin for SpiritFieldPlugin {
         app.add_plugins(ScreenPassPlugin::<SpiritFieldSettings>::default())
             .add_systems(
                 PostUpdate,
-                sync_spirit_fields.run_if(an_aura_or_its_field_stands).after(bevy::transform::TransformSystems::Propagate),
+                sync_spirit_fields
+                    .run_if(an_aura_or_its_field_stands)
+                    .after(bevy::transform::TransformSystems::Propagate)
+                    .after(bevy::camera::CameraUpdateSystems)
+                    .after(crate::rendering::view_isolation::isolate_live_rooms),
             );
     }
 }
@@ -104,36 +102,28 @@ fn pack(seen: Vec<(Vec4, Vec3)>, aspect: f32, seconds: f32, view: Vec4) -> Optio
 
 /// Give each gameplay camera the field of the spirits in its view, and take
 /// the pass away from a camera that sees none.
-#[allow(clippy::type_complexity)]
 fn sync_spirit_fields(
     mut commands: Commands,
     time: Res<Time>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    auras: Query<(&GlobalTransform, &SpiritAura, Option<&InheritedVisibility>, Option<&RenderLayers>)>,
-    mut cameras: Query<
-        (Entity, &Camera, &GlobalTransform, Option<&RenderLayers>, Option<&mut SpiritFieldSettings>),
-        With<MainCamera>,
-    >,
+    auras: Query<(&SpiritAura, FieldSite)>,
+    views: FieldViews,
+    mut settings: Query<&mut SpiritFieldSettings>,
 ) {
     let in_budget = quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders());
     // The ripple's clock wraps, so a long session keeps its precision.
     let seconds = time.elapsed_secs_wrapped();
-    for (entity, camera, camera_at, camera_layers, current) in &mut cameras {
-        let next = camera.logical_viewport_rect().filter(|_| in_budget).and_then(|view_rect| {
-            let view_px = view_rect.size();
+    for (entity, view) in views.iter() {
+        let next = view.filter(|_| in_budget).and_then(|view| {
             let seen = auras
                 .iter()
-                .filter(|(_, _, visible, layers)| visible.is_none_or(|visible| visible.get()) && drawn_through(camera_layers, *layers))
-                .filter_map(|(at, aura, ..)| {
-                    let middle = at.translation();
-                    let middle_px = camera.world_to_viewport(camera_at, middle).ok()?;
-                    let edge_px = camera.world_to_viewport(camera_at, middle + Vec3::X * aura.radius).ok()?;
-                    source_in_view(view_px, middle_px - view_rect.min, middle_px.distance(edge_px), aura.strength).map(|source| (source, aura.tint))
+                .filter_map(|(aura, site)| {
+                    views.project(&view, site, aura.radius, aura.strength).map(|source| (source, aura.tint))
                 })
                 .collect();
-            pack(seen, view_px.x / view_px.y, seconds, view_in_target(camera))
+            pack(seen, view.aspect(), seconds, view_in_target(view.camera))
         });
-        match (next, current) {
+        match (next, settings.get_mut(entity).ok()) {
             (Some(next), Some(mut current)) => {
                 if *current != next {
                     *current = next;

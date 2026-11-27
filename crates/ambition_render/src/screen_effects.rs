@@ -1,6 +1,6 @@
 //! Whole-screen post-processing effects for presentation cameras.
 //!
-//! Not a sprite overlay. The pass runs after the 2D main pass, samples the
+//! The pass runs after the camera draws the world, samples the
 //! rendered view texture, and writes a filtered fullscreen result to Bevy's
 //! post-process destination. So the filters can distort scene UVs, split
 //! colour channels, add scanlines, and change luminance, which an overlay
@@ -73,8 +73,7 @@ impl Default for ScreenEffectSettings {
 /// [`ScreenEffectSettings`] as the enable: without it there is no pipeline,
 /// no bind group, no pass, and no `post_process_write` ping-pong.
 /// [`sync_screen_effect_settings_from_video_settings`] adds and removes the settings component,
-/// and uses this marker to know which cameras to add it back to. Nothing
-/// removes this marker, so removing the settings is safe.
+/// and uses this marker to know which cameras to add it back to.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ScreenEffectCamera;
 
@@ -150,9 +149,7 @@ impl ScreenEffectSettings {
 /// material, so no fullscreen pass (read and write of the whole view texture)
 /// runs for a filter that would return the source pixel.
 ///
-/// Removal is safe only because eligibility is on [`ScreenEffectCamera`],
-/// which nothing removes, so this system can always find the cameras to
-/// enrol again.
+/// Eligibility stays on [`ScreenEffectCamera`] when the effect turns off.
 fn sync_screen_effect_settings_from_video_settings(
     mut commands: Commands,
     settings: Res<UserSettings>,
@@ -183,6 +180,12 @@ fn sync_screen_effect_settings_from_video_settings(
 
     let next = ScreenEffectSettings::for_shader_settings(&shaders, time.elapsed_secs());
     for (camera, current, space, view) in &mut cameras {
+        if view.is_some_and(|view| !view.is_active) {
+            if current.is_some() {
+                commands.entity(camera).remove::<ScreenEffectSettings>();
+            }
+            continue;
+        }
         let mut next = next;
         next.grain_and_vignette.w = stores_srgb(space);
         next.view = view.map_or(WHOLE_TARGET, view_in_target);

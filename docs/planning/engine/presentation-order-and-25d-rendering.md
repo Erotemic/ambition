@@ -844,6 +844,11 @@ shared value preparation are sufficient until source proves otherwise.
    color-mesh path. An Ultra fixture checks light strength, vertex colors,
    and the world sprite that shows a body's countdown.
 
+   Both gameplay outputs run the same spirit, void, and screen filter
+   passes. Each output projects a field into its own viewport. The card
+   output takes its room mask from the plane camera and uses the depth of
+   the field's art. Inactive cameras release their passes.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

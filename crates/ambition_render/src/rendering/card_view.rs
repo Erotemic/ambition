@@ -90,6 +90,7 @@ mod world_mesh;
 mod portal_windows;
 
 pub use world_mesh::{install_card_mesh_material, CardMaterialSource};
+pub(crate) use gameplay::PlaneCameraForCard;
 
 use gameplay::CardScope;
 use std::collections::HashMap;
@@ -286,6 +287,12 @@ pub struct CardRootDepths {
 impl CardRootDepths {
     fn scenery_depth(&self, z: f32, room: Option<LiveRoomInstance>) -> f32 {
         scenery_depth(z, self.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP))
+    }
+
+    pub(crate) fn field_depth(&self, source: Entity, z: f32, room: Option<LiveRoomInstance>) -> f32 {
+        self.roots
+            .get(&source)
+            .map_or_else(|| self.scenery_depth(z, room), |depth| depth.plane_z)
     }
 
     fn representation_of(&self, subject: Option<&PresentationOf>) -> Option<CardBodyRepresentation> {

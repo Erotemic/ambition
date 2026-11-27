@@ -5,12 +5,13 @@ use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{CameraMainTextureUsages, ClearColorConfig, CompositingSpace, MsaaWriteback, RenderTarget, Viewport};
 use bevy::prelude::{
-    Camera, Camera2d, Commands, Component, Entity, Local, Query, Res, UVec2, With, Without,
+    Camera, Camera2d, Commands, Component, Entity, Has, Local, Query, Res, UVec2, With, Without,
 };
 use bevy::render::view::Msaa;
 
 use super::{CardViewCamera, CardViewSettings, PresentedViewFrames};
 use crate::rendering::actors::rigged::AppearanceSampleCamera;
+use crate::screen_effects::{ScreenEffectCamera, ScreenEffectSettings};
 
 #[derive(Component, PartialEq, Eq)]
 pub(super) enum CardScope {
@@ -19,7 +20,7 @@ pub(super) enum CardScope {
 }
 
 #[derive(Component, PartialEq, Eq)]
-pub(super) struct PlaneCameraForCard(Entity);
+pub(crate) struct PlaneCameraForCard(pub Entity);
 
 /// Use the gameplay viewport, target, and stack settings for the card view.
 /// Keep the plane camera for systems that calculate placement in 2D.
@@ -37,6 +38,7 @@ pub(super) fn route_card_outputs(
             &CameraMainTextureUsages,
             Option<&CompositingSpace>,
             Option<&Msaa>,
+            Has<ScreenEffectCamera>,
         ),
         (With<MainCamera>, With<Camera2d>, Without<CardViewCamera>),
     >,
@@ -50,6 +52,7 @@ pub(super) fn route_card_outputs(
             Option<&CompositingSpace>,
             Option<&Msaa>,
             Option<&PlaneCameraForCard>,
+            Has<ScreenEffectCamera>,
         ),
         With<CardViewCamera>,
     >,
@@ -58,7 +61,7 @@ pub(super) fn route_card_outputs(
 ) {
     selected.clear();
     let on_hand = ViewsOnHand::survey(views.iter());
-    for (rig, view, mut card, mut target, mut usages, space, msaa, plane_link) in &mut card_cameras {
+    for (rig, view, mut card, mut target, mut usages, space, msaa, plane_link, has_filter) in &mut card_cameras {
         let source = plane_cameras
             .iter_mut()
             .find(|(id, camera, target, link, ..)| {
@@ -66,7 +69,7 @@ pub(super) fn route_card_outputs(
                     && (camera.is_active || hidden.contains(id))
                     && on_hand.presented_by(link.copied()) == Some(view.0)
             });
-        let Some((entity, mut plane, plane_target, _, plane_usages, plane_space, plane_msaa)) =
+        let Some((entity, mut plane, plane_target, _, plane_usages, plane_space, plane_msaa, plane_filter)) =
             source.filter(|_| frames.of(view.0).is_some())
         else {
             if card.is_active {
@@ -74,6 +77,9 @@ pub(super) fn route_card_outputs(
             }
             if plane_link.is_some() {
                 commands.entity(rig).remove::<PlaneCameraForCard>();
+            }
+            if has_filter {
+                commands.entity(rig).remove::<(ScreenEffectCamera, ScreenEffectSettings)>();
             }
             continue;
         };
@@ -111,6 +117,13 @@ pub(super) fn route_card_outputs(
         }
         if plane_link.is_none_or(|previous| previous.0 != entity) {
             commands.entity(rig).insert(PlaneCameraForCard(entity));
+        }
+        if has_filter != plane_filter {
+            if plane_filter {
+                commands.entity(rig).insert(ScreenEffectCamera);
+            } else {
+                commands.entity(rig).remove::<(ScreenEffectCamera, ScreenEffectSettings)>();
+            }
         }
         if replacing {
             if plane.is_active {
@@ -248,6 +261,7 @@ mod tests {
             MainCamera,
             PresentsView(view),
             RenderTarget::Image(image.clone().into()),
+            ScreenEffectCamera,
             Msaa::Off,
         )).id();
         let inset = world.spawn((
@@ -266,6 +280,7 @@ mod tests {
 
         assert!(world.get::<Camera>(plane).unwrap().is_active);
         assert_eq!(world.get::<RenderTarget>(inset).unwrap().as_image(), Some(&image));
+        assert!(world.get::<ScreenEffectCamera>(inset).is_some());
         assert_eq!(world.get::<Msaa>(inset), Some(&Msaa::Off));
         let camera = world.get::<Camera>(inset).unwrap();
         assert!(camera.is_active);

@@ -150,6 +150,7 @@ fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
             [ORCHARD, WELL] => Some(((2720.0, 704.0), (96.0, 1536.0))),
             [HALL, GALLERY] => Some(((2464.0, 432.0), (96.0, 896.0))),
             [GALLERY, APPROACH] => Some(((2464.0, 896.0), (96.0, 1344.0))),
+            [APPROACH, ARENA] => Some(((1184.0, 352.0), (96.0, 208.0))),
             _ => None,
         };
         if let Some((east, west)) = walk_positions {
@@ -500,11 +501,14 @@ fn his_fight_here_opens_his_portals() {
 }
 
 
-/// THE APPROACH. From the gallery passage, a robot that holds right walks
-/// into the column against the tower, falls up along its face, and out of
-/// the column over its top drops onto the tower, by GNU-ton's door.
+/// The robot climbs the tower, follows GNU-ton out through the passage,
+/// and drops from the entry pad into the arena.
 #[test]
-fn the_approach_lifts_the_robot_to_gnu_tons_door() {
+fn the_approach_leads_to_gnu_tons_arena() {
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::combat::components::ActorIdentity;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+
     let mut sim = room(APPROACH);
     stand(&mut sim, 420.0, 1344.0);
     let landed = until(
@@ -518,9 +522,43 @@ fn the_approach_lifts_the_robot_to_gnu_tons_door() {
     );
     assert!(landed.is_some(), "{}", trace(&mut sim, "end"));
     assert_eq!(sim.observation().resets, 0);
-    let door = crate::common::door_to(&mut sim, ARENA).aabb;
-    use ambition_platformer2d::engine_core::AabbExt as _;
-    assert!((door.center().y - 304.0).abs() < 1.0, "GNU-ton's door stands on the landing: {door:?}");
+
+    let duelist = {
+        let world = sim.world_mut();
+        let mut actors = world.query::<(bevy::prelude::Entity, &ActorIdentity)>();
+        actors.iter(world).find(|(_, id)| id.name == ambition_content::bosses::gnu_ton::prelude::NAME)
+            .expect("GNU-ton stands on the tower").0
+    };
+    {
+        let mut health = sim.world_mut().get_mut::<BodyHealth>(duelist).expect("GNU-ton has health");
+        health.health.current = health.max() / 4;
+    }
+    let mut furthest_x: f32 = 0.0;
+    let departed = until(
+        &mut sim,
+        300,
+        |sim| {
+            if let Some(kin) = sim.world().get::<BodyKinematics>(duelist) {
+                furthest_x = furthest_x.max(kin.pos.x);
+            }
+            base()
+        },
+        |sim| sim.world().get::<BodyHealth>(duelist).is_none_or(|health| !health.alive()),
+    );
+    assert!(
+        departed.is_some() && furthest_x > 1200.0,
+        "GNU-ton leaves at the east passage, reached x={furthest_x}, health={:?}",
+        sim.world().get::<BodyHealth>(duelist),
+    );
+
+    cross_edge(&mut sim, ARENA, axis(1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 184.0).abs() < 1.0);
+    assert!(
+        until(&mut sim, 240, |sim| axis(if at(sim).0 < 370.0 { 1.0 } else { 0.0 }, 0.0), |sim| at(sim).1 > 240.0).is_some(),
+        "{}",
+        trace(&mut sim, "the descent pad drops the robot into the arena"),
+    );
 }
 
 /// THE SHORTCUT. The approach's lift goes down to the end of the spoke, by

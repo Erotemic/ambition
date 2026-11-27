@@ -310,8 +310,21 @@ pub(crate) fn apply_actor_hit(
                 // their own multi-hit cadence can say it has no blanket window
                 // — see `CombatRules::hit_repeat_window_scale`. An
                 // undeclared world multiplies by `1.0`.
-                damage_invuln_time: ambition_body_seed::clusters::ACTOR_DAMAGE_IFRAME_S
-                    * feel.hit_repeat_window_scale,
+                //
+                // ⭐ AND NOT ARMED BY A MOVE'S OWN STRIKE. The window is a
+                // repeat guard for hits with no ledger of their own (a body's
+                // contact, a hazard). A move's volume keeps one per pulse
+                // (`HitboxHits`, handed along contiguous windows), so a
+                // second hit from it is a separate pulse its author wrote: a
+                // drill, a flurry, a confirm into a string. A window armed
+                // here would swallow every pulse closer than 0.2 s, and the
+                // Lunge's flurry landed one hit in four. A window armed by
+                // anything else still holds a move's strike off.
+                damage_invuln_time: if event.attacker_move_instance.is_some() {
+                    0.0
+                } else {
+                    ambition_body_seed::clusters::ACTOR_DAMAGE_IFRAME_S * feel.hit_repeat_window_scale
+                },
                 block_hit_flash: 0.16,
                 block_invuln_floor: ambition_body_seed::clusters::ACTOR_DAMAGE_IFRAME_S
                     * feel.hit_repeat_window_scale,

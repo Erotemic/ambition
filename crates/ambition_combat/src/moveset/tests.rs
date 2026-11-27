@@ -3347,6 +3347,7 @@ fn cancel_window(into: &[&str], condition: CancelCondition) -> MoveWindow {
         tag: WindowTag::Cancelable {
             into: into.iter().map(|s| s.to_string()).collect(),
             condition,
+            press: None,
         },
         volumes: vec![],
         sustain_effect: None,
@@ -5920,6 +5921,7 @@ fn chain_link(
             tag: WindowTag::Cancelable {
                 into: into.iter().map(|s| (*s).to_string()).collect(),
                 condition: ambition_entity_catalog::CancelCondition::Always,
+                press: None,
             },
             volumes: vec![],
             sustain_effect: None,
@@ -6045,6 +6047,68 @@ fn a_held_button_walks_the_string_with_no_second_press() {
         vec!["jab".to_string(), "jab2".to_string(), "jab3".to_string()],
         "a held button should walk the authored string; it played {walked:?}"
     );
+}
+
+/// ⭐ A STRING BRANCHES BY THE STICK. A cancel window authored for a
+/// direction (`Cancelable::press`) names the step a press aimed that way
+/// takes, ahead of the tilt the press would otherwise play. A neutral press
+/// still takes the undirected step, and a direction the window has no branch
+/// for plays its own tilt.
+#[test]
+fn a_directed_press_takes_the_branch_its_window_names() {
+    let mut first = chain_link("arc", &["level", "any_attack"], None);
+    first.windows.push(MoveWindow {
+        start_s: 0.05,
+        end_s: 0.30,
+        tag: WindowTag::Cancelable {
+            into: vec!["rise".to_string()],
+            condition: ambition_entity_catalog::CancelCondition::Always,
+            press: Some(AttackDir::Up),
+        },
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    });
+    let moveset = MovesetContract {
+        verbs: [
+            (ATTACK_VERB.to_string(), "arc".to_string()),
+            ("attack_up".to_string(), "up_tilt".to_string()),
+            ("attack_down".to_string(), "down_tilt".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+        moves: vec![
+            first,
+            chain_link("level", &[], None),
+            chain_link("rise", &[], None),
+            chain_link("up_tilt", &[], None),
+            chain_link("down_tilt", &[], None),
+        ],
+    };
+    let second_step = |axis: ae::LocalAxes| {
+        let (mut app, body) = playing_app(moveset.clone());
+        set_frame(&mut app, body, |f| f.melee_pressed = true);
+        app.update();
+        assert_eq!(playing(&app, body).as_deref(), Some("arc"), "premise: the first step");
+        // Half deflection: enough to name a direction, short of a flick, so
+        // the press is a tilt and not a smash.
+        set_frame(&mut app, body, |f| {
+            f.melee_pressed = false;
+            f.attack_axis = axis;
+        });
+        for _ in 0..4 {
+            app.update();
+        }
+        set_frame(&mut app, body, |f| {
+            f.melee_pressed = true;
+            f.attack_axis = axis;
+        });
+        app.update();
+        playing(&app, body)
+    };
+    assert_eq!(second_step(ae::LocalAxes::new(0.0, -0.5)).as_deref(), Some("rise"), "up takes the up branch");
+    assert_eq!(second_step(ae::LocalAxes::ZERO).as_deref(), Some("level"), "neutral takes the undirected step");
+    assert_eq!(second_step(ae::LocalAxes::new(0.0, 0.5)).as_deref(), Some("down_tilt"), "a direction with no branch plays its tilt");
 }
 
 /// ⛔ AND A HOLD MAY NOT START ONE. The sustain continues what is already

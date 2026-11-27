@@ -4047,15 +4047,28 @@ pub fn trigger_moveset_moves(
             let same_repress = proposer == ProposedVerb::Attack
                 && gesture.pressed.is_some()
                 && spec.as_ref().is_some_and(|spec| spec.id == pb.spec.id);
-            let successor = (neutral_repress || held_string || same_repress)
-                .then(|| {
-                    pb.spec
-                        .cancel_successors(pb.t, pb.contact())
-                        .find(|id| *id != pb.spec.id.as_str())
-                        .and_then(|id| moveset.0.move_by_id(id))
-                        .cloned()
-                })
-                .flatten();
+            // A FOURTH: A PRESS AIMED WHERE THE STRING BRANCHES. A window
+            // authored for a direction (`Cancelable::press`) names the step a
+            // press aimed that way takes, ahead of the tilt it would play: a
+            // string that goes level, up or down by the stick. A directed
+            // press the playing window has no branch for is the
+            // move-into-move it always was. ⛔ A smash flick is a smash, never
+            // a branch, as a held smash is never a string.
+            let branch_dir = (proposer == ProposedVerb::Attack)
+                .then_some(gesture.pressed)
+                .flatten()
+                .filter(|intent| intent.direction != AttackDir::Neutral && intent.strength != AttackStrength::Smash)
+                .map(|intent| intent.direction);
+            let named = |press: Option<AttackDir>| {
+                pb.spec
+                    .cancel_successors(pb.t, pb.contact(), press)
+                    .find(|id| *id != pb.spec.id.as_str())
+                    .and_then(|id| moveset.0.move_by_id(id))
+                    .cloned()
+            };
+            let successor = branch_dir
+                .and_then(|dir| named(Some(dir)))
+                .or_else(|| (neutral_repress || held_string || same_repress).then(|| named(None)).flatten());
             let Some(spec) = successor.or(spec) else {
                 continue;
             };

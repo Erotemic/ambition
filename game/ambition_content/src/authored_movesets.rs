@@ -570,7 +570,7 @@ mod flow_tests {
             }
             for mv in &contract.moves {
                 for window in &mv.windows {
-                    let WindowTag::Cancelable { into, condition } = &window.tag else {
+                    let WindowTag::Cancelable { into, condition, .. } = &window.tag else {
                         continue;
                     };
                     windows += 1;

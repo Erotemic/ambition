@@ -396,6 +396,8 @@ In the lab tower preview, show which exits a body can reach from each
 landing with its usual jump and climb.
 In the throne arena, preview the steps with the light set for the sleeping
 boss. Check that the deck edges are visible from the floor.
+Use the same source for the throne arena and practice arena gallery
+spans and props. Keep each arena's doors and encounter IDs in its room.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

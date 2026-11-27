@@ -728,6 +728,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     >),
                 actors::animate_player,
                 (actors::start_bark_poses, actors::animate_characters).chain(),
+                actors::animate_props,
                 // Content-owned overlays (`ActorOverlaySet`) run here: after
                 // `animate_characters`, before the hit-flash mirror.
                 //
@@ -737,7 +738,6 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 hit_flash::sync_hit_flash_overlays.in_set(BodyOwnedDrawableSync),
                 #[cfg(not(target_os = "android"))]
                 hit_flash::cleanup_hit_flash_overlays,
-                actors::animate_props,
                 actors::animate_feature_sprites,
                 // HazardColumn column visual: yellow during telegraph, red during
                 // strike. After `animate_bosses`, so it reads the `BossAttackState`
@@ -859,6 +859,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::rigged::bind_rigged_presentations
                     .after(actors::upgrade_actor_sprites)
                     .after(actors::refresh_player_sprites_for_resident_quality)
+                    .after(moving_platforms::sync_moving_platform_visuals)
                     .before(actors::animate_player),
                 // A boss drawn from parts: demanded, bound once its sheet is
                 // realized, and posed from the cell `animate_bosses` drew.
@@ -878,6 +879,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .after(actors::rigged::bind_rigged_presentations)
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
+                    .after(actors::animate_props)
                     .after(actors::BossAnimation)
                     .after(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                     .before(actors::rigged::RiggedDriveSet),

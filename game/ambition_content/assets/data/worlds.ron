@@ -30,7 +30,7 @@
         // The Science dimension: an orbital station and, at the far end of
         // its spoke, the gravity works where GNU-ton waits. The station's
         // gate dock and the works' orchard are its two gate arrivals.
-        (id: "world.science_ldtk", file: "science.ldtk"),
+        (id: "world.science_ldtk", file: "science.ldtk", map_title: Some("Science Dimension")),
         // The PvN dimension, pirates and ninjas (Jon, 2026-10-29): the Pirate
         // Port (gate address SAILING), its docks, the pirate cove and the
         // skyship's lookout; the Ninja Village (gate address SILENT), its

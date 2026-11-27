@@ -105,6 +105,8 @@
         "gallus_whistle": ["whistle"],
         "gallus_lasso": ["lasso"],
         "gallus_high_noon": ["high_noon", "quickdraw"],
+        "lode_fault": ["fault"],
+        "lode_shed": ["shed"],
         // The Supreme Leader: each move's row on his sheet.
         "sl_lines": ["order"],
         "sl_decree": ["decree"],

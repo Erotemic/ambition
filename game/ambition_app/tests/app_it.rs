@@ -36,6 +36,7 @@ mod the_cart_of_the_wake_room;
 mod the_art_dimension;
 mod the_history_dimension;
 mod the_fantasy_country;
+mod the_elemental_mine;
 mod marshal_gallus;
 mod leaving_a_ladder;
 mod the_noodly_temple;

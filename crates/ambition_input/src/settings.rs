@@ -31,6 +31,42 @@ pub enum MenuTapMode {
     TapToSelectThenConfirm,
 }
 
+/// When the small button that hides and restores the virtual gamepad is shown
+/// (Q178). The gamepad is never hidden because a menu takes touch; this
+/// button is how a player gets it out of the way, and back.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ToggleGamepadButton {
+    /// Shown when the gamepad could cover other UI (a menu or a dialogue
+    /// owns the controls), and always while the gamepad is hidden.
+    #[default]
+    Auto,
+    Always,
+    /// Never shown; a gamepad hidden when this is chosen comes back.
+    Never,
+}
+
+impl ToggleGamepadButton {
+    pub const ALL: [Self; 3] = [Self::Auto, Self::Always, Self::Never];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Always => "always visible",
+            Self::Never => "never visible",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| p == &self).unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| p == &self).unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
 impl Default for MenuTapMode {
     fn default() -> Self {
         // One default on every platform. `SingleTapWithDestructiveGuard` already
@@ -526,6 +562,9 @@ pub struct ControlSettings {
     /// keyboard-only on desktop; touch input stays live.
     #[serde(default = "default_touch_controls_visible")]
     pub touch_controls_visible: bool,
+    /// When the button that hides and restores the virtual gamepad shows.
+    #[serde(default)]
+    pub toggle_gamepad_button: ToggleGamepadButton,
     /// Size of the left touch stick relative to its default size.
     #[serde(default = "default_touch_control_scale")]
     pub touch_left_scale: f32,
@@ -597,6 +636,7 @@ impl Default for ControlSettings {
             menu_repeat_initial_delay: 0.32,
             menu_repeat_interval: 0.12,
             touch_controls_visible: default_touch_controls_visible(),
+            toggle_gamepad_button: ToggleGamepadButton::default(),
             touch_left_scale: default_touch_control_scale(),
             touch_right_scale: default_touch_control_scale(),
             menu_tap_mode: MenuTapMode::default(),

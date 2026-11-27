@@ -1068,7 +1068,17 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
          write nowhere — they would look live and change nothing"
     );
 
-    tap(&mut app, KeyCode::Escape);
+    // Controller Start: on the frontend Escape is Back and Start keeps the
+    // shell-menu behaviour (the binding contract,
+    // docs/planning/contextual-input-and-island-pause-2026-11-24.md).
+    let pad = app.world_mut().spawn(bevy::input::gamepad::Gamepad::default()).id();
+    app.update();
+    for value in [1.0, 0.0] {
+        app.world_mut().write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+            bevy::input::gamepad::RawGamepadButtonChangedEvent::new(pad, GamepadButton::Start, value),
+        ));
+        app.update();
+    }
     // ⛔⛔ THE ROAD CHANGED, THE CAPABILITY DID NOT — and this assertion is why
     // the change was safe to make. Escape used to open the shell PAUSE menu OVER
     // the launcher: two live menus, settings unusable, the winner apparently
@@ -1083,7 +1093,7 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
             .resource::<ambition_platformer2d::game_shell::ShellLauncherState>()
             .tab,
         ambition_platformer2d::game_shell::LauncherTab::Settings,
-        "Escape on the title screen did not reach the settings tab"
+        "controller Start on the title screen did not reach the settings tab"
     );
     assert!(
         !app.world()

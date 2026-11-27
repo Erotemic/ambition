@@ -594,6 +594,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::BurstInputMode,
             SettingsOptionId::RightStickMode,
             SettingsOptionId::TouchControls,
+            SettingsOptionId::ToggleGamepadButton,
             SettingsOptionId::TouchLeftScale,
             SettingsOptionId::TouchRightScale,
             SettingsOptionId::MenuTapMode,

@@ -39,3 +39,40 @@ This cumulative implementation was authored against d49467d5b877 plus the Monoli
 - Development reset authorization, unanimous pause synchronization and independent island execution are separate from the binding migration.
 
 Prefer direct declarations and one binding authority over inference, redundant policy or compatibility layers. The goal is that a developer edits a row, reads the effective table, and understands the resulting control behavior.
+
+## Reds after the transition (measured 2026-11-26)
+
+The transition landed with app and unit tests red. Fixed 2026-11-26:
+
+- **Pads could not join.** A controller claims a seat on the frame it presses
+  Start (`claim_local_seats`), so that frame the seat's pad changes and its
+  map is rewritten. `ContextualButtonHistory::sample` read both as a resync and
+  dropped every edge, the joining Start included, so `seat_a_joining_participant`
+  never saw it. The sampler now takes the seat's `Gamepad`. When the pad
+  changed, a button that controller reports just pressed this frame still makes
+  its edge, because it was not held across the change. A rebind with no pad
+  change still suppresses everything. This fixed 16 of the 17
+  `local_play_modes` failures.
+- **Tests that pressed the first Interact binding.** The effective table lists
+  a pad's controls first, so `door_entry`, `door_with_the_touch_overlay`,
+  `a_cover_waits_on_the_room_it_arrives_in` and
+  `a_timed_out_crossing_clears_its_load` pressed `RightTrigger` with no
+  controller. They now take the first keyboard binding (`physical_control_of`).
+- **`the_title_screen_menu_opens_and_mutes_the_game`** pressed Escape. On the
+  frontend Escape is Back by the contract, so the test now presses controller
+  Start, which keeps the shell-menu behaviour.
+
+Still red, all present at the pre-fix tree:
+
+- `local_play_modes::two_pads_join_open_and_close_their_own_menus_on_both_backends`:
+  the join now succeeds; the second seat's Rebind capture of `RightThumb`
+  leaves its bindings unchanged.
+- `smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`,
+  `smash_reaction_poses::every_reaction_pose_is_drawn_by_human_and_cpu_seats`.
+- `ambition_input` lib: four `bindings::tests` that read a preset's first
+  label (now a pad's `A`) and `presets::tests::a_menu_confirms_on_a_and_backs_out_on_b_and_their_keyboard_stand_ins`
+  (`Backspace` where it expected another Back key).
+- `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`
+  and `a_hosted_game_plays_the_bank_cues_its_moves_name` are environmental on a
+  machine without the generated SFX family (`ambition_shared` reports sfx
+  missing); not caused by the transition.

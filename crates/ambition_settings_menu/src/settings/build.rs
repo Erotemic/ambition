@@ -359,6 +359,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 c.touch_controls_visible,
                 "Show or hide the on-screen touch overlay (touch input stays active either way).",
             ),
+            {
+                let (i, n) = enum_index(&ambition_persistence::settings::controls::ToggleGamepadButton::ALL, c.toggle_gamepad_button);
+                cycle(
+                    SettingsOptionId::ToggleGamepadButton,
+                    "Toggle Gamepad Button",
+                    c.toggle_gamepad_button.label(),
+                    i,
+                    n,
+                    "When the corner button that hides and restores the touch gamepad shows. Auto: over menus and dialogue, and whenever the gamepad is hidden.",
+                )
+            },
             slider(
                 SettingsOptionId::TouchLeftScale, "Left Touch Size", c.touch_left_scale,
                 ambition_persistence::settings::controls::TOUCH_SCALE_MIN,

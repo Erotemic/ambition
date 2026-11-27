@@ -1,8 +1,8 @@
 //! Contextual button sampling and physical press history.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use bevy::prelude::{Entity, Resource, Vec2};
+use bevy::prelude::{Entity, Gamepad, Resource, Vec2};
 use leafwing_input_manager::prelude::{ActionState, Buttonlike};
 use leafwing_input_manager::user_input::updating::CentralInputStore;
 
@@ -156,9 +156,14 @@ pub struct ContextualButtonHistory {
 impl ContextualButtonHistory {
     /// Read the Leafwing input cache, including custom virtual buttons. Map
     /// changes or focus loss inhibit a new edge until the button is released.
+    ///
+    /// A seat that changes controllers keeps one edge: a button the new
+    /// controller (`device`) reports pressed on this very frame was not held
+    /// across the change. That is the press a controller claims a seat with,
+    /// and the seat must read it as the join.
     pub fn sample(&mut self, table: &BindingTable, actions: &ActionState<A>, store: &CentralInputStore,
-        pad: Entity, route: ButtonRoute, map_changed: bool, enabled: bool, pages: MenuShortcutPages,
-        frame: &mut MenuControlFrame)
+        pad: Entity, device: Option<&Gamepad>, route: ButtonRoute, map_changed: bool, enabled: bool,
+        pages: MenuShortcutPages, frame: &mut MenuControlFrame)
     {
         let mut rows = HashMap::<&Box<dyn Buttonlike>, Option<MenuButtonIntent>>::new();
         for row in table.rows() {
@@ -169,16 +174,36 @@ impl ContextualButtonHistory {
                 }
             }
         }
-        let resync = self.initialized && (map_changed || self.pad != Some(pad));
+        let pad_changed = self.initialized && self.pad != Some(pad);
+        let resync = self.initialized && (map_changed || pad_changed);
+        let fresh: HashSet<&Box<dyn Buttonlike>> = if pad_changed {
+            rows.keys().copied().filter(|control| {
+                crate::bindings::gamepad_button_of(control.as_ref())
+                    .zip(device)
+                    .is_some_and(|(button, device)| device.just_pressed(button))
+            }).collect()
+        } else {
+            HashSet::new()
+        };
         self.initialized = true;
         self.pad = Some(pad);
-        self.apply(rows, route, enabled && !actions.disabled(), resync, frame,
+        self.apply_fresh(rows, route, enabled && !actions.disabled(), resync, &fresh, frame,
             |intent| pages.allows(intent) && !actions.action_disabled(&intent.action()));
     }
 
+    #[cfg(test)]
     fn apply(&mut self, rows: HashMap<&Box<dyn Buttonlike>, Option<MenuButtonIntent>>,
         route: ButtonRoute, enabled: bool, resync: bool, frame: &mut MenuControlFrame,
         action_enabled: impl Fn(MenuButtonIntent) -> bool)
+    {
+        self.apply_fresh(rows, route, enabled, resync, &HashSet::new(), frame, action_enabled);
+    }
+
+    /// `fresh`: controls pressed on this frame's device during a resync, which
+    /// still make their edge.
+    fn apply_fresh(&mut self, rows: HashMap<&Box<dyn Buttonlike>, Option<MenuButtonIntent>>,
+        route: ButtonRoute, enabled: bool, resync: bool, fresh: &HashSet<&Box<dyn Buttonlike>>,
+        frame: &mut MenuControlFrame, action_enabled: impl Fn(MenuButtonIntent) -> bool)
     {
         frame.up = false;
         frame.down = false;
@@ -201,7 +226,7 @@ impl ContextualButtonHistory {
         for (control, intent) in rows {
             let intent = intent.filter(|intent| action_enabled(*intent));
             let previous = self.held.get(control.as_ref());
-            let edge = enabled && !resync && previous.is_none();
+            let edge = enabled && (!resync || fresh.contains(control)) && previous.is_none();
             let accepted = if edge {
                 intent.map(|intent| (route, intent))
             } else if enabled && !resync {

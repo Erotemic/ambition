@@ -58,7 +58,7 @@ whose west side is now an edge.
 | `frontier_clinker_yard` | Lou Shunter is at the freight dock. The tipple road leads to the works. An inspection ladder connects it to the tracks, which lead to the Row. |
 | `frontier_clinker_works` | The walking lane passes in front of the slag pots. The loading step and the ladder give access to the crane gantries. Magda Ferro is at the foot of the crane. |
 | `frontier_clinker_row` | The street leads past Ida Soames and the pump. Wash stands give access to the roofs. A drying deck connects the roofs and gives access to the pump. |
-| `frontier_clinker_railhead` | the old tramway grade down from the works, the line east to Pad Three |
+| `frontier_clinker_railhead` | The old tramway descends from the works. Signal steps connect it to the street from the Row. Both routes lead to Pad Three. |
 
 Clinker Flats is a loop: the yard's tipple road and the railhead's grade
 join the works' level (yard, works, railhead) and the street level (yard,

@@ -386,6 +386,8 @@ At the smelter, show the walking lane in front of the slag pots. Use the
 ledge bounds to place the crane loading step and both gantry floors.
 At Clinker Row, show the final text positions on the laundry notice. Let
 an author group the lines of a sign so they keep their order and spacing.
+At the gatehouse, show the body width on the watch ladder. Check that the
+body clears the catwalk edge when it climbs down.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

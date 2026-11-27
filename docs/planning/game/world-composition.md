@@ -45,6 +45,9 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 ```
 
 - **Upper floor:** gatehouse, barracks and the lab tower side by side. The barracks join the tower partway up its climb (y 704). The tower's top joins the great hall, and its foot joins the workshop.
+- In the gatehouse, the floor passes below the guard catwalks. Steps
+  connect the guard platform to the watch gallery. The ladder at the east
+  end connects the gallery to the barracks exit.
 - **Lower floor:** a stair down through the gatehouse's floor into the kitchens, then east through the Complaints Department and the cells into the tower lower down (y 1344). The whole castle is a loop.
 - **Shortcut:** the lever in the cells opens the cracked trapdoor in the barracks' floor.
 - **Secret:** the kitchens' west wall is false at the floor, and the Guild's room is behind it.
@@ -52,6 +55,10 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 - **Tests:** `game/ambition_app/tests/the_castle_kitchens.rs`.
 
 ## The Evil outdoors (the second)
+
+The cemetery wall gives travellers a raised crossing through the gate
+forest. Steps connect it to the road on both sides of the graves. A
+conscript starts on the wall. The spectral wolf starts on the road.
 
 ```
  [Gallows Hill]══bridge══[Searchlight Ridge]─────────────┐

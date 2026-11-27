@@ -10,6 +10,11 @@
 //! * a wall level with or below the body (or a body that cannot hang): the
 //!   body is pulled toward the bite at [`PULL_SPEED`] (a burst of velocity:
 //!   collision settles the body at the surface), and the line is drawn.
+//! * a body before any wall: the WHIP. The line's end strikes it
+//!   (`ambition.combat.strike`) and tugs it toward the wielder.
+//! * a loose item before any wall: the GRAB. The item flies back to the hand
+//!   (`ambition.items.reel_in`), and the body takes it as it takes any item
+//!   at its feet.
 //! * nothing within [`RANGE`]: the miss sound, and nothing is spent.
 //!
 //! Driven bodies only. A bite shares the movement cooldown with the blink.
@@ -18,9 +23,9 @@
 //! the host casts, and the module decides everything from the answer.
 
 use ambition_combat_port::{
-    AimCastPort, BodySound, BodySoundPort, Burst, BurstPort, HangOnRope, HangOnRopePort, HitMark, HitMarkPort,
-    LetGoOfRope, LetGoOfRopePort, MovementCooldown, MovementCooldownPort, Place, SetVelocity, SetVelocityPort,
-    WieldedUsePort, Wielder,
+    AimCastPort, AimHit, BodySound, BodySoundPort, Burst, BurstPort, HangOnRope, HangOnRopePort, HitMark, HitMarkPort,
+    LetGoOfRope, LetGoOfRopePort, MovementCooldown, MovementCooldownPort, Place, ReelInItem, ReelInItemPort,
+    SetVelocity, SetVelocityPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, WieldedUsePort, Wielder,
 };
 use ambition_extension_sdk::{Fault, Invocation, ModuleDescriptor, Port};
 
@@ -48,7 +53,14 @@ pub const ROPE: HangOnRope = HangOnRope {
     max_length: RANGE,
     release_hop: 280.0,
 };
-/// Only a bite uses it, so grappling is deliberate.
+/// The whip's crack at the line's end: how wide, how hard, and how much of
+/// the victim's launch the tug toward the wielder is.
+const WHIP_RADIUS: f32 = 22.0;
+const WHIP_DAMAGE: i32 = 1;
+const WHIP_TUG: f32 = 0.55;
+/// How long a grabbed item flies back to the hand.
+const REEL_S: f32 = 0.4;
+/// Only a bite, a whip or a grab uses it, so grappling is deliberate.
 const COOLDOWN_S: f32 = 0.55;
 const SOUND: &str = "player.dash";
 /// The zip's line is drawn as tan sparks between the body and the wall, so
@@ -65,6 +77,8 @@ pub fn module() -> ModuleDescriptor {
             SetVelocityPort::KEY,
             HangOnRopePort::KEY,
             LetGoOfRopePort::KEY,
+            StrikePort::KEY,
+            ReelInItemPort::KEY,
             BodySoundPort::KEY,
             BurstPort::KEY,
             HitMarkPort::KEY,
@@ -102,9 +116,10 @@ fn grapple(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if wielded::unit_or_zero(w.to_world(w.aim_local)) == [0.0, 0.0] {
         return Ok(());
     }
-    // The host casts farther than the line reaches: a wall past the range is
-    // a miss.
-    let Some(hit) = inv.observe::<AimCastPort>()?.hit.filter(|hit| hit.distance < RANGE) else {
+    // The host casts farther than the line reaches: anything past the range
+    // is a miss.
+    let cast = inv.observe::<AimCastPort>()?;
+    let Some(caught) = caught(cast.hit, cast.body, cast.item) else {
         return inv.submit::<BodySoundPort>(sound);
     };
     if !w.cooldown_ready {
@@ -112,17 +127,114 @@ fn grapple(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
     inv.submit::<MovementCooldownPort>(MovementCooldown { seconds: COOLDOWN_S })?;
     inv.submit::<BodySoundPort>(sound)?;
+    let hit = match caught {
+        Caught::Body(hit) => {
+            let side = (hit.at[0] - from[0]) * w.frame_side[0] + (hit.at[1] - from[1]) * w.frame_side[1];
+            inv.submit::<StrikePort>(Strike {
+                volume: StrikeVolume::Circle { at: Place::World(hit.at), radius: WHIP_RADIUS },
+                damage: WHIP_DAMAGE,
+                knockback: Some(StrikeKnockback { dir: if side >= 0.0 { -1.0 } else { 1.0 }, feel_scale: WHIP_TUG }),
+            })?;
+            return draw_line(inv, from, hit.at);
+        }
+        Caught::Item(hit) => {
+            inv.submit::<ReelInItemPort>(ReelInItem { at: hit.at, flight_s: REEL_S })?;
+            return draw_line(inv, from, hit.at);
+        }
+        Caught::Wall(hit) => hit,
+    };
     if w.swept && hangs_from(&w, from, hit.at) {
         inv.submit::<HangOnRopePort>(HangOnRope { anchor: hit.at, ..ROPE })?;
         return inv.submit::<HitMarkPort>(HitMark { at: Place::World(hit.at) });
     }
     let pull = wielded::unit_or_zero([hit.at[0] - from[0], hit.at[1] - from[1]]);
     inv.submit::<SetVelocityPort>(SetVelocity { velocity: [pull[0] * PULL_SPEED, pull[1] * PULL_SPEED] })?;
+    draw_line(inv, from, hit.at)
+}
+
+/// What the line caught first within [`RANGE`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Caught {
+    Wall(AimHit),
+    Body(AimHit),
+    Item(AimHit),
+}
+
+/// The first of a wall, a body and an item the line meets within [`RANGE`]
+/// (the host reports a body or an item only before the wall). A body before
+/// an item at the same distance is the one struck.
+pub fn caught(wall: Option<AimHit>, body: Option<AimHit>, item: Option<AimHit>) -> Option<Caught> {
+    [body.map(Caught::Body), item.map(Caught::Item), wall.map(Caught::Wall)]
+        .into_iter()
+        .flatten()
+        .filter(|caught| distance(caught) < RANGE)
+        .min_by(|a, b| distance(a).total_cmp(&distance(b)))
+}
+
+fn distance(caught: &Caught) -> f32 {
+    match caught {
+        Caught::Wall(hit) | Caught::Body(hit) | Caught::Item(hit) => hit.distance,
+    }
+}
+
+/// The line, as tan sparks from the body to where it caught, and a mark there.
+fn draw_line(inv: &mut Invocation<'_>, from: [f32; 2], to: [f32; 2]) -> Result<(), Fault> {
     for i in 1..LINE_SEGMENTS {
         // The engine's `lerp`: `a * (1 - s) + b * s`.
         let s = i as f32 / LINE_SEGMENTS as f32;
-        let at = [from[0] * (1.0 - s) + hit.at[0] * s, from[1] * (1.0 - s) + hit.at[1] * s];
+        let at = [from[0] * (1.0 - s) + to[0] * s, from[1] * (1.0 - s) + to[1] * s];
         inv.submit::<BurstPort>(Burst { at, count: 2, speed: 28.0, color: LINE_COLOR, kind: "spark".into() })?;
     }
-    inv.submit::<HitMarkPort>(HitMark { at: Place::World(hit.at) })
+    inv.submit::<HitMarkPort>(HitMark { at: Place::World(to) })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(distance: f32) -> Option<AimHit> {
+        Some(AimHit { at: [distance, 0.0], distance })
+    }
+
+    /// The nearest thing within the range is caught; a body before an item
+    /// at one distance is the one; anything past the range is a miss.
+    #[test]
+    fn the_line_catches_the_nearest_thing_within_its_range() {
+        assert_eq!(caught(at(200.0), at(120.0), at(80.0)), Some(Caught::Item(AimHit { at: [80.0, 0.0], distance: 80.0 })));
+        assert!(matches!(caught(at(200.0), at(120.0), None), Some(Caught::Body(_))));
+        assert!(matches!(caught(at(200.0), at(90.0), at(90.0)), Some(Caught::Body(_))));
+        assert!(matches!(caught(at(150.0), None, None), Some(Caught::Wall(_))));
+        assert_eq!(caught(at(RANGE + 1.0), at(RANGE + 0.5), None), None);
+        assert_eq!(caught(None, None, None), None);
+    }
+
+    /// A bite above the body within the cap hangs it; a level bite, a bite
+    /// below, and one past the cap do not.
+    #[test]
+    fn only_a_bite_above_hangs_the_body() {
+        let w = Wielder {
+            pressed: true,
+            driven: true,
+            position: [0.0, 0.0],
+            size: [28.0, 46.0],
+            facing: 1.0,
+            frame_side: [1.0, 0.0],
+            frame_down: [0.0, 1.0],
+            aim_local: [1.0, -1.0],
+            mana: None,
+            names_spawns: false,
+            cooldown_ready: true,
+            swept: true,
+            on_rope: false,
+        };
+        assert!(hangs_from(&w, [0.0, 0.0], [100.0, -100.0]));
+        assert!(hangs_from(&w, [0.0, 0.0], [0.0, -100.0]));
+        assert!(!hangs_from(&w, [0.0, 0.0], [100.0, 0.0]));
+        assert!(!hangs_from(&w, [0.0, 0.0], [100.0, 50.0]));
+        assert!(!hangs_from(&w, [0.0, 0.0], [300.0, -50.0]), "past the cap (80° from up)");
+        // Under gravity turned up (+Y up the screen is down), "above" turns too.
+        let flipped = Wielder { frame_down: [0.0, -1.0], frame_side: [-1.0, 0.0], ..w };
+        assert!(hangs_from(&flipped, [0.0, 0.0], [0.0, 100.0]));
+        assert!(!hangs_from(&flipped, [0.0, 0.0], [0.0, -100.0]));
+    }
 }

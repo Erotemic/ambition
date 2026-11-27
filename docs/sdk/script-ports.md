@@ -451,6 +451,15 @@ Port `ambition.motion.let_go_of_rope@1`, request: `this.requests.push(request("<
 
 No fields: `request("let_go_of_rope", #{})`.
 
+## `reel_in`
+
+Port `ambition.items.reel_in@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `at` | [x, y] | required | A point in the item's box: where the line caught it (world frame). |
+| `flight_s` | number | required | How long the item flies back to the body, in seconds. |
+
 ## `observer_slow`
 
 Port `ambition.body.observer_slow@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

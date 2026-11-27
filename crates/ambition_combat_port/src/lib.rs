@@ -95,7 +95,8 @@ pub use group::{GroupItem, GroupMember, GroupThink, GroupThinkPort, Steer, Steer
 pub use whereabouts::{Standing, Whereabouts, WhereaboutsPort};
 pub use think::{ActorFire, ActorFirePort, ActorSightedThinkPort, ActorThink, ActorThinkPort};
 pub use wielded::{
-    AimCast, AimCastPort, AimHit, BodySound, BodySoundPort, MarkPort, MarkView, SetMark, SetMarkPort, SpendMana,
+    AimCast, AimCastPort, AimHit, BodySound, BodySoundPort, MarkPort, MarkView, ReelInItem, ReelInItemPort, SetMark,
+    SetMarkPort, SpendMana,
     SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder, AIM_CAST_REACH,
 };
 

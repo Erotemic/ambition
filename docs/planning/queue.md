@@ -2833,10 +2833,24 @@ G2 landed the same day: the grapple item hangs its body on the wire
 wielder's `on_rope`), swings on a bite above, zips otherwise, and the rope is
 drawn from the motion facts (`the_grapple_swings`).
 
-**Next action:** G3 (grab an item from a distance, whip a foe), then G4
-(Smash recovery).
+G3 landed the same day: the aim cast sees bodies and loose items before the
+wall; a body is whipped toward the wielder, a loose item reeled to the hand.
+
+**Next action:** G4 (Smash recovery), after COMBAT-STANCES S1–S3.
 
 **Acceptance:** [grapple](game/grapple.md#stages) G1–G4.
+
+**Blocked by:** none.
+
+### COMBAT-STANCES — Scout's hit kit in three stances
+
+**Owner:** [combat stances](game/combat-stances.md).
+
+**State:** asked by Jon 2026-11-27; planned.
+
+**Next action:** S1, `EquipmentRow.rebinds` and the three stance items.
+
+**Acceptance:** [combat stances](game/combat-stances.md#stages) S1–S5.
 
 **Blocked by:** none.
 

@@ -654,10 +654,18 @@ pub fn knockback_velocity(
     tuning: &HitResponseTuning,
 ) -> Vec2 {
     let frame = AccelerationFrame::new(gravity_dir);
-    let side_from_source = knockback.map(|k| (victim_pos - k.source_pos).dot(frame.side));
-    let knockback_dir = side_from_source
+    // ⛔ THE HIT'S OWN SIDE FIRST. Every producer states `dir`, and an
+    // undirected hit states the side away from its source, which is what the
+    // geometry below gives. Re-deriving it here first overrode a strike that
+    // names its side (`StrikeKnockback::dir`: a whip that tugs its victim back
+    // toward the wielder), so the named side was read only for a victim
+    // exactly level with the source. The geometry answers only a hit that
+    // states no side.
+    let side_from_source = || knockback.map(|k| (victim_pos - k.source_pos).dot(frame.side));
+    let knockback_dir = knockback
+        .map(|k| k.dir)
         .filter(|d| d.abs() > 0.001)
-        .or_else(|| knockback.map(|k| k.dir))
+        .or_else(|| side_from_source().filter(|d| d.abs() > 0.001))
         .unwrap_or(0.0);
     let dir = if knockback_dir.abs() <= 0.001 {
         -victim_facing

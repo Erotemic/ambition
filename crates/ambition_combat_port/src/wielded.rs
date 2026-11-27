@@ -206,7 +206,7 @@ impl Port for MarkPort {
 /// that reaches less far reads [`AimHit::distance`].
 pub const AIM_CAST_REACH: f32 = 600.0;
 
-/// The observation port marker for the first wall along a body's aim.
+/// The observation port marker for what a line along a body's aim meets.
 ///
 /// Port card:
 ///
@@ -214,12 +214,16 @@ pub const AIM_CAST_REACH: f32 = 600.0;
 ///   the body's aim (`Wielder::aim_local` in the world, made unit) from its
 ///   position, within [`AIM_CAST_REACH`]: where the line meets it and how
 ///   far that is. The composed walls: a moving platform or an ECS solid
-///   stops the line; a one-way platform does not.
+///   stops the line; a one-way platform does not. `body` is the first other
+///   body with health in the same room the line crosses before the wall
+///   (where it enters the body's box), and `item` the first loose item there
+///   (a held item lying in the world).
 /// * **Owner** — `ambition_abilities::extension` (the collision world).
 /// * **Time** — `wielded_use`, at the read cut. The host casts only for an
 ///   entry that runs, so an idle tick costs nothing.
 /// * **Absence** — never absent for a body: `hit` is `None` when the aim has
-///   no direction or meets no solid within the reach.
+///   no direction or meets no solid within the reach; `body` and `item` are
+///   `None` when the line crosses none before the wall.
 pub struct AimCastPort;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -231,26 +235,75 @@ pub struct AimHit {
 #[derive(Clone, Debug, PartialEq)]
 pub struct AimCast {
     pub hit: Option<AimHit>,
+    pub body: Option<AimHit>,
+    pub item: Option<AimHit>,
 }
 
 impl Port for AimCastPort {
-    const KEY: PortKey = PortKey::new("ambition.items.aim_cast", 1);
+    const KEY: PortKey = PortKey::new("ambition.items.aim_cast", 2);
     const ROLE: PortRole = PortRole::Observation;
     type Value = AimCast;
 
     fn encode(v: &AimCast, out: &mut Vec<u8>) {
-        wire::put_opt(out, v.hit, |out, hit| {
-            wire::put_vec2(out, hit.at);
-            wire::put_f32(out, hit.distance);
-        });
+        for hit in [v.hit, v.body, v.item] {
+            wire::put_opt(out, hit, |out, hit| {
+                wire::put_vec2(out, hit.at);
+                wire::put_f32(out, hit.distance);
+            });
+        }
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<AimCast, WireError> {
-        Ok(AimCast {
-            hit: r.opt(|r| Ok(AimHit { at: r.vec2()?, distance: r.f32()? }))?,
-        })
+        let mut hit = || r.opt(|r| Ok(AimHit { at: r.vec2()?, distance: r.f32()? }));
+        Ok(AimCast { hit: hit()?, body: hit()?, item: hit()? })
     }
 }
+
+/// The request port marker for reeling a loose item in.
+///
+/// Port card:
+///
+/// * **Operation** — the loose item (a held item lying in the world) in the
+///   live room the body is in whose box holds `at` (the nearest, if two do)
+///   is thrown back to the body: it flies on an arc under its own gravity
+///   that reaches the body's position in `flight_s` seconds, and the body
+///   takes it as it takes any item lying at its feet.
+/// * **Owner** — `ambition_abilities::extension` (the item's motion).
+/// * **Refusal** — no loose item holds `at`: nothing moves.
+/// * **Time** — `wielded_use`, after the body stepped: the item flies from
+///   the next tick.
+pub struct ReelInItemPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReelInItem {
+    pub at: [f32; 2],
+    pub flight_s: f32,
+}
+
+impl Port for ReelInItemPort {
+    const KEY: PortKey = PortKey::new("ambition.items.reel_in", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = ReelInItem;
+
+    fn encode(v: &ReelInItem, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<ReelInItem, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    ReelInItem {
+        /// A point in the item's box: where the line caught it (world frame).
+        at: [f32; 2],
+        /// How long the item flies back to the body, in seconds.
+        flight_s: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(ReelInItemPort);
 
 /// The request port marker for setting a body's mark.
 ///
@@ -391,7 +444,12 @@ mod tests {
 
     #[test]
     fn an_aim_cast_survives_the_wire() {
-        for cast in [AimCast { hit: Some(AimHit { at: [380.0, 300.0], distance: 230.0 }) }, AimCast { hit: None }] {
+        let at = |x: f32, distance: f32| Some(AimHit { at: [x, 300.0], distance });
+        for cast in [
+            AimCast { hit: at(380.0, 230.0), body: at(250.0, 100.0), item: None },
+            AimCast { hit: None, body: None, item: at(200.0, 50.0) },
+            AimCast { hit: None, body: None, item: None },
+        ] {
             let mut out = Vec::new();
             AimCastPort::encode(&cast, &mut out);
             let mut r = WireReader::new(&out);

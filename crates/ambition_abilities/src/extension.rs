@@ -67,6 +67,11 @@ pub fn install(app: &mut App) {
     app.install_extension_submitted_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
     app.install_extension_submitted_request::<HangOnRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_hangs);
     app.install_extension_submitted_request::<LetGoOfRopePort, _>(WIELDED_USE, "ambition_abilities", lower_rope_releases);
+    app.install_extension_submitted_request::<ambition_combat_port::ReelInItemPort, _>(
+        WIELDED_USE,
+        "ambition_abilities",
+        lower_reel_ins,
+    );
     app.install_extension_submitted_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
     app.install_extension_submitted_request::<BodySoundPort, _>(
         WIELDED_USE,
@@ -534,7 +539,8 @@ fn mark_of(world: &World, scope: Entity) -> Option<MarkView> {
 }
 
 /// The first solid of the body's live room along its aim, within
-/// [`AIM_CAST_REACH`]. The aim is the one a native held item reads
+/// [`AIM_CAST_REACH`], and the first body and loose item the line crosses
+/// before it. The aim is the one a native held item reads
 /// (`ability_aim_world`), and the walls are the composed walls of the room.
 fn aim_cast_of(world: &World, scope: Entity) -> Option<AimCast> {
     let (Some(control), Some(kin), Some(frame)) = (
@@ -542,7 +548,7 @@ fn aim_cast_of(world: &World, scope: Entity) -> Option<AimCast> {
         world.get::<BodyKinematics>(scope),
         world.get::<ResolvedMotionFrame>(scope),
     ) else {
-        return Some(AimCast { hit: None });
+        return Some(AimCast { hit: None, body: None, item: None });
     };
     let dir = ambition_held_items::ability_aim_world(&control.0, kin.facing, frame.down()).normalize_or_zero();
     let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(scope);
@@ -553,7 +559,99 @@ fn aim_cast_of(world: &World, scope: Entity) -> Option<AimCast> {
     })
     .flatten()
     .map(|(distance, at, _normal)| AimHit { at: [at.x, at.y], distance });
-    Some(AimCast { hit })
+    if dir == Vec2::ZERO {
+        return Some(AimCast { hit, body: None, item: None });
+    }
+    let before = hit.map_or(AIM_CAST_REACH, |hit| hit.distance);
+    // Which live room an entity is in, by the rule every pairing reads
+    // (`LiveRooms::of`): its stamp, its root identity, or the sole live room.
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let sole = world
+        .try_query_filtered::<&LiveRoomInstance, With<RoomInstanceRoot>>()
+        .and_then(|mut roots| roots.single(world).ok().copied());
+    let room_of = |entity: Entity| {
+        world
+            .get::<InRoomInstance>(entity)
+            .map(|stamp| stamp.0)
+            .or_else(|| world.get::<RoomInstanceRoot>(entity).and(world.get::<LiveRoomInstance>(entity).copied()))
+            .or(sole)
+    };
+    let here = room_of(scope);
+    let in_room = |entity: Entity| room_of(entity) == here;
+    // The nearest crossing; two at one distance are told apart by identity,
+    // so every peer names the same one.
+    let first = |crossings: &mut dyn Iterator<Item = (Entity, ambition_platformer2d_core::Aabb)>| -> Option<AimHit> {
+        crossings
+            .filter(|(entity, _)| *entity != scope && in_room(*entity))
+            .filter_map(|(entity, aabb)| {
+                let (distance, _) = ambition_platformer2d_core::cast::ray_aabb(kin.pos, dir, aabb)?;
+                (distance < before).then(|| (distance, world.get::<SimId>(entity).map(|id| id.as_str().to_owned()), entity.to_bits()))
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0).then_with(|| (&a.1, a.2).cmp(&(&b.1, b.2))))
+            .map(|(distance, ..)| {
+                let at = kin.pos + dir * distance;
+                AimHit { at: [at.x, at.y], distance }
+            })
+    };
+    let body = world
+        .try_query_filtered::<(Entity, &BodyKinematics), (
+            With<ambition_characters::actor::BodyHealth>,
+            Without<ambition_combat::death_rules::OutOfPlay>,
+        )>()
+        .and_then(|mut bodies| first(&mut bodies.iter(world).map(|(entity, body)| (entity, body.aabb()))));
+    let item = world
+        .try_query_filtered::<(Entity, &BodyKinematics, &ambition_held_items::ItemCustody), With<ambition_held_items::GroundItem>>()
+        .and_then(|mut items| {
+            first(&mut items.iter(world).filter(|(_, _, custody)| custody.in_world()).map(|(entity, body, _)| (entity, body.aabb())))
+        });
+    Some(AimCast { hit, body, item })
+}
+
+/// Lower `ambition.items.reel_in`: the loose item whose box holds the point
+/// flies back to the body on an arc under its own gravity, arriving in the
+/// asked time.
+fn lower_reel_ins(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut commands: Commands,
+    bodies: Query<(&BodyKinematics, &ResolvedMotionFrame), Without<ambition_held_items::GroundItem>>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut items: Query<
+        (Entity, &mut BodyKinematics, &ambition_held_items::ItemCustody, Option<&ambition_held_items::ItemBody>, Option<&SimId>),
+        With<ambition_held_items::GroundItem>,
+    >,
+) {
+    for submitted in outbox.drain::<ambition_combat_port::ReelInItemPort>(&WIELDED_USE) {
+        let reel = submitted.value;
+        let Ok((body, frame)) = bodies.get(submitted.scope) else {
+            continue;
+        };
+        let here = rooms.of(submitted.scope);
+        let at = Vec2::from(reel.at);
+        let caught = items
+            .iter()
+            .filter(|(entity, item, custody, ..)| {
+                custody.in_world()
+                    && rooms.of(*entity) == here
+                    && { let aabb = item.aabb(); at.cmpge(aabb.min - 1.0).all() && at.cmple(aabb.max + 1.0).all() }
+            })
+            .min_by(|a, b| {
+                a.1.pos.distance(at).total_cmp(&b.1.pos.distance(at))
+                    .then_with(|| (a.4.map(SimId::as_str), a.0.to_bits()).cmp(&(b.4.map(SimId::as_str), b.0.to_bits())))
+            })
+            .map(|(entity, ..)| entity);
+        let Some(caught) = caught else {
+            continue;
+        };
+        let Ok((_, mut item, _, response, _)) = items.get_mut(caught) else {
+            continue;
+        };
+        let t = reel.flight_s.max(1.0 / 60.0);
+        let gravity = frame.down() * ambition_held_items::GROUND_ITEM_GRAVITY * response.map_or(1.0, |r| r.gravity_scale);
+        // `d = v t + g t² / 2`, solved for `v`.
+        item.vel = (body.pos - item.pos) / t - gravity * (0.5 * t);
+        // A settled item steps from its contact, not its velocity: it flies again.
+        commands.entity(caught).remove::<ambition_held_items::SettledItem>();
+    }
 }
 
 /// The first ledge along `scope`'s facing, by the ledge authority's own

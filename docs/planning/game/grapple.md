@@ -1,6 +1,6 @@
 # Grapple
 
-**Status:** asked by Jon 2026-11-27; G1 and G2 landed the same day; G3–G4 below, in order. Queue: GRAPPLE.
+**Status:** asked by Jon 2026-11-27; G1–G3 landed the same day; G4 below. Queue: GRAPPLE.
 
 Jon (2026-11-27): *"make grapple a supported mechanic. The current
 implementation if any is broken. Grapple needs to be able to swing, it needs
@@ -77,6 +77,16 @@ A line is cast along the aim. What it bites decides what it does:
   X,Y[@TICK]` stages a swing for a film.
 - **G3 — grab and whip.** The cast reports the first body or item on the line;
   an item comes to the hand, a foe takes the line's hit.
+  *Landed:* `ambition.items.aim_cast` v2 reports the first body (with
+  health) and the first loose item the line crosses before the wall, by the
+  engine's room rule (`LiveRooms::of`). A body is whipped: a strike at the
+  line's end that tugs it toward the wielder. A loose item is reeled in
+  (`ambition.items.reel_in`): it flies back on an arc that reaches the hand in
+  0.4 s. The tug exposed an engine defect: `knockback_velocity` re-derived a
+  hit's side from geometry and read the strike's named side only for a victim
+  level with the source, so `StrikeKnockback::dir` was ignored; a hit's stated
+  side now wins (the geometry answers a hit that states none). Witnesses in
+  `the_grapple_swings.rs`.
 - **G4 — Smash recovery.** The same wire as a Smash move: a tether that swings
   to a ledge, with the ledge authority catching the body; authored on a
   fighter; the recovery planner knows the route.

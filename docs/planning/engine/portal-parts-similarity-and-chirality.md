@@ -711,8 +711,16 @@ the second path the far link is not admitted) and
 `a_turning_link_bounds_its_image_by_the_orbit_not_the_endpoints` (control:
 the same link with no turn). The translation-only case keeps its padding,
 so the no-portal, static and affine selections are unchanged (core lib
-948/948). Still open in P4: the shared projectile source leg, exact cell
-dependencies and further relative-motion specializations.
+948/948). Still open in P4: exact cell dependencies and further
+relative-motion specializations.
+
+**Receipt (2026-11-27, the shared source leg).** A projectile's leg is one
+prepared cast: its canonical box, material map, line from the leg start and
+interval are built once, and the root crossing search, the walls and the
+recipients read it (the crossing search had built its own box, map and
+cast). An unusable box or map refuses the leg once, before commit. Tests:
+`ambition_projectile_combat` 32 passed; runtime projectile tests with
+portals 66 passed. No time was measured.
 
 **Delete:** endpoint-only visited exclusion, duplicate world/recipient source
 cell construction, repeated immutable/root preparation and irrelevant

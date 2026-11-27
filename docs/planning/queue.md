@@ -3859,8 +3859,8 @@ P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26,
 the rider beside the cut and S2's clipped deforming cast 2026-11-27; S3, a
 curve-carried cell, remains). Host admission landed the same
 day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
-2026-11-26 (receipt in the owner's P4 section); its shared projectile source
-leg remains. P3 removes
+2026-11-26 and its shared projectile source leg 2026-11-27 (receipts in the
+owner's P4 section); exact cell dependencies remain. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools.

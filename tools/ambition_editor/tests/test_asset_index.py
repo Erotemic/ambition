@@ -4,20 +4,23 @@ their tiers, and uses resolve through content data and LDtk placements."""
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import subprocess
 import sys
+import threading
 import time
+from http.server import ThreadingHTTPServer
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import pytest
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from asset_index import build, sheets  # noqa: E402
+from asset_index import build, catalog_page, server, sheets  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))  # lib.art_publication
 
 ASSETS = "game/ambition_content_library/generated/runtime"
@@ -273,6 +276,43 @@ def test_the_page_and_its_catalog_are_written_beside_each_other(built):
     from lib.art_publication import Store
     accepted = Store((Path(_repo) / ASSETS).parent / "art_publication").paths()["sprites/foo_spritesheet.png"]
     assert not href.startswith("/") and (out / href).resolve() == accepted.resolve()
+
+
+def test_browser_catalog_defers_asset_files_and_serves_cacheable_gzip(built):
+    repo, out, _ = built
+    index = (out / catalog_page.INDEX).read_text()
+    core = json.loads(index.removeprefix(catalog_page.PREFIX).rstrip().removesuffix(";"))
+    html = (out / "index.html").read_text()
+    assert 'src="catalog-index.js"' in html and 'src="catalog.js"' not in html
+    assert core["counts"]["assets"] > 0
+    assert "sprites/foo_spritesheet.png" not in index
+
+    asset_id = "sheet:foo"
+    name = "asset-" + str(catalog_page._bucket(asset_id))
+    path = out / catalog_page.CHUNKS / (core["chunks"][name] + ".js")
+    with ThreadingHTTPServer(("127.0.0.1", 0), server.make_handler(repo, {}, out=out)) as http:
+        thread = threading.Thread(target=http.serve_forever)
+        thread.start()
+        try:
+            base = f"http://127.0.0.1:{http.server_port}/"
+            url = base + path.relative_to(repo).as_posix()
+            with urlopen(Request(url, headers={"Accept-Encoding": "br, gzip"}), timeout=2) as response:
+                assert response.headers["Content-Encoding"] == "gzip"
+                assert response.headers["Vary"] == "Accept-Encoding"
+                assert "immutable" in response.headers["Cache-Control"]
+                decoded = gzip.decompress(response.read())
+            with urlopen(Request(url, headers={"Accept-Encoding": "gzip;q=0, *;q=1"}), timeout=2) as response:
+                assert response.headers.get("Content-Encoding") is None
+                assert response.read() == decoded
+            with urlopen(Request(base + (out / catalog_page.INDEX).relative_to(repo).as_posix(), method="HEAD"), timeout=2) as response:
+                assert response.headers["Cache-Control"] == "no-store"
+            payload = json.loads(decoded.decode().split(",", 1)[1].removesuffix(");\n"))
+            product = payload["products"]["sprites/foo_spritesheet.png"]
+            assert asset_id in payload["assets"]
+            assert (out / product["href"]).is_file()
+        finally:
+            http.shutdown()
+            thread.join()
 
 
 @pytest.mark.parametrize("shape", ["image", "images", "pages"])

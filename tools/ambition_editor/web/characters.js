@@ -1,7 +1,9 @@
 /* Character identity comes from the prepared game catalog. */
 (function () {
   "use strict";
-  const C = window.ART_CATALOG, I = C.inventory;
+  const C = window.ART_CATALOG;
+  if (!C) return;
+  const I = C.inventory;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent;
   const filters = {family: "", lineage: "", attention: "", view: "", sort: "", role: "", history: ""};
@@ -9,7 +11,7 @@
   const characterLink = (key, label) => `<a href="#character/${enc(key)}">${esc(label || I.identities[key]?.display || key)}</a>`;
   const unitLink = unit => `<a href="#inventory/unit/${enc(unit.id)}">${esc(unit.id)}</a>`;
   const unitsFor = actor => actor.units.map(id => I.units[id]).filter(Boolean);
-  const assetsFor = actor => unitsFor(actor).flatMap(unit => (unit.assets || []).map(id => C.assets[id]))
+  const assetsFor = actor => unitsFor(actor).flatMap(unit => (unit.assets || []).map(id => C.assetDetails[id]))
     .filter(asset => asset?.identities?.includes(actor.key))
     .map(asset => ({...asset, cover: actor.preview?.asset === asset.id ? actor.preview.cover : asset.cover, preview_row: actor.catalog.rest_row}));
   const lineagesFor = actor => actor.lineages || [];
@@ -36,13 +38,12 @@
     }
     return historyCounts.get(actor.key);
   }
-  const familiesFor = actor => [...new Set(unitsFor(actor).map(unit => unit.facts.visual_family?.value || "unknown"))];
-  const gapsFor = actor => [...new Set(actor.coverage.filter(row => !row.valid || !['direct', 'alias'].includes(row.resolution.state)).map(row => row.action))];
-  // What a review can name: the coverage actions and the rows of the character's sheets.
+  const familiesFor = actor => I.identities[actor.key].art_families;
+  const gapsFor = actor => actor.coverage_gaps;
+  // A review can name an action or a published animation row.
   const animations = actor => [...new Set([...actor.coverage.map(row => row.action), ...assetsFor(actor).flatMap(asset => (asset.layout?.rows || []).map(row => row.name))])].sort();
   const isBoss = actor => (actor.catalog.tags || []).includes('boss');
-  const needsArt = actor => !actor.units.length || unitsFor(actor).some(unit => unit.runtime_defects?.length ||
-    [unit.status, ...Object.values(unit.status.tiers || {})].some(status => ['missing', 'partial', 'stale'].includes(status.state)));
+  const needsArt = actor => I.identities[actor.key].needs_art;
   const table = (heads, rows) => `<div class="tablebox"><table><thead><tr>${heads.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 
   const dateValue = value => Number.isFinite(Date.parse(value)) ? Date.parse(value) : null;
@@ -59,10 +60,10 @@
   }
 
   function card(actor) {
-    const art = assetsFor(actor).find(asset => asset.cover), gaps = gapsFor(actor), history = lineageItemCount(actor);
+    const gaps = gapsFor(actor), history = lineageItemCount(actor);
     const lineages = lineagesFor(actor).map(id => I.lineages[id]?.name || id);
     return `<a class="card character-card" data-character="${esc(actor.key)}" href="#character/${enc(actor.key)}">
-      <div class="img checker">${art ? `<img src="${esc(art.cover)}" loading="lazy" alt="${esc(actor.display)}">` : '<span class="empty">No published preview</span>'}</div>
+      <div class="img checker">${window.ArtCatalog.previews() ? actor.cover ? `<img src="${esc(actor.cover)}" loading="lazy" alt="${esc(actor.display)}">` : '<span class="empty">No published preview</span>' : ''}</div>
       <div class="meta"><div class="nm">${esc(actor.display)}</div><code>${esc(actor.id)}</code>
         <div class="sub">${familiesFor(actor).map(name => badge(name)).join(' ')}${actor.relations.form_of ? badge('form') : actor.relations.part_of ? badge('part') : ''}
           ${history ? badge(history + ' lineage items') : ''}
@@ -79,7 +80,7 @@
     const shown = actors.filter(actor => (!filters.role || (filters.role === 'boss' ? isBoss(actor) : !isBoss(actor))) && (!filters.family || familiesFor(actor).includes(filters.family)) &&
       (!filters.lineage || lineagesFor(actor).includes(filters.lineage)) &&
       (filters.history === '' || lineageItemCount(actor) > Number(filters.history)) &&
-      (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : filters.attention === 'reviews' ? window.AssetReviews.needsWork(actor.key).length : gapsFor(actor).length)) &&
+      (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : filters.attention === 'reviews' ? window.AssetReviews.workCount(actor.key) : gapsFor(actor).length)) &&
       JSON.stringify([actor.display, actor.key, actor.catalog.tags, actor.relations, familiesFor(actor),
         lineagesFor(actor).map(id => [id, I.lineages[id]?.name])]).toLowerCase().includes(query));
     const matched = new Set(shown.map(actor => actor.key));
@@ -92,7 +93,7 @@
       .sort((a, b) => compare(I.identities[a.root], I.identities[b.root], groupDates));
     const grouped = group => {
       const children = group.members.filter(key => key !== group.root).sort((a, b) => compare(I.identities[a], I.identities[b]));
-      const work = group.members.reduce((sum, key) => sum + window.AssetReviews.needsWork(key).length, 0);
+      const work = group.members.reduce((sum, key) => sum + window.AssetReviews.workCount(key), 0);
       return `<article class="character-group" data-character-root="${esc(group.root)}">${card({...I.identities[group.root], generated_at: groupDates.get(group.root)?.generated_at, generated_at_evidence: groupDates.get(group.root)?.generated_at_evidence})}
         ${children.length ? `<details class="character-variants"${query || filters.attention ? ' open' : ''}><summary>${children.length} forms and parts${work ? ` · ${work} reviews need work` : ''}</summary>
           <div class="character-children">${children.map(key => card(I.identities[key])).join('')}</div></details>` : ''}</article>`;
@@ -185,7 +186,7 @@
         <p>The art itself is indexed: browse the <a href="#gallery">All images</a>, <a href="#inventory/all">Inventory</a> or <a href="#generators">Generators</a>.</p>`;
       return;
     }
-    const actor = I.identities[key];
+    const actor = C.characterDetails[key];
     app.innerHTML = key ? actor ? detail(actor, ui) : `<h1>Character unavailable</h1><p>${esc(key)} is absent from the current catalog.</p><a href="#characters">Characters</a>` : roster();
     app.querySelectorAll('[data-character-filter]').forEach(element => element.onchange = () => {
       if (element.type === 'number' && !element.checkValidity()) return;

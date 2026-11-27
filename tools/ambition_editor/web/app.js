@@ -1,11 +1,9 @@
-// The Ambition asset inspector: an offline page over catalog.js (built by
-// `python -m asset_index build`). Every image and source file is linked by a
-// relative path from this page, so it works from file:// with no server.
 (function () {
   "use strict";
   const C = window.ART_CATALOG;
   const app = document.getElementById("app");
-  if (!C) { app.innerHTML = '<p class="empty">catalog.js is missing: run <code>python3 scripts/asset_inspector.py build</code>.</p>'; return; }
+  if (!C) return;
+  const Catalog = window.ArtCatalog;
 
   const CONF = ["verified", "declared", "derived", "inferred", "reference", "unknown"];
   const CONF_TEXT = {
@@ -17,20 +15,19 @@
     unknown: "no generator found",
   };
   const PARALLAX = { sky: 0.10, far_backplate: 0.20, near_background: 0.42, foreground_atmosphere: 0.60, foreground: 1.0 };
-  const assets = C.assets, products = C.products, gens = C.generators;
-  // Product links are stored as `~N/name` with each folder once (`build._for_page`).
-  for (const p of Object.values(C.products || {})) {
-    if (p.href && p.href[0] === "~") { const cut = p.href.indexOf("/"); p.href = C.href_folders[+p.href.slice(1, cut)] + p.href.slice(cut); }
-  }
-  const assetList = Object.values(assets);
+  const {assets, products} = C;
+  let assetList = [], byTarget = {}, gens = {};
   const state = { q: "", family: new Set(), conf: new Set(), tag: new Set(), use: "", rel: "", sort: "name", page: 0, card: 150, lastList: [] };
-  // A target identifies today's asset only when it publishes one asset.
-  const byTarget = {};
-  const targetAssets = {};
-  assetList.forEach(a => {
-    if ((a.generator || '').startsWith('target:')) (targetAssets[a.generator.slice(7)] ||= []).push(a.id);
-  });
-  Object.entries(targetAssets).forEach(([target, ids]) => { if (ids.length === 1) byTarget[target] = ids[0]; });
+  async function loadImages() {
+    if (assetList.length) return;
+    Object.assign(assets, await Catalog.load("images"));
+    assetList = Object.values(assets);
+    const targetAssets = {};
+    for (const a of assetList) {
+      if (a.generator?.startsWith("target:")) (targetAssets[a.generator.slice(7)] ||= []).push(a.id);
+    }
+    byTarget = Object.fromEntries(Object.entries(targetAssets).filter(([, ids]) => ids.length === 1).map(([key, ids]) => [key, ids[0]]));
+  }
   let timers = [];
 
   // ---- helpers ------------------------------------------------------------------------
@@ -66,20 +63,12 @@
   function img(src, alt, cls) { return src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(alt || "")}"${cls ? ` class="${cls}"` : ""}>` : ""; }
 
   // ---- search ------------------------------------------------------------------------
-  const haystack = new Map();
-  for (const a of assetList) {
-    const g = gens[a.generator] || {};
-    haystack.set(a.id, [a.id, a.name, a.display, a.family, ...(a.character_ids || [a.character_id]), (a.tags || []).join(" "), a.generator, g.source, g.module,
-      (a.uses || []).map((u) => u.path + " " + (u.row || "")).join(" "), (a.placements || []).map((p) => p.level + " " + p.field).join(" "),
-      JSON.stringify(a.chargen || {}), (a.layout?.rows || []).map(r => r.name).join(" "), a.products.join(" "), (a.lineages || []).map((l) => l.lineage + " " + l.name).join(" "),
-      a.authorship ? a.authorship.shares.map((x) => x.who).join(" ") : ""].join(" ").toLowerCase());
-  }
+  let haystack = {};
   function matches(a) {
     const terms = state.q.toLowerCase().split(/\s+/).filter(Boolean);
-    const h = haystack.get(a.id);
-    return terms.every((t) => h.includes(t));
+    const text = haystack[a.id] || "";
+    return terms.every(t => text.includes(t));
   }
-  const used = (a) => (a.uses && a.uses.length) || (a.placements && a.placements.length);
 
   // ---- gallery -----------------------------------------------------------------------
   const PAGE = 240;
@@ -94,15 +83,15 @@
     const tags = new Map(); pool.forEach((a) => (a.tags || []).forEach((t) => tags.set(t, (tags.get(t) || 0) + 1)));
     let list = pool.filter((a) => (!state.family.size || state.family.has(a.family)) && (!state.conf.size || state.conf.has(a.confidence))
       && (!state.tag.size || [...state.tag].every((t) => (a.tags || []).includes(t)))
-      && (!state.use || (state.use === "used" ? used(a) : state.use === "unused" ? !used(a) : a.findings > 0)));
+      && (!state.use || (state.use === "used" ? a.used : state.use === "unused" ? !a.used : a.findings > 0)));
     // Of two sheets of one character, the one the game draws comes first.
-    const older = (a) => (a.inspection_unit && C.inventory?.units[a.inspection_unit]?.game_use === "referenced" ? 0 : 1);
+    const older = (a) => (a.game_use === "referenced" ? 0 : 1);
     const sorts = {
       name: (a, b) => a.display.localeCompare(b.display) || older(a) - older(b),
       frames: (a, b) => b.frames - a.frames,
       animations: (a, b) => b.animations - a.animations,
       bytes: (a, b) => b.bytes - a.bytes,
-      uses: (a, b) => (b.placements || []).reduce((s, p) => s + p.count, 0) - (a.placements || []).reduce((s, p) => s + p.count, 0),
+      uses: (a, b) => b.placement_count - a.placement_count,
       findings: (a, b) => b.findings - a.findings,
     };
     list.sort(sorts[state.sort] || sorts.name);
@@ -148,18 +137,19 @@
     if (next) next.addEventListener("click", () => { state.page++; gallery(); window.scrollTo(0, 0); });
   }
   function card(a) {
-    const counts = a.animations ? `${a.animations} anim · ${fmt(a.frames)} fr` : `${a.products.length} file${a.products.length > 1 ? "s" : ""}`;
-    return `<a class="card" href="#asset/${enc(a.id)}"><div class="img checker">${img(a.cover, a.display)}</div>
+    const files = a.file_count;
+    const counts = a.animations ? `${a.animations} anim · ${fmt(a.frames)} fr` : `${files} file${files > 1 ? "s" : ""}`;
+    return `<a class="card" href="#asset/${enc(a.id)}"><div class="img checker">${Catalog.previews() ? img(a.cover, a.display) : ""}</div>
       <div class="meta"><div class="nm">${esc(a.display)}${a.art_label && a.art_label !== a.display ? ` <code class="gen">${esc(a.art_label)}</code>` : ""}</div><div class="sub">${chip(a.confidence)} ${esc(a.family)} · ${counts}${a.findings ? ` · <span class="chip c-warn">${a.findings}</span>` : ""}${unitChip(a)} ${window.AssetReviews.chip(window.AssetReviews.latest(a.id))}</div></div></a>`;
   }
   function unitChip(a) {
-    const unit = C.inventory?.units[a.inspection_unit];
-    return unit ? ` ${chip(unit.game_use)} ${chip(unit.status.state)}` : "";
+    const row = assets[a.id];
+    return row?.unit_state ? ` ${chip(row.game_use)} ${chip(row.unit_state)}` : "";
   }
 
   // ---- asset detail ------------------------------------------------------------------
   function assetPanels(a, opts = {}) {
-    const g = gens[a.generator] || null;
+    const g = C.assetGenerators[a.generator] || null;
     const left = [], right = [];
     if (opts.references !== false) left.push(referenceBox(a));
     if (a.layout && a.layout.rows && a.layout.rows.length) left.push(animationBox(a));
@@ -171,13 +161,13 @@
     right.push(generatorBox(a, g));
     if (a.authorship) right.push(authorshipBox(a.authorship));
     right.push(usageBox(a));
-    const finds = C.findings.filter((f) => f.asset === a.id || a.products.includes(f.subject));
+    const finds = C.assetFindings[a.id] || [];
     if (finds.length) right.push(`<section class="box"><h2>Findings (${finds.length})</h2>${findingTable(finds)}</section>`);
     right.push(productBox(a));
     return `<div class="cols"><div>${left.join("")}</div><div>${right.join("")}</div></div>`;
   }
   function detail(id) {
-    const a = assets[id];
+    const a = C.assetDetails[id];
     if (!a) { app.innerHTML = `<p class="empty">No asset ${esc(id)}.</p>`; return; }
     app.innerHTML = `<div class="detail">
       ${navBar(a)}
@@ -197,7 +187,7 @@
   function reviewBox(a) {
     if ((a.identities || []).length) {
       return `<section class="box" id="asset-reviews"><h2>Reviews</h2><p>Review this art on its character's page: ${a.identities.map((key) =>
-        `<a href="#character/${enc(key)}">${esc(C.inventory?.identities?.[key]?.display || key)}</a> ${window.AssetReviews.chip(window.AssetReviews.latest(key))}`).join(" · ")}</p></section>`;
+        `<a href="#character/${enc(key)}">${esc(C.characterLabels[key] || key)}</a> ${window.AssetReviews.chip(window.AssetReviews.latest(key))}`).join(" · ")}</p></section>`;
     }
     return window.AssetReviews.section(a.id, { kind: "image", parts: (a.layout?.rows || []).map((row) => row.name), partLabel: "Animation" });
   }
@@ -544,15 +534,16 @@
   // the character, its lineage, the art made the same way. The type is the family.
   function relGroup(key) {
     if (!key) return null;
-    const cut = key.lastIndexOf("|"), a = assets[key.slice(0, cut)], g = a && (a.related || [])[+key.slice(cut + 1)];
+    const cut = key.lastIndexOf("|"), a = C.assetDetails[key.slice(0, cut)], g = a && (a.related || [])[+key.slice(cut + 1)];
     return g ? { asset: a, title: g.title, ids: new Set([a.id, ...g.assets]) } : null;
   }
   function mini(id) {
     const r = assets[id];
+    if (!r) return "";
     // The target id under the name: two forms of one character share a display name.
     const sub = r.name && r.name.toLowerCase() !== r.display.toLowerCase() ? `<code>${esc(r.name)}</code>` : "";
     const now = r && r.generation && r.generation.state === "current" ? " (in the game)" : r && r.generation ? " (older)" : "";
-    return r ? `<a class="mini" href="#asset/${enc(id)}" title="${esc(r.family + " · " + id + now)}"><div class="checker">${img(r.cover, r.display)}</div><span>${esc(r.display)}</span>${sub}</a>` : "";
+    return `<a class="mini" href="#asset/${enc(id)}" title="${esc(r.family + " · " + id + now)}"><div class="checker">${Catalog.previews() ? img(r.cover, r.display) : ""}</div><span>${esc(r.display)}</span>${sub}</a>`;
   }
   const STRIP = 24;
   function relatedBox(a) {
@@ -666,10 +657,10 @@
       ${files.length ? `<details><summary>${files.length} files</summary>${files.map(([f, n]) => `<div>${source("tools/ambition_sprite2d_renderer/" + f)} <span class="controls">${fmt(n)} lines</span></div>`).join("")}</details>` : ""}</section>`;
   }
 
-  function generatorBox(a, g) {
-    const main = a.products.map((p) => products[p]).filter((p) => p.tier === "full");
+  function generatorBox(a, g, evidence = null) {
+    const main = evidence || a.products.map(p => products[p]).filter(p => p.tier === "full").map(p => p.provenance);
     const madeBy = new Map();
-    main.forEach((p) => { const m = p.provenance.made_by; if (m) madeBy.set(m.callable, m); });
+    main.forEach((p) => { const m = p.made_by; if (m) madeBy.set(m.callable, m); });
     let html = `<section class="box"><h2>Generator</h2>`;
     if (!g) {
       html += `<p>${chip(a.confidence)} ${a.confidence === "reference" ? "Authored or imported art: no generator makes it." : "No generator is known for this asset. That is a finding: see the files below."}</p></section>`;
@@ -685,7 +676,7 @@
       ${g.note ? `<dt>note</dt><dd>${esc(g.note)}</dd>` : ""}
       ${g.inputs && g.inputs.length ? `<dt>inputs</dt><dd><details><summary>${g.inputs.length} files the render read</summary>${g.inputs.map((p) => `<div>${source(p)}</div>`).join("")}</details></dd>` : ""}
     </dl>`;
-    const ev = main.map((p) => p.provenance.evidence).filter(Boolean)[0];
+    const ev = main.map(p => p.evidence).filter(Boolean)[0];
     if (ev) html += `<p class="controls">Evidence: ${esc(ev.join("; "))}</p>`;
     return html + `</section>`;
   }
@@ -725,7 +716,7 @@
     const made = (g.assets || []).map((x) => assets[x]).filter(Boolean);
     app.innerHTML = `<div class="detail"><div class="bar"><a href="#generators">‹ generators</a></div><h1>${esc(id)}</h1>
       <div class="cols"><div><section class="box"><h2>Makes ${made.length} asset${made.length === 1 ? "" : "s"}</h2><div class="grid" style="--card:130px">${made.map(card).join("")}</div></section></div>
-      <div>${generatorBox({ products: made.flatMap((x) => x.products), confidence: made[0] ? made[0].confidence : "declared", generator: id }, g)}</div></div></div>`;
+      <div>${generatorBox({ confidence: made[0]?.confidence || "declared", generator: id }, g, g.evidence)}</div></div></div>`;
   }
 
   // ---- findings -------------------------------------------------------------------------
@@ -759,7 +750,7 @@
     const linked = sum(total) - (total.unknown || 0);
     const top = (title, list, fmtRow) => `<section class="box"><h2>${title}</h2><div class="tablebox"><table>${list.map(fmtRow).join("")}</table></div></section>`;
     const sheets = assetList.filter((a) => a.animations);
-    const placed = (a) => (a.placements || []).reduce((s, p) => s + p.count, 0);
+    const placed = a => a.placement_count;
     app.innerHTML = `<p>${fmt(linked)} of ${fmt(sum(total))} files (${((100 * linked) / Math.max(1, sum(total))).toFixed(1)}%) link to a generator or are reference art. ${fmt(total.unknown || 0)} have no known generator.</p>
       <div class="legend">${CONF.map((k) => `<span>${chip(k)} ${esc(CONF_TEXT[k])}</span>`).join("")}</div>
       <div class="coverage">${rows.map(([root, c]) => `<div class="cov-row"><code>${esc(root)}</code>${bar(c)}<span class="num">${fmt(sum(c))}</span></div>`).join("")}
@@ -773,8 +764,55 @@
   }
 
   // ---- routing ------------------------------------------------------------------------
-  function route() {
+  const loadCharacters = async () => Object.assign(C.inventory, await Catalog.load("characters"));
+  const loadUnits = async () => Object.assign(C.inventory.units, await Catalog.load("inventory"));
+  const loadLineages = async () => { C.lineages = await Catalog.load("lineages"); };
+  const loadGenerators = async () => { gens = await Catalog.load("generators"); };
+  const loadItems = async kinds => {
+    for (const rows of await Promise.all(kinds.map(kind => Catalog.load("items-" + kind)))) Object.assign(C.items, rows);
+  };
+  const KIND_OF_VIEW = { music: "music", sound: "sfx", fonts: "font", worlds: "world" };
+  async function loadView(view, id) {
+    const loads = [];
+    const query = state.q.trim();
+    const mode = id.split("/")[0];
+    if (["asset", "cat", "gallery", "gen", "coverage"].includes(view) || view === "overview" && query) loads.push(loadImages());
+    if (["cat", "gallery"].includes(view)) {
+      if (query) loads.push(Catalog.load("image-search").then(index => { haystack = index; }));
+      if (state.rel) loads.push(Catalog.assetRecords([state.rel.slice(0, state.rel.lastIndexOf("|"))]));
+    }
+    if (view === "asset") loads.push(Catalog.assetRecords([id]));
+    if (["gen", "generators", "coverage"].includes(view)) loads.push(loadGenerators());
+    if (view === "findings") loads.push(Catalog.load("findings").then(rows => { C.findings = rows; }));
+    if (["characters", "character"].includes(view) || view === "inventory" || view === "overview" && query) loads.push(loadCharacters());
+    if (["characters", "character"].includes(view) || view === "inventory" && mode === "history") loads.push(loadLineages());
+    if (view === "character") {
+      loads.push(loadImages(), Promise.all([loadUnits(), Catalog.record("character", id)]).then(async ([, rows]) => {
+        Object.assign(C.characterDetails, rows);
+        await Catalog.assetRecords((C.characterDetails[id]?.units || []).flatMap(uid => C.inventory.units[uid]?.assets || []));
+      }));
+    }
+    if (view === "inventory") loads.push(window.ArtInventory.load(id || "current", loadImages));
+    if (KIND_OF_VIEW[view]) loads.push(loadItems([KIND_OF_VIEW[view]]));
+    if (view === "item" && Object.hasOwn(C.item_labels, id)) loads.push(loadItems([id.split(":")[0]]));
+    if (view === "overview" && query) loads.push(loadItems(Object.values(KIND_OF_VIEW)));
+    if (view === "reviews") loads.push(window.AssetReviews.ensure());
+    if (["asset", "character", "item"].includes(view)) {
+      window.AssetReviews.ensure().catch(() => {
+        const status = app.querySelector("#asset-reviews [role=status]");
+        if (status) status.textContent = "Could not load the reviews. Open the Reviews tab to retry.";
+      });
+    }
+    if (["asset", "cat", "gallery", "gen", "characters", "overview", ...Object.keys(KIND_OF_VIEW)].includes(view)
+        && (view !== "overview" || query)) loads.push(window.AssetReviews.loadSummary());
+    await Promise.all(loads);
+  }
+
+  let routeVersion = 0;
+  async function route() {
+    const version = ++routeVersion;
     stopTimers();
+    window.ArtInventory.stop();
     const raw = location.hash.slice(1);
     if (raw.startsWith("gallery?")) {
       // A link into a filtered gallery: `#gallery?family=character&tag=goblin&rel=<asset>|<group>`.
@@ -783,21 +821,40 @@
       state.use = ""; state.rel = qs.get("rel") || ""; state.q = ""; q.value = ""; state.page = 0;
       history.replaceState(null, "", "#gallery");
     }
-    const h = decodeURIComponent(location.hash.slice(1));
-    const [view, ...rest] = h.split("/");
-    const id = rest.join("/");
-    const itemKind = view === "item" ? (C.items?.[id]?.kind || "") : "";
+    const [path, ...rest] = location.hash.slice(1).split("/");
+    const view = path || "overview";
+    let id = rest.join("/");
+    try { id = decodeURIComponent(id); } catch (error) {}
+
+    const itemKind = view === "item" ? id.split(":")[0] : "";
+    const loading = setTimeout(() => {
+      if (version === routeVersion) app.innerHTML = '<p class="empty" role="status">Loading this view…</p>';
+    }, 180);
+    try {
+      const known = ["overview", "asset", "cat", "gallery", "characters", "character", "inventory", "reviews",
+        "item", "gen", "generators", "findings", "coverage", ...Object.keys(KIND_OF_VIEW)];
+      await loadView(known.includes(view) ? view : "gallery", id);
+    } catch (error) {
+      if (version === routeVersion) {
+        app.innerHTML = '<p class="empty">Could not load this view. <button id="retry-view" type="button">Retry</button> <button id="reload-catalog" type="button">Reload catalog</button></p>';
+        app.querySelector("#retry-view").onclick = route;
+        app.querySelector("#reload-catalog").onclick = () => location.reload();
+      }
+      return;
+    } finally {
+      clearTimeout(loading);
+    }
+    if (version !== routeVersion) return;
     const tab = view === "cat" ? "cat-" + id : view === "asset" ? (state.category ? "cat-" + state.category : "gallery") : view === "gen" ? "generators" : view === "character" ? "characters"
       : view === "item" ? (window.AssetItems.VIEW[itemKind] || "overview") : view || "overview";
     document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === tab));
-    const KIND_OF_VIEW = { music: "music", sound: "sfx", fonts: "font", worlds: "world" };
     if (view !== "cat" && view !== "asset") state.category = "";
     if (!view || view === "overview") window.AssetItems.overview();
     else if (KIND_OF_VIEW[view]) window.AssetItems.list(KIND_OF_VIEW[view]);
     else if (view === "item") window.AssetItems.detail(id);
     else if (view === "cat") { if (state.category !== id) { state.category = id; state.page = 0; state.family = new Set(); } gallery(); }
     else if (view === "characters" || view === "character") window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, wireReference, referenceBox, lineageBox});
-    else if (view === "inventory") window.renderArtInventory(id || "current");
+    else if (view === "inventory") window.ArtInventory.render(id || "current");
     else if (view === "reviews") window.AssetReviews.page();
     else if (view === "asset") detail(id);
     else if (view === "gen") generatorDetail(id);
@@ -846,7 +903,7 @@
     charactersTab.after(a);
   });
   const stamp = document.getElementById("stamp");
-  stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(assetList.length)} assets · ${fmt(Object.keys(products).length)} files · ${fmt(C.findings.length)} findings. Refresh: ./scripts/asset_inspector.py`;
+  stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(C.counts.assets)} assets · ${fmt(C.counts.files)} files · ${fmt(C.counts.findings)} findings. Refresh: ./scripts/asset_inspector.py`;
   // What the index could not read, with its fix. The rest of the page still works.
   const profile = C.inventory?.profile;
   if (profile && profile.state !== "available") {
@@ -889,11 +946,12 @@
         live.innerHTML = `The refreshed index is ready. <button type="button">Reload</button>`;
         live.querySelector("button").onclick = () => location.reload();
       }
-      setTimeout(poll, s.state === "building" ? 1500 : 4000);
+      setTimeout(poll, document.hidden ? 30000 : s.state === "building" ? 1500 : 4000);
     };
     poll();
   }
   window.addEventListener("hashchange", route);
   window.addEventListener("asset-reviews-changed", route);
+  window.addEventListener("asset-previews-changed", route);
   route();
 })();

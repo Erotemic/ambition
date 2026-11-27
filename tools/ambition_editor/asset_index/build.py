@@ -2,10 +2,9 @@
 
     python -m asset_index build [--out DIR] [--jobs N] [--no-previews] [--open]
 
-Writes `DIR` (default `.agent/asset_inspector/`, git-ignored): `index.html`,
-`app.js`, `app.css`, `catalog.js` (the index, as a script so that the page
-works from `file://`) and the previews. The page links to the art and the
-source files by relative paths, so it opens in place, with no server.
+Writes the inspector, catalog and previews to `DIR`
+(default `.agent/asset_inspector/`, git-ignored). The page uses relative links
+and loads the catalog as scripts. It can open directly from disk.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, categories, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
+from . import SCHEMA, assets as assets_mod, catalog_page, categories, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
 from .paths import forget_roots, repo_root, roots
 from .scan import HashCache, scan
 from .page import copy as copy_page
@@ -149,11 +148,13 @@ def build(
     catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
-    text = json.dumps(_for_page(catalog), separators=(",", ":"), sort_keys=True)
+    saved_catalog = _for_page(catalog)
+    text = json.dumps(saved_catalog, separators=(",", ":"), sort_keys=True)
     text = text.replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
+    catalog_page.write(out, saved_catalog, prune=prune)
     copy_page(out)
     from .workbench import write_tools
     write_tools(repo, out)
@@ -162,10 +163,11 @@ def build(
 
 
 def _for_page(catalog: dict[str, Any]) -> dict[str, Any]:
-    """The catalog as the page reads it, without what no view uses: every page load
-    parses it. The publication's file list, each unit's copy of its bundle files,
-    and the action maps of reduced-tier sheets (the page compares full-tier actions)
-    were about a third of it. The CLI queries keep the whole report."""
+    """Remove publication file lists and reduced-tier action maps.
+
+    The browser uses the full-tier action maps. CLI status queries use the
+    full report.
+    """
     inventory = catalog.get("inventory") or {"units": {}}
     units = {}
     for uid, unit in inventory.get("units", {}).items():
@@ -179,7 +181,7 @@ def _for_page(catalog: dict[str, Any]) -> dict[str, Any]:
     slim = dict(inventory, units=units, publication={"generation": publication.get("generation"), "file_count": len(publication.get("files", {}))},
                 # The page lists only the products no producer claims.
                 local_products=[row for row in inventory.get("local_products", []) if row.get("registration") in ("unregistered", "unknown")])
-    # A product link repeats a long relative folder: store each folder once (`~3/file.png`); app.js restores them.
+    # Store each relative folder once in the saved catalog.
     folders: dict[str, int] = {}
     products = {}
     for path, row in catalog.get("products", {}).items():

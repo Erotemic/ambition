@@ -23,6 +23,11 @@ When an open page detects a new art publication or a change to the game pack's
 sources, the server refreshes the index and the page shows the Reload button.
 The supported launcher is `scripts/asset_inspector.py`.
 
+The overview loads a small catalog with counts and status. Each view loads
+its data when you open it. Clear **List previews** to browse the lists
+without thumbnails. The browser remembers this setting. Open an asset to see
+its full preview. These controls also work in the offline build.
+
 Only one inspector serves a port (8767 unless `--port`). If one is already
 running, a second run says so and exits. `./scripts/asset_inspector.py --kill`
 stops the running inspector and its refresh, then serves again. It stops only

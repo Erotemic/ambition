@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gzip
+import io
 import json
 import os
 import re
@@ -15,13 +17,26 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from . import page, paths, reviews, sources
+from . import catalog_page, page, paths, reviews, sources
 
 #: What the page says when this server runs older code than the page it serves.
 RESTART = "./scripts/asset_inspector.py --kill"
 
 #: One byte range (RFC 9110): `bytes=first-last`, `bytes=first-` or the suffix `bytes=-length`.
 _RANGE = re.compile(r"bytes=(\d*)-(\d*)")
+_CATALOG_CHUNK = re.compile(r"[a-f0-9]{64}\.js")
+
+
+def _accepts_gzip(header):
+    encodings = {}
+    for entry in header.lower().split(","):
+        name, *params = entry.split(";")
+        quality = next((value.strip()[2:] for value in params if value.strip().startswith("q=")), "1")
+        try:
+            encodings[name.strip()] = 0 < float(quality) <= 1
+        except ValueError:
+            encodings[name.strip()] = False
+    return encodings.get("gzip", encodings.get("*", False))
 
 
 class _Slice:
@@ -48,7 +63,7 @@ def _code_stamp() -> tuple:
     return tuple(sorted((path.name, path.stat().st_mtime_ns) for path in Path(__file__).parent.glob("*.py")))
 
 
-def make_handler(repo: Path, catalog, status=None, landing=None):
+def make_handler(repo: Path, catalog, status=None, landing=None, out=None):
     """`landing` is the page's path relative to `repo`; `/` redirects to it."""
     lock = threading.Lock()
     started = _code_stamp()
@@ -64,6 +79,11 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")
+            if len(body) >= 1024:
+                self.send_header("Vary", "Accept-Encoding")
+                if _accepts_gzip(self.headers.get("Accept-Encoding", "")):
+                    body = gzip.compress(body, compresslevel=3, mtime=0)
+                    self.send_header("Content-Encoding", "gzip")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -90,7 +110,7 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
         def end_headers(self):
             if urlsplit(self.path).path.endswith("/catalog.js"):
                 self.send_header("Cache-Control", "no-store")
-            if self.command in ("GET", "HEAD"):
+            if self.command in ("GET", "HEAD") and not getattr(self, "catalog_response", False):
                 self.send_header("Accept-Ranges", "bytes")
             super().end_headers()
 
@@ -100,6 +120,12 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
             answer it can only play from the start."""
             match = _RANGE.fullmatch(self.headers.get("Range", "").strip())
             path = self.translate_path(self.path)
+            if out is not None:
+                file = Path(path)
+                if file == out / catalog_page.INDEX:
+                    return self.send_catalog(file, immutable=False)
+                if file.parent == out / catalog_page.CHUNKS and _CATALOG_CHUNK.fullmatch(file.name):
+                    return self.send_catalog(file, immutable=True)
             if not match or not any(match.groups()) or not os.path.isfile(path):
                 return super().send_head()
             size = os.path.getsize(path)
@@ -120,6 +146,31 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
             self.send_header("Last-Modified", self.date_time_string(os.fstat(file.fileno()).st_mtime))
             self.end_headers()
             return _Slice(file, end - start + 1)
+
+        def send_catalog(self, path, *, immutable):
+            self.catalog_response = True
+            accept = _accepts_gzip(self.headers.get("Accept-Encoding", ""))
+            zipped = path.with_suffix(".js.gz")
+            encoded = accept and (not immutable or zipped.is_file())
+            try:
+                if encoded and not immutable:
+                    body = gzip.compress(path.read_bytes(), compresslevel=3, mtime=0)
+                    file, length = io.BytesIO(body), len(body)
+                else:
+                    file = (zipped if encoded else path).open("rb")
+                    length = os.fstat(file.fileno()).st_size
+            except OSError:
+                self.send_error(404, "Catalog file not found")
+                return None
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(length))
+            self.send_header("Cache-Control", "private, max-age=31536000, immutable" if immutable else "no-store")
+            self.send_header("Vary", "Accept-Encoding")
+            if encoded:
+                self.send_header("Content-Encoding", "gzip")
+            self.end_headers()
+            return file
 
         def copyfile(self, source, outputfile):
             try:
@@ -294,12 +345,15 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
                 pass
         return None
 
-    first_build = build is not None and not (out / "index.html").is_file()
+    first_build = build is not None and not (out / "catalog.js").is_file()
     if first_build:
         build(log)
     elif (out / "catalog.js").is_file():
         # The previous index shows until the refresh is done; its page files are
         # this code's, so the page asks this server for the routes it has.
+        if not (out / catalog_page.INDEX).is_file():
+            log("Preparing the browser catalog from the existing index")
+            catalog_page.write(out, current_catalog())
         page.copy(out)
     content_inputs, fingerprint = sources.content_watch(repo, out, profile) if refresh_command else (set(), None)
 
@@ -366,7 +420,7 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
         print(f"Ambition Editor: binding {bind} — the review and preflight POST routes are reachable from other machines.",
               flush=True)
     landing = (out / "index.html").relative_to(repo).as_posix()
-    with ThreadingHTTPServer((bind, port), make_handler(repo, current_catalog, refresh_status, landing)) as server:
+    with ThreadingHTTPServer((bind, port), make_handler(repo, current_catalog, refresh_status, landing, out)) as server:
         url_host = "localhost" if bind in {"127.0.0.1", "0.0.0.0"} else bind
         url = f"http://{url_host}:{server.server_port}/"
         print(f"Ambition Editor: {url}", flush=True)

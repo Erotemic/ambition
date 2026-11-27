@@ -31,6 +31,15 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .top { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--rule); }
 .top .tabs { flex-wrap: wrap; }
+.preview-setting { white-space: nowrap; }
+[data-list-previews="off"] .card .img,
+[data-list-previews="off"] .mini .checker { display: none; }
+@media (max-width: 760px) {
+  .top { gap: 6px 10px; padding: 6px 10px; }
+  .top .tabs { order: 1; flex: 0 0 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .top .tabs a { white-space: nowrap; }
+  .top .search { order: 2; flex-basis: 100%; }
+}
 .brand { font-weight: 700; letter-spacing: .02em; color: var(--fg); text-decoration: none; }
 .tabs { display: flex; gap: 2px; }
 .tabs a { padding: 5px 10px; border-radius: 4px; color: var(--muted); text-decoration: none; }

@@ -342,6 +342,7 @@ def build_active_area_field(project: dict, area_id: str) -> dict:
 # A project declares the fields it supports in `defs.levelFields`.
 # Specs may set a subset; fields with no value are not emitted.
 OPTIONAL_LEVEL_FIELDS = (
+    "map_path",
     "biome",
     "music_track",
     # What plays while a fight is on in the room, in place of the fight's own

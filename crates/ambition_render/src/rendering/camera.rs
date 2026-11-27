@@ -92,9 +92,9 @@ pub fn publish_portal_camera_clamp(
 /// The camera stage: [`present_view_frames`] then
 /// [`apply_view_frames_to_2d_cameras`], chained.
 ///
-/// Order against the set, not against one of its systems. A system that feeds
-/// the framing (shake decay, a capture pin, a new rig) runs before the stage;
-/// a system that reads a placed camera runs after it.
+/// A system that supplies framing inputs runs before this set. A system that
+/// reads a placed camera runs after it. A capture can set the presented
+/// frame between its publication and the camera adapters.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ViewCameraSet;
 
@@ -134,6 +134,11 @@ impl PresentedViewFrames {
     /// The frame of `view`, when it was framed this frame.
     pub fn of(&self, view: Entity) -> Option<&PresentedViewFrame> {
         self.0.iter().find(|(entity, _)| *entity == view).map(|(_, frame)| frame)
+    }
+
+    /// Get the current frame so a capture can set its center, roll, and scale.
+    pub fn of_mut(&mut self, view: Entity) -> Option<&mut PresentedViewFrame> {
+        self.0.iter_mut().find(|(entity, _)| *entity == view).map(|(_, frame)| frame)
     }
 
     /// Frames for a test that has no camera stage.

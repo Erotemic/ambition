@@ -63,6 +63,13 @@ For repeated deterministic frames, `--tick-per-frame`, `--frames`, and `--stride
 are available. Capturing a full rendered sequence is more expensive than
 inspecting geometry; choose it when the result depends on actual presentation.
 
+For a renderer comparison, set `AMBITION_QUALITY_PROFILE=medium` and use the
+same room, focus, image size, and scene options. Set `--renderer plane`,
+`--renderer side-on`, or `--renderer oblique` to fill the image.
+Use `--at-tick TICK` to take the first shot at an exact simulation tick.
+With `--frames`, each later shot advances by `--stride` simulation ticks.
+If the capture misses a requested tick, it stops and reports the missed tick.
+
 ## Acceptance observations
 
 In a gameplay scenario, first establish that the target situation occurred.

@@ -91,8 +91,17 @@ pub fn sync_map_from_save(
 #[cfg(feature = "ldtk")]
 pub fn populate_map_rooms(
     project: Res<ambition_platformer2d_ldtk::ActiveLdtkProject>,
+    worlds: Option<Res<ambition_platformer2d_world::world_manifest::WorldManifest>>,
     mut map: ResMut<MapMenuState>,
+    mut hierarchy: ResMut<super::browser::MapHierarchy>,
 ) {
+    if let Some(worlds) = worlds {
+        for world in &worlds.worlds {
+            if let Some(title) = &world.map_title {
+                hierarchy.world_titles.entry(world.id.as_str().to_owned()).or_insert_with(|| title.clone());
+            }
+        }
+    }
     if !map.rooms.is_empty() {
         return;
     }
@@ -156,6 +165,13 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
         id: level.identifier.clone(),
         area: level.active_area(),
         title: title.or(label).unwrap_or_else(|| super::view::title_from_id(&level.identifier)),
+        group_path: text(&level.field_instances, "map_path")
+            .into_iter()
+            .flat_map(|path| path.split('/'))
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+            .collect(),
         world: level.world_source.clone(),
         world_min: Vec2::new(level.world_x as f32, level.world_y as f32),
         world_size: Vec2::new(level.px_wid as f32, level.px_hei as f32),

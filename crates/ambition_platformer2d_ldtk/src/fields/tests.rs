@@ -90,9 +90,13 @@ fn parse_pickup_kind_dispatches_each_prefix() {
     );
     assert_eq!(
         parse_pickup_kind("ability:dash"),
-        PickupKind::Ability {
-            ability_id: "dash".into()
+        PickupKind::Item {
+            item_id: "dash".into()
         }
+    );
+    assert_eq!(
+        parse_pickup_kind("item:key"),
+        PickupKind::Item { item_id: "key".into() }
     );
     assert_eq!(
         parse_pickup_kind("flag:seen_alice"),

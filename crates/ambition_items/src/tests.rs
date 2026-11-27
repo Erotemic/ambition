@@ -53,13 +53,13 @@ fn item_meta_table_is_index_aligned() {
         (Item::GunSword, "Gun-Sword"),
         (Item::PuppySlugGun, "Puppy-Slug Gun"),
         (Item::Bomb, "Bomb"),
-        (Item::Empty1, "Empty"),
+        (Item::Empty1, "Bronze Ward Key"),
         (Item::HealthCell, "Health Cell"),
         (Item::ManaCell, "Mana Cell"),
         (Item::SpareBattery, "Spare Battery"),
         (Item::Lantern, "Lantern"),
         (Item::FieldSurvey, "Field Survey"),
-        (Item::Empty2, "Empty"),
+        (Item::Empty2, "Crown Key"),
     ];
     for (item, name) in expected {
         assert_eq!(shipped().display_name(item), Some(name), "row for {item:?} is misaligned");
@@ -332,8 +332,9 @@ fn the_starter_bag_unlocks_every_real_item() {
     // The lantern is found under Hobford, not given.
     assert_eq!(catalog.category(Item::Lantern), Some(ItemCategory::KeyItem));
     assert!(!owned.has(Item::Lantern), "the lantern is found in the salt run");
-    for empty in [Item::Empty1, Item::Empty2] {
-        assert!(!owned.has(empty), "{empty:?} is no item");
+    for key in [Item::Empty1, Item::Empty2] {
+        assert_eq!(catalog.category(key), Some(ItemCategory::KeyItem));
+        assert!(!owned.has(key), "find the key in the dungeon");
     }
 }
 

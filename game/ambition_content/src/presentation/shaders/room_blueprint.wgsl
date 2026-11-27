@@ -12,7 +12,7 @@
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::{view, globals}
 #endif
-#import ambition_content::room_look::{rand_cell, value_noise, towers, arcade, sky_line_distance, pmod}
+#import ambition_content::room_look::{rand_cell, value_noise, towers, arcade, sky_line_distance, pmod, camera_on_play_plane}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -35,10 +35,10 @@ fn stroke(d: f32, width: f32) -> f32 {
 }
 
 fn camera_engine() -> vec2<f32> {
-    var c = view.world_position.xy;
 #ifdef AMBITION_CARD_MESH
-    let back = view.world_from_view[2].xyz;
-    c -= back.xy * (view.world_position.z / back.z);
+    let c = camera_on_play_plane(view.world_position, view.world_from_view[2].xyz);
+#else
+    let c = view.world_position.xy;
 #endif
     return vec2<f32>(c.x + room.x * 0.5, room.y * 0.5 - c.y);
 }

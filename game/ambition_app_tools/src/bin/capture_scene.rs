@@ -16,8 +16,12 @@ use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_platformer2d::platformer::schedule::SimScheduleExt;
+use ambition_platformer2d::render::rendering::card_view::{
+    place_card_view_cameras, CardViewCamera, CardViewMode, CardViewPlugin, CardViewSettings,
+};
 use ambition_platformer2d::render::rendering::{
-    sync_parallax_layers, CameraViewState, ViewCameraSet,
+    apply_view_frames_to_2d_cameras, present_view_frames, sync_parallax_layers,
+    CameraSnapshot2d, CameraViewState, PresentedViewFrames, ViewCameraSet,
 };
 use ambition_platformer2d::sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
@@ -176,6 +180,8 @@ struct SceneCaptureConfig {
     /// film is the same each run and its shots are a known number of ticks
     /// apart, whatever the time a frame takes to write.
     tick_per_frame: bool,
+    /// The first required simulation tick of the capture.
+    at_tick: Option<u64>,
     /// Bubble shields to draw, each at a place (`--guard`), so the look of a
     /// guard in a state is photographed with no body that holds one.
     guards: Vec<GuardAt>,
@@ -216,9 +222,8 @@ struct SceneCaptureConfig {
     /// flash (`--player-flash TICK`), so where its flash is drawn can be
     /// photographed without a blow that lands on it.
     player_flash_from: Option<u64>,
-    /// `--card-view`: draw the orthographic 3D card view (RV2) beside the
-    /// 2D view, in the lower right of the same window.
-    card_view: bool,
+    /// The renderer to use for a room capture.
+    renderer: CardViewMode,
     /// The fog in front of the sky of the two-state room look
     /// (`--look-depth FOG,PATCHES`), to tune it with photographs: the numbers
     /// of `RoomLookDepth`, in its field order.
@@ -406,6 +411,10 @@ OPTIONS:
                         TICK on, as a blow that lands lights it
     --card-view         draw the orthographic 3D card view (RV2) beside the
                         2D view, in the lower right of the same window
+    --renderer KIND     fill the image with plane (default), side-on, or
+                        oblique. Use the same scene options for each view.
+    --at-tick TICK      take the first shot at this simulation tick. Take
+                        later shots by --stride ticks. Enables --tick-per-frame.
     --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest or moving at VX,VY px/s;
@@ -1580,8 +1589,13 @@ fn install_room_capture(app: &mut App) {
     if !app.world().resource::<SceneCaptureConfig>().carry {
         app.insert_resource(ambition_platformer2d::portal_presentation::PortalCarrySelection { enabled: false });
     }
-    if app.world().resource::<SceneCaptureConfig>().card_view {
-        app.add_plugins(ambition_platformer2d::render::rendering::card_view::CardViewPlugin);
+    let renderer = app.world().resource::<SceneCaptureConfig>().renderer;
+    eprintln!("capture_scene: room renderer {renderer:?}");
+    if renderer != CardViewMode::Plane {
+        if renderer != CardViewMode::Inset {
+            app.insert_resource(CardViewSettings::for_game(renderer));
+        }
+        app.add_plugins(CardViewPlugin);
     }
     if app.world().resource::<SceneCaptureConfig>().limbs_unseen.is_some() {
         use ambition_platformer2d::render::rendering::actors::rigged::{RiggedDriveSet, follow_limb_twins};
@@ -1652,17 +1666,17 @@ fn install_room_capture(app: &mut App) {
             force_look_depth,
             force_camera_zoom,
             force_portal_windows,
-            // Before every presentation system that reads the camera: with no
-            // order, a serial executor ran the motes and the daylight veil
-            // against the camera before this pin, and drew them off the frame.
+            // Set the frame before the adapters place either camera.
             apply_capture_snapshot
-                .after(ViewCameraSet)
+                .in_set(ViewCameraSet)
+                .after(present_view_frames)
+                .before(apply_view_frames_to_2d_cameras)
                 .before(sync_parallax_layers)
                 .before(ambition_platformer2d::render::rendering::ambient_motes::drift_room_motes)
                 .before(ambition_platformer2d::render::rendering::daylight::light_the_world),
             request_capture.after(sync_parallax_layers),
             adopt_menu_camera,
-            adopt_card_view_cameras,
+            adopt_card_view_cameras.after(place_card_view_cameras),
             finish_after_capture,
             fail_after_timeout,
             fail_when_the_shell_refuses_the_route,
@@ -1832,7 +1846,7 @@ impl SceneCaptureConfig {
         let mut boss_hp: Option<f32> = None;
         let mut boss_blows: Vec<(u64, i32)> = Vec::new();
         let mut player_flash_from: Option<u64> = None;
-        let mut card_view = false;
+        let mut renderer = CardViewMode::Plane;
         let mut look_depth: Option<[f32; 2]> = None;
         let mut camera_zoom = None;
         let mut camera_roll = None;
@@ -1868,6 +1882,7 @@ impl SceneCaptureConfig {
         let mut carry = true;
         let mut gear: Vec<(String, u64)> = Vec::new();
         let mut tick_per_frame = false;
+        let mut at_tick = None;
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
         let mut player_dies: Vec<u64> = Vec::new();
@@ -2125,8 +2140,17 @@ impl SceneCaptureConfig {
                     2
                 }
                 "--card-view" => {
-                    card_view = true;
+                    renderer = CardViewMode::Inset;
                     1
+                }
+                "--renderer" => {
+                    renderer = match args.get(i + 1).map(String::as_str) {
+                        Some("plane") => CardViewMode::Plane,
+                        Some("side-on") => CardViewMode::SideOn,
+                        Some("oblique") => CardViewMode::Gameplay,
+                        _ => return Err("--renderer requires plane, side-on, or oblique".to_string()),
+                    };
+                    2
                 }
                 "--player-flash" => {
                     let Some(value) = args.get(i + 1) else {
@@ -2265,6 +2289,12 @@ impl SceneCaptureConfig {
                 "--tick-per-frame" => {
                     tick_per_frame = true;
                     1
+                }
+                "--at-tick" => {
+                    let value = args.get(i + 1).ok_or("--at-tick requires a simulation tick")?;
+                    at_tick = Some(value.parse::<u64>()
+                        .map_err(|_| format!("--at-tick wants a simulation tick, got '{value}'"))?);
+                    2
                 }
                 "--carry" => {
                     carry = match args.get(i + 1).map(String::as_str) {
@@ -2493,6 +2523,9 @@ impl SceneCaptureConfig {
             return Err("select --geometry-overlay or --combat-overlay".into());
         }
         if let Some(route) = route.clone() {
+            if renderer != CardViewMode::Plane || at_tick.is_some() {
+                return Err("Select a room to use --renderer, --card-view, or --at-tick".to_string());
+            }
             // Classify positionals instead of counting them, so an unexpected
             // argument is named before any work happens.
             let mut output: Option<PathBuf> = None;
@@ -2557,6 +2590,7 @@ impl SceneCaptureConfig {
                 carry: true,
                 gear: Vec::new(),
                 tick_per_frame: false,
+                at_tick: None,
                 guards: Vec::new(),
                 body_warp: None,
                 dev_overlays,
@@ -2569,7 +2603,7 @@ impl SceneCaptureConfig {
                 boss_hp,
                 boss_blows: Vec::new(),
                 player_flash_from: None,
-                card_view: false,
+                renderer: CardViewMode::Plane,
                 look_depth,
                 camera_zoom,
                 camera_roll,
@@ -2631,7 +2665,7 @@ impl SceneCaptureConfig {
             boss_hp,
             boss_blows,
             player_flash_from,
-            card_view,
+            renderer,
             look_depth,
             camera_zoom,
             camera_roll,
@@ -2665,7 +2699,8 @@ impl SceneCaptureConfig {
             limbs_unseen,
             carry,
             gear,
-            tick_per_frame,
+            tick_per_frame: tick_per_frame || at_tick.is_some(),
+            at_tick,
             guards,
             body_warp,
             route: None,
@@ -3137,7 +3172,7 @@ fn adopt_menu_camera(
         (Entity, &mut Projection),
         (
             With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
-            Without<AdoptedMenuCamera>,
+            Without<AdoptedCaptureCamera>,
         ),
     >,
 ) {
@@ -3149,7 +3184,7 @@ fn adopt_menu_camera(
         projection.set_changed();
         commands
             .entity(entity)
-            .insert((want.clone(), Msaa::Off, AdoptedMenuCamera));
+            .insert((want.clone(), Msaa::Off, AdoptedCaptureCamera));
     }
 }
 
@@ -3228,12 +3263,12 @@ fn adopt_card_view_cameras(
     mut cameras: Query<
         (Entity, &mut Projection),
         (
-            With<ambition_platformer2d::render::rendering::card_view::CardViewCamera>,
-            Without<AdoptedMenuCamera>,
+            With<CardViewCamera>,
+            Without<AdoptedCaptureCamera>,
         ),
     >,
 ) {
-    let (true, Some(target)) = (config.card_view, target) else {
+    let Some(target) = target.filter(|_| config.renderer != CardViewMode::Plane) else {
         return;
     };
     let want = RenderTarget::Image(ImageRenderTarget::from(target.image.clone()));
@@ -3241,13 +3276,13 @@ fn adopt_card_view_cameras(
         projection.set_changed();
         commands
             .entity(entity)
-            .insert((want.clone(), Msaa::Off, AdoptedMenuCamera));
+            .insert((want.clone(), Msaa::Off, AdoptedCaptureCamera));
     }
 }
 
-/// A cube camera [`adopt_menu_camera`] has already pointed at the capture.
+/// The camera already draws to the capture image.
 #[derive(Component)]
-struct AdoptedMenuCamera;
+struct AdoptedCaptureCamera;
 
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
@@ -3267,7 +3302,7 @@ fn apply_capture_snapshot(
         ),
         With<ambition_platformer2d::sim_view::LocalView>,
     >,
-    mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
+    mut presented: ResMut<PresentedViewFrames>,
     host_view: Option<
         ResMut<ambition_platformer2d::portal_presentation::PortalCameraContinuityHostView>,
     >,
@@ -3284,30 +3319,24 @@ fn apply_capture_snapshot(
     let active_spec = room_set.spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
-    // `--fit-room`: the whole room, centred, scaled to fit. The resolver below
-    // clamps to the room and to camera zones, so it cannot give a wide shot.
-    if config.fit_room {
-        // Use the projection's scaling mode, not a multiplier on the base
-        // view: `scale` multiplies an extent that depends on the mode and the
-        // viewport aspect.
-        for (mut transform, mut projection) in &mut cameras {
-            if let Projection::Orthographic(orthographic) = &mut *projection {
-                orthographic.scale = 1.0;
-                orthographic.scaling_mode = bevy::camera::ScalingMode::AutoMin {
-                    min_width: world.0.size.x,
-                    min_height: world.0.size.y,
-                };
-            }
-            transform.translation.x = 0.0;
-            transform.translation.y = 0.0;
-            transform.rotation = Quat::IDENTITY;
-        }
-        return;
-    }
-
     // Player focus uses the live frame, including companions and easing.
     // A fixed focus resolves a point at the requested coordinates.
-    let snapshot = if config.follow_player {
+    let snapshot = if config.fit_room {
+        // Fit the whole room to the image, outside the camera-zone limits.
+        let viewport = config.size.max(UVec2::ONE).as_vec2();
+        let size = Vec2::new(world.0.size.x, world.0.size.y);
+        let scale = (size / viewport).max_element();
+        let center = world.0.size * 0.5;
+        let extent = viewport * scale;
+        CameraSnapshot2d {
+            center_world: center,
+            target_world: center,
+            unpadded_center_world: center,
+            visible_view: ae::Vec2::new(extent.x, extent.y),
+            orthographic_scale: scale,
+            ..Default::default()
+        }
+    } else if config.follow_player {
         let Some(frame) = view_states
             .iter()
             .find_map(|(_, _, resolved)| resolved.frame())
@@ -3389,7 +3418,7 @@ fn apply_capture_snapshot(
     // The far side of a seam check: the camera is where the view through the
     // portal is. Only the camera moves; the views the windows read keep the
     // eye's own camera.
-    let (x, y, rotation) = match config.seam.as_ref().filter(|seam| seam.far) {
+    let (x, y, rotation) = match config.seam.as_ref().filter(|seam| seam.far && !config.fit_room) {
         None => (x, y, snapshot.rotation_radians),
         Some(seam) => {
             let portals: Vec<_> = portals.iter().cloned().collect();
@@ -3412,13 +3441,12 @@ fn apply_capture_snapshot(
             (render.x, render.y, through.rotation)
         }
     };
-    for (mut transform, mut projection) in &mut cameras {
-        if let Projection::Orthographic(orthographic) = &mut *projection {
-            orthographic.scale = snapshot.orthographic_scale;
+    for (view, ..) in &view_states {
+        if let Some(frame) = presented.of_mut(view) {
+            frame.plane_center = Vec2::new(x, y);
+            frame.roll_radians = rotation;
+            frame.orthographic_scale = snapshot.orthographic_scale;
         }
-        transform.translation.x = x;
-        transform.translation.y = y;
-        transform.rotation = Quat::from_rotation_z(rotation);
     }
 }
 
@@ -3864,6 +3892,7 @@ fn request_capture(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
     target: Option<Res<SceneCaptureTarget>>,
+    card_cameras: Query<(&Camera, &RenderTarget), With<CardViewCamera>>,
     mut runtime: ResMut<SceneCaptureRuntime>,
     player_q: Query<
         &ambition_platformer2d::actor::BodyKinematics,
@@ -3963,6 +3992,22 @@ fn request_capture(
         // every later shot's frame, and the sequence would never drive again.
         runtime.press_frames -= 1;
     }
+    let tick = sim_tick.as_deref().map(|tick| tick.get());
+    if let Some(first) = config.at_tick {
+        let step = (runtime.shot as u64).saturating_mul(u64::from(config.stride));
+        let wanted = first.saturating_add(step);
+        match tick {
+            Some(now) if now == wanted => {}
+            Some(now) if now > wanted => {
+                eprintln!("capture_scene: missed requested tick {wanted}. Current tick is {now}. No image is written for this shot.");
+                runtime.failed = true;
+                runtime.requested = true;
+                commands.write_message(AppExit::from_code(2));
+                return;
+            }
+            _ => return,
+        }
+    }
     if let Some(kin) = player_q.iter().next() {
         println!(
             "capture_scene: subject at ({:.4}, {:.4}) after {} warmup tick(s)",
@@ -4016,6 +4061,14 @@ fn request_capture(
     let Some(target) = target else {
         return;
     };
+    if matches!(config.renderer, CardViewMode::SideOn | CardViewMode::Gameplay)
+        && !card_cameras.iter().any(|(camera, output)| {
+            camera.is_active && camera.physical_target_size().is_some()
+                && output.as_image() == Some(&target.image)
+        })
+    {
+        return;
+    }
     if let Err(why) = write_seam_window(&config, &seam) {
         eprintln!("capture_scene: --seam: {why}. No image is written.");
         runtime.failed = true;
@@ -4037,7 +4090,7 @@ fn request_capture(
     eprintln!(
         "capture_scene: shot {} at sim tick {} -> {}",
         runtime.shot,
-        sim_tick.map_or(0, |tick| tick.get()),
+        tick.unwrap_or(0),
         config.output.display()
     );
 }
@@ -4152,7 +4205,7 @@ fn save_readback_to_disk(
         // (`press_during_shutter_frame`), so it skips `stride_left`. That
         // countdown returns before the press driver and would freeze the
         // input mid-delivery.
-        runtime.stride_left = if config.press_during.is_some() {
+        runtime.stride_left = if config.press_during.is_some() || config.at_tick.is_some() {
             0
         } else {
             config.stride

@@ -128,6 +128,9 @@ which runs the two passes for each Mary-O level.
 
 A door that a key opens is two entities and no code.
 
+- For a key that goes in the inventory, set the pickup's `kind` or the
+  chest's `reward` to `item:<item catalog id>`. Set the door's `gated_by`
+  field to `inventory.holds <item catalog id>`.
 - The key: a `PickupSpawn` with `kind: "flag:<flag>"` and `respawn: "Never"`.
   `sprite` names the prop sheet that draws it. The player reads "picked up
   <name>".

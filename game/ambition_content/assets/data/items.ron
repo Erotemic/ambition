@@ -268,13 +268,12 @@
         // takes the next one until the bag has none.
         stack: 9,
     ),
-    // An empty slot (the Axe was here; removed 2026-10-30).
     (
-        display_name: "Empty",
-        description: "",
-        category: Reserved,
+        display_name: "Bronze Ward Key",
+        description: "From the offerings in the Votive Mound. It opens the bronze seal in the Tally Vault.",
+        category: KeyItem,
         held_item_id: None,
-        dialog_id: "empty1",
+        dialog_id: "barrowwardkey",
     ),
     // ---- Row 4: consumables, then key items. A key item is not equipment:
     // the grid draws its cell blank, and the QUEST page lists it. ----
@@ -320,12 +319,11 @@
         held_item_id: None,
         dialog_id: "fieldsurvey",
     ),
-    // An empty slot (the Map Fragment was here; removed 2026-10-30).
     (
-        display_name: "Empty",
-        description: "",
-        category: Reserved,
+        display_name: "Crown Key",
+        description: "The old guard kept it in the Reliquary. Its three teeth match the seal on the royal tomb.",
+        category: KeyItem,
         held_item_id: None,
-        dialog_id: "empty2",
+        dialog_id: "barrowcrownkey",
     ),
 ]

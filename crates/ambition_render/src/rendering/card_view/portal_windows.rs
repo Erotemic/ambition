@@ -16,7 +16,7 @@ pub(super) struct CardWindow;
 pub(super) fn realize_portal_windows(
     mut commands: Commands,
     windows: Query<
-        (Entity, &Mesh2d, &MeshMaterial2d<ColorMaterial>, &Transform),
+        (Entity, &Mesh2d, &MeshMaterial2d<ColorMaterial>, &Transform, &Visibility),
         With<PortalConeMesh>,
     >,
     mut cards: Query<
@@ -33,13 +33,14 @@ pub(super) fn realize_portal_windows(
     mut products: Local<RetainedEntities<Entity>>,
 ) {
     products.reconcile(&mut commands, |source| windows.contains(*source));
-    for (source, mesh, material, transform) in &windows {
+    for (source, mesh, material, transform, visible) in &windows {
         let product = products
             .get(&source)
             .and_then(|product| cards.get_mut(*product).ok());
         let Some((color, texture)) = plane_materials
             .get(&material.0)
             .and_then(|material| Some((material.color, material.texture.as_ref()?)))
+            .filter(|_| *visible != Visibility::Hidden)
         else {
             if let Some((.., mut visibility)) = product {
                 visibility.set_if_neq(Visibility::Hidden);
@@ -124,6 +125,7 @@ mod tests {
                 Mesh2d(mesh.clone()),
                 MeshMaterial2d(material),
                 Transform::from_xyz(20.0, 10.0, PORTAL_WINDOW_Z),
+                Visibility::Inherited,
             ))
             .id();
         app.update();
@@ -146,6 +148,12 @@ mod tests {
             app.world().get::<Transform>(card).unwrap().translation.y,
             15.0
         );
+        app.world_mut().entity_mut(source).insert(Visibility::Hidden);
+        app.update();
+        assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Hidden));
+        app.world_mut().entity_mut(source).insert(Visibility::Inherited);
+        app.update();
+        assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Inherited));
         app.world_mut().despawn(source);
         app.update();
         assert!(app.world().get::<CardWindow>(card).is_none());

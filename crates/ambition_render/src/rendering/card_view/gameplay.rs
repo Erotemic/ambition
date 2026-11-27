@@ -5,7 +5,7 @@ use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{CameraMainTextureUsages, CompositingSpace, RenderTarget};
 use bevy::prelude::{
-    Camera, Camera2d, Commands, Component, DetectChanges, Entity, Local, Query, Res, With, Without,
+    Camera, Camera2d, Commands, Component, DetectChanges, Entity, Local, Query, Ref, Res, With, Without,
 };
 
 use super::{CardViewCamera, CardViewSettings, PresentedViewFrames};
@@ -31,7 +31,7 @@ pub(super) fn select_gameplay_cameras(
         (
             Entity,
             &mut Camera,
-            &RenderTarget,
+            Ref<RenderTarget>,
             Option<&PresentsView>,
             &CameraMainTextureUsages,
             Option<&CompositingSpace>,
@@ -61,7 +61,7 @@ pub(super) fn select_gameplay_cameras(
         let source = plane_cameras
             .iter_mut()
             .find(|(id, camera, target, link, ..)| {
-                matches!(target, RenderTarget::Window(_))
+                matches!(&**target, RenderTarget::Window(_) | RenderTarget::Image(_))
                     && (camera.is_active || hidden.contains(id))
                     && on_hand.presented_by(link.copied()) == Some(view.0)
             });
@@ -73,21 +73,16 @@ pub(super) fn select_gameplay_cameras(
             }
             continue;
         };
-        if plane.is_changed() || !card.is_active {
+        let taking_over = !card.is_active || !hidden.contains(&entity);
+        if plane.is_changed() || taking_over {
             card.is_active = true;
             card.order = plane.order;
             card.viewport.clone_from(&plane.viewport);
             card.clear_color = plane.clear_color;
             card.msaa_writeback = plane.msaa_writeback;
         }
-        if let RenderTarget::Window(window) = plane_target {
-            let key = |window: &bevy::window::WindowRef| match *window {
-                bevy::window::WindowRef::Primary => None,
-                bevy::window::WindowRef::Entity(entity) => Some(entity),
-            };
-            if !matches!(&*target, RenderTarget::Window(current) if key(current) == key(window)) {
-                *target = RenderTarget::Window(*window);
-            }
+        if plane_target.is_changed() || taking_over {
+            *target = (*plane_target).clone();
         }
         if usages.0 != plane_usages.0 {
             usages.0 = plane_usages.0;
@@ -183,18 +178,20 @@ mod tests {
     use crate::rendering::camera::PresentedViewFrame;
     use crate::rendering::card_view::{retire_card_outputs, CardMeshes, CardViewMode};
     use bevy::camera::Viewport;
-    use bevy::prelude::{App, IntoScheduleConfigs, PostUpdate, UVec2, Vec2};
+    use bevy::prelude::{App, Assets, Image, IntoScheduleConfigs, PostUpdate, UVec2, Vec2};
 
     #[test]
     fn two_card_outputs_keep_their_viewports_and_release_the_plane_on_switch() {
         let mut app = App::new();
         app.insert_resource(CardViewSettings::gameplay())
             .init_resource::<CardMeshes>()
+            .init_resource::<Assets<Image>>()
             .add_systems(
                 PostUpdate,
                 (retire_card_outputs, select_gameplay_cameras, isolate_cards).chain(),
             );
         let world = app.world_mut();
+        let image = world.resource_mut::<Assets<Image>>().add(Image::default());
         let rooms = [
             LiveRoomInstance::ACTIVATION,
             LiveRoomInstance::ACTIVATION.next(),
@@ -222,6 +219,9 @@ mod tests {
                     mask.clone(),
                 ))
                 .id();
+            if index == 1 {
+                world.entity_mut(plane).insert(RenderTarget::Image(image.clone().into()));
+            }
             let card = world
                 .spawn((
                     CardViewCamera,
@@ -253,6 +253,12 @@ mod tests {
             let camera = world.get::<Camera>(card).unwrap();
             assert!(camera.is_active);
             assert_eq!(camera.viewport.as_ref().unwrap().physical_position, origin);
+            let target = world.get::<RenderTarget>(card).unwrap();
+            if index == 1 {
+                assert_eq!(target.as_image(), Some(&image));
+            } else {
+                assert!(matches!(target, RenderTarget::Window(_)));
+            }
             let layers = world.get::<RenderLayers>(model).unwrap();
             assert!(layers.intersects(world.get::<RenderLayers>(card).unwrap()));
             assert!(!layers.intersects(world.get::<RenderLayers>(outputs[1 - index].1).unwrap()));

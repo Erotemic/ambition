@@ -84,29 +84,51 @@ pub fn segments_for(length: f32) -> usize {
     ((length / 14.0).clamp(4.0, 64.0) as usize).next_power_of_two()
 }
 
-/// A bolt from (0, 0) to (1, 0) in its frame: the trunk, and `forks` side
-/// strands off it. `length` is its length in the world, which sets how
-/// finely it is cut.
+/// A bolt from (0, 0) to (1, 0). The length sets the number of segments.
+/// The fork budget includes branches from the trunk and from other branches.
 pub fn bolt(rng: &mut Rng, length: f32, jag: f32, forks: usize) -> Vec<Strand> {
-    let n = segments_for(length);
-    let trunk = jagged(rng, Vec2::ZERO, Vec2::X, n, jag);
+    let n = segments_for(length * 2.0);
+    let points = jagged(rng, Vec2::ZERO, Vec2::X, n, jag);
+    let widths = (0..=n).map(|i| 1.0 - 0.65 * i as f32 / n as f32).collect();
+    let trunk = Strand { points, widths, appears_at: 0.0, trunk: true };
     let mut strands = Vec::with_capacity(1 + forks);
-    for _ in 0..forks {
-        let k = rng.range(0.15, 0.8) * n as f32;
-        let k = (k as usize).clamp(1, n - 1);
-        let root = trunk[k];
-        let along = (trunk[k + 1] - trunk[k - 1]).normalize_or(Vec2::X);
-        let turn = rng.range(0.35, 0.95) * if rng.unit() < 0.5 { -1.0 } else { 1.0 };
-        let reach = rng.range(0.1, 0.28) * (1.0 - k as f32 / n as f32) + 0.04;
-        let end = root + Vec2::from_angle(turn).rotate(along) * reach;
-        let points = jagged(rng, root, end, (n / 4).max(4), jag * 1.2);
-        let m = points.len() - 1;
-        let widths = (0..=m).map(|j| 0.55 - 0.5 * j as f32 / m as f32).collect();
-        strands.push(Strand { points, widths, appears_at: k as f32 / n as f32, trunk: false });
+    strands.push(trunk);
+    let primary_forks = forks.div_ceil(2);
+    // Distribute the roots along the trunk. Keep the start and the tip clear.
+    for i in 0..primary_forks {
+        let slot = (i as f32 + rng.range(0.15, 0.85)) / primary_forks as f32;
+        let root_at = 0.18 + 0.60 * slot;
+        let root_index = ((root_at * n as f32) as usize).clamp(1, n - 1);
+        let branch = fork(rng, &strands[0], root_index, jag);
+        let branch_index = strands.len();
+        strands.push(branch);
+        if i < forks / 2 {
+            let parent = &strands[branch_index];
+            let root_index = parent.points.len() / 2;
+            let twig = fork(rng, parent, root_index, jag);
+            strands.push(twig);
+        }
     }
-    let widths = vec![1.0; trunk.len()];
-    strands.insert(0, Strand { points: trunk, widths, appears_at: 0.0, trunk: true });
     strands
+}
+
+fn fork(rng: &mut Rng, parent: &Strand, index: usize, jag: f32) -> Strand {
+    let n = parent.points.len() - 1;
+    let root = parent.points[index];
+    let along = (parent.points[index + 1] - parent.points[index - 1]).normalize_or(Vec2::X);
+    let turn = rng.range(0.50, 1.10) * if rng.unit() < 0.5 { -1.0 } else { 1.0 };
+    let parent_length = parent.points[0].distance(parent.points[n]);
+    let end = root + Vec2::from_angle(turn).rotate(along) * (parent_length * rng.range(0.25, 0.48));
+    let mut points = jagged(rng, root, end, (n / 2).clamp(4, 16), jag * 1.5);
+    // Keep the forks between the start and the tip of the bolt.
+    for p in &mut points {
+        p.x = p.x.clamp(0.0, 1.0);
+    }
+    let m = points.len() - 1;
+    let width = parent.widths[index] * 0.72;
+    let widths = (0..=m).map(|i| width * (1.0 - 0.92 * i as f32 / m as f32)).collect();
+    let appears_at = if parent.trunk { index as f32 / n as f32 } else { parent.appears_at };
+    Strand { points, widths, appears_at, trunk: false }
 }
 
 /// A laser from (0, 0) to (1, 0): one straight strand, cut finely enough
@@ -240,14 +262,22 @@ mod tests {
     }
 
     #[test]
-    fn a_bolt_is_a_trunk_and_its_forks_and_a_fork_starts_on_the_trunk() {
-        let strands = bolt(&mut Rng::new(1), 400.0, 0.1, 4);
+    fn each_fork_starts_on_its_parent_and_stops_within_the_bolts_reach() {
+        let strands = bolt(&mut Rng::new(1), 118.0, 0.14, 4);
         assert_eq!(strands.len(), 5);
-        assert!(strands[0].trunk);
-        for fork in &strands[1..] {
+        let trunk = &strands[0];
+        assert!(trunk.trunk);
+        assert_eq!(trunk.points[0], Vec2::ZERO);
+        assert_eq!(*trunk.points.last().unwrap(), Vec2::X);
+        for (strand, parent) in [(1, 0), (2, 1), (3, 0), (4, 3)] {
+            let fork = &strands[strand];
+            let parent = &strands[parent];
             assert!(!fork.trunk);
-            assert!(strands[0].points.contains(&fork.points[0]), "a fork grows from the trunk");
-            assert!(fork.widths.last() < fork.widths.first(), "a fork thins");
+            let root = parent.points.iter().position(|&p| p == fork.points[0]).unwrap();
+            assert!(fork.widths[0] < parent.widths[root]);
+            assert!(fork.widths.last() < fork.widths.first());
+            assert!(fork.appears_at >= parent.appears_at);
+            assert!(fork.points.iter().all(|p| (0.0..=1.0).contains(&p.x)));
         }
     }
 

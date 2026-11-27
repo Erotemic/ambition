@@ -16,6 +16,8 @@ pub struct MapRoomNode {
     pub area: String,
     /// The room's title (its `<id>_title` label), or a name made from its id.
     pub title: String,
+    /// Path from the world map to the group that contains this room.
+    pub group_path: Vec<String>,
     /// The world that contains this room. Each world has its own coordinate space.
     pub world: String,
     pub world_min: Vec2,
@@ -160,6 +162,7 @@ impl bevy::prelude::Plugin for MapStatePlugin {
 /// first update where a session world exists without the input resources. A
 /// host that never opens a session is not proven correct by staying quiet.
 pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
+    app.init_resource::<browser::MapHierarchy>();
     // Startup half. `populate_map_rooms` reads `Res<ActiveLdtkProject>` and
     // writes the room list once. Its real prerequisite is that resource, so a
     // `run_if` is enough.

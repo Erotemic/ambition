@@ -175,7 +175,7 @@ pub trait RoomLook: Material2d {
 }
 
 /// One architecture in two states: clean and corrupted.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct RoomStateMaterial {
     #[uniform(0)]
     pub piece: Vec4,
@@ -200,7 +200,7 @@ pub struct RoomStateMaterial {
 /// This material is one quad over that: it lays the layers of `hub_corrupt`
 /// where the air of the room is corrupted, and the fog between the sky and
 /// the play. Its shader draws no art.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct RoomSkyMaterial {
     /// `x, y` = the room size.
     #[uniform(0)]
@@ -222,6 +222,9 @@ pub struct RoomSkyMaterial {
     #[texture(7)]
     pub atmosphere: Handle<Image>,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_render::rendering::card_view::CardMaterialSource for RoomSkyMaterial {}
 
 impl Material2d for RoomSkyMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -482,6 +485,9 @@ fn apply_look_depth(
         }
     }
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_render::rendering::card_view::CardMaterialSource for RoomStateMaterial {}
 
 impl Material2d for RoomStateMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -903,6 +909,8 @@ pub fn install(app: &mut App) {
         {
             ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkinMaterial>(app);
             ambition_render::rendering::card_view::install_card_mesh_material::<RoomBlueprintMaterial>(app);
+            ambition_render::rendering::card_view::install_card_mesh_material::<RoomStateMaterial>(app);
+            ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkyMaterial>(app);
         }
         app.add_plugins(Material2dPlugin::<RoomSkyMaterial>::default());
         app.add_plugins(Material2dPlugin::<RoomFrontFieldMaterial>::default());

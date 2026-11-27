@@ -390,16 +390,11 @@ pub fn grant_pickup(
                 granted.coins = wallet.balance - before;
             }
         }
-        ambition_interaction::PickupKind::Ability { ability_id } => {
-            // Grant the ability into the player's catalog so it shows up in
-            // the OoT inventory and can be equipped (wired abilities) — the
-            // Metroidvania "learn a power from a boss" beat.
-            if let Some(owned) = owned.as_deref_mut() {
-                if let Some(item) = items.item_by_dialog_id(ability_id) {
-                    let before = owned.count(item);
-                    owned.grant(items, item, 1);
-                    granted.item = Some((item, owned.count(item) - before)).filter(|(_, n)| *n > 0);
-                }
+        ambition_interaction::PickupKind::Item { item_id } => {
+            if let (Some(owned), Some(item)) = (owned.as_deref_mut(), items.item_by_dialog_id(item_id)) {
+                let before = owned.count(item);
+                owned.grant(items, item, 1);
+                granted.item = Some((item, owned.count(item) - before)).filter(|(_, n)| *n > 0);
             }
         }
         ambition_interaction::PickupKind::StoryFlag { flag } => {
@@ -426,7 +421,7 @@ pub fn grant_pickup(
                 target: "ambition_platformer2d::pickups",
                 "pickup payload `Custom({id})` reached the grant and the engine has no \
                  vocabulary for it, so {id} was awarded to nobody: author it as a \
-                 health/currency/ability/flag reward, or teach the catalog what it is",
+                 health/currency/item/flag reward, or teach the catalog what it is",
             );
         }
     }

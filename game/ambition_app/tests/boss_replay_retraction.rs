@@ -395,7 +395,7 @@ fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
             world
                 .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
                 .iter(world)
-                .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall"))
+                .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Item { item_id } if item_id == "markrecall"))
                 .map(|(_, aabb)| aabb.center)
         };
         if let Some(at) = at {
@@ -554,7 +554,7 @@ fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placem
             world
                 .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
                 .iter(world)
-                .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall"))
+                .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Item { item_id } if item_id == "markrecall"))
                 .map(|(_, aabb)| aabb.center)
         };
         if let Some(at) = at {
@@ -665,7 +665,7 @@ fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
             .iter(world)
             .filter(|(pickup, _, collected)| {
                 collected.is_none()
-                    && matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall")
+                    && matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Item { item_id } if item_id == "markrecall")
             })
             .map(|(_, aabb, _)| aabb.center)
             .collect::<Vec<_>>()
@@ -1161,7 +1161,7 @@ fn a_death_keeps_the_reward_taken_from_the_other_players_boss() {
 #[test]
 fn a_death_keeps_the_item_taken_from_the_other_players_boss() {
     let (_, markrecall) = alice_loots_bobs_chest_of_then_dies(
-        ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id: "markrecall".to_string(),
+        ambition_platformer2d::entity_catalog::PickupKind::Item { item_id: "markrecall".to_string(),
         },
     );
     assert_eq!(markrecall, [1, 1], "markrecall in the bag when Alice opened the chest, then after her death");

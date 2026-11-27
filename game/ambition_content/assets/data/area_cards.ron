@@ -25,6 +25,9 @@
         "intro_wake_room", "intro_hobford_lane", "intro_high_meadow", "intro_gate_clearing",
         "intro_freight_yard", "intro_millstream", "intro_hobford", "intro_woods",
     ]),
+    (name: "The Barrows", subtitle: Some("The old burial road"), rooms: ["intro_fell", "intro_moor", "intro_barrow", "intro_barrow_*"]),
+    (name: "The High Road", subtitle: Some("Over the workshop ridge"), rooms: ["fantasy_mountain_*"]),
+    (name: "Brackenford", subtitle: Some("Beyond the divide"), rooms: ["fantasy_brackenford", "fantasy_old_watch"]),
     (name: "The Drain Market", subtitle: Some("Under the gate stack"), rooms: ["drain_alley", "under_town_pipes"]),
     (name: "The Gate Stack", rooms: ["gate_stack_lower", "combat_calibration_lab", "first_system_boss"]),
 

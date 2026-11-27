@@ -152,8 +152,8 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
         CenteredAabb::from_center_size(center, ae::Vec2::new(16.0, 16.0)),
         PickupFeature::new(ambition_interaction::Pickup::new(
             "ability_drop",
-            ambition_interaction::PickupKind::Ability {
-                ability_id: "grapple".to_string(),
+            ambition_interaction::PickupKind::Item {
+                item_id: "grapple".to_string(),
             },
         )),
     ));

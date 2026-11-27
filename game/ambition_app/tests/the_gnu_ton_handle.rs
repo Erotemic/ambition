@@ -125,9 +125,20 @@ fn standing(sim: &mut Platformer2dSimHarness) -> Vec<String> {
     .collect()
 }
 
-/// Hub, orchard, well, hall, gallery, approach, arena: each door leads to
-/// the next room, and each room's door leads back. The arena's way out goes
-/// home.
+fn cross_edge(sim: &mut Platformer2dSimHarness, target: &str, action: AgentAction) {
+    assert!(
+        until(sim, 240, |_| action, |sim| sim.observation().active_room == target).is_some(),
+        "walk to {target}: {}",
+        trace(sim, "passage"),
+    );
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    assert_eq!(sim.observation().active_room, target);
+}
+
+/// Travel between each pair of rooms in both directions. The arena has a
+/// door to the hub.
 #[test]
 fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
@@ -135,11 +146,61 @@ fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
     let mut sim = room_with("central_hub_complex", save);
     let road = ["central_hub_complex", ORCHARD, WELL, HALL, GALLERY, APPROACH, ARENA];
     for pair in road.windows(2) {
+        let walk_positions = match pair {
+            [ORCHARD, WELL] => Some(((2720.0, 704.0), (96.0, 1536.0))),
+            [HALL, GALLERY] => Some(((2464.0, 432.0), (96.0, 896.0))),
+            [GALLERY, APPROACH] => Some(((2464.0, 896.0), (96.0, 1344.0))),
+            [APPROACH, ARENA] => Some(((1184.0, 352.0), (96.0, 208.0))),
+            _ => None,
+        };
+        if let Some((east, west)) = walk_positions {
+            for (target, (x, floor), direction) in [(pair[1], east, 1.0), (pair[0], west, -1.0), (pair[1], east, 1.0)] {
+                stand(&mut sim, x, floor);
+                cross_edge(&mut sim, target, axis(direction, 0.0));
+            }
+            continue;
+        }
+        if pair == [WELL, HALL] {
+            stand(&mut sim, 112.0, 144.0);
+            cross_edge(&mut sim, HALL, axis(0.0, -1.0));
+            assert!(sim.observation().on_ground, "the landing holds the arriving robot");
+            cross_edge(&mut sim, WELL, AgentAction { move_y: 1.0, jump: true, jump_held: true, ..base() });
+            cross_edge(&mut sim, HALL, axis(0.0, -1.0));
+            continue;
+        }
         assert_eq!(walk_through_the_door_to(&mut sim, pair[1]), pair[1], "`{}` has a door to `{}`", pair[0], pair[1]);
         assert_eq!(walk_through_the_door_to(&mut sim, pair[0]), pair[0], "`{}` has a door back to `{}`", pair[1], pair[0]);
         assert_eq!(walk_through_the_door_to(&mut sim, pair[1]), pair[1]);
     }
     assert_eq!(walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex", "the arena's way out goes home");
+}
+
+/// Climb from each pit floor to the east path.
+#[test]
+fn the_orchard_service_ladders_reach_the_east_banks() {
+    let mut sim = room(ORCHARD);
+    for bank in [1504.0, 2464.0] {
+        stand(&mut sim, bank - 16.0, 896.0);
+        assert!(
+            until(&mut sim, 240, |_| axis(0.0, -1.0), |sim| at(sim).1 < 674.0).is_some(),
+            "{}",
+            trace(&mut sim, "climb above the bank"),
+        );
+        assert!(
+            until(
+                &mut sim, 240,
+                |sim| axis(if at(sim).0 < bank + 112.0 { 1.0 } else { 0.0 }, 0.0),
+                |sim| {
+                    let o = sim.observation();
+                    o.player_pos.0 > bank + 20.0
+                        && o.on_ground
+                        && (o.player_pos.1 - 680.0).abs() < 1.0
+                },
+            ).is_some(),
+            "{}",
+            trace(&mut sim, "step onto the bank"),
+        );
+    }
 }
 
 /// THE ORCHARD. Hold right from the door: the first tree lifts the robot to
@@ -209,10 +270,9 @@ fn the_swinging_tree_carries_a_robot_that_walks_with_it() {
     assert_eq!(sim.observation().resets, 0, "it never fell in the chasm");
 }
 
-/// THE VECTOR WELL. Right onto the east wall, up it; left across the well,
-/// up the west wall; up to the vault; left into the passage of the top door.
+/// Cross both walls and the ceiling, then climb to Conservation Hall.
 #[test]
-fn the_vector_well_falls_four_ways_to_its_top_door() {
+fn the_vector_well_falls_four_ways_to_its_upper_shaft() {
     let mut sim = room(WELL);
     let mut ways = vec![gravity(&mut sim)];
     let done = until(
@@ -236,12 +296,39 @@ fn the_vector_well_falls_four_ways_to_its_top_door() {
     );
     assert!(done.is_some(), "{}", trace(&mut sim, "the robot is not in the top passage"));
     assert_eq!(ways, [(0.0, 1.0), (1.0, 0.0), (-1.0, 0.0), (0.0, -1.0), (0.0, 1.0)], "down, right, left, up, down");
-    assert_eq!(sim.observation().resets, 0);
+    assert_eq!(sim.observation().resets, 0, "reach the upper passage without a reset");
+    assert!(
+        until(
+            &mut sim, 120,
+            |sim| axis(((112.0 - at(sim).0) / 24.0).clamp(-1.0, 1.0), 0.0),
+            |sim| (at(sim).0 - 112.0).abs() < 4.0,
+        ).is_some(),
+        "{}",
+        trace(&mut sim, "reach the ladder"),
+    );
+    cross_edge(&mut sim, HALL, axis(0.0, -1.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground, "the shaft landing holds the arriving robot");
+    assert!((arrival.player_pos.1 - 952.0).abs() < 1.0, "the robot lands in the shaft");
+    assert_eq!(arrival.resets, 1, "the room arrival records one restart");
+    assert!(
+        until(&mut sim, 120, |_| axis(0.0, -1.0), |sim| at(sim).1 < 852.0).is_some(),
+        "{}",
+        trace(&mut sim, "climb above the hall floor"),
+    );
+    assert!(
+        until(&mut sim, 120, |_| axis(1.0, 0.0), |sim| {
+            let o = sim.observation();
+            o.on_ground && o.player_pos.0 > 180.0 && (o.player_pos.1 - 872.0).abs() < 1.0
+        }).is_some(),
+        "{}",
+        trace(&mut sim, "step onto the hall floor"),
+    );
+    assert_eq!(sim.observation().resets, arrival.resets, "climb out without a restart");
 }
 
-/// THE CONSERVATION HALL. Hold right from the door: the floor's portal puts
-/// the robot on the shelf; off the shelf's edge, the basin's portal flings
-/// it out of the pillar and over the pit.
+/// The floor portal leads to the shelf. The basin portal sends the robot
+/// out of the pillar and over the pit.
 #[test]
 fn the_halls_portals_lift_the_robot_and_fling_it_over_the_pit() {
     let mut sim = room(HALL);
@@ -260,7 +347,7 @@ fn the_halls_portals_lift_the_robot_and_fling_it_over_the_pit() {
 
 /// THE CONSERVATION HALL's twist. A robot that walks into the floor's last
 /// portal comes up out of the gallery's floor, falls up onto its ceiling,
-/// and walks out of the field down to the door.
+/// and walks out of the field down to the passage.
 #[test]
 fn the_gallery_is_entered_by_falling_up_out_of_its_floor() {
     let mut sim = room(HALL);
@@ -278,11 +365,17 @@ fn the_gallery_is_entered_by_falling_up_out_of_its_floor() {
             o.on_ground && o.gravity_dir.1 > 0.0 && (o.player_pos.1 - 408.0).abs() < 1.0 && o.player_pos.0 > 2304.0
         },
     );
-    assert!(done.is_some() && fell_up, "{}", trace(&mut sim, "the robot is not at the gallery's door"));
+    assert!(done.is_some() && fell_up, "{}", trace(&mut sim, "the robot did not land by the gallery passage"));
     assert_eq!(sim.observation().resets, 0);
+    cross_edge(&mut sim, GALLERY, axis(1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 872.0).abs() < 1.0);
+    cross_edge(&mut sim, HALL, axis(-1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 408.0).abs() < 1.0);
 }
 
-/// THE INVERSION GALLERY's lesson. The lever by the door turns the room
+/// THE INVERSION GALLERY's lesson. The lever by the passage turns the room
 /// over; the lever on the ceiling over it turns it back; and the first works
 /// again after that.
 #[test]
@@ -302,11 +395,8 @@ fn the_gallerys_levers_turn_it_over_and_back() {
     assert_eq!(sim.observation().resets, 0);
 }
 
-/// THE INVERSION GALLERY. The lever turns the room over; the robot walks
-/// the ceiling over the chasm, steps off the ceiling's step into the first
-/// portal, comes out of the hanging wall past the ceiling's hole, and the
-/// column of down field puts it on the ledge of GNU-ton's door. It only
-/// holds right.
+/// The robot walks across the ceiling and through the portal over the
+/// gap. It falls toward the east passage and walks into the Approach.
 #[test]
 fn the_inversion_gallery_is_crossed_on_its_ceiling() {
     let mut sim = room(GALLERY);
@@ -315,6 +405,7 @@ fn the_inversion_gallery_is_crossed_on_its_ceiling() {
     let up = until(&mut sim, 120, |_| base(), |sim| gravity(sim) == (0.0, -1.0) && sim.observation().on_ground);
     assert!(up.is_some(), "{}", trace(&mut sim, "the lever did not turn the room over"));
     let mut past_the_hole = false;
+    let mut falling_to_passage = false;
     let done = until(
         &mut sim,
         900,
@@ -322,15 +413,21 @@ fn the_inversion_gallery_is_crossed_on_its_ceiling() {
             let o = sim.observation();
             // Out of the hanging wall's portal, past the hole, still upside down.
             past_the_hole |= o.gravity_dir.1 < 0.0 && o.player_pos.0 > 2112.0;
+            falling_to_passage |= o.gravity_dir.1 > 0.0 && o.player_pos.0 > 2304.0;
             axis(1.0, 0.0)
         },
-        |sim| {
-            let o = sim.observation();
-            o.on_ground && o.gravity_dir.1 > 0.0 && (o.player_pos.1 - 872.0).abs() < 1.0 && o.player_pos.0 > 2304.0
-        },
+        |sim| sim.observation().active_room == APPROACH,
     );
-    assert!(done.is_some() && past_the_hole, "{}", trace(&mut sim, "the robot is not at GNU-ton's door"));
-    assert_eq!(sim.observation().resets, 0, "it never fell in the chasm or the hole");
+    assert!(done.is_some() && past_the_hole && falling_to_passage, "{}", trace(&mut sim, "the robot did not reach the Approach"));
+    let landed = until(&mut sim, 120, |_| base(), |sim| {
+        let o = sim.observation();
+        o.on_ground && (o.player_pos.1 - 1320.0).abs() < 1.0
+    });
+    assert!(landed.is_some(), "{}", trace(&mut sim, "land on the Approach floor"));
+    assert_eq!(sim.observation().resets, 1, "only the room change resets the body");
+    cross_edge(&mut sim, GALLERY, axis(-1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 872.0).abs() < 1.0);
 }
 
 /// THE SHOULDERS. GNU-ton rides his giant here under his own placement, and
@@ -404,11 +501,14 @@ fn his_fight_here_opens_his_portals() {
 }
 
 
-/// THE APPROACH. From the gallery's door, a robot that holds right walks
-/// into the column against the tower, falls up along its face, and out of
-/// the column over its top drops onto the tower, by GNU-ton's door.
+/// The robot climbs the tower, follows GNU-ton out through the passage,
+/// and drops from the entry pad into the arena.
 #[test]
-fn the_approach_lifts_the_robot_to_gnu_tons_door() {
+fn the_approach_leads_to_gnu_tons_arena() {
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::combat::components::ActorIdentity;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+
     let mut sim = room(APPROACH);
     stand(&mut sim, 420.0, 1344.0);
     let landed = until(
@@ -422,9 +522,43 @@ fn the_approach_lifts_the_robot_to_gnu_tons_door() {
     );
     assert!(landed.is_some(), "{}", trace(&mut sim, "end"));
     assert_eq!(sim.observation().resets, 0);
-    let door = crate::common::door_to(&mut sim, ARENA).aabb;
-    use ambition_platformer2d::engine_core::AabbExt as _;
-    assert!((door.center().y - 304.0).abs() < 1.0, "GNU-ton's door stands on the landing: {door:?}");
+
+    let duelist = {
+        let world = sim.world_mut();
+        let mut actors = world.query::<(bevy::prelude::Entity, &ActorIdentity)>();
+        actors.iter(world).find(|(_, id)| id.name == ambition_content::bosses::gnu_ton::prelude::NAME)
+            .expect("GNU-ton stands on the tower").0
+    };
+    {
+        let mut health = sim.world_mut().get_mut::<BodyHealth>(duelist).expect("GNU-ton has health");
+        health.health.current = health.max() / 4;
+    }
+    let mut furthest_x: f32 = 0.0;
+    let departed = until(
+        &mut sim,
+        300,
+        |sim| {
+            if let Some(kin) = sim.world().get::<BodyKinematics>(duelist) {
+                furthest_x = furthest_x.max(kin.pos.x);
+            }
+            base()
+        },
+        |sim| sim.world().get::<BodyHealth>(duelist).is_none_or(|health| !health.alive()),
+    );
+    assert!(
+        departed.is_some() && furthest_x > 1200.0,
+        "GNU-ton leaves at the east passage, reached x={furthest_x}, health={:?}",
+        sim.world().get::<BodyHealth>(duelist),
+    );
+
+    cross_edge(&mut sim, ARENA, axis(1.0, 0.0));
+    let arrival = sim.observation();
+    assert!(arrival.on_ground && (arrival.player_pos.1 - 184.0).abs() < 1.0);
+    assert!(
+        until(&mut sim, 240, |sim| axis(if at(sim).0 < 370.0 { 1.0 } else { 0.0 }, 0.0), |sim| at(sim).1 > 240.0).is_some(),
+        "{}",
+        trace(&mut sim, "the descent pad drops the robot into the arena"),
+    );
 }
 
 /// THE SHORTCUT. The approach's lift goes down to the end of the spoke, by

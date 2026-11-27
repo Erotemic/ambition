@@ -132,6 +132,7 @@
         // reaches a running game (`content_watch::yarn`).
         (path: "dialogue/sandbox/names.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/intro.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/fantasy.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/kernel.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/factions.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/cove.yarn", schema: "yarn_dialogue", version: 1),

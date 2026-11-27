@@ -1411,6 +1411,11 @@ fn platform_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>
     }
 }
 
+#[cfg(feature = "portal_render")]
+type ScenerySource = Or<(With<WorldSprite>, With<ambition_portal2d_presentation::PortalVisual>)>;
+#[cfg(not(feature = "portal_render"))]
+type ScenerySource = With<WorldSprite>;
+
 /// Draw world sprites at their propagated positions. A prop ranked as a
 /// body uses the body renderer.
 #[allow(clippy::too_many_arguments)]
@@ -1421,7 +1426,7 @@ pub(super) fn realize_card_scenery(
             Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
             &InheritedVisibility, Option<&MovingPlatformVisual>, Has<AnimatedWorldSpriteTint>,
         ),
-        (With<WorldSprite>, Without<CardScenery>),
+        (ScenerySource, Without<CardScenery>),
     >,
     depths: Res<CardRootDepths>,
     platform_looks: Option<Res<PlatformLooks>>,

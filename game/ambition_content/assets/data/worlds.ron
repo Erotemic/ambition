@@ -15,7 +15,7 @@
     entry_room: "central_hub_complex",
     worlds: [
         (id: "world.sandbox_ldtk", file: "sandbox.ldtk", required: true),
-        (id: "world.intro_ldtk", file: "intro.ldtk"),
+        (id: "world.intro_ldtk", file: "intro.ldtk", map_title: Some("Fantasy Dimension")),
         (id: "world.cut_rope_ldtk", file: "you_have_to_cut_the_rope.ldtk"),
         (id: "world.hall_ldtk", file: "hall_of_characters.ldtk"),
         // The dinosaur dimension: the primeval trail, from the trailhead's

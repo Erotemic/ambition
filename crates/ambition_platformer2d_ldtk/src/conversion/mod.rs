@@ -1066,6 +1066,7 @@ mod tests {
             .join("../../game/ambition_content/assets/worlds");
         let source = |id: &str, file: &str, required: bool| WorldSource {
             id: AssetId::new(id),
+            map_title: None,
             asset_path: format!("game://worlds/{file}"),
             loose_path: Some(worlds_dir.join(file)),
             embedded_text: None,

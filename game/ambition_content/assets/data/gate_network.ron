@@ -13,11 +13,8 @@
 //   dimension can dial each other (the Science dimension's gravity trail and
 //   orbital station are far apart).
 // - A status reads only authored facts (a switch, a flag), never chance.
-// - A `posted` address is written on the ring's terminal, so every
-//   destination has a way home that needs no knowledge. Every terminal
-//   posts LEGAL, the Gate Authority's capital (Q185, 2026-11-26), and the
-//   capital's terminal posts TESTING, the sandbox hub: home is at most
-//   two dials away.
+// - What each terminal lists (its posted addresses, and what a traveller
+//   knows from the start) is `gate_directory.ron`.
 // - A ring whose room is not built yet is `Offline` with a reason; it is
 //   never "unknown".
 //
@@ -31,12 +28,6 @@
     // The ring's inscription, ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ, as the letters it spells: one
     // letter per chevron, fifteen chevrons, each its own glyph.
     inscription: "LEGALLYDISTINCT",
-    // Which addresses a traveller knows before learning any. `All`: every
-    // address is listed from the start, as a development game starts with
-    // everything unlocked (Jon, 2026-10-24). `Discovered` (the release rule):
-    // only what a dial, a sign, a person or a document taught. Knowledge only
-    // lists; a dial never reads it.
-    start_known: All,
     facilities: [
         (id: "home_gate_station", name: "Home Gate Station", dimension: "home"),
         // The old gate stack under the hub: its own facility, so the public
@@ -106,7 +97,6 @@
             // The developer sandbox's own address; LEGAL is the capital's.
             address: Some("TESTING"),
             terminal: Some("hub_public_terminal"),
-            posted: ["LEGAL"],
             note: "Public ring. Organic travellers: expect nausea for an hour.",
         ),
         // Ring 1 of the gate stack: the intro's gate. Its old switch is its
@@ -122,7 +112,6 @@
                 switch: "intro_portal_switch",
                 reason: "Ring 1 has no power. Toggle the gate power beside it.",
             ),
-            posted: ["LEGAL"],
             note: "The first ring. The stack was built around it.",
         ),
         // Ring 7 of the gate stack is the old Math line, posted on its
@@ -139,7 +128,6 @@
                 switch: "math_gate_switch",
                 reason: "Ring 7 has no power. Throw the breaker beside it.",
             ),
-            posted: ["TANGENT"],
             note: "Maintenance ring. Decades in service; the bearings sing.",
         ),
         // The military's own ring, in the annex behind the General's
@@ -151,7 +139,6 @@
             room: "military_gate_annex",
             address: Some("SENTINEL"),
             terminal: Some("military_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Priority band. Unauthorized use is logged.",
         ),
         // ── Hobford (level 1) ─────────────────────────────────────────────
@@ -164,7 +151,6 @@
             room: "intro_gate_clearing",
             address: Some("TILLAGE"),
             terminal: Some("hobford_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Freight window daily at noon. Persons by appointment.",
         ),
         // ── Math ──────────────────────────────────────────────────────────
@@ -175,7 +161,6 @@
             room: "math_gate_hall",
             address: Some("TANGENT"),
             terminal: Some("math_gate_terminal"),
-            posted: ["LEGAL"],
             note: "The town pays for the ring's power by the hour.",
         ),
         // ── Jungle (the primeval trail) ───────────────────────────────────
@@ -186,7 +171,6 @@
             room: "primeval_trailhead",
             address: Some("GENESIS"),
             terminal: Some("primeval_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Field ring. Keep the hatch shut: the birds nest in it.",
         ),
         // A short hidden address: an old survey ring at the rookery, part way
@@ -199,7 +183,6 @@
             address: Some("NEST"),
             hidden: true,
             terminal: Some("rookery_gate_terminal"),
-            posted: ["LEGAL", "GENESIS"],
             note: "A survey ring. The birds roost on its dialer.",
         ),
         // The Jungle's arches: portals, a chain along the trail. Each reaches
@@ -226,7 +209,6 @@
             room: "primeval_treetops",
             address: Some("TALLEST"),
             terminal: Some("primeval_treetops_arch_terminal"),
-            posted: ["GIANTS"],
             note: "Branch arch. Step out slowly; the branch is narrower than the arch.",
             kind: Portal,
             reach: Some(6400),
@@ -238,7 +220,6 @@
             room: "primeval_canopy",
             address: Some("LIANAS"),
             terminal: Some("primeval_canopy_arch_terminal"),
-            posted: ["TALLEST"],
             note: "Canopy arch. The vines grew through it before anyone dialed it.",
             kind: Portal,
             reach: Some(6400),
@@ -250,7 +231,6 @@
             room: "primeval_tar_pits",
             address: Some("DIGSITE"),
             terminal: Some("primeval_tar_pits_arch_terminal"),
-            posted: ["LIANAS"],
             note: "The dig found it. Do not label it as a find.",
             kind: Portal,
             reach: Some(6400),
@@ -263,7 +243,6 @@
             room: "evil_gate_forest",
             address: Some("CITADEL"),
             terminal: Some("evil_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Outer ring, out of the castle's sight. Go home if you hear boots.",
         ),
         // ── Science (GNU-ton's gravity trail and the orbital station) ─────
@@ -274,7 +253,6 @@
             room: "gnu_ton_orchard",
             address: Some("ASCENT"),
             terminal: Some("orchard_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Low gravity at the ring. Step out slowly.",
         ),
         // The military's survey ring at the far end of the gravity trail: a
@@ -287,7 +265,6 @@
             address: Some("TESLA"),
             hidden: true,
             terminal: Some("trail_survey_gate_terminal"),
-            posted: ["LEGAL", "ASCENT"],
             note: "A survey ring on the tower by GNU-ton's door.",
         ),
         (
@@ -297,7 +274,6 @@
             room: "orbital_station_gate_dock",
             address: Some("GALACTIC"),
             terminal: Some("orbital_station_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Docking ring. Freight has right of way.",
         ),
         // ── Science (Eureka, the institute town under the station) ───────
@@ -308,7 +284,6 @@
             room: "eureka_gate_court",
             address: Some("SCIENCE"),
             terminal: Some("eureka_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Institute ring. Calibrated weekly, argued about daily.",
         ),
         // ── Water (the pirate port) ───────────────────────────────────────
@@ -319,7 +294,6 @@
             room: "pirate_port_gate_plaza",
             address: Some("SAILING"),
             terminal: Some("pirate_port_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Port ring. Salt in the bearings again.",
         ),
         // ── Forest (the ninja village) ────────────────────────────────────
@@ -330,7 +304,6 @@
             room: "ninja_village_gate_shrine",
             address: Some("SILENT"),
             terminal: Some("ninja_village_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Shrine ring. Bow to the keeper; the keeper keeps the log.",
         ),
         // ── Noodle (the Noodly Temple) ────────────────────────────────────
@@ -344,7 +317,6 @@
             room: "noodle_village_square",
             address: Some("ALDENTE"),
             terminal: Some("noodle_village_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Pilgrims' ring. The pilgrims keep it clean; the sauce does not.",
         ),
         // ── Magical (Mary-O's dimension) ─────────────────────────────────
@@ -355,7 +327,6 @@
             room: "magical_gate_garden",
             address: Some("DESTINY"),
             terminal: Some("magical_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Garden ring. The hills are round on purpose; please do not roll down them.",
         ),
         // Magical's arches: portals, which reach only Magical's own arches
@@ -381,7 +352,6 @@
             room: "magical_void_keep",
             address: Some("CASTLE"),
             terminal: Some("magical_keep_arch_terminal"),
-            posted: ["STEADY"],
             note: "The castle's arch. The void left it working; it likes visitors.",
             kind: Portal,
         ),
@@ -392,7 +362,6 @@
             room: "magical_void_heart",
             address: Some("CANDLE"),
             terminal: Some("magical_heart_arch_terminal"),
-            posted: ["CASTLE"],
             note: "The arch at the bottom of the void. Shh.",
             kind: Portal,
         ),
@@ -407,7 +376,6 @@
             room: "art_painters_plaza",
             address: Some("EASEL"),
             terminal: Some("art_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Plaza ring. Do not touch the frame; it is wet.",
         ),
         // ── History (the Fertile Crescent) ───────────────────────────────
@@ -421,7 +389,6 @@
             room: "history_cradle",
             address: Some("DYNASTIC"),
             terminal: Some("history_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Cradle ring. Older than everyone; please wipe your feet.",
         ),
         // Haiti's ring, at the east end of the room: the way back from the
@@ -434,7 +401,6 @@
             room: "history_haitian_revolution",
             address: Some("ANTILLES"),
             terminal: Some("history_ayiti_terminal"),
-            posted: ["LEGAL", "DYNASTIC"],
             note: "Ayiti ring. Land of mountains; the ring is at the foot of them.",
         ),
         // ── Boss (the final tour) ────────────────────────────────────────
@@ -449,7 +415,6 @@
             address: Some("LEGACY"),
             hidden: true,
             terminal: Some("boss_lobby_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Lobby ring. Backstage passes are not valid here.",
         ),
         // ── Frontier (the Leaden Saddle) ─────────────────────────────────
@@ -462,7 +427,6 @@
             room: "frontier_landing_pad",
             address: Some("LEADENSADDLE"),
             terminal: Some("frontier_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Pad Three ring. The toll is payable to the Marshal.",
         ),
         // The auxiliary gate of Halfway Siding, beside the rail halt. It
@@ -474,7 +438,6 @@
             room: "frontier_siding_station",
             address: Some("SIDING"),
             terminal: Some("frontier_siding_terminal"),
-            posted: ["LEGAL", "LEADENSADDLE"],
             note: "Auxiliary gate. Rest at the inn before travelling on.",
         ),
         // ── Business (Capital) ───────────────────────────────────────────
@@ -487,7 +450,6 @@
             room: "business_founders_plaza",
             address: Some("DEALINGS"),
             terminal: Some("business_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Plaza gate. Directions beyond this point are licensed.",
         ),
         // ── Neural (the Cortex and the Weights) ─────────────────────────
@@ -500,7 +462,6 @@
             room: "neural_callosum",
             address: Some("LATENT"),
             terminal: Some("neural_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Bridge gate. Living half west, built half east.",
         ),
         // The Gate Authority's capital: the arrival ring of the Concourse
@@ -514,7 +475,6 @@
             // The one address everyone is given (Q185).
             address: Some("LEGAL"),
             terminal: Some("authority_gate_terminal"),
-            posted: ["TESTING"],
             note: "The Authority's own ring. Declare any sentience in your luggage.",
         ),
         // The Unfinished dimension: the ring the agents set up first, in the
@@ -526,7 +486,6 @@
             room: "unfinished_staging",
             address: Some("INSTALLING"),
             terminal: Some("unfinished_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Site gate. Hard hats past this point.",
         ),
         // The Automaton dimension: the ring in the Works, the clockwork
@@ -538,7 +497,6 @@
             room: "automaton_works",
             address: Some("CELLS"),
             terminal: Some("automaton_gate_terminal"),
-            posted: ["LEGAL"],
             note: "Wound daily. Mind the gears.",
         ),
     ],

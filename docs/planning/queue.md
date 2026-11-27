@@ -2801,9 +2801,11 @@ asks for over a ring. Slice 2 (same day): the engine keeps no knowledge;
 its dial reports `GateAddressLearned` and the game records its
 `gate.known.*` flag (and decides what a terminal lists, `knows`).
 
+Slice 3: the posted addresses and `start_known` are Ambition's own file
+(`data/gate_directory.ron`, schema `gate_directory`).
+
 **Next action:** the rest, one move per slice, each leaving the game
-playable: posted addresses and `start_known` (catalog fields the engine
-still parses), the word spelling
+playable: the word spelling
 (`GateNetworkCatalog::spell`, the inscription in the catalog), facilities
 and dimensions as a directory, the refusal words, and the terminal panel's
 remaining engine pieces; the engine keeps dialed passages with opaque keys
@@ -2812,6 +2814,25 @@ remaining engine pieces; the engine keeps dialed passages with opaque keys
 **Acceptance:** no engine crate names an inscription, chevron, dimension
 directory or Ambition address; a fixture game dials numbered endpoints
 through the same capability; the gate network app and content tests pass.
+
+**Blocked by:** none.
+
+### GRAPPLE — the grapple swings, grabs from a distance, whips, and recovers in Smash
+
+**Owner:** [grapple](game/grapple.md).
+
+**State:** G1 landed 2026-11-27: the kernel's wire holds (`WireState::held`,
+`catch_the_grapple`, `let_go_of_the_wire`): a rope from any bite above the
+body, its length and angle taken from where she is and its angular speed from
+her velocity, a lightly damped swing the stick pumps, a reel on the stick
+within authored bounds, and a jump that lets go with the swing's speed plus a
+hop, carried as the world's momentum (`carried_run`).
+
+**Next action:** G2, the grapple item hangs its body on the wire through a
+port (swing on a bite above, zip otherwise) and the rope is drawn while it
+holds; then G3 (grab, whip) and G4 (Smash recovery).
+
+**Acceptance:** [grapple](game/grapple.md#stages) G1–G4.
 
 **Blocked by:** none.
 

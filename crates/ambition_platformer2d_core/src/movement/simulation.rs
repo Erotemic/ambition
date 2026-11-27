@@ -157,6 +157,22 @@ pub fn handle_jump_buffer_clusters(
         return;
     }
 
+    // ⭐ A HELD WIRE TAKES THE JUMP AS ITS RELEASE. A grapple's rope hangs
+    // until it is let go, and a jump is how: she leaves with the swing's own
+    // speed plus the rope's hop, and that press is spent — it is not ALSO an
+    // air jump. While it holds, no buffered press becomes a jump either: the
+    // rope, not the ground or a double jump, is what she is hanging from.
+    if let Some(wire) = state.wire.filter(|wire| wire.held) {
+        if input.jump_pressed() {
+            kinematics.vel = wire.exit_velocity(frame, wire.release_hop);
+            state.wire = None;
+            events.operations.push(MovementOp::Jump);
+        }
+        state.buffer_jump = 0.0;
+        state.coyote_timer = 0.0;
+        return;
+    }
+
     // ⛔⛔ THE PLATFORM DROP IS NOT A JUMP, AND IT IS ANSWERED BEFORE THE JUMP
     // GATE BELOW. The drop-through this function performs has always been
     // reachable only through that gate — a body with no jump press and no

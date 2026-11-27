@@ -284,9 +284,10 @@ fn drive_gate_terminal(
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut preview: ResMut<GateDialPreview>,
     frames: Res<ambition_input::SeatMenuFrames>,
-    (seats, environment): (
+    (seats, environment, directory): (
         Res<ambition_input::participant::SeatInputContexts>,
         Option<Res<PresentationEnvironment>>,
+        Option<Res<crate::gate_network::GateDirectoryResource>>,
     ),
     widgets: TerminalWidgets,
     participants: TerminalParticipants,
@@ -353,7 +354,9 @@ fn drive_gate_terminal(
             && seats.for_seat(participant.id.slot()).owner() == Some(GATE_TERMINAL_CONTEXT) {
             let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
             let none = GateRingPositions::default();
-            let known = known_addresses(&catalog, positions.as_deref().unwrap_or(&none), &ring, knows);
+            let no_directory = Default::default();
+            let directory = directory.as_deref().map(|directory| &directory.0).unwrap_or(&no_directory);
+            let known = known_addresses(&catalog, directory, positions.as_deref().unwrap_or(&none), &ring, knows);
             let mut rows = ui.list(&catalog, &state, &known);
             let count = catalog.chevrons();
             let mut effects = Vec::new();
@@ -524,7 +527,7 @@ fn draw_gate_terminal(
     mut users: Query<(Entity, &ambition_input::participant::InputParticipant, &TerminalUi, &mut ShownTerminal)>,
     participants: TerminalParticipants,
     surface: ambition_render::ui_surface::ParticipantSurface,
-    environment: Option<Res<PresentationEnvironment>>,
+    (environment, directory): (Option<Res<PresentationEnvironment>>, Option<Res<crate::gate_network::GateDirectoryResource>>),
     roots: Query<(Entity, &GateTerminalRoot, &ComputedNode)>,
     ui_fonts: Option<Res<UiFonts>>,
     mut icons: Option<ResMut<GlyphIcons>>,
@@ -540,7 +543,9 @@ fn draw_gate_terminal(
                 && ui.subject.as_ref().and_then(|subject| state.terminals.get(subject)).map(String::as_str) == Some(ring) => {
                 let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
                 let none = GateRingPositions::default();
-                let known = known_addresses(catalog, positions.as_deref().unwrap_or(&none), ring, knows);
+                let no_directory = Default::default();
+                let directory = directory.as_deref().map(|directory| &directory.0).unwrap_or(&no_directory);
+                let known = known_addresses(catalog, directory, positions.as_deref().unwrap_or(&none), ring, knows);
                 Some(ui.model(catalog, &state, &known))
             }
             _ => None,

@@ -205,8 +205,8 @@ pub struct TerminalModel {
 }
 
 /// The addresses a terminal lists as known, as chevrons: those written on it
-/// first, then each the traveller knows (`GateNetworkCatalog::knows`: what
-/// the save records, or every address while the catalog starts with all
+/// first, then each the traveller knows (`gate_network::knows`: what the
+/// save records, or every address while the directory starts with all
 /// known), in catalog order, words and glyph addresses alike. `flag` reads a
 /// save flag.
 ///
@@ -215,14 +215,13 @@ pub struct TerminalModel {
 /// map (`positions`), so its list is where it can take the traveller.
 pub fn known_addresses(
     catalog: &GateNetworkCatalog,
+    directory: &ambition_content_schemas::gate_directory::GateDirectory,
     positions: &GateRingPositions,
     ring: &str,
     flag: impl Fn(&str) -> bool,
 ) -> Vec<Vec<Chevron>> {
-    let mut listed: Vec<Vec<Chevron>> = catalog
-        .ring(ring)
-        .map(|ring| ring.posted.iter().filter_map(|word| catalog.spell(word).ok()).collect())
-        .unwrap_or_default();
+    let mut listed: Vec<Vec<Chevron>> =
+        directory.posted(ring).iter().filter_map(|word| catalog.spell(word).ok()).collect();
     let from = catalog.ring(ring);
     let reachable = |candidate: &ambition_platformer2d::world::rooms::GateRing| {
         let Some(from) = from else {
@@ -244,7 +243,7 @@ pub fn known_addresses(
         let Some(address) = catalog.address_of(candidate) else {
             continue;
         };
-        if candidate.zone != ring && reachable(candidate) && crate::gate_network::knows(catalog, candidate, &flag) && !listed.contains(&address) {
+        if candidate.zone != ring && reachable(candidate) && crate::gate_network::knows(directory, candidate, &flag) && !listed.contains(&address) {
             listed.push(address);
         }
     }
@@ -584,6 +583,10 @@ mod tests {
         crate::gate_network::lowered_gate_network(crate::pack::shipped())
     }
 
+    fn directory() -> ambition_content_schemas::gate_directory::GateDirectory {
+        crate::gate_network::lowered_directory(crate::pack::shipped())
+    }
+
     /// The wheel is laid out as the ring: the first chevron at the lower
     /// left, the middle one (Δ) at the top, the last at the lower right, and
     /// the engage press at the bottom.
@@ -677,7 +680,7 @@ mod tests {
         let state = GateNetworkState::default();
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
-        let known = known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
+        let known = known_addresses(&catalog, &directory(), &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
         let rows = ui.list(&catalog, &state, &known);
         assert!(!rows.iter().any(|row| matches!(row, ListRow::Address { .. })));
         let science = rows.iter().position(|row| matches!(row, ListRow::Dimension { id, .. } if id == "science")).unwrap();
@@ -733,24 +736,25 @@ mod tests {
     #[test]
     fn a_terminal_lists_its_posted_address_and_what_the_save_knows() {
         use crate::gate_network::gate_address_known_flag;
-        use ambition_platformer2d::world::rooms::GateStartKnowledge;
-        let mut catalog = catalog();
-        let all = known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
-        if catalog.start_known == GateStartKnowledge::All {
+        use ambition_content_schemas::gate_directory::GateStartKnowledge;
+        let catalog = catalog();
+        let mut directory = directory();
+        let all = known_addresses(&catalog, &directory, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
+        if directory.start_known == GateStartKnowledge::All {
             // A gate lists gates: the portal arches are not on its list.
             let gates = catalog.rings.iter().filter(|ring| ring.kind == ambition_platformer2d::world::rooms::RingKind::Gate).count();
             assert_eq!(all.len(), gates - 1, "every other gate is listed: {all:?}");
         }
-        catalog.start_known = GateStartKnowledge::Discovered;
+        directory.start_known = GateStartKnowledge::Discovered;
         let spell = |word: &str| catalog.spell(word).unwrap();
-        let known = known_addresses(&catalog, &GateRingPositions::default(), "math_gate_return_zone", |_| false);
+        let known = known_addresses(&catalog, &directory, &GateRingPositions::default(), "math_gate_return_zone", |_| false);
         assert_eq!(known, [spell("LEGAL")]);
         let flag = gate_address_known_flag("GENESIS");
-        let known = known_addresses(&catalog, &GateRingPositions::default(), "math_gate_return_zone", |id| id == flag);
+        let known = known_addresses(&catalog, &directory, &GateRingPositions::default(), "math_gate_return_zone", |id| id == flag);
         assert_eq!(known, [spell("LEGAL"), spell("GENESIS")]);
         // The sandbox hub posts the capital, and the capital posts the hub (Q185).
-        assert_eq!(known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false), [spell("LEGAL")]);
-        assert_eq!(known_addresses(&catalog, &GateRingPositions::default(), "authority_concourse_gate", |_| false), [spell("TESTING")]);
+        assert_eq!(known_addresses(&catalog, &directory, &GateRingPositions::default(), "hub_public_gate_zone", |_| false), [spell("LEGAL")]);
+        assert_eq!(known_addresses(&catalog, &directory, &GateRingPositions::default(), "authority_concourse_gate", |_| false), [spell("TESTING")]);
     }
 
     /// The status line reads the network: an open link, then a refusal by

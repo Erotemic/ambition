@@ -1,0 +1,52 @@
+// Ambition's gate directory: what each terminal lists (`gate_directory`
+// schema, `ambition_content_schemas::gate_directory`). The engine's network
+// (`gate_network.ron`) dials rings and keeps no knowledge.
+//
+// - `start_known: All` lists every address on every terminal, as a
+//   development game starts with everything unlocked (Jon, 2026-10-24);
+//   `Discovered` (the release rule) lists only what a dial, a sign, a person
+//   or a document taught (`gate.known.<ADDRESS>`). Knowledge only lists; a
+//   dial never reads it.
+// - A `posted` address is written on the ring's terminal (by its zone), so
+//   every destination has a way home that needs no knowledge. Every terminal
+//   posts LEGAL, the Gate Authority's capital (Q185, 2026-11-26), and the
+//   capital's terminal posts TESTING, the sandbox hub: home is at most two
+//   dials away.
+(
+    start_known: All,
+    posted: {
+        "hub_public_gate_zone": ["LEGAL"],
+        "intro_portal_zone": ["LEGAL"],
+        "math_gate_home_zone": ["TANGENT"],
+        "military_gate_zone": ["LEGAL"],
+        "hobford_gate_zone": ["LEGAL"],
+        "math_gate_return_zone": ["LEGAL"],
+        "primeval_trailhead_gate": ["LEGAL"],
+        "primeval_rookery_gate": ["LEGAL", "GENESIS"],
+        "primeval_treetops_arch": ["GIANTS"],
+        "primeval_canopy_arch": ["TALLEST"],
+        "primeval_tar_pits_arch": ["LIANAS"],
+        "evil_gate_return_zone": ["LEGAL"],
+        "orchard_gate": ["LEGAL"],
+        "trail_survey_gate": ["LEGAL", "ASCENT"],
+        "orbital_station_gate_arrival": ["LEGAL"],
+        "eureka_gate_arrival": ["LEGAL"],
+        "pirate_port_gate_arrival": ["LEGAL"],
+        "ninja_village_gate_arrival": ["LEGAL"],
+        "noodle_village_gate": ["LEGAL"],
+        "magical_gate_zone": ["LEGAL"],
+        "magical_keep_arch": ["STEADY"],
+        "magical_heart_arch": ["CASTLE"],
+        "art_plaza_gate": ["LEGAL"],
+        "history_cradle_gate": ["LEGAL"],
+        "history_ayiti_gate": ["LEGAL", "DYNASTIC"],
+        "boss_lobby_gate": ["LEGAL"],
+        "frontier_pad_gate": ["LEGAL"],
+        "frontier_siding_gate": ["LEGAL", "LEADENSADDLE"],
+        "business_plaza_gate": ["LEGAL"],
+        "neural_callosum_gate": ["LEGAL"],
+        "authority_concourse_gate": ["TESTING"],
+        "unfinished_staging_gate": ["LEGAL"],
+        "automaton_works_gate": ["LEGAL"],
+    },
+)

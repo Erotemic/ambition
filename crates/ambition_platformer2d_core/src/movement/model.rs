@@ -175,6 +175,47 @@ pub struct WireState {
     /// ⛔ Part of the ONE release write; nothing else may add to the exit
     /// velocity.
     pub release_rise: f32,
+    /// A HELD wire (a grapple's): it has no lift clock and no winch ramp, and
+    /// hangs until it is let go — a jump (which adds [`Self::release_hop`]),
+    /// a let-go ([`let_go_of_the_wire`]) or a cut. False for the flyline's
+    /// timed lift, whose fields above are the whole of it.
+    pub held: bool,
+    /// Held wire: how fast the stick reels the rope in (up) or pays it out
+    /// (down), px/s.
+    pub reel_speed: f32,
+    /// Held wire: the shortest the reel takes the rope.
+    pub min_length: f32,
+    /// Held wire: the longest the reel lets the rope out.
+    pub max_length: f32,
+    /// Held wire: the speed a jump release adds along the frame's up, px/s.
+    pub release_hop: f32,
+}
+
+impl WireState {
+    /// The velocity a body leaves this wire with: the swing's own tangential
+    /// speed (`d/dθ` of the hang, `(cos θ, −sin θ)` in the frame), plus `up`
+    /// along the frame's up. The ONE formula both releases use.
+    pub fn exit_velocity(&self, frame: crate::MotionFrame, up: f32) -> Vec2 {
+        let tangent = frame.to_world(Vec2::new(self.angle.cos(), -self.angle.sin()));
+        tangent * (self.ang_vel * self.length) - frame.down() * up
+    }
+}
+
+/// The rope a grapple hangs a body from: the authored knobs of a held wire.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GrappleRope {
+    /// How far the swing may reach from straight down, radians. A bite
+    /// farther round than this is not a swing (the caller pulls instead).
+    pub max_angle: f32,
+    /// Angular acceleration the stick contributes, rad/s².
+    pub swing_accel: f32,
+    /// How fast the stick reels, px/s.
+    pub reel_speed: f32,
+    /// The shortest and longest the reel takes the rope.
+    pub min_length: f32,
+    pub max_length: f32,
+    /// What a jump release adds along up, px/s.
+    pub release_hop: f32,
 }
 
 /// The axis-swept policy's PRIVATE persistent maneuver state. Lives INSIDE the
@@ -1064,6 +1105,11 @@ pub fn catch_the_wire(
         max_angle,
         swing_accel,
         release_rise,
+        held: false,
+        reel_speed: 0.0,
+        min_length: 0.0,
+        max_length: 0.0,
+        release_hop: 0.0,
     });
     // ⛔⛔ AND THE MANEUVERS SHE WAS MID-WAY THROUGH ARE OVER. A dash timer that
     // survived the catch resumes on the frame the wire lets go and fires her
@@ -1073,6 +1119,81 @@ pub fn catch_the_wire(
     axis.state.dash_timer = 0.0;
     axis.state.jump_squat_timer = 0.0;
     true
+}
+
+/// HANG A BODY FROM A GRAPPLE — a held wire from `anchor`, wherever the line
+/// bit, rather than the flyline's wire straight overhead.
+///
+/// ⭐⭐ THE SWING STARTS WHERE AND HOW FAST SHE ALREADY IS. The rope's length is
+/// her distance from the anchor, its angle is where she hangs from it, and the
+/// part of her velocity along the swing's tangent becomes its angular speed, so
+/// a running or falling grab keeps its momentum and turns it into the swing.
+/// (The part along the rope is what a taut rope takes: it does not stretch.)
+///
+/// Refuses — returns false and changes nothing — on a non-axis policy (no
+/// pendulum), a degenerate rope, a rope longer than `rope.max_length`, or a bite
+/// farther round than `rope.max_angle` (level with or below her: a rope does
+/// not hold a body up from beneath; the caller pulls her instead).
+pub fn catch_the_grapple(
+    model: &mut MotionModel,
+    pos: Vec2,
+    vel: Vec2,
+    frame: crate::MotionFrame,
+    anchor: Vec2,
+    rope: GrappleRope,
+) -> bool {
+    let MotionModel::AxisSwept(axis) = model else {
+        return false;
+    };
+    let local = frame.to_local(pos - anchor);
+    let length = local.length();
+    if !(length > f32::EPSILON) || length > rope.max_length {
+        return false;
+    }
+    // Local `+y` is toward the feet: hanging straight down is angle zero.
+    let angle = local.x.atan2(local.y);
+    if !(angle.abs() <= rope.max_angle) {
+        return false;
+    }
+    let tangent = Vec2::new(angle.cos(), -angle.sin());
+    let ang_vel = frame.to_local(vel).dot(tangent) / length;
+    axis.state.wire = Some(WireState {
+        anchor,
+        length,
+        angle,
+        ang_vel,
+        winch_speed: 0.0,
+        lift_remaining_s: 0.0,
+        lift_total_s: 0.0,
+        max_angle: rope.max_angle,
+        swing_accel: rope.swing_accel,
+        release_rise: 0.0,
+        held: true,
+        reel_speed: rope.reel_speed,
+        // A bite closer than the authored minimum is not stretched out to it.
+        min_length: rope.min_length.min(length),
+        max_length: rope.max_length,
+        release_hop: rope.release_hop,
+    });
+    axis.state.dash_timer = 0.0;
+    axis.state.jump_squat_timer = 0.0;
+    axis.state.buffer_jump = 0.0;
+    true
+}
+
+/// LET GO OF A HELD WIRE — she leaves with the swing's own speed and nothing
+/// added: the grapple's second press. Unlike [`cut_the_wire`] this IS a
+/// release, and it is the wire's write of her exit velocity.
+///
+/// Returns the velocity she leaves with, or `None` (and writes nothing) if she
+/// is on no held wire.
+pub fn let_go_of_the_wire(model: &mut MotionModel, frame: crate::MotionFrame) -> Option<Vec2> {
+    let MotionModel::AxisSwept(axis) = model else {
+        return None;
+    };
+    let wire = axis.state.wire.filter(|wire| wire.held)?;
+    axis.state.wire = None;
+    Some(wire.exit_velocity(frame, 0.0))
 }
 
 /// CUT THE WIRE — she is off it, and whatever velocity she has now is hers.

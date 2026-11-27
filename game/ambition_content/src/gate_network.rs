@@ -4,9 +4,9 @@
 //! The catalog is one App resource. A content reload replaces it whole: the
 //! network is one game's, and no other provider adds rings to it.
 
+use ambition_content_schemas::gate_directory::{lowered_gate_directory, GateDirectory, GateStartKnowledge};
 use ambition_platformer2d::world::rooms::{
-    GateAddressLearned, GateNetworkCatalog, GateRing, GateRingPositions, GateStartKnowledge, RingPosition,
-    GATE_NETWORK_SCHEMA,
+    GateAddressLearned, GateNetworkCatalog, GateRing, GateRingPositions, RingPosition, GATE_NETWORK_SCHEMA,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::{App, Commands, DetectChanges, IntoScheduleConfigs, MessageReader, PreUpdate, Res, ResMut};
@@ -22,9 +22,19 @@ pub fn gate_address_known_flag(address: &str) -> String {
 /// Whether a traveller knows the address of `ring`: under
 /// [`GateStartKnowledge::All`] every address, else the ones whose known flag
 /// `flag` reads as set.
-pub fn knows(catalog: &GateNetworkCatalog, ring: &GateRing, flag: impl Fn(&str) -> bool) -> bool {
-    matches!(catalog.start_known, GateStartKnowledge::All) || flag(&gate_address_known_flag(ring.address_key()))
+pub fn knows(directory: &GateDirectory, ring: &GateRing, flag: impl Fn(&str) -> bool) -> bool {
+    matches!(directory.start_known, GateStartKnowledge::All) || flag(&gate_address_known_flag(ring.address_key()))
 }
+
+/// What Ambition's terminals list, as the pack states it (its own file, not
+/// the engine's network).
+pub fn lowered_directory(pack: &ambition_content_pack::PreparedContentPack) -> GateDirectory {
+    lowered_gate_directory(pack).cloned().unwrap_or_default()
+}
+
+/// [`GateDirectory`] as an App resource.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct GateDirectoryResource(pub GateDirectory);
 
 /// Record each address the network taught this tick as its known flag.
 fn remember_learned_addresses(
@@ -56,6 +66,7 @@ pub(super) fn register(app: &mut App) {
     let pack = crate::pack::select(app.world_mut());
     let catalog = lowered_gate_network(&pack);
     app.world_mut().insert_resource(catalog);
+    app.world_mut().insert_resource(GateDirectoryResource(lowered_directory(&pack)));
     // The dial asks Ambition's spelling whether an address can be dialed.
     app.insert_resource(crate::gate_inscription::address_rule());
     app.init_resource::<GateRingPositions>();
@@ -146,24 +157,25 @@ mod tests {
     /// heights' arch, posted on the keep's terminal, is listed from the start.
     #[test]
     fn magicals_arches_list_only_the_arches_they_reach() {
-        let mut catalog = lowered_gate_network(crate::pack::shipped());
+        let catalog = lowered_gate_network(crate::pack::shipped());
+        let mut directory = lowered_directory(crate::pack::shipped());
         let manifest = crate::worlds::world_manifest();
         let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
         let positions = ring_positions(&catalog, &project);
-        let words = |catalog: &GateNetworkCatalog, ring: &str, learned: &[&str]| -> Vec<String> {
+        let words = |catalog: &GateNetworkCatalog, directory: &GateDirectory, ring: &str, learned: &[&str]| -> Vec<String> {
             let learned: Vec<String> = learned.iter().map(|word| gate_address_known_flag(word)).collect();
-            crate::gate_terminal::known_addresses(catalog, &positions, ring, |flag| learned.iter().any(|known| known == flag))
+            crate::gate_terminal::known_addresses(catalog, directory, &positions, ring, |flag| learned.iter().any(|known| known == flag))
                 .into_iter()
                 .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
                 .collect()
         };
         let reach = |a: &str, b: &str| positions.distance(a, b).expect("both arches are placed");
         assert!(reach("magical_heights_arch", "magical_heart_arch") > ambition_platformer2d::world::rooms::DEFAULT_PORTAL_REACH as f32);
-        assert_eq!(words(&catalog, "magical_heights_arch", &[]), ["CASTLE"]);
-        assert_eq!(words(&catalog, "magical_keep_arch", &[]), ["STEADY", "CANDLE"]);
-        catalog.start_known = GateStartKnowledge::Discovered;
-        assert_eq!(words(&catalog, "magical_keep_arch", &[]), ["STEADY"], "an arch nobody attuned is not listed");
-        assert_eq!(words(&catalog, "magical_keep_arch", &["CANDLE"]), ["STEADY", "CANDLE"]);
+        assert_eq!(words(&catalog, &directory, "magical_heights_arch", &[]), ["CASTLE"]);
+        assert_eq!(words(&catalog, &directory, "magical_keep_arch", &[]), ["STEADY", "CANDLE"]);
+        directory.start_known = GateStartKnowledge::Discovered;
+        assert_eq!(words(&catalog, &directory, "magical_keep_arch", &[]), ["STEADY"], "an arch nobody attuned is not listed");
+        assert_eq!(words(&catalog, &directory, "magical_keep_arch", &["CANDLE"]), ["STEADY", "CANDLE"]);
     }
 
     /// The Jungle's arches (WORLD-LAYERS JL-2) list only what they reach,
@@ -173,28 +185,29 @@ mod tests {
     /// the chain) and an arch up the chain only once its address is learned.
     #[test]
     fn the_jungles_arches_list_only_their_neighbours_on_the_trail() {
-        let mut catalog = lowered_gate_network(crate::pack::shipped());
+        let catalog = lowered_gate_network(crate::pack::shipped());
+        let mut directory = lowered_directory(crate::pack::shipped());
         let manifest = crate::worlds::world_manifest();
         let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
         let positions = ring_positions(&catalog, &project);
-        let words = |catalog: &GateNetworkCatalog, ring: &str, learned: &[&str]| -> Vec<String> {
+        let words = |catalog: &GateNetworkCatalog, directory: &GateDirectory, ring: &str, learned: &[&str]| -> Vec<String> {
             let learned: Vec<String> = learned.iter().map(|word| gate_address_known_flag(word)).collect();
-            let mut words: Vec<String> = crate::gate_terminal::known_addresses(catalog, &positions, ring, |flag| learned.iter().any(|known| known == flag))
+            let mut words: Vec<String> = crate::gate_terminal::known_addresses(catalog, directory, &positions, ring, |flag| learned.iter().any(|known| known == flag))
                 .into_iter()
                 .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
                 .collect();
             words.sort();
             words
         };
-        assert_eq!(words(&catalog, "primeval_trailhead_arch", &[]), ["TALLEST"]);
-        assert_eq!(words(&catalog, "primeval_treetops_arch", &[]), ["GIANTS", "LIANAS"]);
-        assert_eq!(words(&catalog, "primeval_canopy_arch", &[]), ["DIGSITE", "TALLEST"]);
-        assert_eq!(words(&catalog, "primeval_tar_pits_arch", &[]), ["LIANAS"]);
-        catalog.start_known = GateStartKnowledge::Discovered;
-        assert_eq!(words(&catalog, "primeval_trailhead_arch", &[]), Vec::<String>::new(), "an arch nobody attuned is not listed");
-        assert_eq!(words(&catalog, "primeval_trailhead_arch", &["TALLEST"]), ["TALLEST"]);
-        assert_eq!(words(&catalog, "primeval_canopy_arch", &[]), ["TALLEST"], "the canopy's terminal posts the way back");
-        assert_eq!(words(&catalog, "primeval_canopy_arch", &["DIGSITE"]), ["DIGSITE", "TALLEST"]);
+        assert_eq!(words(&catalog, &directory, "primeval_trailhead_arch", &[]), ["TALLEST"]);
+        assert_eq!(words(&catalog, &directory, "primeval_treetops_arch", &[]), ["GIANTS", "LIANAS"]);
+        assert_eq!(words(&catalog, &directory, "primeval_canopy_arch", &[]), ["DIGSITE", "TALLEST"]);
+        assert_eq!(words(&catalog, &directory, "primeval_tar_pits_arch", &[]), ["LIANAS"]);
+        directory.start_known = GateStartKnowledge::Discovered;
+        assert_eq!(words(&catalog, &directory, "primeval_trailhead_arch", &[]), Vec::<String>::new(), "an arch nobody attuned is not listed");
+        assert_eq!(words(&catalog, &directory, "primeval_trailhead_arch", &["TALLEST"]), ["TALLEST"]);
+        assert_eq!(words(&catalog, &directory, "primeval_canopy_arch", &[]), ["TALLEST"], "the canopy's terminal posts the way back");
+        assert_eq!(words(&catalog, &directory, "primeval_canopy_arch", &["DIGSITE"]), ["DIGSITE", "TALLEST"]);
     }
 
     /// The working addresses of the network are stable: a save, a sign and a
@@ -270,13 +283,14 @@ mod tests {
     #[test]
     fn every_terminal_away_from_home_posts_a_way_home() {
         let catalog = lowered_gate_network(crate::pack::shipped());
+        let directory = lowered_directory(crate::pack::shipped());
         let dimension = |zone: &str| {
             let ring = catalog.ring(zone).expect("a ring");
             catalog.facility(&ring.facility).expect("a facility").dimension.clone()
         };
         let posted_rings = |zone: &str| -> Vec<String> {
-            let ring = catalog.ring(zone).expect("a ring");
-            ring.posted
+            directory
+                .posted(zone)
                 .iter()
                 .filter(|address| normalize_address(address) == **address)
                 .filter_map(|address| catalog.ring_named(address))
@@ -290,7 +304,7 @@ mod tests {
             let first = posted_rings(&ring.zone);
             let home = first.iter().any(|zone| dimension(zone) == "home")
                 || first.iter().any(|zone| posted_rings(zone).iter().any(|far| dimension(far) == "home"));
-            assert!(home, "`{}` posts no way home within two dials: {:?}", ring.zone, ring.posted);
+            assert!(home, "`{}` posts no way home within two dials: {:?}", ring.zone, directory.posted(&ring.zone));
         }
     }
 
@@ -305,8 +319,26 @@ mod tests {
         let hub = catalog.ring("hub_public_gate_zone").expect("the sandbox hub's ring");
         assert_ne!(hub.address.as_deref(), Some("LEGAL"), "the sandbox hub keeps its own address");
         let sandbox = hub.address.clone().expect("the sandbox hub has an address");
-        assert!(legal.posted.contains(&sandbox), "the capital posts the sandbox hub: {:?}", legal.posted);
-        assert!(hub.posted.iter().any(|address| address == "LEGAL"), "the sandbox posts the capital");
+        let directory = lowered_directory(crate::pack::shipped());
+        assert!(directory.posted(&legal.zone).contains(&sandbox), "the capital posts the sandbox hub: {:?}", directory.posted(&legal.zone));
+        assert!(directory.posted(&hub.zone).iter().any(|address| address == "LEGAL"), "the sandbox posts the capital");
+    }
+
+    /// The directory names only rings of the network, and posts only
+    /// addresses a ring answers (the engine's catalog check does not know the
+    /// directory).
+    #[test]
+    fn the_directory_posts_only_addresses_of_the_network() {
+        let catalog = lowered_gate_network(crate::pack::shipped());
+        let directory = lowered_directory(crate::pack::shipped());
+        assert!(!directory.posted.is_empty(), "premise: the directory posts addresses");
+        for (zone, addresses) in &directory.posted {
+            assert!(catalog.ring(zone).is_some(), "the directory posts on `{zone}`, which is no ring");
+            for address in addresses {
+                let spelled = catalog.spell(address).unwrap_or_else(|error| panic!("`{zone}` posts `{address}`: {error:?}"));
+                assert!(catalog.ring_at(&spelled).is_some(), "`{zone}` posts `{address}`, which no ring answers");
+            }
+        }
     }
 
     /// The catalog is the pack's file: an edit is the lowered catalog, and a

@@ -838,6 +838,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_gate_network,
     },
     PackDerivedFamily {
+        domain: ambition_content_schemas::gate_directory::GATE_DIRECTORY_SCHEMA,
+        publish: publish_gate_directory,
+    },
+    PackDerivedFamily {
         domain: ambition_content_schemas::yarn_dialogue::YARN_DIALOGUE_SCHEMA,
         publish: publish_nothing_the_yarn_watch_reloads,
     },
@@ -1258,6 +1262,14 @@ fn publish_gate_network(
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
     world.insert_resource(crate::gate_network::lowered_gate_network(pack));
+}
+
+/// What Ambition's terminals list is replaced whole, as the network is.
+fn publish_gate_directory(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    world.insert_resource(crate::gate_network::GateDirectoryResource(crate::gate_network::lowered_directory(pack)));
 }
 
 /// The techniques restate Ambition's rows of the catalog, which other

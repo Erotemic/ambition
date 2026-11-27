@@ -79,4 +79,5 @@ mod sweep_sample;
 mod transit_record;
 mod wall_collision;
 mod wire;
+mod grapple;
 mod world_edges;

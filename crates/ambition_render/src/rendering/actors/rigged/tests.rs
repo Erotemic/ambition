@@ -2435,7 +2435,7 @@ fn the_cards_and_the_slots_draw_one_sample() {
         let shown_cards: Vec<Transform> = cards.iter().filter(|(_, visible)| *visible).map(|(t, _)| *t).collect();
         assert_eq!(shown_cards.len(), draws.len(), "one visible card per sampled draw");
         for (index, (card, draw)) in shown_cards.iter().zip(&draws).enumerate() {
-            assert_eq!(*card, card_part_local(draw, index), "card {index} is its draw's place in the body");
+            assert_eq!(*card, card_part_local(draw), "card {index} is its draw's place in the body");
         }
         assert_eq!(body_place.translation.truncate(), owner_place.translation.truncate(), "the cards stand where the 2D owner stands");
         assert_eq!(body_place.rotation, owner_place.rotation);
@@ -2619,7 +2619,7 @@ fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
     use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, PlayerVisual, RoomInstanceRoot};
     use ambition_platformer2d_world::{collision::MovingPlatformSet, platforms::MovingPlatformState};
     use ambition_sim_view::{BodyPoseView, FeatureViewIndex};
-    use crate::rendering::card_view::{realize_card_bodies, realize_card_sprite_bodies, CardBody, CardMeshes, CardRootDepths, CardSpriteBody};
+    use crate::rendering::card_view::{realize_card_bodies, realize_card_sprite_bodies, CardBody, CardMeshes, CardPaintDepth, CardRootDepths, CardSpriteBody};
     use crate::rendering::moving_platforms::{seat_bodies_in_vessels, MovingPlatformVisual, PlatformLook, PlatformLooks, SeatedInVessel};
 
     let content = ambition_sprite_sheet::test_support::shared_sprites();
@@ -2676,10 +2676,10 @@ fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
         let mut cards = world.query::<(Entity, &CardBody, &Transform)>();
         let (entity, body, place) = cards.iter(world).find(|(_, body, _)| body.owner == owner).unwrap();
         assert!(body.parts.len() > 1);
-        let last_depth = body.parts.iter()
-            .map(|part| world.get::<Transform>(*part).unwrap().translation.z + place.translation.z)
+        let last_paint = body.parts.iter()
+            .map(|part| world.get::<CardPaintDepth>(*part).unwrap().0)
             .max_by(f32::total_cmp).unwrap();
-        (entity, place.translation, last_depth)
+        (entity, place.translation, last_paint)
     };
     let far = placement(&mut app, far);
     let rider = placement(&mut app, rider);
@@ -2688,6 +2688,7 @@ fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
     let free_depth = app.world_mut().query_filtered::<&Transform, With<CardSpriteBody>>()
         .single(app.world()).unwrap().translation.z;
     assert!(far.2 < rider.1.z && rider.2 < before.1.z && before.2 < free_depth);
+    assert!(far.1.z < rider.1.z && rider.1.z < before.1.z && before.1.z < free_depth);
     assert!(deck.2 < free_depth, "all parts of the deck are behind the free actor");
 
     app.world_mut().get_mut::<Transform>(near).unwrap().translation.x += 30.0;
@@ -2700,7 +2701,7 @@ fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
 #[test]
 fn parts_of_a_room_prop_stay_in_the_props_depth() {
     use ambition_platformer2d_world::rooms::PropDraw;
-    use crate::rendering::card_view::{realize_card_bodies, realize_card_scenery, realize_card_sprite_bodies, CardBody, CardMeshes, CardRootDepths, CardScenery, CardSpriteBody};
+    use crate::rendering::card_view::{realize_card_bodies, realize_card_scenery, realize_card_sprite_bodies, CardBody, CardMeshes, CardPaintDepth, CardRootDepths, CardScenery, CardSpriteBody};
     use crate::rendering::primitives::{PlayerVisual, PropVisual, WorldSprite};
     use crate::rendering::world::SCENERY_Z_STEP;
     use ambition_platformer2d_core::config::{WORLD_Z_DUMMY, WORLD_Z_PLAYER};
@@ -2727,16 +2728,17 @@ fn parts_of_a_room_prop_stay_in_the_props_depth() {
         settle(&mut app);
         let owner = owner(&app, prop);
         let world = app.world_mut();
-        let free_depth = world.query_filtered::<&Transform, With<CardSpriteBody>>().single(world).unwrap().translation.z;
-        let next_depth = world.query_filtered::<&Transform, With<CardScenery>>().single(world).unwrap().translation.z;
+        let free_paint = world.query_filtered::<&CardPaintDepth, With<CardSpriteBody>>().single(world).unwrap().0;
+        let next_paint = world.query_filtered::<&CardPaintDepth, With<CardScenery>>().single(world).unwrap().0;
         let mut cards = world.query::<(&CardBody, &Transform)>();
         let (body, place) = cards.iter(world).find(|(body, _)| body.owner == owner).unwrap();
         assert!(body.parts.len() > 1);
-        let root_depth = place.translation.z;
-        let parts: Vec<_> = body.parts.iter().map(|part| world.get::<Transform>(*part).unwrap().translation.z).collect();
+        assert_eq!(place.translation.z > 0.0, above_player);
+        assert!(body.parts.iter().all(|part| world.get::<Transform>(*part).unwrap().translation.z == 0.0));
+        let parts: Vec<_> = body.parts.iter().map(|part| world.get::<CardPaintDepth>(*part).unwrap().0).collect();
         assert!(parts.windows(2).all(|pair| pair[0] < pair[1]), "the parts keep their paint order");
-        assert!(root_depth + parts.last().unwrap() < next_depth, "one prop stays behind the next prop");
-        assert_eq!(root_depth > free_depth, above_player);
+        assert!(*parts.last().unwrap() < next_paint, "one prop stays behind the next prop");
+        assert_eq!(parts[0] > free_paint, above_player);
         world.entity_mut(next).despawn();
     }
 

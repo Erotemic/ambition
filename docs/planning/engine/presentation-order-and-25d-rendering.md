@@ -908,6 +908,11 @@ shared value preparation are sufficient until source proves otherwise.
    when a 2D camera or the compositor needs them. Card draws and part
    readers can use the sample without sprite slots.
 
+   Card placement and paint order use separate values. Free bodies stay on
+   the play plane. Riders stay inside the cart. Parts and attachments use
+   the body's plane and keep their own paint order. A body keeps its place
+   when another body enters the view.
+
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
    and a performance comparison are open.

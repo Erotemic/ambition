@@ -111,23 +111,15 @@ impl MenuBindings<'_, '_> {
         let Some((bindings, device)) = self.state(menu) else {
             return model;
         };
-        let rows = bindings
-            .all()
-            .filter_map(|(name, controls)| {
-                let action = ambition_platformer2d::input::action_named(name)?;
-                let control = bindings
-                    .control_for(&action, device)
-                    .or_else(|| controls.first());
-                Some(RebindRow {
-                    action: name.to_string(),
-                    label: name.to_string(),
-                    binding: bindings.label_for(&action, device).unwrap_or_default(),
-                    also: control
-                        .and_then(ambition_platformer2d::input::bindable)
-                        .map_or_else(Vec::new, |control| {
-                            ambition_platformer2d::input::also_bound_to(bindings, &action, control)
-                        }),
-                })
+        let rows = ambition_platformer2d::input::rebind_rows(bindings, device)
+            .map(|row| {
+                let action = ambition_platformer2d::input::action_name(&row.action);
+                RebindRow {
+                    label: action,
+                    action: row.action,
+                    binding: row.binding,
+                    also: row.also,
+                }
             })
             .collect();
         let model = model.with_rebind(rows);
@@ -206,18 +198,8 @@ mod tests {
     use ambition_platformer2d::persistence::settings::UserSettings;
     use leafwing_input_manager::prelude::{ActionState, InputMap};
 
-    fn arm_jump(app: &mut App, menu: Entity, owner: ParticipantId) {
-        let row = app
-            .world()
-            .resource::<SeatBindings>()
-            .for_seat(owner.slot())
-            .all()
-            .position(|(name, _)| name == "Jump")
-            .unwrap();
-        app.world_mut()
-            .get_mut::<RebindCapture>(menu)
-            .unwrap()
-            .arm(row);
+    fn arm_jump(app: &mut App, menu: Entity) {
+        app.world_mut().get_mut::<RebindCapture>(menu).unwrap().arm(Action::Jump);
         app.update();
     }
 
@@ -285,7 +267,7 @@ mod tests {
                 .id()
         });
         app.update();
-        arm_jump(&mut app, menus[1], ParticipantId::SECONDARY);
+        arm_jump(&mut app, menus[1]);
         clear_presses(&mut app);
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
@@ -343,7 +325,7 @@ mod tests {
             .overrides
             .is_empty());
 
-        arm_jump(&mut app, menus[1], ParticipantId::SECONDARY);
+        arm_jump(&mut app, menus[1]);
         app.world_mut()
             .get_mut::<InputMap<Action>>(people[1])
             .unwrap()
@@ -378,7 +360,7 @@ mod tests {
             &[PhysicalControl::Button(GamepadButton::West)]
         );
 
-        arm_jump(&mut app, menus[0], ParticipantId::PRIMARY);
+        arm_jump(&mut app, menus[0]);
         clear_presses(&mut app);
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
@@ -408,7 +390,7 @@ mod tests {
                 .len(),
             1
         );
-        arm_jump(&mut app, menus[1], ParticipantId::SECONDARY);
+        arm_jump(&mut app, menus[1]);
         app.world_mut()
             .get_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>(menus[1])
             .unwrap()

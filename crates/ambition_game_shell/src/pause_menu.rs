@@ -1,8 +1,9 @@
 //! The universal shell/system menu the host offers every experience.
 //!
 //! Experiences without their own system chrome (Sanic, Mary-O, the pocket demo,
-//! Smash's character select) get global exit and audio controls here. The menu
-//! opens with Escape / Start, uses the same `ambition_menu` Bevy-UI renderer as
+//! Smash's character select) get global exit and audio controls here. A host
+//! can add settings pages. The menu opens with Escape or Start and uses the
+//! same `ambition_menu` Bevy-UI renderer as
 //! the launcher, and sends the same host-relative [`ShellCommand`]s
 //! (`QuitToHome`, `ExitProcess`). A live gameplay session adds Resume. It is
 //! part of [`MinimalShellPlugins`](crate::MinimalShellPlugins), so standalone
@@ -32,6 +33,8 @@ use bevy::prelude::*;
 
 use crate::abandon::{ShellAbandonOffer, ShellAbandonRequested};
 use crate::audio_controls::ShellAudioControl;
+use crate::pause_pages::{PublishShellPausePages, ShellPauseOption, ShellPausePageId, ShellPausePages};
+use ambition_persistence::settings::UserSettings;
 use crate::{
     shell_action_edges, ActiveGameplaySession, PauseRequested, ShellCommand,
     ShellHostConfiguration, ShellRouter,
@@ -39,13 +42,17 @@ use crate::{
 
 
 /// The universal menu entries, in display order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum PauseEntry {
     Resume,
     /// The row the active experience contributes, e.g. Smash's *Exit Match*.
     /// See [`ShellAbandonOffer`].
     Abandon,
     Audio(ShellAudioControl),
+    Page(ShellPausePageId),
+    Option(ShellPausePageId, String),
+    PageStep(ShellPausePageId, i32),
+    Back,
     QuitToTitle,
     QuitToDesktop,
     /// Close the menu when there is no session to resume.
@@ -85,37 +92,33 @@ impl PauseEntry {
         rows
     }
 
-    fn label(self, abandon: Option<&ShellAbandonOffer>) -> String {
+    fn presentation(
+        &self,
+        settings: &UserSettings,
+        context: &PauseMenuContext,
+        menu: &ShellPauseMenu,
+    ) -> (String, String) {
         match self {
-            PauseEntry::Resume => "Resume".to_owned(),
-            // The experience supplies the words; the shell does not know them.
-            PauseEntry::Abandon => abandon
-                .map(|offer| offer.label.clone())
-                .unwrap_or_else(|| "Exit".to_owned()),
-            PauseEntry::Audio(control) => control.label().to_owned(),
-            PauseEntry::QuitToTitle => "Quit to Title".to_owned(),
-            PauseEntry::QuitToDesktop => "Quit to Desktop".to_owned(),
-            PauseEntry::Close => "Close".to_owned(),
+            Self::Resume => ("Resume".into(), "Return to the game.".into()),
+            Self::Abandon => context.abandon().map(|offer| (offer.label.clone(), offer.detail.clone()))
+                .unwrap_or_else(|| ("Exit".into(), "Leave the current game.".into())),
+            Self::Audio(control) => (control.label().into(), control.value(settings)),
+            Self::Page(id) => (context.pages.get(id).expect("registered pause page").title.into(), String::new()),
+            Self::Option(_, id) => context.page(menu).and_then(|page| page.rows.iter().find(|row| row.id == *id))
+                .map(|row| (row.label.clone(), row.value.clone())).unwrap_or_default(),
+            Self::Back => ("Back".into(), String::new()),
+            Self::PageStep(_, _) => unreachable!("scroll controls have their own presentation"),
+            Self::QuitToTitle => ("Quit to Title".into(), "Return to the title screen.".into()),
+            Self::QuitToDesktop => ("Quit to Desktop".into(), "Exit the game.".into()),
+            Self::Close => ("Close".into(), "Close this menu.".into()),
         }
     }
+}
 
-    fn detail(
-        self,
-        settings: &ambition_persistence::settings::UserSettings,
-        abandon: Option<&ShellAbandonOffer>,
-    ) -> String {
-        match self {
-            PauseEntry::Resume => "Return to the game.".to_owned(),
-            PauseEntry::Abandon => abandon
-                .map(|offer| offer.detail.clone())
-                .unwrap_or_else(|| "Leave what is running.".to_owned()),
-            // The current value is the detail.
-            PauseEntry::Audio(control) => control.value(settings),
-            PauseEntry::QuitToTitle => "Return to the title screen.".to_owned(),
-            PauseEntry::QuitToDesktop => "Exit the game.".to_owned(),
-            PauseEntry::Close => "Close this menu.".to_owned(),
-        }
-    }
+#[derive(Default, Clone, Copy)]
+struct PauseLocation {
+    page: Option<ShellPausePageId>,
+    cursor: usize,
 }
 
 /// The pause menu's open state and cursor. The cursor indexes the current rows.
@@ -126,7 +129,8 @@ pub struct ShellPauseMenu {
     /// The seat that drives the currently displayed menu.
     owner: Option<u8>,
     /// Each seat with an open menu and its own saved cursor.
-    seats: BTreeMap<u8, usize>,
+    seats: BTreeMap<u8, PauseLocation>,
+    page: Option<ShellPausePageId>,
     scope: Option<SessionScopeId>,
 }
 
@@ -136,9 +140,15 @@ impl ShellPauseMenu {
         self.owner
     }
 
+    /// Return the foreground participant's page.
+    pub fn page(&self) -> Option<ShellPausePageId> {
+        self.page
+    }
+
     /// Fold the menu shut and release its input owner.
     pub fn close(&mut self) {
         self.open = false;
+        self.page = None;
         self.cursor = 0;
         self.owner = None;
         self.seats.clear();
@@ -147,10 +157,14 @@ impl ShellPauseMenu {
     fn select_owner(&mut self, owner: u8) {
         if self.owner == Some(owner) { return; }
         if let Some(previous) = self.owner {
-            if let Some(cursor) = self.seats.get_mut(&previous) { *cursor = self.cursor; }
+            if let Some(location) = self.seats.get_mut(&previous) {
+                *location = PauseLocation { page: self.page, cursor: self.cursor };
+            }
         }
         self.owner = Some(owner);
-        self.cursor = self.seats.get(&owner).copied().unwrap_or_default();
+        let location = self.seats.get(&owner).copied().unwrap_or_default();
+        self.page = location.page;
+        self.cursor = location.cursor;
     }
 
     fn open_for(&mut self, slot: u8) {
@@ -163,10 +177,20 @@ impl ShellPauseMenu {
         self.seats.remove(&slot);
         if self.owner == Some(slot) {
             self.owner = None;
+            self.page = None;
             self.cursor = 0;
             if let Some(next) = self.seats.keys().next().copied() { self.select_owner(next); }
         }
         self.open = !self.seats.is_empty();
+    }
+
+    fn open_page(&mut self, page: Option<ShellPausePageId>) {
+        self.page = page;
+        self.cursor = 0;
+    }
+
+    fn location(&self, owner: u8) -> Option<ShellPausePageId> {
+        if self.owner == Some(owner) { self.page } else { self.seats.get(&owner)?.page }
     }
 
     fn close_foreground(&mut self) {
@@ -188,6 +212,7 @@ struct PauseMenuContext<'w> {
     session: Res<'w, ActiveGameplaySession>,
     router: Res<'w, ShellRouter>,
     host: Res<'w, ShellHostConfiguration>,
+    pages: Res<'w, ShellPausePages>,
     /// What the active experience offers to leave, if it offers anything.
     abandon: Option<Res<'w, ShellAbandonOffer>>,
 }
@@ -214,8 +239,29 @@ impl PauseMenuContext<'_> {
         self.in_session().then(|| self.abandon.as_deref()).flatten()
     }
 
-    fn rows(&self) -> Vec<PauseEntry> {
-        PauseEntry::rows(self.in_session(), self.can_quit_to_title(), self.abandon())
+    fn page(&self, menu: &ShellPauseMenu) -> Option<&super::pause_pages::PausePage> {
+        self.pages.get(menu.page()?)
+    }
+
+    fn captures(&self, menu: &ShellPauseMenu, owner: u8) -> bool {
+        menu.location(owner)
+            .and_then(|id| self.pages.get(id))
+            .is_some_and(|page| page.owner == Some(ParticipantId(owner)) && page.capture_hint.is_some())
+    }
+
+    fn rows(&self, menu: &ShellPauseMenu) -> Vec<PauseEntry> {
+        if let Some(page) = self.page(menu) {
+            let mut rows = vec![PauseEntry::Back];
+            if page.owner.map(ParticipantId::slot) == menu.owner() {
+                rows.extend(page.rows.iter().map(|row| PauseEntry::Option(page.id, row.id.clone())));
+            }
+            return rows;
+        }
+        let mut rows = PauseEntry::rows(self.in_session(), self.can_quit_to_title(), self.abandon());
+        let index = rows.iter().position(|row| *row == PauseEntry::Audio(ShellAudioControl::Mute))
+            .expect("audio rows in the pause menu");
+        rows.splice(index..index, self.pages.0.iter().map(|page| PauseEntry::Page(page.id)));
+        rows
     }
 }
 
@@ -227,6 +273,7 @@ const FOOTER_TOP: f32 = 90.0;
 const ROWS_TOP: f32 = 30.0;
 const ROWS_SPAN: f32 = FOOTER_TOP - 2.0 - ROWS_TOP;
 const ROW_GAP: f32 = 2.0;
+const PAGE_OPTIONS_VISIBLE: usize = 6;
 
 /// The height of each of `count` rows that share `span` with `gap` between
 /// two of them, and no more than `most`.
@@ -280,6 +327,8 @@ impl Plugin for ShellPauseMenuPlugin {
         ));
         app.init_resource::<ShellPauseMenu>()
             .init_resource::<ShellPauseMenuSuppressed>()
+            .init_resource::<ShellPausePages>()
+            .add_message::<ShellPauseOption>()
             .add_message::<PauseRequested>()
             .add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
@@ -294,6 +343,10 @@ impl Plugin for ShellPauseMenuPlugin {
                     .chain()
                     .in_set(ambition_input::InputSet::Consume),
             )
+            .configure_sets(Update, PublishShellPausePages
+                .in_set(ambition_input::InputSet::Consume)
+                .after(shell_pause_menu_pointer)
+                .before(render_shell_pause_menu))
             // The open pause menu owns input, so a surface under it does not
             // act on the same presses.
             .add_systems(
@@ -353,6 +406,7 @@ fn drive_shell_pause_menu(
     mut shell: MessageWriter<ShellCommand>,
     mut abandon: MessageWriter<ShellAbandonRequested>,
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
+    mut options: MessageWriter<ShellPauseOption>,
     mut sfx: SfxWriter,
     mut pause_requests: MessageReader<PauseRequested>,
 ) {
@@ -377,8 +431,6 @@ fn drive_shell_pause_menu(
     let scope = context.session.0.as_ref().map(|session| session.scope);
     if menu.scope != scope { menu.close(); menu.scope = scope; }
     let in_session = context.in_session();
-    let rows = context.rows();
-
     // Every seat can open or close its own menu even while another is open.
     // The shared presentation displays one seat at a time. Navigation from
     // a paused seat can bring that seat's own cursor to the foreground.
@@ -406,7 +458,13 @@ fn drive_shell_pause_menu(
     for (slot, frame) in &inputs {
         let edges = shell_action_edges(Some(frame));
         let open = menu.seats.contains_key(slot);
-        if edges.pause || (open && edges.back) {
+        if context.captures(&menu, *slot) { continue; }
+        if open && edges.back && menu.location(*slot).is_some() {
+            menu.select_owner(*slot);
+            menu.open_page(None);
+            play(&mut sfx, ids::UI_MENU_BACK);
+            toggled = true;
+        } else if edges.pause || (open && edges.back) {
             if open { menu.close_for(*slot); play(&mut sfx, ids::UI_MENU_BACK); }
             else { menu.open_for(*slot); play(&mut sfx, ids::UI_MENU_ACCEPT); }
             toggled = true;
@@ -414,15 +472,19 @@ fn drive_shell_pause_menu(
     }
     if toggled { return; }
     let active = inputs.iter().find(|(slot, frame)| {
-        menu.seats.contains_key(slot) && (frame.select || frame.up || frame.down || frame.left || frame.right)
+        menu.seats.contains_key(slot) && !context.captures(&menu, *slot) && (frame.select || frame.up || frame.down || frame.left || frame.right)
     });
     if let Some((slot, _)) = active { menu.select_owner(*slot); }
     let edges = menu.owner.and_then(|slot| inputs.iter().find(|(at, _)| *at == slot))
         .map(|(_, frame)| shell_action_edges(Some(frame))).unwrap_or_default();
 
-    if !menu.open {
+    if !menu.open || menu.owner.is_some_and(|owner| context.captures(&menu, owner)) {
         return;
     }
+    if context.page(&menu).is_some_and(|page| page.owner.map(ParticipantId::slot) != menu.owner()) {
+        return;
+    }
+    let rows = context.rows(&menu);
 
     // Use the shared `ListCursor` (wraps at both ends), like the other menus.
     // Play the move cue only when the selection changed.
@@ -432,22 +494,17 @@ fn drive_shell_pause_menu(
     }
     menu.cursor = cursor.selected();
 
-    // Left/right edit the focused row's value. Only settings rows have one.
-    let focused = rows.get(menu.cursor).copied().unwrap_or(PauseEntry::Close);
-    if let (PauseEntry::Audio(control), Some(settings)) = (focused, settings.as_deref_mut()) {
-        let direction = i32::from(edges.increase) - i32::from(edges.decrease);
-        if direction != 0 {
-            control.adjust(direction, settings);
-        }
-    }
-
-    if edges.confirm {
+    let focused = rows.get(menu.cursor).cloned().unwrap_or(PauseEntry::Close);
+    let direction = i32::from(edges.increase) - i32::from(edges.decrease);
+    if edges.confirm || direction != 0 {
         activate_pause_entry(
             focused,
+            if edges.confirm { 0 } else { direction },
             &mut menu,
             &mut shell,
             &mut abandon,
             settings.as_deref_mut(),
+            &mut options,
             &mut sfx,
         );
     }
@@ -465,24 +522,39 @@ fn shell_pause_menu_pointer(
     mut shell: MessageWriter<ShellCommand>,
     mut abandon: MessageWriter<ShellAbandonRequested>,
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
+    mut options: MessageWriter<ShellPauseOption>,
     mut sfx: SfxWriter,
 ) {
-    let rows = context.rows();
     for activation in activated.read() {
         // Session-independent, like the keyboard path.
         if suppressed.0 || !menu.open || activation.menu != *instance {
             continue;
         }
-        menu.cursor = rows
-            .iter()
-            .position(|entry| *entry == activation.action)
-            .unwrap_or(menu.cursor);
+        if let PauseEntry::PageStep(page, direction) = activation.action {
+            if menu.page() == Some(page) && !menu.owner.is_some_and(|owner| context.captures(&menu, owner)) {
+                let last = context.rows(&menu).len().saturating_sub(1);
+                let step = PAGE_OPTIONS_VISIBLE as isize * direction as isize;
+                menu.cursor = menu.cursor.saturating_add_signed(step).clamp(1, last.max(1));
+            }
+            continue;
+        }
+        let Some(cursor) = context.rows(&menu).iter().position(|entry| *entry == activation.action) else {
+            continue;
+        };
+        if menu.owner.is_some_and(|owner| context.captures(&menu, owner))
+            && activation.action != PauseEntry::Back
+        {
+            continue;
+        }
+        menu.cursor = cursor;
         activate_pause_entry(
-            activation.action,
+            activation.action.clone(),
+            0,
             &mut menu,
             &mut shell,
             &mut abandon,
             settings.as_deref_mut(),
+            &mut options,
             &mut sfx,
         );
     }
@@ -490,11 +562,13 @@ fn shell_pause_menu_pointer(
 
 fn activate_pause_entry(
     entry: PauseEntry,
+    direction: i32,
     menu: &mut ShellPauseMenu,
     shell: &mut MessageWriter<ShellCommand>,
     // Written here; the experience acts on it. See [`ShellAbandonOffer`].
     abandon: &mut MessageWriter<ShellAbandonRequested>,
     settings: Option<&mut ambition_persistence::settings::UserSettings>,
+    options: &mut MessageWriter<ShellPauseOption>,
     sfx: &mut SfxWriter,
 ) {
     match entry {
@@ -502,9 +576,18 @@ fn activate_pause_entry(
         // volumes step up.
         PauseEntry::Audio(control) => {
             if let Some(settings) = settings {
-                control.adjust(1, settings);
+                control.adjust(direction, settings);
             }
         }
+        PauseEntry::Option(page, row) => {
+            if let Some(owner) = menu.owner {
+                options.write(ShellPauseOption { page, owner: ParticipantId(owner), row, direction });
+            }
+        }
+        _ if direction != 0 => {}
+        PauseEntry::Page(page) => menu.open_page(Some(page)),
+        PauseEntry::Back => menu.open_page(None),
+        PauseEntry::PageStep(_, _) => {}
         PauseEntry::Close => {
             menu.close_foreground();
             play(sfx, ids::UI_MENU_BACK);
@@ -535,6 +618,48 @@ fn activate_pause_entry(
     }
 }
 
+#[derive(PartialEq)]
+struct PausePresentation {
+    title: &'static str,
+    focused: usize,
+    capture_hint: Option<&'static str>,
+    scroll_page: Option<ShellPausePageId>,
+    rows: Vec<(PauseEntry, String, String)>,
+}
+
+impl PausePresentation {
+    fn read(menu: &ShellPauseMenu, context: &PauseMenuContext, settings: Option<&UserSettings>) -> Self {
+        let default_settings;
+        let settings = match settings {
+            Some(settings) => settings,
+            None => {
+                default_settings = UserSettings::default();
+                &default_settings
+            }
+        };
+        let page = context.page(menu);
+        let rows = context.rows(menu);
+        let scroll_page = page.filter(|_| rows.len() > PAGE_OPTIONS_VISIBLE + 1).map(|page| page.id);
+        let start = if scroll_page.is_some() { menu.cursor.saturating_sub(PAGE_OPTIONS_VISIBLE) } else { 0 };
+        let rows = rows.into_iter().enumerate().filter_map(|(index, entry)| {
+            (scroll_page.is_none() || index == 0 || (start + 1..=start + PAGE_OPTIONS_VISIBLE).contains(&index))
+                .then_some(entry)
+        }).map(|entry| {
+            let (label, value) = entry.presentation(settings, context, menu);
+            (entry, label, value)
+        }).collect();
+        let capture_hint = menu.owner.filter(|owner| context.captures(menu, *owner))
+            .and_then(|_| page?.capture_hint);
+        Self {
+            title: page.map_or(if context.in_session() { "Paused" } else { "Settings" }, |page| page.title),
+            focused: menu.cursor.saturating_sub(start),
+            capture_hint,
+            scroll_page,
+            rows,
+        }
+    }
+}
+
 /// Rebuild or tear down the pause menu when its key changes (open, cursor,
 /// route facts, audio values).
 fn render_shell_pause_menu(
@@ -547,44 +672,16 @@ fn render_shell_pause_menu(
     // `None` keeps Bevy's ASCII-only default font.
     menu_font: Option<Res<ambition_menu::render::bevy_ui::MenuFont>>,
     roots: Query<Entity, (With<BevyUiMenuRoot>, With<ShellPauseMenuRoot>)>,
-    mut prior: Local<Option<(bool, usize, bool, bool, u64)>>,
+    mut prior: Local<Option<PausePresentation>>,
 ) {
-    let in_session = context.in_session();
-    let can_quit_to_title = context.can_quit_to_title();
-    let settings = settings.map(|s| s.clone()).unwrap_or_default();
-    // The key includes the displayed audio values, so a change redraws. It
-    // hashes the display text, so steps too small to show do not rebuild.
-    let audio_key = ShellAudioControl::ALL.iter().fold(0u64, |acc, control| {
-        let value = match control {
-            ShellAudioControl::Mute => u64::from(settings.audio.muted),
-            other => other
-                .value(&settings)
-                .bytes()
-                .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(u64::from(b))),
-        };
-        acc.wrapping_mul(1_000_003).wrapping_add(value)
-    });
-    let key = (
-        menu.open,
-        menu.cursor,
-        in_session,
-        can_quit_to_title,
-        audio_key,
-    );
-    if *prior == Some(key) {
-        return;
-    }
-    *prior = Some(key);
-
+    let presentation = menu.open.then(|| PausePresentation::read(&menu, &context, settings.as_deref()));
+    if *prior == presentation { return; }
+    *prior = presentation;
     for root in &roots {
         commands.entity(root).despawn();
     }
-    if !menu.open {
-        return;
-    }
-
-    // Nothing is paused without a session, so the heading says "Settings".
-    let heading = if in_session { "Paused" } else { "Settings" };
+    let Some(view_model) = prior.as_ref() else { return; };
+    let heading = view_model.title;
     let mut page = MenuPageModel::new(
         PausePage::Root,
         heading,
@@ -598,31 +695,36 @@ fn render_shell_pause_menu(
         MenuTextAlign::Center,
         MenuColor::WHITE,
     );
-    let rows = context.rows();
-    let abandon = context.abandon();
-    // Shrink rows to fit: the rows and the gaps between them share the span.
-    let row_height = row_height_that_fits(ROWS_SPAN, ROW_GAP, rows.len(), 10.0);
-    for (index, entry) in rows.iter().enumerate() {
+    let row_span = if view_model.scroll_page.is_some() { ROWS_SPAN - 9.0 } else { ROWS_SPAN };
+    let row_height = row_height_that_fits(row_span, ROW_GAP, view_model.rows.len(), 10.0);
+    for (index, (entry, label, value)) in view_model.rows.iter().enumerate() {
         page.control(
-            MenuRect::new(
-                28.0,
-                ROWS_TOP + index as f32 * (row_height + ROW_GAP),
-                44.0,
-                row_height,
-            ),
+            MenuRect::new(28.0, ROWS_TOP + index as f32 * (row_height + ROW_GAP), 44.0, row_height),
             MenuControlKind::Action,
-            entry.label(abandon),
-            Some(entry.detail(&settings, abandon)),
-            index == menu.cursor,
+            label.clone(),
+            Some(value.clone()),
+            view_model.focused == index,
             false,
-            Some(*entry),
+            Some(entry.clone()),
         );
+    }
+    if let Some(id) = view_model.scroll_page {
+        for (x, direction, label) in [(28.0, -1, "Previous options"), (51.0, 1, "More options")] {
+            page.control(
+                MenuRect::new(x, FOOTER_TOP - 9.0, 21.0, 7.0),
+                MenuControlKind::Action, label, None, false, false, Some(PauseEntry::PageStep(id, direction)),
+            );
+        }
     }
     page.text(
         50.0,
         FOOTER_TOP,
         2.6,
-        if in_session {
+        if let Some(hint) = view_model.capture_hint {
+            hint
+        } else if menu.page().is_some() {
+            "Up / Down select · Left / Right adjust · Enter confirms · Esc goes back"
+        } else if context.in_session() {
             "Up / Down select \u{b7} Left / Right adjust \u{b7} Enter confirms \u{b7} Esc resumes"
         } else {
             "Up / Down select \u{b7} Left / Right adjust \u{b7} Enter confirms \u{b7} Esc closes"

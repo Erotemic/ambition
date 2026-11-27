@@ -382,6 +382,10 @@ On the Rustler, show the footplate ramp and the clearance under the cab
 roof. Show the Multi-Armed Bandit's fist and strike volume in the same frame.
 In Clinker Flats Yard, show where the ladder meets the sloped tipple
 road. Use the ladder bounds to place the rail opening above the tracks.
+At the smelter, show the walking lane in front of the slag pots. Use the
+ledge bounds to place the crane loading step and both gantry floors.
+At Clinker Row, show the final text positions on the laundry notice. Let
+an author group the lines of a sign so they keep their order and spacing.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

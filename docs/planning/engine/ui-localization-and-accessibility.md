@@ -25,17 +25,37 @@ strong base.
 
 ### Settings ownership (Q68, 2026-10-03)
 
-The evergreen shell owns how the player interfaces with the program, and every
-game inherits it: audio (master, music, SFX), display/window, input bindings,
-reusable accessibility, localization. Each game owns its game settings:
-difficulty, gameplay modifiers, combat behaviour, camera policy and
-mechanics-specific accessibility.
+The shell can provide audio, display, input, accessibility, and language
+preferences. Each game selects the pages and options it uses. The game owns
+difficulty, gameplay modifiers, combat behavior, camera policy, and access
+options for its mechanics.
 
 Today the shell-level `UserSettings` (`ambition_persistence::settings`) also
 holds the game-owned group `gameplay` (difficulty, assist, player damage,
 portal facing). Move that group to the game (`Q68`). Nothing blocks the move:
 the admission road the group feeds is built
 ([SETTINGS-ROLLBACK](../queue.md#settings-rollback--a-settings-change-reaches-simulation-only-at-an-admitted-rebase---done-2026-10-08)).
+
+### Optional settings pages
+
+Games can add `VideoPausePage` and `RebindPausePage` from
+`opinions/ambition_menu_opinions`. The Cargo features `video` and `rebind`
+select the pages independently. Sanic and Super Mary-O use both in their
+windowed hosts. The multi-game host uses the same pages for routes that use the
+basic pause menu.
+
+A game with a custom menu can read and adjust each `VideoMenuOption` from
+`ambition_settings_menu`. Select only the options that the host applies.
+View Shape uses the gameplay viewport, V-Sync uses `VsyncPlugin`, and Frame
+Cap uses the native frame limiter. The host can install
+`UserSettingsPersistencePlugin` with its own persistence root to save
+preferences between runs.
+
+For a custom rebind screen, use `rebind_rows` to read a participant's current
+bindings. Arm `RebindCapture` with the selected action, then use
+`RebindInputs` to read the participant's next compatible press. The menu
+owns its focus and cancels capture when it closes. Ambition uses this same
+workflow in Grid and Cube.
 
 ### Launcher theme, quality and provider composition
 

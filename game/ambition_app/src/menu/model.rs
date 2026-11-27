@@ -840,8 +840,8 @@ pub fn system_rows_with_quality_prompt(
                     .iter()
                     .map(|r| SystemRow::Option(SystemOptionId::Dev(r.id)))
                     .collect(),
-                SystemMenuTarget::Rebind(rows) => (0..rows.len())
-                    .map(|index| SystemRow::Option(SystemOptionId::Rebind(index)))
+                SystemMenuTarget::Rebind(rows) => rows.iter()
+                    .map(|row| SystemRow::Option(SystemOptionId::Rebind(row.action)))
                     .collect(),
                 // A picture, not a list: only the Back row.
                 SystemMenuTarget::Layout(_) => Vec::new(),
@@ -950,10 +950,10 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
         // projection, never from a table this function keeps. A rebind row that
         // printed a remembered control is the exact staleness `SeatBindings`
         // exists to make impossible.
-        SystemOptionId::Rebind(index) => model
+        SystemOptionId::Rebind(action) => model
             .entry(SystemMenuEntryId::Rebind)
             .and_then(|e| match &e.target {
-                SystemMenuTarget::Rebind(rows) => rows.get(index),
+                SystemMenuTarget::Rebind(rows) => rows.iter().find(|row| row.action == action),
                 _ => None,
             })
             .map(|row| {

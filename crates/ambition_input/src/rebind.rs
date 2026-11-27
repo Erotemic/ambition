@@ -80,6 +80,30 @@ pub fn also_bound_to(
         .collect()
 }
 
+/// A live binding and its conflicts for one semantic action.
+pub struct BindingRow {
+    pub action: InputAction,
+    pub binding: String,
+    pub also: Vec<String>,
+}
+
+/// Read the current bindings in action order for a menu or help screen.
+pub fn rebind_rows(
+    bindings: &ActionBindings,
+    device: crate::ActiveDevice,
+) -> impl Iterator<Item = BindingRow> + '_ {
+    bindings.all().filter_map(move |(name, controls)| {
+        let action = crate::action_named(name)?;
+        let control = bindings.control_for(&action, device).or_else(|| controls.first());
+        Some(BindingRow {
+            action,
+            binding: bindings.label_for(&action, device).unwrap_or_default(),
+            also: control.and_then(bindable)
+                .map_or_else(Vec::new, |control| also_bound_to(bindings, &action, control)),
+        })
+    })
+}
+
 /// This frame's physical presses, in a stable order, for a capture.
 ///
 /// The keyboard is read raw, not through the seat's `InputMap`. The map only

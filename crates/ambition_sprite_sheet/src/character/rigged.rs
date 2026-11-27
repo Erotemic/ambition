@@ -1132,6 +1132,27 @@ impl RiggedSpriteAsset {
         art_overhang(&self.parts, draws, self.frame_size.as_vec2(), self.feet_pixel)
     }
 
+    /// The box, in frame pixels, that frame `index` of `row` draws in: the
+    /// union of its parts' quads, turned and scaled as drawn. A part-drawn
+    /// sheet has no trimmed frame rects, so this is its silhouette's extent.
+    /// `None` when `row` is not a part clip or the frame draws nothing.
+    pub fn frame_extent(&self, row: &str, index: usize) -> Option<bevy::math::Rect> {
+        let mut extent: Option<bevy::math::Rect> = None;
+        for draw in self.frame(row, index)? {
+            let Some(part) = self.parts.get(usize::from(draw.part)) else { continue };
+            let (c, s) = (draw.rotation.cos(), draw.rotation.sin());
+            for corner in part_corners(part) {
+                let local = corner * draw.scale;
+                let at = self.feet_pixel + draw.at + Vec2::new(c * local.x - s * local.y, s * local.x + c * local.y);
+                extent = Some(match extent {
+                    Some(rect) => rect.union_point(at),
+                    None => bevy::math::Rect::from_corners(at, at),
+                });
+            }
+        }
+        extent
+    }
+
     /// The most draws any frame makes: the number of reusable slots a player
     /// needs so that no frame spawns one.
     pub fn max_draws(&self) -> usize {

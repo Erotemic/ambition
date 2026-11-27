@@ -15,6 +15,7 @@
 | [`input`](src/input.rs) | Narrow neutral shell action adapter shared by startup, launcher, loading, and gameplay-to-home presentation. |
 | [`launcher`](src/launcher.rs) | Launcher rows, presentation and the cursor used by the minimal `ambition_menu` adapter. |
 | [`pause_menu`](src/pause_menu.rs) | The universal shell/system menu the host offers every experience. |
+| [`pause_pages`](src/pause_pages.rs) | Pages that a host can add to the basic pause menu. |
 | [`plugin`](src/plugin.rs) | Bevy plugins that drive shell routing, sequences, and launcher commands. |
 | [`preparation`](src/preparation.rs) | Provider-authored fresh preparation plans and exact prepared-session identity. |
 | [`route_seating`](src/route_seating.rs) | The local seats a route offers, stated by the route's author. |
@@ -23,7 +24,7 @@
 | [`sequence`](src/sequence.rs) | Neutral ordered presentation-sequence data and runtime. |
 | [`session`](src/session.rs) | Shell-to-gameplay-session lifecycle bridge. |
 
-_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

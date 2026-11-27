@@ -181,6 +181,21 @@ mod isolated_root_tests {
 pub mod save_data;
 pub mod settings;
 
+/// Load and save user preferences at the host's persistence root.
+pub struct UserSettingsPersistencePlugin;
+
+impl bevy::prelude::Plugin for UserSettingsPersistencePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{Startup, Update};
+
+        app.init_resource::<PersistenceRoot>()
+            .init_resource::<settings::UserSettings>()
+            .init_resource::<settings::persistence::LastPersistedSettings>()
+            .add_systems(Startup, settings::persistence::load_settings_at_startup)
+            .add_systems(Update, settings::persistence::save_settings_on_change);
+    }
+}
+
 /// Schedules user-settings and sandbox-save persistence.
 ///
 /// Headless / RL drivers omit this plugin so they never read or write user files."* The second
@@ -207,30 +222,18 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
         // `init_resource` keeps production behaviour exactly (the default IS the
         // platform dir) while letting any App — a test, a tool, a second
         // instance — declare its own root before adding this plugin.
-        app.init_resource::<PersistenceRoot>();
+        if !app.is_plugin_added::<UserSettingsPersistencePlugin>() {
+            app.add_plugins(UserSettingsPersistencePlugin);
+        }
         app.init_resource::<save::SaveFileWritable>()
             .init_resource::<save::LastPersistedSave>()
             .init_resource::<save::DurablePoseOverlay>()
             .init_resource::<save::SaveOwner>()
-            .init_resource::<settings::persistence::LastPersistedSettings>()
-            .add_systems(
-                Startup,
-                (
-                    settings::persistence::load_settings_at_startup,
-                    save::load_save_at_startup,
-                ),
-            )
+            .add_systems(Startup, save::load_save_at_startup)
             .add_systems(
                 Update,
-                (
-                    settings::persistence::save_settings_on_change,
-                    // The sandbox save IS rollback state, so a speculating host
-                    // must not commit it to disk while anything is predicted.
-                    // On every non-rollback host this condition is always true
-                    // and the behaviour is unchanged. See `autosave_sandbox_save`.
-                    save::autosave_sandbox_save
-                        .run_if(ambition_platformer2d_core::world_state_is_confirmed),
-                ),
+                save::autosave_sandbox_save
+                    .run_if(ambition_platformer2d_core::world_state_is_confirmed),
             )
             // A graceful quit writes the last confirmed cut with its poses
             // (IR4): a pose-only change would otherwise wait for an interval

@@ -80,13 +80,18 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
         // the failed prototype's and the raptor's carry only the attack they
         // make from a run (lunge, lurch, pounce): their standing attack is their
         // action set's melee (`movesets/evil_attack_hound.ron`,
-        // `evil_failed_prototype.ron`, `raptor_stalker.ron`).
+        // `evil_failed_prototype.ron`, `raptor_stalker.ron`). The freight
+        // bandits and Stereotyping are turrets: one volley each, and nothing
+        // else to swing (`freight_bandits.ron`, `stereotyping.ron`).
         let floor = match id {
             "player_robot_v2"
             | "npc_shock_warden"
             | "npc_evil_attack_hound"
             | "npc_evil_failed_prototype"
-            | "npc_raptor_stalker" => 1,
+            | "npc_raptor_stalker"
+            | "one_armed_bandit"
+            | "multi_armed_bandit"
+            | "stereotyping" => 1,
             _ => 20,
         };
         assert!(

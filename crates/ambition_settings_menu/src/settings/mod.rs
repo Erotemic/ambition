@@ -404,12 +404,14 @@ pub(super) fn enum_index<T: PartialEq + Copy>(all: &[T], value: T) -> (usize, us
 mod apply;
 mod build;
 mod shader_rows;
+mod video;
 
 #[cfg(test)]
 mod tests;
 
 pub use apply::{apply_settings_option, close_menu_option};
 pub use build::settings_menu_model;
+pub use video::VideoMenuOption;
 
 /// The shader options in the order defined by their controls.
 pub(crate) fn shader_option_ids() -> impl Iterator<Item = SettingsOptionId> {

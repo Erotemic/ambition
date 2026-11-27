@@ -137,6 +137,24 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
     // The provider installs Sanic's content definitions before the shared asset
     // catalog is assembled below.
     compose_sanic_shell(&mut app, home_route);
+    if matches!(render, RenderMode::Windowed) {
+        use ambition_platformer2d::persistence::{
+            settings::platform_paths::data_dir_root, PersistenceRoot, UserSettingsPersistencePlugin,
+        };
+        app.insert_resource(PersistenceRoot::at(data_dir_root().join("sanic")))
+            .add_plugins(UserSettingsPersistencePlugin);
+    }
+    use ambition_menu_opinions::{RebindPausePage, VideoMenuOption, VideoPausePage};
+    let video_options = vec![
+        VideoMenuOption::ViewShape,
+        #[cfg(not(target_arch = "wasm32"))]
+        VideoMenuOption::Vsync,
+        #[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
+        VideoMenuOption::FramePacing,
+    ];
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(ambition_platformer2d::host::vsync::VsyncPlugin);
+    app.add_plugins((VideoPausePage(video_options), RebindPausePage));
     // Sanic loads its own LDtk rooms. It does not need the host's world catalog.
     app.add_plugins(
         ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(

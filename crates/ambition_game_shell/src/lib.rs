@@ -70,6 +70,13 @@ pub use basic_presentation::{BasicSequenceRoot, BasicShellPresentationPlugin, Ba
 #[cfg(feature = "basic_presentation")]
 pub use pause_menu::{ShellPauseMenu, ShellPauseMenuPlugin, ShellPauseMenuSuppressed};
 
+#[cfg(feature = "basic_presentation")]
+mod pause_pages;
+#[cfg(feature = "basic_presentation")]
+pub use pause_pages::{
+    PublishShellPausePages, ShellPauseOption, ShellPausePageId, ShellPausePages, ShellPauseRow,
+};
+
 use bevy::prelude::SystemSet;
 
 #[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]

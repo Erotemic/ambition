@@ -10,8 +10,8 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     };
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
-        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        GameplayViewShape, LocalViewLayout, PortalWindowLook, VisualQualityProfile, VsyncMode,
+        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
+        LocalViewLayout, PortalWindowLook, VisualQualityProfile,
     };
 
     let v = &settings.video;
@@ -72,17 +72,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     "Where the player sits within the camera frame.",
                 )
             },
-            {
-                let (i, n) = enum_index(&GameplayViewShape::ALL, v.view_shape);
-                cycle(
-                    SettingsOptionId::ViewShape,
-                    "View Shape",
-                    v.view_shape.label(),
-                    i,
-                    n,
-                    "Play every game in a 4:3 view with bars beside it: fewer pixels to draw on a slow device.",
-                )
-            },
+            VideoMenuOption::ViewShape.row(v),
             {
                 let (i, n) = enum_index(&LocalViewLayout::ALL, v.local_view_layout);
                 cycle(
@@ -133,28 +123,8 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 v.show_fps,
                 "Toggle the on-screen frames-per-second counter.",
             ),
-            {
-                let (i, n) = enum_index(&FramePaceCap::ALL, v.frame_cap);
-                cycle(
-                    SettingsOptionId::FramePacing,
-                    "Frame Cap",
-                    v.frame_cap.label(),
-                    i,
-                    n,
-                    "Cap the frame rate to save battery/heat (auto = display refresh; or 120/60/30/24).",
-                )
-            },
-            {
-                let (i, n) = enum_index(&VsyncMode::ALL, v.vsync);
-                cycle(
-                    SettingsOptionId::Vsync,
-                    "V-Sync",
-                    v.vsync.label(),
-                    i,
-                    n,
-                    "On: never exceed the display refresh, no tearing. Off: show every frame as soon as it is done (uncapped FPS; may tear).",
-                )
-            },
+            VideoMenuOption::FramePacing.row(v),
+            VideoMenuOption::Vsync.row(v),
             {
                 let (i, n) = enum_index(&VisualQualityProfile::ALL, v.quality.profile);
                 cycle(

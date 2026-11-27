@@ -197,6 +197,7 @@ dependencies = [
  "ambition_hosted_world",
  "ambition_input_opinions",
  "ambition_menu_kaleidoscope",
+ "ambition_menu_opinions",
  "ambition_platformer2d",
  "ambition_platformer2d_shared_tangle",
  "ambition_sim_harness",
@@ -625,6 +626,7 @@ dependencies = [
  "ambition_demo_mary_o",
  "ambition_demo_mary_o_modules",
  "ambition_input_opinions",
+ "ambition_menu_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -671,6 +673,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_demo_sanic",
  "ambition_input_opinions",
+ "ambition_menu_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -1123,6 +1126,17 @@ dependencies = [
  "ambition_menu",
  "bevy",
  "bevy_lunex",
+]
+
+[[package]]
+name = "ambition_menu_opinions"
+version = "0.1.0"
+dependencies = [
+ "ambition_game_shell",
+ "ambition_input",
+ "ambition_persistence",
+ "ambition_settings_menu",
+ "bevy",
 ]
 
 [[package]]

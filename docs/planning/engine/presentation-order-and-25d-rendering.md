@@ -746,11 +746,13 @@ shared value preparation are sufficient until source proves otherwise.
    window. It stays at the seam and uses the source pane order and opaque
    capture to replace the scene beneath it. The card follows the
    source window's visibility even when the source keeps its image. Portal
-   pieces use the existing clip mesh and shader. In a Medium Portal Lab
+   pieces use the existing clip mesh and shader. An entry piece keeps its
+   actor's draw order. Exit pieces keep distinct depths when two sources
+   have the same depth. Tests cover both cases. In a Medium Portal Lab
    capture, Scout stays visible while
    straddling the floor opening in 2D, side-on 2.5D, and oblique 2.5D.
-   An Ultra offscreen fixture checks both clipped pieces, two overlapping
-   panes with alpha in their textures, and a foreground band.
+   An Ultra offscreen fixture checks both clipped pieces, an actor in front
+   of the entry piece, two overlapping panes, and a foreground band.
    P5/P6 still own cross-room and observer order. Moving platforms
    use their sprite frames. The cart's near layer covers seated riders and
    its far layer stays behind them. Sprite cards blend texture alpha and

@@ -70,6 +70,14 @@ pub struct PortalDrawnWith(pub Entity);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PortalCarried;
 
+/// The entry piece replaces its source at the source's draw depth.
+/// The exit piece uses the portal exit band.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PortalCarryOrder {
+    Entry(Entity),
+    Exit,
+}
+
 /// Bookkeeping: the layers a carried drawable had before the carry put it on
 /// its camera's layer. Given back at the start of each frame
 /// ([`give_back_carried_layers`]), so the systems of a frame see a drawable's
@@ -185,8 +193,8 @@ struct Carry {
     budget: PieceBudget,
     /// A host's picture goes in only as deep as its limb (`PortalHostReach`).
     reach: Option<f32>,
-    /// The drawables it carries (each with its family).
-    drawables: Vec<Entity>,
+    /// The root drawable that gives the family its order.
+    drawable: Entity,
     /// Engine-space bounds of what it carries.
     min: Vec2,
     max: Vec2,
@@ -430,7 +438,7 @@ pub fn carry_through_pairs(
                 reaching: false,
                 budget,
                 reach,
-                drawables: vec![visual],
+                drawable: visual,
                 min,
                 max,
                 z: at.translation.z,
@@ -497,7 +505,7 @@ pub fn carry_through_pairs(
                 reaching: reaches_from.is_some(),
                 budget,
                 reach: None,
-                drawables: vec![drawable],
+                drawable,
                 min,
                 max,
                 z,
@@ -507,9 +515,13 @@ pub fn carry_through_pairs(
     }
 
     // Independent roots keep their source depth order within the exit band.
-    carries.sort_by(|a,b| a.room.cmp(&b.room).then(a.z.total_cmp(&b.z))
-        .then(a.drawables[0].cmp(&b.drawables[0])));
-    let depths: Vec<_> = carries.iter().map(|carry| (carry.room, carry.z)).collect();
+    carries.sort_unstable_by(|a, b| a.room.cmp(&b.room).then(a.z.total_cmp(&b.z))
+        .then(a.drawable.cmp(&b.drawable)));
+    let exit_depths = carries.chunk_by(|a, b| a.room == b.room).flat_map(|room| {
+        let span = crate::PORTAL_EXIT_COPY_TOP - crate::PORTAL_EXIT_COPY_Z;
+        let step = span / (room.len() + 1) as f32;
+        (1..=room.len()).map(move |rank| crate::PORTAL_EXIT_COPY_Z + rank as f32 * step)
+    });
     let requested: Vec<_> = carries.iter().map(|carry| {
         let span = (carry.max - carry.min).max_element().max(1.0) + 4.0 / density;
         let wanted = (span * density).ceil();
@@ -527,12 +539,7 @@ pub fn carry_through_pairs(
     // Each carry: its slot, its camera, its members' layers, its pieces.
     let mut used = vec![false; atlas.slots.len()];
     let fresh_quads_before = pool.0.made();
-    for (carry_index, carry) in carries.iter_mut().enumerate() {
-        let room_depths = depths.iter().filter(|(room,_)| *room == carry.room);
-        let count = room_depths.clone().count();
-        let below = room_depths.filter(|(_,z)| *z < carry.z).count();
-        let exit_z = crate::PORTAL_EXIT_COPY_Z + (crate::PORTAL_EXIT_COPY_TOP - crate::PORTAL_EXIT_COPY_Z)
-            * (below + 1) as f32 / (count + 1) as f32;
+    for (carry_index, (carry, exit_z)) in carries.iter().zip(exit_depths).enumerate() {
         let span = requested[carry_index].0;
         let capture = if sides[carry_index] > 0 {
             let slot = match used.iter().position(|taken| !taken) {
@@ -574,7 +581,7 @@ pub fn carry_through_pairs(
         }
         // The members and their families.
         let mut members: Vec<Entity> = Vec::new();
-        let mut pending: Vec<Entity> = carry.drawables.clone();
+        let mut pending = vec![carry.drawable];
         while let Some(entity) = pending.pop() {
             if members.contains(&entity) {
                 continue;
@@ -601,7 +608,7 @@ pub fn carry_through_pairs(
         );
         let proxy = capture.is_none();
         let (source_map, source_middle, source_size, canonical_proxy) = if proxy {
-            match bodies.get(carry.drawables[0]) {
+            match bodies.get(carry.drawable) {
                 Ok((_, view, _, None)) => match view.material.at(view.pos) {
                     Ok(map) => (map, Vec2::ZERO, view.canonical_size, true),
                     Err(_) => continue,
@@ -639,11 +646,14 @@ pub fn carry_through_pairs(
             let map = piece.transform();
             let copy = ambition_portal2d::copy_transform_of(&map);
             let Ok(mapped_middle) = map.point(source_middle) else { continue; };
-            let depth = if piece.is_carried() { exit_z } else { carry.z };
+            let (depth, order, name) = if piece.is_carried() {
+                (exit_z, PortalCarryOrder::Exit, "Portal carry piece (through)")
+            } else {
+                (carry.z, PortalCarryOrder::Entry(carry.drawable), "Portal carry piece (here)")
+            };
             let base = Transform { translation: carry.frame.to_render(mapped_middle, depth),
                 rotation: Quat::from_rotation_z(copy.rolled(0.0)), scale: Vec3::splat(copy.scale) };
             let flip = copy.flip_x;
-            let name = if piece.is_carried() { "Portal carry piece (through)" } else { "Portal carry piece (here)" };
             let pose = clip_piece_transform(&base, Vec2::ZERO, source_size);
             pool.0.draw(
                 &mut commands,
@@ -657,7 +667,7 @@ pub fn carry_through_pairs(
                 ),
                 pose,
                 &planes,
-                (PortalBodyPiece, ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(carry.room)),
+                (PortalBodyPiece, order, ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(carry.room)),
                 name,
             );
         }

@@ -1,0 +1,58 @@
+title: mine_foreman
+---
+<<if verdict("encounter.cleared", "elemental_mine.mother_lode") == "satisfied">>
+    Inez: The dial hasn't moved since you came back up. That's the longest quiet we've had all month.
+    Inez: Leave your marks on my survey. I'll walk the boundary with the next shift before we cut any more stone.
+<<else>>
+    Inez: The surface shift is open. The deep shift stays on the clock up here until I know what those knocks mean.
+    Inez: The old works share a wall with a natural cavern. We used to get one knock when we started a cut. Lately we get three before we touch the rock.
+<<endif>>
+-> Is there a way down?
+    Inez: Take the cage to the middle landing. Follow the air duct to the relief switch. That opens the screen beside the deep sump.
+    Inez: The survey stairs are bolted on the lower side. Open them when you come up and we'll have a second way out.
+-> What about the elementals?
+    Inez: We used to stop work and let them settle. We were paid by the hour then.
+-> Let me through the yard.
+===
+
+title: mine_hand
+---
+Ellis: I'm Ellis. I keep the short carts on the rails and the long carts out of the ditch.
+-> What happened to the deep crew?
+    Ellis: They came back up. The first thing they asked was whether a stone can remember being hit.
+    Ellis: The second thing they asked was where I'd left their sandwiches. There's a very good chance that was unrelated.
+-> Is the ore shuttle safe to ride?
+    Ellis: The shuttle runs above the basin. Stand on the flat rim and jump off at either dock. If you fall short, the old silt banks will get you back up.
+-> See you around.
+===
+
+title: mine_geologist
+---
+Farah: That tray is a section through the west face. I put the samples in order before the wind picked up.
+-> What woke up down there?
+    Farah: Mother Lode has been under the mine longer than the mine has had a name. We rang the crusher at a pitch her crystals answer.
+    Farah: Imagine someone holding a dinner bell against your teeth for nine hours. You'd answer it too.
+-> What are the blue streaks?
+    Farah: The miners use three blue seams as survey marks. On the far wall you can hear all three ring if you put your ear near the middle one.
+-> I'll leave the samples alone.
+===
+
+title: mine_sampler
+---
+Tamsin: Pick a ticket with a number. Pick a sample with the same number. If they disagree, come get me before you put anything in the oven.
+-> Can I reach the basin from here?
+    Tamsin: The gallery drains to the upper dock. The basin's west door goes round to the vents. That way you can get back to the intake without waiting for the cage.
+-> What do you do between samples?
+    Tamsin: I mend work gloves. Inez pays for the leather and Ellis brings the ones with the fingers still in them.
+-> Good luck with the batch.
+===
+
+title: mine_mother_lode
+---
+Mother Lode: You struck the shell. The part of me that hears is farther in.
+Mother Lode: Tell the people with the wheels they can keep what has fallen. Leave the living seam below the three blue marks.
+-> Was that you hitting the wall?
+    Mother Lode: The first knock was mine. The other two came back. Stone keeps a word longer than you think.
+-> I'll tell Inez what I heard.
+    Mother Lode: Tell her there is room for quiet work. I can tell the difference.
+===

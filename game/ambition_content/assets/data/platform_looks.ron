@@ -137,4 +137,6 @@
         span_px: (636.0, 657.0),
         top_px: 138.0,
     ),
+    "mine_cage": (row: "idle", frame_px: (256.0, 160.0), span_px: (16.0, 240.0), top_px: 140.0),
+    "mine_ore_cart": (row: "idle", frame_px: (224.0, 88.0), span_px: (16.0, 208.0), top_px: 28.0),
 }

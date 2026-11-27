@@ -38,6 +38,11 @@ pub(super) fn register(app: &mut App) {
         "game/ambition_content/rhai/marshal_gallus.rhai",
         include_str!("../rhai/marshal_gallus.rhai"),
     );
+    ambition_platformer2d::extension::add_shipped_script(
+        app,
+        "game/ambition_content/rhai/mother_lode.rhai",
+        include_str!("../rhai/mother_lode.rhai"),
+    );
     let pack = crate::pack::select(app.world_mut());
     let looks = ambition_projectiles::content_schema::lowered_projectile_looks(&pack).cloned().unwrap_or_default();
     for (id, art) in &looks {

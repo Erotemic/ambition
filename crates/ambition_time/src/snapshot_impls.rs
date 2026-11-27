@@ -1,7 +1,7 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
 //! These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an impl to the
+//! `ambition_snapshot::snapshot` owns the trait and the orphan rule binds an impl to the
 //! crate owning the trait OR the type. The orphan rule is what proves this file is in the right
 //! crate: if a type moves, this stops compiling rather than drifting.
 //!
@@ -9,8 +9,8 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use ambition_platformer2d_core::snapshot::{put_f32, put_u32, put_u64, Reader, SnapshotState};
-use ambition_platformer2d_core::snapshot_unit_enum;
+use ambition_snapshot::snapshot::{put_f32, put_u32, put_u64, Reader, SnapshotState};
+use ambition_snapshot::snapshot_unit_enum;
 
 impl SnapshotState for crate::SimTick {
     fn encode(&self, out: &mut Vec<u8>) {

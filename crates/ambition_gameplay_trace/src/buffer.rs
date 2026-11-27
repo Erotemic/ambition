@@ -7,7 +7,7 @@ use crate::{
     DEFAULT_EVENT_CAPACITY, DEFAULT_FRAME_CAPACITY,
 };
 use bevy::prelude::*;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::VecDeque;
 
 #[derive(Clone, Debug)]
 struct PendingOobAssessment {
@@ -51,8 +51,7 @@ pub struct GameplayTraceBuffer {
     /// corrected pass replaces this entry exactly like it replaces the frame
     /// row, so a speculative OOB cannot arm a permanent dump and a corrected
     /// OOB cannot disappear merely because the first pass looked healthy.
-    pending_oob: BTreeMap<(u64, i32), PendingOobAssessment>,
-    pending_oob_session: Option<u64>,
+    pending_oob: crate::pending_frames::PendingFrames<PendingOobAssessment>,
 }
 
 /// How many frames a portal transit suppresses trace auto-dumps for: long enough
@@ -83,8 +82,7 @@ impl GameplayTraceBuffer {
             previous: None,
             teleport_suppress_ticks: 0,
             min_context_frames: crate::DEFAULT_MIN_CONTEXT_FRAMES,
-            pending_oob: BTreeMap::new(),
-            pending_oob_session: None,
+            pending_oob: Default::default(),
         }
     }
 
@@ -143,34 +141,18 @@ impl GameplayTraceBuffer {
             anomaly,
             auto_dump_eligible,
         };
-        let Some((session, frame)) = identity else {
-            if self.pending_oob_session.take().is_some() {
-                self.pending_oob.clear();
-                self.auto_dump_armed = true;
-            }
-            self.apply_oob_assessment(assessment);
-            return;
-        };
-
-        if self.pending_oob_session != Some(session) {
-            self.pending_oob.clear();
-            self.pending_oob_session = Some(session);
+        if self.pending_oob.select_session(identity.map(|(session, _)| session)) {
             self.auto_dump_armed = true;
         }
-        self.pending_oob.insert((session, frame), assessment);
-
-        let Some(confirmed) = confirmed else {
-            return;
-        };
-        let ready: Vec<_> = self
-            .pending_oob
-            .range((session, i32::MIN)..=(session, confirmed))
-            .map(|(identity, _)| *identity)
-            .collect();
-        for identity in ready {
-            if let Some(assessment) = self.pending_oob.remove(&identity) {
-                self.apply_oob_assessment(assessment);
+        if let Some((_, frame)) = identity {
+            self.pending_oob.replace(frame, assessment);
+            if let Some(confirmed) = confirmed {
+                for assessment in self.pending_oob.take_confirmed(confirmed) {
+                    self.apply_oob_assessment(assessment);
+                }
             }
+        } else {
+            self.apply_oob_assessment(assessment);
         }
     }
 

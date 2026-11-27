@@ -374,15 +374,8 @@ pub enum SystemOptionId {
     Locale(LocaleId),
     /// Toggle/cycle a developer tool.
     Dev(DevToggleId),
-    /// Arm the rebind capture for the row at this INDEX into the screen's
-    /// [`RebindRow`] list.
-    ///
-    ///  an index, not the action name, because this id is `Copy` and an action
-    /// name is a `String`. That is the same row-identity choice
-    /// `ambition_ui_nav::RowPress` documents: within one screen build the order
-    /// is canonical (`ActionBindings` sorts), so the index resolves back to the
-    /// row the player is looking at.
-    Rebind(usize),
+    /// Capture a new control for this action.
+    Rebind(ambition_input::InputAction),
 }
 
 /// A momentary, screen-less SYSTEM action.
@@ -437,9 +430,8 @@ pub enum SystemMenuTarget {
 /// `SeatBindings` exists to delete.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RebindRow {
-    /// The action's stable name — the string the projection publishes and a
-    /// settings file stores, so a row, a trace line and an override all agree.
-    pub action: String,
+    /// The action that this row changes.
+    pub action: ambition_input::InputAction,
     /// What to call it on screen.
     pub label: String,
     /// The control it is on now, already spelled in the seat's own pad

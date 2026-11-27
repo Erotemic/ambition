@@ -8,11 +8,12 @@
 |---|---|
 | [`body_row`](src/body_row.rs) | A body's replicated motion row, and the guest's adoption of it. |
 | [`input_clock`](src/input_clock.rs) | Input sample order is independent of the estimated host tick. |
+| [`input_history`](src/input_history.rs) | Input prediction and retention for the hosted world. |
 | [`menu_pause`](src/menu_pause.rs) | Pause votes use the host's connection and seat assignment. |
 | [`prediction`](src/prediction.rs) | A guest that predicts its own body (NA-3), in production. |
 | [`room_rollback`](src/room_rollback.rs) | A host that keeps a guest's room correct by rollback (SIMULATION-ISLANDS). |
 
-_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

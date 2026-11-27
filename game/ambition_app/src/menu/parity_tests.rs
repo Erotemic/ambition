@@ -189,7 +189,7 @@ fn the_rebind_screen_attaches_only_when_a_seat_supplies_bindings() {
         &DevSnapshot::default(),
     )
     .with_rebind(vec![RebindRow {
-        action: "Jump".to_string(),
+        action: ambition_platformer2d::input::InputAction::Jump,
         label: "Jump".to_string(),
         binding: "Z".to_string(),
         also: Vec::new(),
@@ -694,14 +694,14 @@ mod dispatch_parity {
             send(&mut app, first, MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video));
             send(&mut app, second, MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Audio));
             send(&mut app, first, MenuPageAction::SystemStep(SettingsOptionId::VisualQuality, 1));
-            send(&mut app, second, MenuPageAction::SystemOption(SystemOptionId::Rebind(2)));
+            send(&mut app, second, MenuPageAction::SystemOption(SystemOptionId::Rebind(ambition_platformer2d::input::InputAction::Jump)));
             app.update();
             assert_eq!(app.world().get::<KaleidoscopeSystemNav>(first).unwrap().open_entry, Some(SystemMenuEntryId::Video));
             assert_eq!(app.world().get::<KaleidoscopeSystemNav>(second).unwrap().open_entry, Some(SystemMenuEntryId::Audio));
             assert!(app.world().get::<VisualQualityConfirmState>(first).unwrap().pending().is_some());
             assert!(app.world().get::<VisualQualityConfirmState>(second).unwrap().pending().is_none());
             assert_eq!(app.world().get::<RebindCapture>(first).unwrap().armed(), None);
-            assert_eq!(app.world().get::<RebindCapture>(second).unwrap().armed(), Some(2));
+            assert_eq!(app.world().get::<RebindCapture>(second).unwrap().armed(), Some(ambition_platformer2d::input::InputAction::Jump));
             let quality = app.world().resource::<UserSettings>().video.quality.profile;
             send(&mut app, second, MenuPageAction::ConfirmVisualQuality);
             app.update();

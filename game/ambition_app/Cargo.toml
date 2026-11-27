@@ -90,7 +90,7 @@ visible = [
     "frame_pacing",
     "bevy_ui_menu",
     "kaleidoscope_menu",
-    "basic_shell_presentation",
+    "shell_settings_pages",
 ]
 
 # The universal shell pause menu + its `ShellPauseMenuSuppressed` bridge ship
@@ -98,6 +98,7 @@ visible = [
 # `ambition_app` code `#[cfg(feature = "basic_shell_presentation")]` the bridge
 # (see `app/shell_host.rs`); the minimal `web` build omits it.
 basic_shell_presentation = ["ambition_platformer2d/basic_shell_presentation"]
+shell_settings_pages = ["basic_shell_presentation", "input", "dep:ambition_menu_opinions"]
 
 portal = ["ambition_platformer2d/portal", "ambition_content/portal"]
 portal_render = ["portal", "ambition_platformer2d/portal_render", "ambition_content/portal_render"]
@@ -132,7 +133,7 @@ visible_web_base = [
     # this is the SIMPLE UI, which is what the web build wants: kaleidoscope
     # stays excluded (`KALEIDOSCOPE_MENU_BACKEND_ENABLED` is false on wasm) and
     # this is the plain-Bevy-UI shell that replaces it.
-    "basic_shell_presentation",
+    "shell_settings_pages",
 ]
 visible_web = ["visible_web_base"]
 visible_web_served = ["visible_web_base", "web_served", "web_audio"]
@@ -213,6 +214,7 @@ ambition_sprite_part_format = { path = "../../crates/ambition_sprite_part_format
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 
 [dependencies]
+ambition_menu_opinions = { path = "../../opinions/ambition_menu_opinions", optional = true, features = ["video", "rebind"] }
 ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 # The linked game providers of the multi-game shell host. The HOST depends on
 # providers; providers never depend on hosts (each also runs unchanged in its

@@ -203,11 +203,9 @@ impl GuestInputs {
     /// The input for `seat` on `tick`: the one it sent for that tick, or else
     /// its latest before it (the prediction).
     fn input_for(&self, seat: PlayerSlot, tick: u64) -> ControlFrame {
-        self.arrived
-            .get(&seat)
-            .and_then(|arrived| arrived.range(..=tick).next_back())
-            .map(|(at, frame)| if *at == tick { *frame } else { frame.levels_only() })
-            .unwrap_or_default()
+        self.arrived.get(&seat).map_or_else(ControlFrame::default, |history| {
+            crate::input_history::predicted_input(history, tick)
+        })
     }
 
     fn forget_before(&mut self, tick: u64) {
@@ -216,10 +214,7 @@ impl GuestInputs {
             history.retain(|at, _| *at >= keep);
         }
         for history in self.arrived.values_mut().chain(self.used.values_mut()) {
-            // The latest arrived input before the horizon stays: it is the
-            // prediction for every tick after it.
-            let last_before = history.range(..keep).next_back().map(|(tick, _)| *tick);
-            history.retain(|at, _| *at >= keep || Some(*at) == last_before);
+            crate::input_history::retain_input_from(history, keep);
         }
         for saves in self.saved.values_mut() {
             saves.retain(|at, _| *at >= keep);
@@ -562,7 +557,19 @@ pub(crate) fn replay_room(
     rows.restore(world, snapshot, &entities);
     world.insert_resource(rows);
     correct(world);
-    ambition_platformer2d_shared_tangle::lifecycle::begin_room_replay(world, room);
+    ambition_platformer2d_shared_tangle::lifecycle::with_room_replay(world, room, |world| {
+        replay_room_ticks(world, room, at, tick, now, replaying)
+    })
+}
+
+fn replay_room_ticks(
+    world: &mut World,
+    room: LiveRoomInstance,
+    at: Clock,
+    tick: u64,
+    now: u64,
+    replaying: fn(&mut World, bool),
+) -> u32 {
     let live_gestures = world.get_resource::<SlotInteractionState>().copied();
     let live_possession = world.get_resource::<ambition_platformer2d_actor::control::possession::PossessionState>().cloned();
     let saved_at = at.0 .0;
@@ -655,7 +662,6 @@ pub(crate) fn replay_room(
             entity.remove::<Disabled>();
         }
     }
-    ambition_platformer2d_shared_tangle::lifecycle::end_room_replay(world);
     ticks
 }
 

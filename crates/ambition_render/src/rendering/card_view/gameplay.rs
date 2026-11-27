@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{CameraMainTextureUsages, CompositingSpace, RenderTarget};
@@ -18,7 +17,6 @@ const FIRST_CARD_LAYER: usize = 2048;
 #[derive(Component, PartialEq, Eq)]
 pub(super) enum CardScope {
     Source(Entity),
-    Room(LiveRoomInstance),
     Camera(Entity),
 }
 
@@ -145,7 +143,7 @@ pub(super) fn isolate_cards(
         if !camera.is_active {
             continue;
         }
-        let Some((frame, (_, id))) = frames.of(view.0).zip(views.get(view.0).ok()) else {
+        let Some((_, (_, id))) = frames.of(view.0).zip(views.get(view.0).ok()) else {
             continue;
         };
         let mask = plane_cameras.iter().find_map(|(link, mask)| {
@@ -156,18 +154,17 @@ pub(super) fn isolate_cards(
         if *layers != desired {
             *layers = desired;
         }
-        active.push((entity, frame.room, mask, slot));
+        active.push((entity, mask, slot));
     }
 
-    active.sort_unstable_by_key(|(_, _, _, slot)| *slot);
+    active.sort_unstable_by_key(|(_, _, slot)| *slot);
     let world = RenderLayers::default();
     for (scope, mut layers) in &mut cards {
         let memberships = || {
-            active.iter().filter_map(|&(camera, room, mask, slot)| {
+            active.iter().filter_map(|&(camera, mask, slot)| {
                 let shown = match scope {
                     CardScope::Source(entity) => mask
                         .is_none_or(|mask| mask.intersects(sources.get(*entity).unwrap_or(&world))),
-                    CardScope::Room(owner) => *owner == room,
                     CardScope::Camera(owner) => *owner == camera,
                 };
                 shown.then_some(slot)
@@ -182,6 +179,7 @@ pub(super) fn isolate_cards(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
     use crate::rendering::camera::PresentedViewFrame;
     use crate::rendering::card_view::{retire_card_outputs, CardMeshes, CardViewMode};
     use bevy::camera::Viewport;

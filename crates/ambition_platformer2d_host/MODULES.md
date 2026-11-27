@@ -10,8 +10,9 @@
 | [`framepace`](src/framepace.rs) | Apply the host's frame cap to a rendered native window. |
 | [`gameplay_presentation`](src/gameplay_presentation.rs) | Visible-host integration for gameplay presentation profiles. |
 | [`portal`](src/portal.rs) | Ambition-specific host glue for the reusable portal mechanic and renderer. |
+| [`vsync`](src/vsync.rs) | Apply the V-sync preference to the primary window. |
 
-_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

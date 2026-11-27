@@ -93,15 +93,7 @@ pub struct EffectSource(pub u64);
 impl EffectSource {
     /// The key of `name` (FNV-1a, 64 bit).
     pub const fn named(name: &str) -> Self {
-        let bytes = name.as_bytes();
-        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-        let mut i = 0;
-        while i < bytes.len() {
-            hash ^= bytes[i] as u64;
-            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-            i += 1;
-        }
-        Self(hash)
+        Self(ambition_snapshot::hash::fnv1a(name.as_bytes()))
     }
 
     /// A move's gravity beat and the aimed air dodge's weightless window. One

@@ -98,7 +98,7 @@ pub struct HoldPoint {
 impl HoldPoint {
     /// The stable key of an attachment name.
     pub fn key(name: &str) -> u64 {
-        name.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3))
+        ambition_platformer2d_core::snapshot::checksum_bytes(name.as_bytes())
     }
 
     /// The point `name` of `rig`, or `None` when the rig does not state it.

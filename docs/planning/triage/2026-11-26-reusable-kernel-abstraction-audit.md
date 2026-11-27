@@ -1,6 +1,21 @@
 # Reusable kernels and infrastructure: ranked source audit
 
-**Status:** Triage, not selected work. Review of `f4e6ab713b864cebdedeb4ff9df9e5e4e413711a` (November 26 local time / November 27 UTC, 2026). This page proposes work for the planning owners to assess. It does not change the queue, approve a crate split, or record new maintainer rulings.
+**Status:** Source audit of `f4e6ab713b86`. The geometry, replay, snapshot,
+input history, and trace work below has landed. Keep the remaining
+renderer and portal proposals with their domain owners.
+
+- Geometry consumers share point bounds, convex clipping, and closed line-box
+  intervals. The moving-platform contact test continues to use its strict
+  stationary-axis rule.
+- Replay messages have a Bevy ECS package. The hosted replay scope restores
+  live messages when setup or replay unwinds.
+- Host and guest share input prediction and retention. Both trace buffers share
+  confirmed-frame handling. The external-effects journal keeps its room-specific
+  retraction and ordering.
+- Snapshot codecs and registration have a separate package. Time builds without
+  the platformer core. FNV-1a byte hashing is shared by snapshot checksums and
+  callers with the same byte algorithm. Domain digests with different inputs or
+  multipliers keep their existing rules.
 
 ## Purpose
 

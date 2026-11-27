@@ -96,10 +96,7 @@ pub struct Leaving {
 impl Leaving {
     /// One number for the rollback probe.
     pub fn probe(&self) -> u64 {
-        let named = self
-            .zone
-            .bytes()
-            .fold(0xCBF2_9CE4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01B3));
+        let named = ae::snapshot::checksum_bytes(self.zone.as_bytes());
         ae::navigation::mix(named)
     }
 }
@@ -205,10 +202,7 @@ pub struct Posed {
 impl Posed {
     /// One number for the rollback probe.
     pub fn probe(&self) -> u64 {
-        let named = self
-            .row
-            .bytes()
-            .fold(0xCBF2_9CE4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01B3));
+        let named = ae::snapshot::checksum_bytes(self.row.as_bytes());
         ae::navigation::mix(named ^ self.since.rotate_left(17) ^ u64::from(self.looping))
     }
 }

@@ -263,7 +263,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     add_mobile_touch_plugin(app);
     // V-sync: the Video setting → the primary window's present mode. Not
     // feature-gated — it is one system that does nothing without a window.
-    app.add_plugins(crate::host::vsync::VsyncPlugin);
+    app.add_plugins(ambition_platformer2d::host::vsync::VsyncPlugin);
     // The per-frame GPU upload budget, the one pacing authority for asset
     // arrival: on while gameplay is visible, lifted under a loading cover.
     crate::host::render_asset_budget::install_render_asset_budget(app);

@@ -1,6 +1,6 @@
 //! The `InputAction` leafwing action enum. The binding
 //! layer maps physical keys and sticks onto it, then folds it into the
-//! device-agnostic `ControlFrame`/`MenuInputFrame`. Gated behind `input`.
+//! device-agnostic `ControlFrame`/`MenuInputFrame`.
 
 #[cfg(feature = "input")]
 use super::*;
@@ -16,12 +16,11 @@ use super::*;
 /// actions, so menu confirm does not need "Jump" and all menu keys flow
 /// through one seam. The renderer reads `MenuAxisFrame`, not this enum.
 ///
-/// Gated behind `input` (leafwing `Actionlike`). Sim-only builds use the
-/// engine-core `ControlFrame` instead.
-#[cfg(feature = "input")]
-#[derive(Actionlike, Clone, Copy, Debug, Hash, PartialEq, Eq, Reflect)]
+/// The action IDs are available in menu models without device input.
+#[cfg_attr(feature = "input", derive(Actionlike))]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, bevy::prelude::Reflect)]
 pub enum InputAction {
-    #[actionlike(DualAxis)]
+    #[cfg_attr(feature = "input", actionlike(DualAxis))]
     Move,
     MoveLeft,
     MoveRight,
@@ -110,16 +109,16 @@ pub enum InputAction {
     /// Paged-menu page turn right. Bound to the right bumper (R1 / RB =
     /// `GamepadButton::RightTrigger`) and `E`.
     MenuPageRight,
-    #[actionlike(DualAxis)]
+    #[cfg_attr(feature = "input", actionlike(DualAxis))]
     MenuStick,
     /// Analog right-trigger value (0..=1). Hysteresis thresholds derive the
     /// burst press edge, so a worn trigger held above the threshold does not
     /// retrigger the burst.
-    #[actionlike(Axis)]
+    #[cfg_attr(feature = "input", actionlike(Axis))]
     BurstAnalog,
     /// Analog right-stick aim. The aim deadzone applies here, before blink
     /// aim reads it, so a drifting stick does not move the blink target.
-    #[actionlike(DualAxis)]
+    #[cfg_attr(feature = "input", actionlike(DualAxis))]
     AimStick,
 }
 

@@ -37,11 +37,7 @@ impl Errand {
     /// One number for the errand, for the rollback probe: a restore that
     /// brought back another errand, or another outcome, is a mismatch.
     pub fn probe(&self) -> u64 {
-        let named = self
-            .fetch
-            .as_str()
-            .bytes()
-            .fold(0xCBF2_9CE4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01B3));
+        let named = ae::snapshot::checksum_bytes(self.fetch.as_str().as_bytes());
         let outcome = match self.outcome {
             ErrandOutcome::Pending => 0,
             ErrandOutcome::Done => 1,

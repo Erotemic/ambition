@@ -17,6 +17,7 @@
 | [`confirmed_frame`](src/confirmed_frame.rs) | Host-published boundary between confirmed and speculative simulation frames. |
 | [`content_epoch`](src/content_epoch.rs) | Content activation identity and peer-stable content identity. |
 | [`control_frame`](src/control_frame.rs) | Device-agnostic per-frame control vocabulary. |
+| [`crush`](src/crush.rs) | Crushing policy (crushing-and-obstruction-response.md, stage C2): how hard a moving surface pushes, how a body gives way, and the game's rule for both, merged most specific first. |
 | [`effects`](src/effects.rs) | Timed numeric effects on a body, each owned by its source. |
 | [`frame`](src/frame.rs) | `frame` — the engine-level aperture vocabulary (docs/concepts/movement-collision.md). |
 | [`geo_id`](src/geo_id.rs) | Durable geometry identity — `GeoId`/`GeoFaceRef` (docs/concepts/movement-collision.md). |
@@ -31,19 +32,17 @@
 | [`navigation`](src/navigation.rs) | The navigation contract: one leg of a route, and the rule that follows it. |
 | [`party_controls`](src/party_controls.rs) | Fixed-width participant requests for party travel preferences. |
 | [`player_state`](src/player_state.rs) | Reusable player-state vocabulary. |
-| [`replay_messages`](src/replay_messages.rs) | A replay uses separate message buffers and reader cursors. |
 | [`resources`](src/resources.rs) | The per-actor resource bank: the one mutable authority for every resource a body holds. |
 | [`rollback_kind`](src/rollback_kind.rs) | What a rollback registration IS, and the sentence that describes it. |
 | [`rollback_registration`](src/rollback_registration.rs) | The engine floor's own rollback declarations. |
 | [`sim_random`](src/sim_random.rs) | RANDOMNESS THAT SURVIVES A REWIND — and it survives by not existing. |
-| [`snapshot`](src/snapshot.rs) | Backend-neutral deterministic snapshot vocabulary. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`solid_lines`](src/solid_lines.rs) | A body is not inside a solid outline ([`SurfaceKind::Solid`]): what a portal pair carries of a block when it turns it is that block's true shape, turned, and a walker's box meets it as it is (`docs/planning/engine/portals-a-body-in-two-places.md`, exact turned solids). |
 | [`surface_loop`](src/surface_loop.rs) | Attached loops: a full 360° loop a runner enters from a floor and leaves onto the same floor, as one authored fact. |
 | [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_36 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

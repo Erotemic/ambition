@@ -453,81 +453,9 @@ pub(crate) struct KaleidoscopeSystemNav {
     pub(crate) open_entry: Option<SystemMenuEntryId>,
 }
 
-/// A rebind row is armed, waiting for the next physical press.
-///
-/// the capture cannot happen where the row is selected. Selecting runs
-/// inside the menu's own dispatch, and the whole point of a rebind is to see a
-/// control the menu's bindings do not route — a key no preset uses reaches no
-/// action and therefore no dispatch. So selection arms, and a separate system
-/// reading raw device state resolves it.
-///
-/// The row is identified by its INDEX into the screen's `RebindRow` list, the
-/// same row identity `ambition_ui_nav::PressArm` documents: a windowed list can
-/// rebuild between the arm and the press, and an index into a canonically
-/// ordered list survives that where an entity would not.
-#[derive(Component, Default)]
-pub(crate) struct RebindCapture {
-    armed_row: Option<usize>,
-    /// the frame that ARMED it must not also capture it. Selecting a row
-    /// is itself a key press, and it is still in `get_just_pressed` when the
-    /// capture runs later the same frame — so without this, confirming a rebind
-    /// row would bind that action to the confirm key, and every action in the
-    /// list would end up on Enter.
-    ///
-    /// ordering does NOT fix this. Running the capture after the dispatch was
-    /// the first attempt and it is wrong: a just-pressed set is a fact about the
-    /// frame, not about where in the frame you read it.
-    armed_this_frame: bool,
-    axis_ready: bool,
-}
-
-impl RebindCapture {
-    pub(crate) fn arm(&mut self, row: usize) {
-        self.armed_row = Some(row);
-        self.armed_this_frame = true;
-        self.axis_ready = false;
-    }
-
-    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
-    /// Let one frame pass before a press can be captured. Returns whether the
-    /// caller should wait.
-    pub(crate) fn settle(&mut self) -> bool {
-        let waiting = self.armed_this_frame;
-        self.armed_this_frame = false;
-        waiting
-    }
-
-    pub(crate) fn armed(&self) -> Option<usize> {
-        self.armed_row
-    }
-
-    /// Take the arm — a capture resolves once, whatever it produced.
-    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
-    pub(crate) fn take(&mut self) -> Option<usize> {
-        self.armed_row.take()
-    }
-}
+pub(crate) use ambition_platformer2d::input::RebindCapture;
 
 #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
-/// Resolve an armed rebind: the next physical press becomes the binding.
-///
-/// this cannot live in the menu's dispatch, which is why arming and
-/// capturing are two steps. Dispatch runs off routed ACTIONS, and the whole
-/// point of a rebind is to bind a control that routes to nothing — a key no
-/// preset uses reaches no action and therefore no dispatch. So the capture reads
-/// raw device state (`ambition_input::pressed_controls_this_frame`).
-///
-/// the armed ROW INDEX resolves against the same canonical order the screen
-/// was built from — `ActionBindings::all()` sorts by action name — so the index
-/// and the row cannot disagree without a second table existing to disagree
-/// through.
-///
-/// The primary profile persists in settings. Other participants keep their
-/// overrides in their input recipes. The map rebuild publishes the new bindings.
-#[cfg(all(
-    feature = "input",
-    any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
-))]
 pub(crate) fn capture_armed_rebind(
     access: ambition_platformer2d::input::ParticipantContextAccess,
     mut menus: Query<(
@@ -535,93 +463,16 @@ pub(crate) fn capture_armed_rebind(
         &ambition_platformer2d::inventory_ui::InventoryUiState,
         &mut RebindCapture,
     )>,
-    keys: Option<Res<bevy::input::ButtonInput<bevy::prelude::KeyCode>>>,
-    pads: Query<&bevy::prelude::Gamepad>,
-    mut participants: Query<(
-        &ambition_platformer2d::input::InputParticipant,
-        &leafwing_input_manager::prelude::InputMap<
-            ambition_platformer2d::input::InputAction,
-        >,
-        &mut ambition_platformer2d::input::BindingRecipe,
-    )>,
-    bindings: Option<Res<ambition_platformer2d::input::SeatBindings>>,
+    mut inputs: ambition_platformer2d::input::RebindInputs,
     mut settings: ResMut<UserSettings>,
 ) {
     for (owner, state, mut capture) in &mut menus {
-        let Some(row) = capture.armed() else {
-            continue;
-        };
+        if capture.armed().is_none() { continue; }
         if !state.visible {
-            capture.take();
-            continue;
-        }
-        if !super::inventory_input_allowed(&access, owner.owner) { continue; }
-        if capture.settle() {
-            continue;
-        }
-        let Some(bindings) = bindings.as_deref() else {
-            capture.take();
-            continue;
-        };
-        let mut matches = participants
-            .iter_mut()
-            .filter(|(participant, _, _)| participant.id == owner.owner);
-        let Some((_, map, mut recipe)) = matches.next() else {
-            capture.take();
-            continue;
-        };
-        if matches.next().is_some() {
-            capture.take();
-            continue;
-        }
-        let keyboard = if recipe.sources.admits_keyboard() {
-            keys.as_deref()
-        } else {
-            None
-        };
-        let pad = if recipe.sources.admits_gamepad() {
-            map.gamepad().and_then(|pad| pads.get(pad).ok())
-        } else {
-            None
-        };
-        let mut pressed = ambition_platformer2d::input::pressed_controls_this_frame(
-            keyboard,
-            pad.into_iter()
-                .flat_map(|pad| pad.get_just_pressed().copied()),
-        );
-        if let Some(pad) = pad {
-            use ambition_platformer2d::input::{AxisSource, PhysicalControl};
-            use bevy::input::gamepad::GamepadAxis as Axis;
-            let value = |axis| pad.get(axis).unwrap_or(0.0).abs();
-            let axes = [
-                (AxisSource::LeftStick, value(Axis::LeftStickX).max(value(Axis::LeftStickY))),
-                (AxisSource::RightStick, value(Axis::RightStickX).max(value(Axis::RightStickY))),
-                (AxisSource::LeftTrigger, value(Axis::LeftZ)),
-                (AxisSource::RightTrigger, value(Axis::RightZ)),
-            ];
-            if axes.iter().all(|(_, value)| *value < 0.25) { capture.axis_ready = true; }
-            if capture.axis_ready {
-                pressed.extend(axes.into_iter().filter(|(_, value)| *value > 0.7)
-                    .map(|(axis, _)| PhysicalControl::Axis(axis)));
-            }
-        }
-        if pressed.is_empty() { continue; }
-        let Some(action) = bindings
-            .for_seat(owner.owner.slot())
-            .all()
-            .nth(row)
-            .and_then(|(name, _)| ambition_platformer2d::input::action_named(name))
-        else {
-            capture.take();
-            continue;
-        };
-        if let Some(over) = ambition_platformer2d::input::capture(&action, pressed) {
-            if owner.owner == ambition_platformer2d::input::ParticipantId::PRIMARY {
-                settings.controls.set_binding_override(over);
-            } else {
-                recipe.set_binding_override(over);
-            }
-            capture.take();
+            capture.cancel();
+        } else if super::inventory_input_allowed(&access, owner.owner) {
+            inputs.poll(owner.owner, &mut capture,
+                settings.reborrow().map_unchanged(|settings| &mut settings.controls));
         }
     }
 }
@@ -804,16 +655,11 @@ impl SystemMenuParams<'_, '_> {
                     ambition_platformer2d::sfx::ids::UI_TOGGLE_ON
                 }
             }
-            // selecting a rebind row ARMS a capture; it does not rebind.
-            // The next physical press is the binding, and that press cannot be
-            // read here — this runs inside a menu dispatch, and the whole point
-            // of the capture is to see a control the menu's own bindings do not
-            // route. `RebindCapture` is the state the capture system reads.
-            SystemOptionId::Rebind(index) => {
+            SystemOptionId::Rebind(action) => {
                 let Ok(mut capture) = self.rebind_capture.get_mut(menu) else {
                     return ambition_platformer2d::sfx::ids::UI_MENU_ERROR;
                 };
-                capture.arm(index);
+                capture.arm(action);
                 ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT
             }
         }

@@ -6,8 +6,9 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`snapshot_impls`](src/snapshot_impls.rs) | Encode hit properties for rollback. |
 
-_0 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

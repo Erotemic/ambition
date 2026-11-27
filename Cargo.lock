@@ -197,6 +197,7 @@ dependencies = [
  "ambition_hosted_world",
  "ambition_input_opinions",
  "ambition_menu_kaleidoscope",
+ "ambition_menu_opinions",
  "ambition_platformer2d",
  "ambition_platformer2d_shared_tangle",
  "ambition_sim_harness",
@@ -625,6 +626,7 @@ dependencies = [
  "ambition_demo_mary_o",
  "ambition_demo_mary_o_modules",
  "ambition_input_opinions",
+ "ambition_menu_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -671,6 +673,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_demo_sanic",
  "ambition_input_opinions",
+ "ambition_menu_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -932,6 +935,7 @@ dependencies = [
 name = "ambition_geometry"
 version = "0.1.0"
 dependencies = [
+ "ambition_snapshot",
  "bevy_ecs",
  "bevy_math",
  "parry2d 0.26.1",
@@ -970,6 +974,7 @@ dependencies = [
 name = "ambition_hit_spec"
 version = "0.1.0"
 dependencies = [
+ "ambition_snapshot",
  "serde",
 ]
 
@@ -1123,6 +1128,17 @@ dependencies = [
  "ambition_menu",
  "bevy",
  "bevy_lunex",
+]
+
+[[package]]
+name = "ambition_menu_opinions"
+version = "0.1.0"
+dependencies = [
+ "ambition_game_shell",
+ "ambition_input",
+ "ambition_persistence",
+ "ambition_settings_menu",
+ "bevy",
 ]
 
 [[package]]
@@ -1389,7 +1405,9 @@ version = "0.1.0"
 dependencies = [
  "ambition_geometry",
  "ambition_hit_spec",
+ "ambition_replay_messages",
  "ambition_resource_spec",
+ "ambition_snapshot",
  "bevy_ecs",
  "bevy_math",
  "bincode",
@@ -1899,6 +1917,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_replay_messages"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+]
+
+[[package]]
 name = "ambition_resource_spec"
 version = "0.1.0"
 dependencies = [
@@ -2007,6 +2032,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_snapshot"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+ "bevy_math",
+ "serde",
+]
+
+[[package]]
 name = "ambition_sprite_fx"
 version = "0.1.0"
 dependencies = [
@@ -2050,7 +2084,8 @@ dependencies = [
 name = "ambition_time"
 version = "0.1.0"
 dependencies = [
- "ambition_platformer2d_core",
+ "ambition_replay_messages",
+ "ambition_snapshot",
  "bevy",
 ]
 

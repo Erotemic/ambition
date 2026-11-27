@@ -89,17 +89,12 @@ impl GuestPrediction {
     /// The input for `tick`: the one sent for it, or else the held controls
     /// of the latest before it (as the host predicts a tick with no input).
     fn input_for(&self, tick: u64) -> ControlFrame {
-        self.inputs
-            .range(..=tick)
-            .next_back()
-            .map(|(at, frame)| if *at == tick { *frame } else { frame.levels_only() })
-            .unwrap_or_default()
+        crate::input_history::predicted_input(&self.inputs, tick)
     }
 
     fn forget_before(&mut self, tick: u64) {
         let keep = tick.saturating_sub(REWIND_HORIZON);
-        let last_before = self.inputs.range(..keep).next_back().map(|(at, _)| *at);
-        self.inputs.retain(|at, _| *at >= keep || Some(*at) == last_before);
+        crate::input_history::retain_input_from(&mut self.inputs, keep);
         self.saved.retain(|at, _| *at >= keep);
         self.after.retain(|at, _| *at >= keep);
     }

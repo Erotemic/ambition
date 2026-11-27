@@ -1,6 +1,6 @@
 //! Domain-owned rollback declarations; the host supplies the backend registrar.
 
-use ambition_platformer2d_core::snapshot::RollbackRegistrar;
+use ambition_snapshot::snapshot::RollbackRegistrar;
 
 const OWNER: &str = env!("CARGO_PKG_NAME");
 

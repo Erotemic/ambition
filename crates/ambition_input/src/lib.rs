@@ -49,6 +49,7 @@ pub mod touch_state;
 pub mod touch_device;
 #[cfg(feature = "input")]
 mod rebind;
+mod rebind_capture;
 pub mod seating;
 pub mod semantic;
 pub mod settings;
@@ -70,7 +71,6 @@ pub use motion_input::{
     MotionTechniqueCatalog,
 };
 
-#[cfg(feature = "input")]
 pub use actions::InputAction;
 #[cfg(feature = "input")]
 pub use contextual::{ButtonRoute, ContextualButtonHistory, InputProfile, MenuButtonIntent, MenuShortcutPages, contextual_button_rows};
@@ -138,7 +138,10 @@ pub use participant::{
     PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT, LOADING_CONTEXT,
 };
 #[cfg(feature = "input")]
-pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
+pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame, rebind_rows, BindingRow};
+pub use rebind_capture::RebindCapture;
+#[cfg(feature = "input")]
+pub use rebind_capture::RebindInputs;
 pub use settings::{BindingOverride, ControlFilters, DeveloperKeyOverride, OverrideControl, OverrideDeviceClass};
 /// How local sources become participants, and who owns the keyboard.
 pub use sources::{source_for_seat, InputAssignmentPolicy, KeyboardOwner};

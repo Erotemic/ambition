@@ -408,6 +408,9 @@ the manhole. Show the sign positions with the ladder and door frames.
 At the tether ground station, show the gallery ends and the car's
 travel from the floor to the roof. Include the width of a rider at the
 gallery height.
+On the tether ascent, show the path of a body that leaves the car on
+each side. Show where the body lands and how it reaches the opening.
+Show the altitude signs from the car at their height.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

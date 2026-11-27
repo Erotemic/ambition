@@ -830,6 +830,8 @@
     "climb_karman": (),
     "climb_satellite": (),
     "climb_navsat": (),
+    "climb_route_lower": (),
+    "climb_route_upper": (),
     "rookery_hide": (),
     "workshop_room": (),
     "point_lighthouse": (),

@@ -732,7 +732,29 @@ shared value preparation are sufficient until source proves otherwise.
    windmills and the triangle gate behind the shepherd, the sheep and
    Scout, where before it was black.
 
-   Still unrealized in the card view: the portal far-side window (P5/P6).
+   **Desktop rollout.** `./run_game.sh --card-view` starts in oblique 2.5D.
+   A build with `card_view` can switch outputs during a session. The card
+   camera takes its view's viewport and target. The comparison inset and
+   the gameplay camera read the same observer frame. The plane camera
+   retains its sample request while the card camera draws in its place.
+   Card masks follow the room and view masks of their sources.
+
+   World labels use the glyph atlas and layout from Bevy. A private
+   visibility camera keeps that layout available when the plane output
+   is inactive. The workshop window capture shows signs, nameplates,
+   Scout, Dennis, and the pause cube. It shows both renderers in the
+   comparison mode. Switching the output kept one workshop session
+   active and kept it paused while the cube was open.
+
+   A card uses the existing portal capture mesh and texture for the far-side
+   window. Partial body traversal still needs P5/P6 work. Carts retain their
+   board entities and share a unit mesh. Seating records the vessel and seat
+   slot. Card quads use a geometry key with region, page size, anchor, and
+   flips.
+
+   The card mode still uses 2D world preparation and composition. Shared
+   placement and appearance products for all families, more portal effects,
+   and a performance comparison are open.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

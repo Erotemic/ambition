@@ -348,10 +348,9 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     // inserted `LocalSeatOffer` is clobbered on the next frame — the pads
     // are the fact, the same trap the select screen's own tests carry a note
     // about.
-    for _ in 0..2 {
-        app.world_mut()
-            .spawn(bevy::input::gamepad::Gamepad::default());
-    }
+    let pads: Vec<Entity> = (0..2)
+        .map(|_| app.world_mut().spawn(bevy::input::gamepad::Gamepad::default()).id())
+        .collect();
     settle(&mut app);
     settle(&mut app);
     let seated = {
@@ -371,15 +370,22 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
         "nothing is paused before anybody presses anything"
     );
 
-    // Escape is `InputAction::Start` on a keyboard: the pause press.
-    tap(&mut app, KeyCode::Escape);
+    // The select screen is a frontend: there Escape is Back and controller
+    // Start keeps the shell menu (the binding contract,
+    // docs/planning/contextual-input-and-island-pause-2026-11-24.md).
+    for value in [1.0, 0.0] {
+        app.world_mut().write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+            bevy::input::gamepad::RawGamepadButtonChangedEvent::new(pads[0], GamepadButton::Start, value),
+        ));
+        app.update();
+    }
     settle(&mut app);
 
     assert!(
         app.world()
             .resource::<ambition_platformer2d::game_shell::ShellPauseMenu>()
             .open,
-        "with two participants seated, Escape must still reach the pause menu — a couch \
+        "with two participants seated, Start must still reach the pause menu — a couch \
          game you can start together and cannot pause is the regression this pins"
     );
 }

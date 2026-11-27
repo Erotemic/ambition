@@ -424,7 +424,10 @@ impl ActionBindings {
     /// gives its keyboard half. Use it only with no seat (docs generator,
     /// rebind list). A prompt for a seat uses [`Self::label_for`].
     pub fn label(&self, action: &InputAction) -> Option<String> {
-        self.controls(action).first().map(PhysicalControl::label)
+        let controls = self.controls(action);
+        controls.iter().find(|control| matches!(control, PhysicalControl::Key(_)))
+            .or_else(|| controls.first())
+            .map(PhysicalControl::label)
     }
 
     /// The label for the device this seat holds. From one map, a DualSense

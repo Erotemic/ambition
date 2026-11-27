@@ -897,6 +897,15 @@ separately.
 - **V4 — demand and ready images.** A window draws only an admitted ready
   image, from the existing pools. Test: a new portal's first frame draws
   no stale image.
+  *No stale picture landed 2026-11-27:* a window over the capture budget
+  shows no view (its rims still draw) instead of its last capture; a new
+  rig already waited for its first capture
+  (`a_window_over_the_capture_budget_shows_no_stale_picture`: two windows
+  drawn, the budget lowered to one, and every drawn window has a current
+  capture). A Low-tier capture of `portal_lab` shows rims and no stale or
+  blank opaque pane. Still open in V4: deterministic admission priority
+  (rigs are still offered captures in query order, seam portals first) and
+  targets allocated only on demand.
 - **V5 — the card view's far-side window**, the remaining card-view item
   ([presentation order](presentation-order-and-25d-rendering.md)).
 

@@ -1197,10 +1197,13 @@ pub fn sync_portal_view_cones(
                             height: r.capture.size.y,
                         };
                     }
-                } else if let Some(held) = rig.captured {
-                    // Sample the last capture in its original position.
-                    r.sample_capture(held);
                 } else {
+                    // Over the capture budget there is no current picture of
+                    // this view: the window shows none (the rims still draw),
+                    // never an older capture standing in for a live view.
+                    if std::mem::take(&mut rig.drawn) {
+                        shut_window_mesh(meshes, &rig.mesh);
+                    }
                     continue;
                 }
                 if let Some(mut mesh) = meshes.get_mut(&rig.mesh) {

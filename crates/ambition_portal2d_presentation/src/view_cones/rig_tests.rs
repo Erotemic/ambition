@@ -221,6 +221,32 @@ fn captures_allocate_only_for_visible_windows_and_preserve_pixel_density() {
         .iter(app.world()).all(|camera| !camera.is_active));
 }
 
+/// A window draws only a current capture (V4). With both windows captured,
+/// then the budget lowered to one, the window that lost its capture shows
+/// no view rather than its last picture.
+#[test]
+fn a_window_over_the_capture_budget_shows_no_stale_picture() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let mut app = two_rooms_with_eyes(&[(room, Some(Vec2::new(300.0, 300.0)))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let step = |app: &mut App| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+    };
+    let shown = |app: &mut App| -> Vec<(bool, bool)> {
+        app.world_mut().query::<(&PortalViewRig, &Camera)>().iter(app.world())
+            .map(|(rig, camera)| (rig.drawn, camera.is_active)).collect()
+    };
+    step(&mut app);
+    let both = shown(&mut app);
+    assert!(both.iter().filter(|(drawn, _)| *drawn).count() >= 2, "premise: two windows drawn under the default budget: {both:?}");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 1;
+    step(&mut app);
+    let one = shown(&mut app);
+    assert_eq!(one.iter().filter(|(_, active)| *active).count(), 1, "{one:?}");
+    assert!(one.iter().all(|(drawn, active)| !drawn || *active), "a drawn window has a current capture: {one:?}");
+}
+
 /// The windows of a room are made for the camera of the view that frames it.
 ///
 /// The parallax anchor of a rig is the centre of the camera, taken through

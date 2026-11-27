@@ -13,11 +13,11 @@ import threading
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import yaml
 
-from . import catalog_page, page, paths, reviews, sources
+from . import catalog_page, edit_content, page, paths, reviews, sources
 
 #: What the page says when this server runs older code than the page it serves.
 RESTART = "./scripts/asset_inspector.py --kill"
@@ -63,10 +63,12 @@ def _code_stamp() -> tuple:
     return tuple(sorted((path.name, path.stat().st_mtime_ns) for path in Path(__file__).parent.glob("*.py")))
 
 
-def make_handler(repo: Path, catalog, status=None, landing=None, out=None):
+def make_handler(repo: Path, catalog, status=None, landing=None, out=None, profile="ambition"):
     """`landing` is the page's path relative to `repo`; `/` redirects to it."""
     lock = threading.Lock()
     started = _code_stamp()
+    pack = sources.pack_dir(repo, profile)
+    edits = {"/api/room-music": edit_content.room_music, "/api/character-cast": edit_content.character_cast}
     def current_catalog():
         return catalog() if callable(catalog) else catalog
 
@@ -89,7 +91,8 @@ def make_handler(repo: Path, catalog, status=None, landing=None, out=None):
             self.wfile.write(body)
 
         def do_GET(self):
-            path = urlsplit(self.path).path
+            url = urlsplit(self.path)
+            path = url.path
             if path == "/" and landing:
                 # The repository root is not a page; the landing page is the inspector.
                 self.send_response(302)
@@ -100,6 +103,14 @@ def make_handler(repo: Path, catalog, status=None, landing=None, out=None):
             if path == "/api/build-status":
                 return self.reply(200, dict(status() if status else {"state": "done"}, server_stale=_code_stamp() != started,
                                             restart=RESTART))
+            if path in edits:
+                try:
+                    data = {key: values[0] for key, values in parse_qs(url.query, max_num_fields=8).items()}
+                    with lock:
+                        result = edits[path](repo, pack, data)
+                    return self.reply(200, result)
+                except (ValueError, OSError, KeyError, TypeError) as error:
+                    return self.reply(400, {"error": str(error)})
             if path != "/api/asset-reviews":
                 return super().do_GET()
             try:
@@ -187,8 +198,12 @@ def make_handler(repo: Path, catalog, status=None, landing=None, out=None):
                 if not 0 < length <= 65536 or self.headers.get_content_type() != "application/json":
                     return self.reply(400, {"error": "Send a JSON request of at most 64 KiB."})
                 data = json.loads(self.rfile.read(length))
+                if not isinstance(data, dict):
+                    raise ValueError("Send a JSON object.")
                 path = urlsplit(self.path).path
                 with lock:
+                    if path in edits:
+                        return self.reply(200, edits[path](repo, pack, data, save=True))
                     if self.command == "POST" and path == "/api/asset-preflight":
                         from . import preflight
                         selection = {}
@@ -214,7 +229,7 @@ def make_handler(repo: Path, catalog, status=None, landing=None, out=None):
                                                          f"was updated while it ran, restart it: {RESTART}"})
                     saved = reviews.save(repo, current, data)
                 self.reply(200, dict(reviews.snapshot(repo, current), saved=saved))
-            except reviews.ConflictError as error:
+            except (reviews.ConflictError, edit_content.Conflict) as error:
                 self.reply(409, {"error": str(error)})
             except (ValueError, OSError, KeyError, TypeError, AttributeError, subprocess.CalledProcessError) as error:
                 self.reply(400, {"error": str(error)})
@@ -357,12 +372,19 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
         page.copy(out)
     content_inputs, fingerprint = sources.content_watch(repo, out, profile) if refresh_command else (set(), None)
 
+    def catalog_built_at():
+        try:
+            return catalog_page.read_index(out / catalog_page.INDEX).get("built_at")
+        except (OSError, ValueError):
+            return None
+
     def content_stamps():
         return {path: sources._stamp(path) for path in content_inputs | {binary or sources.default_binary(repo)}}
 
     seen_publication = publication_stamp()
     seen_content = content_stamps() if refresh_command else {}
     status["content_fingerprint"] = fingerprint
+    status["built_at"] = catalog_built_at()
     child_box: list = []
     refresh_lock = threading.Lock()
     nice = shutil.which("nice")
@@ -389,7 +411,7 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
                 # during the build must start a second refresh.
                 seen_content = {path: seen_content.get(path, stamp) if path in content_inputs else stamp
                                 for path, stamp in content_stamps().items()}
-                status.update(state="done", generation=generation, content_fingerprint=fingerprint)
+                status.update(state="done", generation=generation, content_fingerprint=fingerprint, built_at=catalog_built_at())
         except Exception as error:
             status.update(state="failed", step=f"{type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}")
             print(f"Ambition Editor: the refresh failed; the page shows the previous index.\n{error}", flush=True)
@@ -417,10 +439,10 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
     import signal
     signal.signal(signal.SIGTERM, stop)
     if bind not in {"127.0.0.1", "::1"}:
-        print(f"Ambition Editor: binding {bind} — the review and preflight POST routes are reachable from other machines.",
+        print(f"Ambition Editor: binding {bind} — editing, reviews and preflight are reachable from other machines.",
               flush=True)
     landing = (out / "index.html").relative_to(repo).as_posix()
-    with ThreadingHTTPServer((bind, port), make_handler(repo, current_catalog, refresh_status, landing, out)) as server:
+    with ThreadingHTTPServer((bind, port), make_handler(repo, current_catalog, refresh_status, landing, out, profile)) as server:
         url_host = "localhost" if bind in {"127.0.0.1", "0.0.0.0"} else bind
         url = f"http://{url_host}:{server.server_port}/"
         print(f"Ambition Editor: {url}", flush=True)

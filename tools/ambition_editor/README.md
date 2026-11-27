@@ -12,8 +12,7 @@ The asset inspector is the one place to browse and review every asset of an
 engine game: characters and their sprite sheets, images, music, sound effects,
 fonts and worlds. It shows what exists, what is missing or stale, how to make
 it, where the game uses it, and how assets relate, including the design lineage
-of characters. Editing assets from the page is planned; the local server is the
-place it will write.
+of characters.
 
 Run `./scripts/asset_inspector.py` with no arguments. It opens the last index
 in a browser at once and refreshes it in the background, in a separate process
@@ -27,6 +26,14 @@ The overview loads a small catalog with counts and status. Each view loads
 its data when you open it. Clear **List previews** to browse the lists
 without thumbnails. The browser remembers this setting. Open an asset to see
 its full preview. These controls also work in the offline build.
+
+Use the served inspector to edit the game. Open a character and select
+**Edit cast** to change its importance and roles in the character catalog.
+Open a world and select **Edit music** next to a room. Choose a track from
+the pack's music registry, or clear the room override. The editor identifies
+generator-owned assignments. Saves write the source file.
+Use the Reload button after a refresh to update references elsewhere in the
+inspector.
 
 Only one inspector serves a port (8767 unless `--port`). If one is already
 running, a second run says so and exits. `./scripts/asset_inspector.py --kill`

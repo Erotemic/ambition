@@ -344,9 +344,11 @@
           style="left:${(r.at[0] - x0) / w * 100}%;top:${(r.at[1] - y0) / h * 100}%;width:${r.size[0] / w * 100}%;height:${r.size[1] / h * 100}%"></a>`).join("")}</div>
         <p class="n">Collision, water and climbable cells and entities, drawn by the LDtk tool. Click a room to see it below; a dashed room is on another depth.</p>`; })() : "";
       return `<h2>Map</h2>${map || '<p class="empty">No preview.</p>'}
-        <h2>Rooms (${rooms.length})</h2><table class="tbl"><thead><tr><th>Preview</th><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
-        ${rooms.map(r => `<tr id="${esc(anchor(r.id))}"><td>${pv?.rooms?.[r.id] ? `<a href="${esc(pv.rooms[r.id])}" title="Open ${esc(r.id)} full size"><img class="room-thumb" loading="lazy" src="${esc(pv.rooms[r.id])}" alt=""></a>` : ""}</td><td>${esc(r.id)}</td><td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
-          <td>${r.fight_music_track ? itemLink("music:" + r.fight_music_track, r.fight_music_track) : ""}</td><td>${esc(r.parallax_theme || "")}</td><td>${esc(r.biome || "")}</td></tr>`).join("")}</tbody></table>`;
+        <h2>Rooms (${rooms.length})</h2><div class="tablebox"><table class="tbl"><thead><tr><th>Preview</th><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
+        ${rooms.map(r => `<tr id="${esc(anchor(r.id))}"><td>${pv?.rooms?.[r.id] ? `<a href="${esc(pv.rooms[r.id])}" title="Open ${esc(r.id)} full size"><img class="room-thumb" loading="lazy" src="${esc(pv.rooms[r.id])}" alt=""></a>` : ""}</td>
+          <td>${esc(r.id)}${window.AssetEdits.served ? `<div><button type="button" data-edit-music="${esc(r.id)}" aria-label="Edit music for ${esc(r.id)}">Edit music</button></div>` : ""}</td>
+          <td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
+          <td>${r.fight_music_track ? itemLink("music:" + r.fight_music_track, r.fight_music_track) : ""}</td><td>${esc(r.parallax_theme || "")}</td><td>${esc(r.biome || "")}</td></tr>`).join("")}</tbody></table></div>`;
     }
     const rows = Object.entries(item.details).filter(([, v]) => v !== null && v !== "" && !(Array.isArray(v) && !v.length));
     return rows.length ? `<h2>Details</h2><table class="tbl">${rows.map(([k, v]) => `<tr><th>${esc(k.replace(/_/g, " "))}</th><td>${esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`).join("")}</table>` : "";
@@ -455,6 +457,15 @@
         parts: item.kind === "world" ? (item.details.rooms || []).map(room => room.id) : [], partLabel: "Room"})}`;
     R().wire();
     wireMusicReviews();
+    app().querySelectorAll("[data-edit-music]").forEach(button => button.onclick = () =>
+      window.AssetEdits.music(item.id, button.dataset.editMusic, result => {
+        for (const room of item.details.rooms) {
+          if (Object.hasOwn(result.levels, room.id)) Object.assign(room, result.levels[room.id]);
+        }
+        item.related = [...new Set(item.details.rooms.flatMap(room =>
+          [room.music_track, room.fight_music_track].filter(Boolean).map(track => "music:" + track)))].sort();
+        if (location.hash === "#item/" + encodeURIComponent(item.id) && app().querySelector("[data-edit-music]")) detail(item.id);
+      }));
     document.querySelectorAll(".room-box").forEach(box => box.onclick = event => {
       event.preventDefault();
       const row = document.getElementById(box.dataset.room);

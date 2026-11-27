@@ -435,7 +435,7 @@ impl PropTile {
 const SCENERY_Z_BACK: f32 = WORLD_Z_DUMMY + 0.55;
 pub(super) const SCENERY_Z_FRONT: f32 = WORLD_Z_DUMMY + 0.95;
 /// The z step between pieces of scenery listed one after the other.
-const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
+pub(super) const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
 /// Where a backdrop prop (a wall of the room, `AuthoredPropSheet::backdrop`)
 /// draws: behind the room's blocks and its back motes (`WORLD_Z_BLOCK - 1`
 /// and further), and the water backdrop (`WATER_BACKDROP_Z`), in front of

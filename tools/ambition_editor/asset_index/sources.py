@@ -69,9 +69,11 @@ def _pack_inputs(pack: Path, report: dict) -> set[Path]:
 
 
 def content_watch(repo: Path, out: Path, profile: str) -> tuple[set[Path], int | str | None]:
+    from .kinds import world_files
+
     pack = pack_dir(repo, profile)
     report = _read_cache(content_cache(out, pack)).get("report", {})
-    return _pack_inputs(pack, report), report.get("fingerprint")
+    return _pack_inputs(pack, report) | set(world_files(pack)), report.get("fingerprint")
 
 
 def default_binary(repo: Path) -> Path:

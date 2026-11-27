@@ -14,6 +14,10 @@ CHUNKS = "catalog-data"
 PREFIX = "window.ART_CATALOG = "
 
 
+def read_index(path: Path) -> dict:
+    return json.loads(path.read_text().removeprefix(PREFIX).rstrip().removesuffix(";"))
+
+
 def _select(row, fields):
     return {key: row[key] for key in fields.split() if key in row}
 
@@ -217,7 +221,7 @@ def write(out: Path, catalog: dict, *, prune=False):
     if prune:
         keep = set(chunks.values())
         if previous.is_file():
-            keep.update(json.loads(previous.read_text().removeprefix(PREFIX).rstrip().removesuffix(";"))["chunks"].values())
+            keep.update(read_index(previous)["chunks"].values())
         for path in folder.iterdir():
             if path.name.endswith((".js", ".js.gz")) and path.name.split(".")[0] not in keep:
                 path.unlink(missing_ok=True)

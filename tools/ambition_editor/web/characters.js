@@ -205,7 +205,8 @@
     return `<div class="detail character-detail"><p><a href="#characters">← Characters</a></p>
       <h1>${esc(actor.display)}</h1><p class="lede"><code>${esc(actor.key)}</code> ${familiesFor(actor).map(name => badge(name)).join(' ')}</p>
       ${descriptions.map(text => `<p class="lede">${esc(text)}</p>`).join('')}
-      <div class="chips">${castBadges(actor)} ${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}</div>
+      <div class="chips">${castBadges(actor)} ${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}
+        ${window.AssetEdits.served ? '<button type="button" id="edit-character-cast">Edit cast</button>' : ''}</div>
       <p class="controls"><a href="#character-lineage" data-jump="character-lineage">Character lineage</a><a href="#asset-reviews" data-jump="asset-reviews">Reviews</a><a href="#character-coverage" data-jump="character-coverage">Animation coverage</a><a href="#character-products" data-jump="character-products">Art and generation</a></p>
       <div id="character-reference">${selected ? ui.referenceBox(selected) : ''}</div>
       ${sameArt.length ? `<p>Entries using the same art: ${sameArt.map(other => characterLink(other.key)).join(' · ')}</p>` : ''}
@@ -247,6 +248,12 @@
       event.preventDefault(); document.getElementById(element.dataset.jump).scrollIntoView({behavior: 'smooth'});
     });
     if (actor) {
+      const edit = document.getElementById('edit-character-cast');
+      if (edit) edit.onclick = () => window.AssetEdits.cast(actor.key, actor.display, importanceLevels, result => {
+        actor.catalog.cast = result.cast;
+        I.identities[actor.key].catalog.cast = result.cast;
+        if (document.getElementById('edit-character-cast') === edit) window.renderArtCharacters(key, ui);
+      });
       window.AssetReviews.wire(app);
       const assets = assetsFor(actor);
       if (assets[0]) ui.wireAnimation(assets[0]);

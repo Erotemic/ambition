@@ -768,6 +768,14 @@ shared value preparation are sufficient until source proves otherwise.
    An Ultra offscreen fixture shows Scout in the published cart and in
    front of the part-drawn burning shark.
 
+   A room prop uses the same scenery depth for sheet frames and parts.
+   Each stack of parts fits between consecutive scenery depths. The
+   card view sorts transparent draws relative to a nearby point so
+   the camera distance does not round close layers to the same key.
+   Card cameras use direct draws to keep the order of an alpha batch.
+   An Ultra offscreen fixture checks three close, overlapping layers,
+   a prop drawn from parts, and the cart and rider.
+
    Sprite masks and shader glows follow the depth of the actor that
    owns the effect. The card view also uses the authored shaders for
    the Puppy Slug dream, the Flying Spaghetti Monster's sauce, and the

@@ -1593,6 +1593,19 @@
             move_style: WalkHeavy,
             melee: Some(Slam(windup_s: 0.62, active_s: 0.20, recover_s: 0.84, damage: 3, reach_px: 60.0, armored: true)),
         ),
+        // Lightning elemental: use the existing lightning projectile look.
+        "lightning_elemental_arc": (
+            move_style: Float,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 520.0,
+                damage: 2,
+                visual: Some("lightning"),
+                flight: Some((gravity: 0.0, bounces: 0, bounce_on_world_contact: false, max_lifetime: 0.72, half_extent: (14.0, 5.0), boomerang_return_s: None)),
+                discharge: Some((muzzle: Offset(x: 0.433, y: -0.144), recoil: 0.0)),
+                refire_s: 0.8,
+            ))),
+        ),
     },
 
     characters: {
@@ -3616,7 +3629,7 @@
         // dedicated sheets ship.
         "npc_alice": (
             display_name: "Alice",
-            cast: (roles: {"service": ["quest-giver"]}),
+            cast: (importance: Secondary, roles: {"story": ["ally"], "service": ["cartographer", "quest-giver"]}),
             // The v2 look (chargen body, Jon 10-25); `alice` stays renderable
             // in her lineage.
             manifest: "sprites/alice_v2_spritesheet.ron",
@@ -17302,6 +17315,28 @@
                 provoked: ["*a deep grinding rumble*"],
                 idle: ["*grind*", "*small pebbles fall*"],
             ),
+        ),
+        // An electrical spirit with a ranged attack.
+        "lightning_elemental": (
+            display_name: "Lightning Elemental",
+            manifest: "sprites/lightning_elemental_spritesheet.ron",
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(64.0),
+            composition: None,
+            locomotion: Some((run_speed: 120.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 460.0,
+                attack_range: 168.0,
+                patrol_effort: 0.42,
+                chase_effort: 0.95,
+                ranged_volley: Some((windup_s: 0.50, firing_s: 0.18, recovery_s: 0.64)),
+            )),
+            default_action_set: "lightning_elemental_arc",
+            max_health: Some(4),
+            tags: ["enemy", "fantasy", "elemental", "lightning", "electric"],
         ),
     },
 )

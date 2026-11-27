@@ -933,7 +933,8 @@
         stamp.after(old);
       }
       const outdated = (s.generation !== undefined && s.generation !== (C.inventory?.publication?.generation ?? null))
-        || (s.content_fingerprint !== undefined && s.content_fingerprint !== (C.inventory?.profile?.fingerprint ?? null));
+        || (s.content_fingerprint !== undefined && s.content_fingerprint !== (C.inventory?.profile?.fingerprint ?? null))
+        || (s.built_at && s.built_at !== C.built_at);
       live.className = s.state === "failed" ? "stamp stale" : "stamp";
       if (s.state === "building") {
         live.hidden = false;

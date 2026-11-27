@@ -392,6 +392,8 @@ For the barracks bunks, use the climbable cells to draw the rungs. Use
 the same bounds to place the brackets on each bed frame.
 Track each prop's drawing inputs separately. A change to the bunk drawing
 also marks the watch gallery for regeneration because both use one file.
+In the lab tower preview, show which exits a body can reach from each
+landing with its usual jump and climb.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

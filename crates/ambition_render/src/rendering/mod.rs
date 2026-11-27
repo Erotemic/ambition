@@ -542,6 +542,14 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .after(camera::ViewCameraSet)
                     .after(ambition_portal2d_presentation::PortalObservationSet),
             );
+            // The time bodies are drawn at, so a moving opening is drawn at
+            // it too (V3).
+            app.add_systems(
+                Update,
+                publish_portal_presented_time
+                    .after(ambition_sim_view::PresentedPoseStage::SamplePhase)
+                    .before(PortalPresentationSet),
+            );
             // Where each drawn limb is cut at a portal's line: the lines of
             // light on limbs are laid on it (`limb_seams`).
             app.add_systems(
@@ -1047,3 +1055,20 @@ mod schedule_tests {
 
 pub mod presented_bodies;
 pub mod attached_visuals;
+
+/// When in the tick bodies are drawn, for the portal visuals (V3): a phase
+/// ahead of the newest pose by default (`PresentedPose` extrapolates), or a
+/// phase into the last tick when the game interpolates.
+#[cfg(feature = "portal_render")]
+fn publish_portal_presented_time(
+    phase: Option<bevy::prelude::Res<ambition_sim_view::PresentationPhase>>,
+    framing: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
+    mut time: bevy::prelude::ResMut<ambition_portal2d_presentation::PortalPresentedTime>,
+) {
+    let phase = phase.map_or(0.0, |phase| phase.get());
+    let interpolate = framing.is_some_and(|framing| framing.interpolate_poses);
+    let at = ambition_portal2d_presentation::PortalPresentedTime(if interpolate { phase } else { 1.0 + phase });
+    if *time != at {
+        *time = at;
+    }
+}

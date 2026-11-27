@@ -216,6 +216,10 @@ pub struct GrappleRope {
     pub max_length: f32,
     /// What a jump release adds along up, px/s.
     pub release_hop: f32,
+    /// How fast the rope takes itself in, px/s, on top of the stick's reel
+    /// and down to `min_length`: a tether that swings the body up to what it
+    /// bit. `0.0` leaves the length to the stick alone.
+    pub winch_speed: f32,
 }
 
 /// The axis-swept policy's PRIVATE persistent maneuver state. Lives INSIDE the
@@ -1162,7 +1166,7 @@ pub fn catch_the_grapple(
         length,
         angle,
         ang_vel,
-        winch_speed: 0.0,
+        winch_speed: rope.winch_speed,
         lift_remaining_s: 0.0,
         lift_total_s: 0.0,
         max_angle: rope.max_angle,

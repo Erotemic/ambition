@@ -336,8 +336,9 @@ hand whose live moveset routes no `ranged` verb, so a held item with no
 shot leaves the body disabled rather than charging, and letting go
 restores the charge. The press emitter, the charge consumer's IN5 route
 check and the weapon-readiness read model all ask it; no executor flag
-sits beside the fold. `equip_equipment_row`, used only by tests, still
-rebuilds every family.
+sits beside the fold. `equip_equipment_row`, which rebuilt every family
+for tests only, was retired 2026-11-27: its one test now asks
+`effective_repertoire`.
 
 [`effective_repertoire`](../../../crates/ambition_characters/src/repertoire.rs)
 rebuilds both melee and ranged when either preset slot changes.
@@ -438,8 +439,8 @@ implicit second character-scale pass.
 
 **Remove:** the broad two-family rebuild, absence-of-verb as proof of
 charge ownership, and the touched action/readiness readers' independent
-reconstruction of this choice. Retire `equip_equipment_row` if its only
-remaining test customers can use the real fold. Keep one native
+reconstruction of this choice. (`equip_equipment_row` is retired; its
+test customer uses the real fold.) Keep one native
 specialization owner, the completed scale compiler and the existing
 per-frame permission boundary.
 
@@ -461,8 +462,25 @@ Other open work from L1:
   keeps the prepared map from selected move time to source motion time and
   validates the specialized product. The one `scale_moveset` owner is built;
   total-duration clip normalization is not a complete nonuniform retime.
-- **Step 3: the link context.** The kit is still compiled from the prepared
-  registry, not from a selected link context.
+- ~~**Step 3: the link context.**~~ Bound 2026-11-27. The selected
+  context for a body is its session's admitted generation. The kit compiler's
+  inputs come from it:
+  - the character and its moves from the frozen cast (`SessionCast`, read
+    by construction and by `apply_worn_character_gameplay`);
+  - equipment rows and hand specs as values the item entities carry from the
+    admitted room build;
+  - seat terms from the match roster;
+  - mechanical sheet facts behind the activation gate
+    (`ActivationRefusal::SheetMechanicsChanged`, L2).
+
+  The last simulation readers of the App's *published* cast were combat's
+  guards (`publish_guard_volumes`, `resolve_deflects`) and body landmarks
+  (`BodyLandmarks`: hitbox attachment, gesture hand). In the reload window,
+  where the App publishes cast N+1 before the session that plays it is
+  activated, they could give a body N+1's guards or attachment points
+  while it played N. They now read `SessionCast`, which falls back to the
+  published cast only when no session runs. Presentation reads (dialog
+  portraits, pose view) keep the published cast. Combat lib: 905 pass.
 - **A content test helper keeps its own reading.**
   `ambition_content::authored_movesets::on_a_platform_fighter_stage` applies
   only damage and verbs, straight from the pack's facet. It needs no app.

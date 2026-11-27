@@ -1724,6 +1724,10 @@ pub enum AuthoredRecoveryRoute {
     SustainedAuthority { seconds: f32, reach: f32 },
     /// A discontinuity: the body is somewhere else, up to `distance` away.
     Teleport { distance: f32 },
+    /// A line that bites a ledge within `reach` of the body and takes it
+    /// there (`smash.tether_pull`). The move's own rise, if it commands one,
+    /// still counts: the line is thrown on top of it.
+    Tether { reach: f32 },
 }
 
 /// The resolved way home: the authored statement folded with what the move's
@@ -1739,6 +1743,9 @@ pub enum RecoveryRoute {
     SustainedAuthority { seconds: f32, reach: f32 },
     /// See [`AuthoredRecoveryRoute::Teleport`].
     Teleport { distance: f32 },
+    /// See [`AuthoredRecoveryRoute::Tether`]: the line's `reach`, and the
+    /// move's own burst (`speed` `0.0` when it commands none).
+    Tether { reach: f32, speed: f32, side: f32, at_s: f32 },
 }
 
 impl RecoveryRoute {
@@ -1753,6 +1760,7 @@ impl RecoveryRoute {
         match self {
             Self::SustainedAuthority { reach, .. } => reach,
             Self::Teleport { distance } => distance,
+            Self::Tether { reach, .. } => reach,
             Self::None | Self::Burst { .. } => 0.0,
         }
     }
@@ -3132,6 +3140,12 @@ impl MoveSpec {
                 Some(AuthoredRecoveryRoute::Teleport { distance }) => {
                     RecoveryRoute::Teleport { distance }
                 }
+                Some(AuthoredRecoveryRoute::Tether { reach }) => RecoveryRoute::Tether {
+                    reach,
+                    speed: lift_speed,
+                    side: lift_side,
+                    at_s: lift_at_s,
+                },
                 // A move that needs the ground is used from the ground: it
                 // is no way home, whatever it lifts.
                 None if lift_speed > 0.0 && self.gates.grounded != Some(true) => RecoveryRoute::Burst {

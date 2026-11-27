@@ -373,6 +373,211 @@ impl Rigid<'_> {
     }
 }
 
+/// How an obstacle moves through a cell, as the interval search reads it.
+trait Motion {
+    /// The obstacle in the cell's chart at `time`, clipped to the cell.
+    fn region(&self, time: f64) -> Result<Vec<Vertex>, NumericFault>;
+    fn contact_rounding(&self, body: &CombatVolume, time: f64) -> Result<f64, NumericFault>;
+    /// The body's material the obstacle may reach within `interval`, or
+    /// `None` when it provably reaches none.
+    fn relaxed(&self, body: &CombatVolume, interval: &Range<f64>, uncertainty: f64)
+        -> Result<Option<Vec<DVec2>>, NumericFault>;
+    fn motion_bound(&self, domain: &[DVec2], interval: &Range<f64>) -> Result<f64, NumericFault>;
+    /// Whether an overlap at `point` provably lasts through `interval`.
+    fn overlap_persists(&self, body: &CombatVolume, point: DVec2, interval: &Range<f64>) -> bool;
+}
+
+impl Motion for Rigid<'_> {
+    fn region(&self, time: f64) -> Result<Vec<Vertex>, NumericFault> { Rigid::region(self, time) }
+    fn contact_rounding(&self, body: &CombatVolume, time: f64) -> Result<f64, NumericFault> {
+        Rigid::contact_rounding(self, body, time)
+    }
+    fn relaxed(&self, body: &CombatVolume, interval: &Range<f64>, uncertainty: f64)
+        -> Result<Option<Vec<DVec2>>, NumericFault> {
+        Rigid::relaxed(self, body, interval, uncertainty)
+    }
+    fn motion_bound(&self, domain: &[DVec2], interval: &Range<f64>) -> Result<f64, NumericFault> {
+        Rigid::motion_bound(self, domain, interval)
+    }
+    fn overlap_persists(&self, body: &CombatVolume, point: DVec2, interval: &Range<f64>) -> bool {
+        Rigid::overlap_persists(self, body, point, interval)
+    }
+}
+
+/// A segment whose two ends each travel straight over the world tick (a
+/// support whose shape changes): `from` where they begin it, `to` where
+/// they end it. No point of the segment moves farther than its faster end,
+/// which bounds its travel against the cell's material.
+struct Deforming<'a> {
+    from: [DVec2; 2],
+    to: [DVec2; 2],
+    time: Range<f64>,
+    cell: &'a MaterialCell,
+}
+
+impl Deforming<'_> {
+    fn span(&self) -> f64 {
+        self.time.end - self.time.start
+    }
+
+    /// End `i` in the world at the cell's `time`.
+    fn end(&self, i: usize, time: f64) -> DVec2 {
+        let world = self.time.start + self.span() * time;
+        self.from[i] + (self.to[i] - self.from[i]) * world
+    }
+
+    /// End `i`'s travel per unit of the cell's time.
+    fn rate(&self, i: usize) -> DVec2 {
+        (self.to[i] - self.from[i]) * self.span()
+    }
+
+    fn point(&self, i: usize, time: f64) -> Result<Vertex, NumericFault> {
+        let inverse = self.cell.at(time)?.inverse()?;
+        let point = inverse.point_wide(self.end(i, time));
+        let velocity = self.rate(i) - self.cell.velocity(point, time)?;
+        Ok(Vertex { point, velocity: inverse.direction_wide(velocity) * inverse.scale_wide() })
+    }
+
+    fn rounding(&self, time: f64, source_extent: f64) -> Result<f64, NumericFault> {
+        let reach = self.end(0, time).length().max(self.end(1, time).length());
+        let inverse = self.cell.at(time)?.inverse()?;
+        Ok(scalar_round(reach * inverse.scale_wide() + inverse.translation().length() + source_extent)
+            * (self.cell.path.len() + 1) as f64)
+    }
+}
+
+impl Motion for Deforming<'_> {
+    fn region(&self, time: f64) -> Result<Vec<Vertex>, NumericFault> {
+        let mut points = vec![self.point(0, time)?, self.point(1, time)?];
+        let Some(cuts) = self.cell.planes_at(time)? else {
+            return Ok(Vec::new());
+        };
+        for cut in cuts {
+            points = clip_vertices(&points, cut);
+            if points.is_empty() {
+                break;
+            }
+        }
+        Ok(points)
+    }
+
+    fn contact_rounding(&self, body: &CombatVolume, time: f64) -> Result<f64, NumericFault> {
+        let domain = domain_polygon(body);
+        let cuts = self.cell.planes_at(time)?.unwrap_or_default();
+        let extent = domain.iter().map(|p| p.length()).fold(0.0_f64, f64::max)
+            + cuts
+                .iter()
+                .map(|p| p.plane.offset.abs() + p.offset_rate.abs() + p.normal_rate.length())
+                .fold(0.0_f64, f64::max);
+        let evaluations = 1 + 4 + cuts.len() + domain.len();
+        Ok(self.rounding(time, extent)? * evaluations as f64)
+    }
+
+    /// The segment at the interval's middle, widened on every side by how
+    /// far it can move against the material within the interval.
+    fn relaxed(&self, body: &CombatVolume, interval: &Range<f64>, uncertainty: f64)
+        -> Result<Option<Vec<DVec2>>, NumericFault> {
+        let (middle, _) = crate::frame::interval_center(interval);
+        let map = self.cell.at(middle)?;
+        let domain = domain_polygon(body);
+        let extent = domain.iter().map(|p| p.length()).fold(0.0_f64, f64::max);
+        let error = self.motion_bound(&domain, interval)? + self.rounding(middle, extent)? + uncertainty;
+        if !error.is_finite() {
+            return Err(NumericFault::Overflow);
+        }
+        let mut region = domain;
+        for (normal, constant) in segment_planes(self.end(0, middle), self.end(1, middle)) {
+            let inward = map.inverse_direction_wide(normal);
+            let offset = (constant - normal.dot(map.translation())) / map.scale_wide();
+            let rounding = round_bound(inward, offset, &region);
+            region = super::clip(&region, MaterialPlane { inward, offset: offset - error - rounding });
+            if region.is_empty() {
+                return Ok(None);
+            }
+        }
+        let Some(cuts) = self.cell.relaxed_planes(interval)? else {
+            return Ok(None);
+        };
+        for cut in cuts {
+            let rounding = round_bound(cut.inward, cut.offset, &region);
+            region = super::clip(&region, MaterialPlane {
+                offset: cut.offset - rounding - uncertainty * cut.inward.length(),
+                ..cut
+            });
+            if region.is_empty() {
+                return Ok(None);
+            }
+        }
+        Ok(intersection(body, &region).map(|_| region))
+    }
+
+    fn motion_bound(&self, _domain: &[DVec2], interval: &Range<f64>) -> Result<f64, NumericFault> {
+        let (middle, half) = crate::frame::interval_center(interval);
+        let map = self.cell.at(middle)?;
+        let fastest = self.rate(0).length().max(self.rate(1).length());
+        let travel = if self.cell.curve.is_some() {
+            self.cell.variation(middle, half)? + fastest * half
+        } else {
+            (0..2).map(|i| (self.cell.travel - self.rate(i)).length()).fold(0.0_f64, f64::max) * half
+        };
+        Ok(travel / map.scale_wide())
+    }
+
+    /// The overlap lasts while the point, moved as far as anything here can
+    /// move, stays inside both the body and the cell.
+    fn overlap_persists(&self, body: &CombatVolume, point: DVec2, interval: &Range<f64>) -> bool {
+        let (middle, _) = crate::frame::interval_center(interval);
+        let domain = domain_polygon(body);
+        let (Ok(reach), Ok(rounding)) = (self.motion_bound(&domain, interval), self.contact_rounding(body, middle))
+        else { return false; };
+        let rounding = rounding * 2.0;
+        if !reach.is_finite() {
+            return false;
+        }
+        let Ok(Some(cuts)) = self.cell.inner_planes(interval) else { return false; };
+        let inside = |p: &MaterialPlane| point.dot(p.inward) - p.offset + rounding * p.inward.length()
+            > p.inward.length() * reach + scalar_round(point.abs().dot(p.inward.abs()) + p.offset.abs());
+        if !cuts.iter().all(inside) {
+            return false;
+        }
+        match body {
+            CombatVolume::Circle { center, radius } => {
+                point.distance(center.as_dvec2()) + reach < f64::from(*radius) + rounding
+            }
+            _ => polygon_planes(&domain).iter().all(inside),
+        }
+    }
+}
+
+/// The four planes that hold a segment, in full precision: its two ends'
+/// tangent caps and both sides of its line (a point's four axes).
+fn segment_planes(a: DVec2, b: DVec2) -> [(DVec2, f64); 4] {
+    let tangent = (b - a).normalize_or_zero();
+    if tangent == DVec2::ZERO {
+        return [DVec2::X, -DVec2::X, DVec2::Y, -DVec2::Y].map(|n| (n, n.dot(a)));
+    }
+    let normal = perpendicular(tangent);
+    [(tangent, tangent.dot(a)), (-tangent, -tangent.dot(b)), (normal, normal.dot(a)), (-normal, -normal.dot(a))]
+}
+
+/// Follow a deforming segment through a cell: the interval search the
+/// rigid cast uses for a cell carried on a curve, with each end's own
+/// straight travel in place of a rigid pose.
+pub(super) fn deforming_cast(
+    body: &CombatVolume,
+    cell: &MaterialCell,
+    from: [DVec2; 2],
+    to: [DVec2; 2],
+    time: Range<f64>,
+    initial_overlap: super::InitialOverlap,
+    accepts: impl FnMut(CastHit) -> bool,
+) -> Result<Option<CastHit>, RefusalReason> {
+    if from.iter().chain(&to).any(|p| !p.is_finite()) {
+        return Err(RefusalReason::Numeric(NumericFault::NonFinite));
+    }
+    search(body, cell, &Deforming { from, to, time, cell }, initial_overlap, accepts)
+}
+
 fn perpendicular(p: DVec2) -> DVec2 {
     DVec2::new(-p.y, p.x)
 }
@@ -799,7 +1004,20 @@ pub(super) fn cast(
             })
             .filter(|hit| accepts(*hit)));
     }
-    let initial = rigid.region(cell.time.start).map_err(numeric)?;
+    search(body, cell, &rigid, initial_overlap, accepts)
+}
+
+/// The conservative interval search a curve-carried cell needs, over any
+/// obstacle motion that can place its region and bound its travel.
+fn search(
+    body: &CombatVolume,
+    cell: &MaterialCell,
+    motion: &impl Motion,
+    initial_overlap: super::InitialOverlap,
+    mut accepts: impl FnMut(CastHit) -> bool,
+) -> Result<Option<CastHit>, RefusalReason> {
+    let numeric = RefusalReason::Numeric;
+    let initial = motion.region(cell.time.start).map_err(numeric)?;
     let initial_witness = witness(body, &initial);
     let mut escaping = initial_overlap == super::InitialOverlap::AllowSeparation && initial_witness
         .as_ref()
@@ -815,11 +1033,11 @@ pub(super) fn cast(
         }
         let middle = interval.start + (interval.end - interval.start) * 0.5;
         let uncertainty = if escaping {
-            rigid.contact_rounding(body, middle).map_err(numeric)?
+            motion.contact_rounding(body, middle).map_err(numeric)?
         } else {
             0.0
         };
-        if rigid
+        if motion
             .relaxed(body, &interval, uncertainty)
             .map_err(numeric)?
             .is_none()
@@ -827,7 +1045,7 @@ pub(super) fn cast(
             escaping = false;
             continue;
         }
-        let region = rigid.region(middle).map_err(numeric)?;
+        let region = motion.region(middle).map_err(numeric)?;
         if region
             .iter()
             .any(|p| !p.point.is_finite() || !p.velocity.is_finite())
@@ -841,7 +1059,7 @@ pub(super) fn cast(
                     .filter(|hit| hit.gap <= uncertainty * 2.0)
                     .map(|hit| hit.point)
             });
-            if point.is_some_and(|point| rigid.overlap_persists(body, point, &interval)) {
+            if point.is_some_and(|point| motion.overlap_persists(body, point, &interval)) {
                 continue;
             }
         }
@@ -856,7 +1074,7 @@ pub(super) fn cast(
         // starts again inside such an instant is the same contact. A fast
         // obstacle keeps the full bisection, so its next approach is found.
         if escaping && interval.end - interval.start <= RESOLVED_INSTANT
-            && rigid.motion_bound(&domain_polygon(body), &interval).map_err(numeric)? <= RESOLVED_MOTION {
+            && motion.motion_bound(&domain_polygon(body), &interval).map_err(numeric)? <= RESOLVED_MOTION {
             continue;
         }
         let small = middle == interval.start || middle == interval.end;
@@ -864,9 +1082,9 @@ pub(super) fn cast(
             if escaping {
                 continue;
             }
-            let rounding = rigid.contact_rounding(body, middle).map_err(numeric)?;
+            let rounding = motion.contact_rounding(body, middle).map_err(numeric)?;
             for time in [interval.start, middle, interval.end] {
-                if let Some(hit) = witness(body, &rigid.region(time).map_err(numeric)?) {
+                if let Some(hit) = witness(body, &motion.region(time).map_err(numeric)?) {
                     if hit.gap <= rounding {
                         let contact = CastHit {
                             time,
@@ -904,3 +1122,4 @@ pub(super) fn cast(
     }
     Ok(None)
 }
+

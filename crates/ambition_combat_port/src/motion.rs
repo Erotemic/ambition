@@ -383,6 +383,117 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(SetVelocityPort);
 
+/// The request port marker for hanging the body on a rope (a grapple's).
+///
+/// Port card:
+///
+/// * **Operation** — the body hangs from `anchor` on a held rope
+///   (`ambition_platformer2d_core::catch_the_grapple`): the rope's length and
+///   angle are where the body is, and the body's velocity along the swing
+///   becomes the swing's speed. Gravity and the stick swing it, up and down
+///   reel it within `min_length` and `max_length`, `winch_speed` takes it in
+///   on its own, and Jump lets go with the swing's speed plus `release_hop`.
+///   A hit cuts it.
+/// * **Owner** — `ambition_abilities::extension` (the body's `MotionModel`).
+/// * **Refusal** — a body that is not swept, a rope longer than
+///   `max_length`, or an anchor more than `max_angle` from straight above the
+///   body: the request changes nothing ([`Wielder::swept`] says which bodies
+///   can hang).
+/// * **Time** — `wielded_use` (a wielded item's line) and
+///   `technique_execution` (a special's: a Smash tether), after the body
+///   stepped this tick: the rope swings it from the next tick.
+///
+/// [`Wielder::swept`]: crate::Wielder::swept
+pub struct HangOnRopePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct HangOnRope {
+    pub anchor: [f32; 2],
+    pub max_angle: f32,
+    pub swing_accel: f32,
+    pub reel_speed: f32,
+    pub min_length: f32,
+    pub max_length: f32,
+    pub release_hop: f32,
+    pub winch_speed: f32,
+}
+
+impl Port for HangOnRopePort {
+    const KEY: PortKey = PortKey::new("ambition.motion.hang_on_rope", 2);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = HangOnRope;
+
+    fn encode(v: &HangOnRope, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<HangOnRope, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    HangOnRope {
+        /// Where the rope is fixed (world frame, +Y down).
+        anchor: [f32; 2],
+        /// The swing's cap, radians from straight down; also the farthest
+        /// from straight above the body the anchor may be.
+        max_angle: f32,
+        /// The stick's angular acceleration on the swing (radians/s²).
+        swing_accel: f32,
+        /// How fast the stick reels the rope in or out (units/s).
+        reel_speed: f32,
+        /// The shortest the reel takes the rope.
+        min_length: f32,
+        /// The longest the rope pays out, and the longest it may bite at.
+        max_length: f32,
+        /// The rise a jump off the rope adds to the swing's speed (units/s).
+        release_hop: f32,
+        /// How fast the rope takes itself in on top of the stick's reel
+        /// (units/s), down to `min_length`: a tether that swings the body up
+        /// to what it bit. `0` leaves the length to the stick.
+        winch_speed: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(HangOnRopePort);
+
+/// The request port marker for letting go of a held rope.
+///
+/// Port card:
+///
+/// * **Operation** — a body on a held rope ([`HangOnRopePort`]) lets go with
+///   the swing's speed and no hop, carried as the world's momentum (the air
+///   stop assist bleeds toward it, as for a fling). A body on no held rope is
+///   unchanged; a timed wire (a flyline's lift) is not a held rope.
+/// * **Owner** — `ambition_abilities::extension`.
+/// * **Time** — `wielded_use`, after the body stepped this tick.
+pub struct LetGoOfRopePort;
+
+/// An ask to let go. It carries nothing: the swing is the body's.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LetGoOfRope {}
+
+impl Port for LetGoOfRopePort {
+    const KEY: PortKey = PortKey::new("ambition.motion.let_go_of_rope", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LetGoOfRope;
+
+    fn encode(v: &LetGoOfRope, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LetGoOfRope, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    LetGoOfRope {}
+}
+
+ambition_extension_sdk::script_port!(LetGoOfRopePort);
+
 /// The request port marker for the observer's slow.
 ///
 /// Port card:

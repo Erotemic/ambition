@@ -1,6 +1,6 @@
 # Grapple
 
-**Status:** asked by Jon 2026-11-27; G1 landed the same day; G2–G4 below, in order. Queue: GRAPPLE.
+**Status:** asked by Jon 2026-11-27; G1–G4 landed the same day. Queue: GRAPPLE.
 
 Jon (2026-11-27): *"make grapple a supported mechanic. The current
 implementation if any is broken. Grapple needs to be able to swing, it needs
@@ -66,8 +66,45 @@ A line is cast along the aim. What it bites decides what it does:
   the wire (and to let go); the grapple module swings on a bite above and zips
   otherwise; the rope is drawn while it holds. App witness in a real room and
   a capture of the swing.
+  *Landed:* two request ports in `wielded_use`, `ambition.motion.hang_on_rope`
+  (the rope's numbers travel with the request, so a module authors its own
+  rope) and `ambition.motion.let_go_of_rope` (the swing's speed, carried as
+  the world's momentum); the wielder reports `on_rope` (`wielded_use` v5,
+  `wielded_alternate` v2, `technique` v2). The grapple swings on a bite
+  within 1.2 rad of straight up, zips otherwise, and a press on the rope lets
+  go. Witness `ambition_app/tests/the_grapple_swings.rs` (sync-test session:
+  bite, swing through, jump release keeps the run). `capture_scene --grapple
+  X,Y[@TICK]` stages a swing for a film.
 - **G3 — grab and whip.** The cast reports the first body or item on the line;
   an item comes to the hand, a foe takes the line's hit.
+  *Landed:* `ambition.items.aim_cast` v2 reports the first body (with
+  health) and the first loose item the line crosses before the wall, by the
+  engine's room rule (`LiveRooms::of`). A body is whipped: a strike at the
+  line's end that tugs it toward the wielder. A loose item is reeled in
+  (`ambition.items.reel_in`): it flies back on an arc that reaches the hand in
+  0.4 s. The tug exposed an engine defect: `knockback_velocity` re-derived a
+  hit's side from geometry and read the strike's named side only for a victim
+  level with the source, so `StrikeKnockback::dir` was ignored; a hit's stated
+  side now wins (the geometry answers a hit that states none). Witnesses in
+  `the_grapple_swings.rs`.
 - **G4 — Smash recovery.** The same wire as a Smash move: a tether that swings
   to a ledge, with the ledge authority catching the body; authored on a
-  fighter; the recovery planner knows the route.
+  fighter; the recovery planner knows the route. *Landed 2026-11-27.* A held
+  rope can winch itself in (`GrappleRope::winch_speed`, on
+  `ambition.motion.hang_on_rope@2`), so a rope shortens with no stick. The
+  tether module (`smash.tether_pull`, `winch` > 0) hangs her on such a rope
+  when its line bites a ledge above her (within 1.2 rad of straight up): she
+  swings up under the ledge, and within 48 px of the hang anchor the rope lets
+  go and the straight reel carries the last of it into the ledge authority's
+  catch. Bites level with her or below reel straight, as before. The
+  ledge-ahead observation (`ambition.body.ledge_ahead@2`) now looks up a
+  column above each point on her facing (every 48 px) when nothing is level
+  with her, and keeps the nearest within its reach. The recovery planner
+  knows the route: `RecoveryRoute::Tether { reach, .. }` (authored as
+  `AuthoredRecoveryRoute::Tether`, and set by `author_tether_pull`) counts as
+  home when the move's own burst gets home, or when the nearest support is
+  within the line's reach. projectile_polygon's up-B (`polygon_projectile_recoil_lift`)
+  winches at 480 px/s. Witnesses: `a_winched_rope_takes_itself_in` (kernel),
+  `a_winched_line_swings_from_above_and_hands_off_short` (module),
+  `a_winched_tether_from_below_swings_her_up_to_the_ledge` (Smash app), and
+  the tether arm of the planner's carry test.

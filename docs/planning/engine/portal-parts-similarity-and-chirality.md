@@ -683,6 +683,48 @@ and the post-step AABB snag writer once their replacements cover the case.
 blocked; moving-frame contact cannot be discarded by a contrary static sign;
 contact correction cannot push the body through another obstacle.
 
+**Receipt (2026-11-27, the fit is the material box).** The snag and the
+transit's fit tests (`snag_push`, `fits_through`, `in_line_with`,
+`cuts_opening`; the transit's begin test and its backside test call the
+last two) read a body as `snag::Outline`: its canonical box's four
+corners under its material map. Before, they read the world box around
+it. An axis-aligned body's outline is its world box, so every existing
+case is unchanged (portal2d lib 146, runtime portal 24, app portal 52
+pass). The plan's own example is the witness
+(`a_turned_body_that_fits_the_opening_passes_and_an_oversized_one_does_not`):
+- a 20 by 2 body turned 45 degrees, its long axis along the mouth normal
+  and 4 px along the face, is in line with a ±12 opening and is not
+  snagged coming in from 12 px to 1 px;
+- its world box, asserted in the same test, was not in line and was
+  snagged;
+- a 30-long body along the face does not fit.
+
+The broad phases (`openings_near`, the capture box) stay world boxes,
+which is conservative.
+
+**Receipt (2026-11-27, the push is admitted).** The snag's push is now
+cast as the body's material box against its room's solids under the
+body's own portal admission (`snag::admitted_push`: `CollisionWorld`,
+`BodyGeometry::motion_for`), and it stops at the first solid. Leaving the
+host it is in is a separating start, which is admitted. So "contact
+correction cannot push the body through another obstacle" holds for the
+snag. Witness: `a_snag_push_does_not_carry_a_body_into_another_solid`.
+- A body half past an end would go back 6 px onto the host. A ceiling
+  3 px above its head stops it at y 283.
+- Control, no ceiling: the whole push, to y 280.
+- Control run with the admission removed: the ceiling case went to 280,
+  into the block, and failed.
+
+A numeric refusal of the cast keeps the unadmitted push, which was the
+snag's answer before. portal2d 147, runtime portal 24 and app portal 52
+pass.
+
+Still open in P3: the rim constraint inside the accepted motion
+operation itself. The snag is still a second, post-step position writer,
+though its push is now admitted. The approach classification (from the
+front, sliding from within, already past the end) and the slope no-worse
+rule would move with it. Deleting the writer waits on that constraint.
+
 ### P4 — Conservative query planning and proven fast cases
 
 **Owner:** core material query preparation and the room geometry adapter.
@@ -711,8 +753,54 @@ the second path the far link is not admitted) and
 `a_turning_link_bounds_its_image_by_the_orbit_not_the_endpoints` (control:
 the same link with no turn). The translation-only case keeps its padding,
 so the no-portal, static and affine selections are unchanged (core lib
-948/948). Still open in P4: the shared projectile source leg, exact cell
-dependencies and further relative-motion specializations.
+948/948). Still open in P4: exact cell dependencies and further
+relative-motion specializations.
+
+**Receipt (2026-11-27, the shared source leg).** A projectile's leg is one
+prepared cast: its canonical box, material map, line from the leg start and
+interval are built once, and the root crossing search, the walls and the
+recipients read it (the crossing search had built its own box, map and
+cast). An unusable box or map refuses the leg once, before commit. Tests:
+`ambition_projectile_combat` 32 passed; runtime projectile tests with
+portals 66 passed. No time was measured.
+
+**Receipt (2026-11-27, an unreachable moving portal).** One acceptance
+clause is now witnessed: adding a moving portal outside the conservatively
+reachable query geometry does not push a local straight query into the
+curved solver. `a_turning_pair_out_of_reach_leaves_a_straight_query_affine`
+(`frame/material_cast/tests.rs`) sets a body straddling a static pair, then
+adds a pair turning 0.6 rad whose opening is 60 px away and out of reach.
+Every cell is unchanged: same paths, maps, cut planes and intervals, none
+curve-carried, and the same contact time against a wall on the far side.
+The S3 witnesses are the positive control: a reachable turning pair does
+give a curve-carried cell. Core lib 975 pass.
+
+Exact cell dependencies would mean a prepared cell keyed by the links and
+clocks it actually reads, so a source, clock or topology change
+invalidates only the cells that depend on it. Today cells are rebuilt per
+query, so nothing can be stale; this is a reuse optimization. Its trigger
+was a production work count showing repeated preparation of unchanged
+cells.
+
+**Work count (2026-11-27): not built.** The scene was `portal_lab`, the
+real app through the RL harness, debug build, no sync-test rollback. The
+player walked right through station A's ground pair (a 314 px transfer),
+stood for 150 ticks, then walked back, 600 ticks in all. A temporary
+probe in `MaterialCast::cells`, since deleted, keyed each portal-cut
+preparation by every input (domain, material map, root, delta, interval,
+reachable links). Results:
+- 36 573 preparations, 8 404 of them with reachable links, over 538 ticks.
+- Of those 8 404, 4 772 repeated an identical input set within the same
+  tick and 3 019 repeated the previous tick's, so repetition is real.
+- The cost is small: portal-cut preparation took 1.93 s of a 79.4 s run,
+  2.4 % of step wall time, and the uncut ones 1.30 s. That is an upper
+  bound, because the probe's key formatting was inside the timed region.
+- Two runs agreed within 1 % (the counts were identical).
+
+A perfect cache would save at most about 2 % of a step here, which does
+not pay for an invalidation-keyed cache and its staleness risk. Revisit
+if a scene's profile shows portal-cut preparation as a large share of a
+release step.
 
 **Delete:** endpoint-only visited exclusion, duplicate world/recipient source
 cell construction, repeated immutable/root preparation and irrelevant

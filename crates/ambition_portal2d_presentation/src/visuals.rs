@@ -90,12 +90,14 @@ pub fn sync_portal_visuals(
     mut visuals: Query<(Entity, &shot_visuals::PortalVisualDrawn, &mut Transform), With<PortalVisual>>,
     portals: Query<(Entity, &PlacedPortal)>,
     projectiles: Query<(Entity, &PortalShot)>,
+    presented_time: Option<Res<crate::PortalPresentedTime>>,
 ) {
     use shot_visuals::{PortalVisualDrawn, PortalVisualLook};
     let mut wanted: Vec<(PortalVisualDrawn, Transform)> = Vec::new();
     shot_visuals::want_portal_shot_visuals(&frames, &projectiles, &mut wanted);
-    // Each portal in its own live room's frame.
-    for (source, portal) in portals.iter() {
+    // Each portal in its own live room's frame, at the time bodies are drawn.
+    for (source, portal) in crate::presented_portals(portals.iter(), presented_time.as_deref()) {
+        let portal = &portal;
         let Some(placement) = frames.of(source) else {
             continue;
         };

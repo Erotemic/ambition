@@ -1,8 +1,9 @@
-// Ambition's gate network (schema `gate_network`, owned by the world
-// capability): the ring's inscription, the gate facilities, and each
-// ring with the loading zone a traveller goes through. The rules are in
-// `docs/planning/game/gate-network.md`; the engine's rules are
-// `ambition_platformer2d_world::rooms::gate_network`.
+// Ambition's gate network (schema `gate_network`, Ambition's own:
+// `ambition_content_schemas::gate_network`): the ring's inscription, the gate
+// facilities, and each ring with the loading zone a traveller goes through.
+// It lowers into the engine's numbered network (each word spelled into
+// chevrons; `ambition_platformer2d_world::rooms::gate_network` dials them).
+// The rules are in `docs/planning/game/gate-network.md`.
 //
 // - An address reaches one ring. Every ring has an address. An
 //   address is written as a word; a dial enters its chevrons, which the word

@@ -786,18 +786,7 @@ pub fn step_projectiles(
     // rebuilding the boss's hurt geometry from those three; it reads the
     // published `DamageableVolumes` now, which is the same value the damage
     // applier uses and the only one the publisher's authored override reaches.
-    ecs_bosses: Query<
-        (
-            Entity,
-            &FeatureId,
-            &CenteredAabb,
-            &ambition_characters::actor::BodyHealth,
-            &ambition_combat::components::DamageableVolumes,
-            Option<&ambition_platformer2d_core::BodyKinematics>,
-            Option<&ambition_platformer2d_core::SweepSample>,
-        ),
-        (With<FeatureSimEntity>, With<BossConfig>),
-    >,
+    ecs_bosses: super::feature_contact::BossTargets,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
@@ -985,28 +974,32 @@ pub fn step_projectiles(
         });
         let attempted_delta = candidate.pos - leg_start;
 
+        // One prepared source leg: the root crossing search, the walls and the
+        // recipients all read this cast (its box, its material map, the line
+        // from the leg start and the leg's interval).
+        let source = before.canonical_box().and_then(|domain| before.material_map().map(|map| (domain, map)));
+        let (source_domain, source_map) = match source {
+            Ok(source) => source,
+            Err(reason) => {
+                *game = candidate_game;
+                commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
+                bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?reason,
+                    "projectile source leg refused before commit");
+                continue 'projectiles;
+            }
+        };
+        let leg_cast = ae::frame::material_cast::MaterialCast::new(
+            ae::frame::thread::MaterialPrimitive { domain: &source_domain, to_world: source_map },
+            leg_start,
+            attempted_delta,
+            leg_time..1.0,
+        );
+
         // A root event ends this leg. Keep the original line and its closed
         // prefix so transit does not reconstruct time from a projected endpoint.
         #[cfg(feature = "portal")]
         let (contact_end, travel_end, travel, root_crossing) = {
-            let domain = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));
-            let map = match before.material_map() {
-                Ok(map) => map,
-                Err(reason) => {
-                    *game = candidate_game;
-                    commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
-                    bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?reason,
-                        "projectile root map refused before commit");
-                    continue 'projectiles;
-                }
-            };
-            let cast = ae::frame::material_cast::MaterialCast::new(
-                ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
-                leg_start,
-                attempted_delta,
-                leg_time..1.0,
-            );
-            match ambition_portal2d::first_portal_crossing_through(&cast,
+            match ambition_portal2d::first_portal_crossing_through(&leg_cast,
                 portals_by_room.in_room(shot_room), if root_count==0 {collision.backside_of(proj_entity)} else {None}, 1.0) {
                 Ok(Some(hit)) => (hit.root.point, hit.root.toi,
                     ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.root.toi },Some(hit)),
@@ -1023,20 +1016,12 @@ pub fn step_projectiles(
         #[cfg(not(feature = "portal"))]
         let (contact_end,travel_end,travel) = (candidate.pos,1.0,ae::LinearTravel::Complete);
 
-        // Wall and recipient contacts use the same admitted source material.
-        // Build it once for this leg, before any recipient can commit a hit.
-        let source_domain = before.canonical_box();
-        let source_cells = source_domain.as_ref().map_err(|fault| ae::frame::thread::Refusal {
-            path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(*fault),
-        }).and_then(|domain| {
-            let map=before.material_map().map_err(|fault| ae::frame::thread::Refusal {
-                path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(fault),
-            })?;
-            ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
-                domain,to_world:map },before.pos,attempted_delta,leg_time..1.0)
-                .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report)
-                .prefix(travel_end)?.cells(admission)
-        }).and_then(|cells| {cells.admit_payloads(candidate.vel,&[acceleration.0])?;Ok(cells)});
+        // Wall and recipient contacts use the leg's admitted source material,
+        // built once, before any recipient can commit a hit.
+        let source_cells = leg_cast.clone()
+            .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report)
+            .prefix(travel_end).and_then(|cast| cast.cells(admission))
+            .and_then(|cells| {cells.admit_payloads(candidate.vel,&[acceleration.0])?;Ok(cells)});
         let source_cells=match source_cells {
             Ok(cells)=>cells,
             Err(refusal)=>{

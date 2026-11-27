@@ -86,6 +86,7 @@ impl Plugin for PortalPresentationPlugin {
         app.init_resource::<PortalCameraContinuityHostView>();
         app.init_resource::<crate::PortalObserverViews>();
         app.init_resource::<crate::PortalViewers>();
+        app.init_resource::<crate::PortalPresentedTime>();
 
         if self.portal_quads {
             app.add_systems(

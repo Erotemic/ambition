@@ -55,7 +55,8 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 - In the great hall, steps from both sides connect the floor to the
   galleries and the central balcony. The muster also uses the dais.
 - In the throne arena, steps beside the coils and the east gate connect
-  the floor, the two lower galleries, and the high gallery.
+  the floor, the two lower galleries, and the high gallery. The practice
+  arena in the Hall of Bosses uses the same steps and bench.
 - **Lower floor:** a stair down through the gatehouse's floor into the kitchens, then east through the Complaints Department and the cells into the tower lower down (y 1344). The whole castle is a loop.
 - In the kitchens, crates at both ends give access to the pantry loft.
   The floor route passes the hearth and the staff.
@@ -89,6 +90,19 @@ conscript starts on the wall. The spectral wolf starts on the road.
 ```
 
 - **Surface row:** the hamlet, the allotments and the moor, joined at the floor; the moor joins the gate forest (and the castle).
+- In Lower Godwin, the flour bin and rack lead to the bakery loft. The
+  crier's platform leads to the east landing. Jump between the landings
+  or take the ladder up to Gallows Hill.
+- Inside Crumb's bakery, the loading shelf connects the ovens and the
+  flour rack. The floor continues to the press behind the sacks.
+- At the allotments, the seed chest and the Plot 13 landings give access
+  to the greenhouse roof from the west. The crop trellis and the watering
+  shelf give access from the east. The Failed Prototype starts on the
+  trellis. A Crawling Conscript starts in the soil lane below it.
+- On Searchlight Moor, cross the bog by the broken boardwalk or through
+  the water. A Searchlight Crawler starts on the boardwalk. The cargo deck
+  and the founder's statue give access to the watchtower from opposite
+  sides. The mast ladder leads to the ridge.
 - In the Crooked Lantern, the map shows the road, the ridge, and the
   crypt. Climb from the wood box or the bar to read it. Tobias and
   Gudrun meet visitors on the floor.
@@ -100,6 +114,11 @@ conscript starts on the wall. The spectral wolf starts on the road.
   In the ossuary, both side plinths give access to the signet altar. The
   floor leads past the six busts to the broken wall.
 - **Over:** the moor's watchtower up onto the ridge; west along it, over the plank bridge, onto Gallows Hill and down the hamlet's bell tower. The bridge is dropped through onto the allotments' greenhouse (a shortcut down).
+  On the ridge, jump between the gantries and the sentry hut roof.
+  A Searchlight Crawler starts above the patrol lane on the east gantry.
+  On Gallows Hill, hold Up at either foot of the terrace to take the
+  stone walk. The old wall gives access from the footpath. The Spectral
+  Wolf starts on the terrace.
 - **Tests:** `game/ambition_app/tests/the_searchlight_moor.rs`.
 
 ## The Pirate Port (the third)
@@ -163,6 +182,31 @@ conscript starts on the wall. The spectral wolf starts on the road.
                     [Lab 0]┄bricked┄[steam plant]──[collider]
 ```
 
+- At the Gate Court, the founders' plinth, the bench, and the east steps
+  give access to the raised walk. The street passes the gate dialer and
+  Ottoline Hum. Both routes lead to the quad.
+- In the quad, the raised walk passes the Patent Office, café, and
+  fountain on the way to the lecture hall terrace. The café bench and
+  awning give access from the street. The manhole below the patent
+  balcony leads to the steam plant.
+- At the ground station, steps on both sides of the car lead to the
+  galleries. The west gallery has the departures board. The east
+  gallery has the altimeter. Board the car from the hall floor.
+- During the ascent, the roof landings catch riders who leave the car
+  beside the shaft. The opening between the landings leads back to
+  the ground station.
+- At the orbital terminus, the floor leads past Dobbs to the docking
+  bay. Steps at either end give access to the arrivals board and the
+  viewing gallery. Jump across the gap at the shaft to use both decks.
+- In the docking bay, the west gantry and the east ladder lead to the
+  walk under the hauler. The shuttle steps join the east ladder at the
+  service deck. The floor continues to the tether terminus.
+- On the observation deck, hold Up at either ramp to reach the viewing
+  walk. The step below the center also gives access. Neil and Wen meet
+  visitors at the window on the floor.
+- In the habitation ring, hold Up at either stair to reach the grow deck.
+  The floor joins the service deck to the observation deck. The door
+  beside Gus's galley leads down to the gate dock.
 - **Under:** down the manhole in the quad's street into the steam plant (catwalks, boilers), east on its floor into the Collider, up its stair to the quad: a loop.
 - **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
 - **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.

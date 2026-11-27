@@ -212,8 +212,11 @@ Still open:
 - ~~the door~~ (landed 2026-11-25, below: a door is its own occurrence);
 - ~~a lift has no object occurrence~~ (landed 2026-11-25, below);
 - the third copy in a second live instance of the same authored room. This
-  waits on the session: nothing yet makes two copies of one room live at
-  once (the re-entry witness `a5ad66041` records that as open). The per-room
+  waits on a product rule, not the session's engineering: a room is live at
+  most once by design (OW1 cut 6e: a seat entering a held room joins it),
+  so no concurrent copy can exist. Filed as
+  [Q188](../awaiting-maintainer-decision.md#q188--can-one-authored-room-be-live-twice-at-once)
+  (2026-11-27); option (a) closes this item as not applicable. The per-room
   binding is already witnessed across two different live rooms
   (`a_lift_switch_sends_only_the_lift_in_its_own_live_room`).
 

@@ -289,6 +289,7 @@ mod tests {
             exclusive_slot: None,
             withholds: Vec::new(),
             lends: Vec::new(),
+            rebinds: Default::default(),
         }
     }
 
@@ -560,6 +561,7 @@ mod tests {
             exclusive_slot: None,
             withholds: Vec::new(),
             lends: Vec::new(),
+            rebinds: Default::default(),
         };
         app.world_mut().spawn(WorldItem::equipping(
             row,
@@ -681,6 +683,7 @@ mod tests {
                 exclusive_slot: None,
                 withholds: Vec::new(),
                 lends: Vec::new(),
+                rebinds: Default::default(),
             }
         }
 

@@ -300,6 +300,7 @@ pub fn carry_through_pairs(
     mut commands: Commands,
     frames: PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
+    presented_time: Option<Res<crate::PortalPresentedTime>>,
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
     passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     mut atlas: ResMut<PortalCarryAtlas>,
@@ -340,11 +341,19 @@ pub fn carry_through_pairs(
     selection: Option<Res<PortalCarrySelection>>,
     mut pool: ResMut<CarryQuadPool>,
 ) {
-    let by_room = frames.portals_by_room(portals.iter());
+    // Cut at the time bodies are drawn (`PortalPresentedTime`): a drawable
+    // is drawn there, so the opening it is cut by is too. The links the
+    // bodies stepped through (the tick's end) only name which link a part
+    // is carried by; a link has the same key at both times.
+    let presented = crate::presented_portals(portals.iter(), presented_time.as_deref());
+    let by_room = frames.portals_by_room(presented.iter().map(|(entity, portal)| (*entity, portal)));
     let any_portal = by_room.rooms().any(|(_, list)| !list.is_empty())
         && selection.is_none_or(|selection| selection.enabled);
     let links_by_room: std::collections::BTreeMap<_,_> = if any_portal {
         by_room.rooms().map(|(room, portals)| (room, room_links(portals))).collect()
+    } else { Default::default() };
+    let stepped_links_by_room: std::collections::BTreeMap<_,_> = if any_portal {
+        frames.portals_by_room(portals.iter()).rooms().map(|(room, portals)| (room, room_links(portals))).collect()
     } else { Default::default() };
     let mut carried_now: Vec<Entity> = Vec::new();
     pool.0.begin(|entity| quads.contains(entity));
@@ -375,9 +384,11 @@ pub fn carry_through_pairs(
             let all = by_room.in_room(Some(placement.room));
             let Some(links) = links_by_room.get(&Some(placement.room)) else { continue; };
             if links.is_empty() { continue; }
-            let active = if reach.is_some() {
+            let active_key = if reach.is_some() {
                 transit.and_then(|transit| find_portal(all, transit.straddling))
                     .map(|portal| portal.aperture())
+                    .and_then(|enter| links.iter().find(|link| link.enter == enter))
+                    .map(|link| link.key)
             } else {
                 let Some(geometry) = passages.as_deref() else { continue; };
                 let domain = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, view.canonical_size * 0.5));
@@ -388,8 +399,12 @@ pub fn carry_through_pairs(
                     .and_then(|part| part.path.first())
                     .and_then(|key| geometry.links_in(Some(placement.room)).iter().find(|link| link.key == *key))
                     .map(|link| link.enter)
+                    .and_then(|enter| {
+                        stepped_links_by_room.get(&Some(placement.room))?.iter().find(|link| link.enter == enter)
+                    })
+                    .map(|link| link.key)
             };
-            let Some(link) = links.iter().find(|link| Some(link.enter) == active) else { continue; };
+            let Some(link) = links.iter().find(|link| Some(link.key) == active_key) else { continue; };
             let Some(straddled) = all.iter().find(|portal| portal.aperture() == link.enter) else { continue; };
             let Ok((at, aabb, shown)) = families.placed.get(visual) else {
                 continue;

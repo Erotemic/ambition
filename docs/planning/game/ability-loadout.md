@@ -44,12 +44,12 @@ demo, every ability is unlocked.
 
 | Row | Cells |
 |---|---|
-| 1 | Fireball, Eye Laser, Lightning°, Sword Stance, Axe Stance°, Whip Stance° |
+| 1 | Fireball, Eye Laser, Lightning, Stance I, Stance II, Stance III ([combat stances](combat-stances.md)) |
 | 2 | Precision Blink, Contextual Blink, Dash, Dash II, Dash III, Mark / Recall |
 | 3 | Portal Gun, Grapple, Gun-Sword, Puppy-Slug Gun, Bomb, (empty) |
 | 4 | Health Cell, Mana Cell, (Spare Battery\*), (empty), (Field Survey\*), (empty) |
 
-° = a placeholder (no row yet). \* = a key item: its cell is blank (see
+\* = a key item: its cell is blank (see
 below). The Axe and the Map Fragment were removed on 2026-10-30 (Jon: "get
 rid of the javelin, axe, map fragment, sealed note"), the Javelin and the
 Sealed Note on 2026-11-10; each slot is an "Empty" reserved cell, so no other

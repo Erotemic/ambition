@@ -887,7 +887,20 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
     // `jab` is the grounded verb. A fixed tick would resolve `air_neutral`
     // whenever the warm-up's sim time changes.
     let mut pressed_yet = false;
+    // The CPU in the other seat walks over and hits her, and a hit ends the
+    // flurry before its first lap. It is held at its spawn, so the hold is the
+    // only thing deciding the loop.
+    let cpu = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::actor::MatchSeat)>();
+        q.iter(world).map(|(entity, _)| entity).find(|entity| *entity != human).expect("a match seats two")
+    };
+    let cpu_home = app.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(cpu).expect("a body").pos;
     for _ in 0..240 {
+        if let Some(mut kin) = app.world_mut().get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(cpu) {
+            kin.pos = cpu_home;
+            kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+        }
         let standing = app
             .world()
             .get::<ambition_platformer2d::engine_core::BodyGroundState>(human)

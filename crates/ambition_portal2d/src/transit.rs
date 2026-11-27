@@ -65,7 +65,7 @@ pub(crate) fn update_backside(
     backside: Option<PortalBackside>,
     crossing: bool,
     all: &[PlacedPortal],
-    body: ae::Aabb,
+    body: crate::snag::Outline,
 ) {
     let now = if crossing {
         None
@@ -616,7 +616,7 @@ pub fn portal_transit(
             kin.vel.y
         );
         let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
-        update_backside(&mut commands, entity, backside, crossing, all, kin.aabb());
+        update_backside(&mut commands, entity, backside, crossing, all, crate::snag::Outline::of(*kin));
         match step {
             TransitStep::Idle | TransitStep::Continue | TransitStep::Refused { .. } => {}
             TransitStep::Begin {

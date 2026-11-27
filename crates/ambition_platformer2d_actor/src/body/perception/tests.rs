@@ -1727,9 +1727,10 @@ fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
 /// OBS1: the tactical attention cap bounds the direct evidence a body
 /// admits, not only the rich view it builds.
 ///
-/// A sighted tactical body with empty memory sees 17 live foes. It refreshes
-/// memory for exactly the 16 its view attends to, and its next crew call
-/// names exactly those 16. Below the cap every visible foe is admitted. A foe
+/// A sighted body with empty memory sees 17 live foes. It refreshes memory
+/// for exactly the 16 attention admits, and its next crew call names exactly
+/// those 16 — on both native roads: a `TargetBelief` body builds no view but
+/// admits the same evidence a `TacticalWorld` body's view attends to. Below the cap every visible foe is admitted. A foe
 /// outside the viewport is never admitted. (A peer in another live room is
 /// not offered at all: `a_viewer_perceives_only_the_bodies_of_its_own_live_room`.)
 ///
@@ -1759,9 +1760,10 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
         peers.push(peer("beyond", ae::Vec2::new(4000.0, 180.0), ActorFaction::Boss));
         peers
     };
+    for need in [Need::TacticalWorld, Need::TargetBelief] {
     let decide = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory, step: u64| {
         super::perceive_for_decision(
-            Need::TacticalWorld,
+            need,
             &viewer,
             &PeerCandidates::all(peers),
             &[],
@@ -1798,17 +1800,23 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
     // Above the cap: 17 visible foes, 16 admitted.
     let crowd = foes(TACTICAL_ATTENTION + 1);
     let mut memory = PerceptionMemory::default();
-    let (view, _) = decide(&crowd, &mut memory, 1);
-    assert_eq!(view.actors.len(), TACTICAL_ATTENTION, "premise: the rich view is capped");
-    assert_eq!(view.remainder.actors, 1, "premise: the farthest foe is counted, not kept");
-    let attended: BTreeSet<String> = view.actors.iter().map(|a| a.id.clone()).collect();
-    assert_eq!(attended, expected(TACTICAL_ATTENTION));
+    let (view, believed) = decide(&crowd, &mut memory, 1);
+    let attended = expected(TACTICAL_ATTENTION);
+    if need == Need::TacticalWorld {
+        assert_eq!(view.actors.len(), TACTICAL_ATTENTION, "premise: the rich view is capped");
+        assert_eq!(view.remainder.actors, 1, "premise: the farthest foe is counted, not kept");
+        let viewed: BTreeSet<String> = view.actors.iter().map(|a| a.id.clone()).collect();
+        assert_eq!(viewed, attended);
+    } else {
+        assert!(view.actors.is_empty(), "premise: the cheap road builds no view");
+    }
+    assert_eq!(believed, Some(Some(crowd[0].pos)), "{need:?}: the belief is the nearest foe");
     assert_eq!(
         remembered(&memory),
         attended,
-        "memory refreshed a foe the attention budget left out"
+        "{need:?}: memory refreshed a foe the attention budget left out"
     );
-    assert_eq!(called(&memory, 1), attended, "the crew call named an unattended foe");
+    assert_eq!(called(&memory, 1), attended, "{need:?}: the crew call named an unattended foe");
 
     // Below the cap: every visible foe is admitted, the far one is not.
     let few = foes(5);
@@ -1831,6 +1839,71 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
         !called(&memory, 2).contains(&last),
         "an unattended foe was called out as a fresh sighting"
     );
+    }
+}
+
+/// Memory is bounded in rows as well as in time. A body that meets a fresh
+/// squad of 16 foes every second outruns the three-second decay; it keeps
+/// `RETAINED_AT_MOST` rows, and the ones it drops are its least confident.
+/// A remembered foe outranks a remembered friend however faded, so the
+/// pursuit target is never evicted for an ally.
+#[test]
+fn a_body_keeps_at_most_its_retention_budget_of_memories() {
+    use ambition_characters::perception::{PerceptionRequirement as Need, TACTICAL_ATTENTION, WorldMemory};
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF };
+    let dt = 1.0 / 60.0;
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let squad = |wave: usize, faction: ActorFaction| -> Vec<PerceptionPeer> {
+        (0..TACTICAL_ATTENTION)
+            .map(|i| {
+                peer(
+                    &format!("w{wave}_{i:02}"),
+                    ae::Vec2::new(130.0 + 10.0 * i as f32, 180.0),
+                    faction,
+                )
+            })
+            .collect()
+    };
+    let mut memory = PerceptionMemory::default();
+    let mut step = 0_u64;
+    let mut seen_for = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory, ticks: u64| {
+        for _ in 0..ticks {
+            step += 1;
+            super::perceive_for_decision(
+                Need::TargetBelief,
+                &viewer,
+                &PeerCandidates::all(peers),
+                &[],
+                &world,
+                &[],
+                &relations,
+                perception,
+                step as f32 * dt,
+                step,
+                dt,
+                Some(memory),
+            );
+        }
+    };
+    // Wave 0 is friends; waves 1..=3 are foes, one second apart.
+    seen_for(&squad(0, ActorFaction::Enemy), &mut memory, 60);
+    for wave in 1..=3 {
+        seen_for(&squad(wave, ActorFaction::Boss), &mut memory, 60);
+    }
+    let rows: Vec<String> = memory.0.entries().map(|(id, _)| id.to_string()).collect();
+    assert_eq!(rows.len(), WorldMemory::RETAINED_AT_MOST, "{rows:?}");
+    assert!(
+        rows.iter().all(|id| !id.starts_with("w0_")),
+        "a fading friend displaced a remembered foe: {rows:?}"
+    );
+    assert!(
+        rows.iter().all(|id| !id.starts_with("w1_")),
+        "the oldest foes outlived fresher ones: {rows:?}"
+    );
+    assert!(memory.0.last_known_hostile().is_some());
 }
 
 /// THE ATTENTION BUDGET BINDS: a crowd of forty visible peers yields exactly

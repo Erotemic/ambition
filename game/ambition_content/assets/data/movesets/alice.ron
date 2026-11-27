@@ -37,12 +37,14 @@
 // smash ruleset's `CEILING_BLAST_MARGIN_PX` is 240, so a 320px rise put the
 // exit outside the playable box.
 //
-// 190 with `lean_degrees: 25`: measured from 90px off the main platform's
+// 190 with `lean_degrees: 20`: measured from 90px off the main platform's
 // lip, facing it, with a neutral stick, the pair puts her on the ledge from
 // 0, 80 and 160px below the lip (240 is too deep). 150 straight up caught her
 // in a fall loop under the ledge from every depth until the pair closed.
+// Since the movement kernel crosses a pair inside its step, 25 sets her down
+// on the stage's corner from 0 and 80 and drops her past the face from 160.
 //
-// (`lean_degrees: 25.0,`)
+// (`lean_degrees: 20.0,`)
 // The shaft leans the way she faces, which off the stage is toward it, so
 // a panicked neutral stick still goes up and over.
 //
@@ -1653,7 +1655,7 @@
                                                 26.0,
                                                 6.0,
                                             ],
-                                            "lean_degrees": 25.0,
+                                            "lean_degrees": 20.0,
                                             "lifetime_s": 2.5,
                                             "rise": 190.0,
                                             "tilt_degrees": 0.0,

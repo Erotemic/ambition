@@ -849,6 +849,14 @@ impl Plugin for WorldLabelLayoutPlugin {
                 .chain()
                 .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility),
         );
+        // A portal window kept to one view joins that view's projections
+        // before the per-view pass reads them.
+        #[cfg(feature = "portal_render")]
+        app.add_systems(
+            PostUpdate,
+            super::view_isolation::present_portal_windows_for_their_views
+                .before(super::view_isolation::stamp_presentations_with_their_subject_s_room),
+        );
     }
 }
 

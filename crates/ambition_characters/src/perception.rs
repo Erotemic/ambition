@@ -1314,6 +1314,15 @@ impl WorldMemory {
     pub const DECAY_HALF_LIFE_S: f32 = 3.0;
     /// Drop a remembered actor once confidence falls below this — fully forgotten.
     pub const FORGET_BELOW: f32 = 0.05;
+    /// The most rows a body keeps: twice the [`TACTICAL_ATTENTION`] a fold
+    /// admits, so a full admission and as many fading memories fit.
+    ///
+    /// Decay bounds memory only in time; a body in a churning crowd meets new
+    /// peers faster than old ones fade. Above this, [`Self::bound_retention`]
+    /// keeps living hostiles first, then the most confident, then by id —
+    /// so the pursuit target ([`Self::last_known_hostile`]) is the last row
+    /// evicted, and two hosts evict the same rows.
+    pub const RETAINED_AT_MOST: usize = 2 * TACTICAL_ATTENTION;
 
     /// Fold this tick's view into memory: decay everything not currently seen,
     /// forget what has faded, then refresh everything in view to full confidence.
@@ -1429,6 +1438,29 @@ impl WorldMemory {
                 }
             }
         }
+        self.bound_retention();
+    }
+
+    /// Evict down to [`Self::RETAINED_AT_MOST`] rows. Free when under it.
+    fn bound_retention(&mut self) {
+        let excess = self.actors.len().saturating_sub(Self::RETAINED_AT_MOST);
+        if excess == 0 {
+            return;
+        }
+        let mut ranked: Vec<(&String, &RememberedActor)> = self.actors.iter().collect();
+        ranked.sort_by(|(a_id, a), (b_id, b)| {
+            (b.hostile_to_self && b.alive)
+                .cmp(&(a.hostile_to_self && a.alive))
+                .then(b.confidence.total_cmp(&a.confidence))
+                .then_with(|| a_id.cmp(b_id))
+        });
+        let evicted: Vec<String> = ranked[Self::RETAINED_AT_MOST..]
+            .iter()
+            .map(|(id, _)| (*id).clone())
+            .collect();
+        for id in evicted {
+            self.actors.remove(&id);
+        }
     }
 
     /// How sure a body is of a foe it only HEARD about: below sight, so what
@@ -1469,6 +1501,7 @@ impl WorldMemory {
             Some(known) => *known = heard,
             None => {
                 self.actors.insert(id.to_string(), heard);
+                self.bound_retention();
             }
         }
     }
@@ -1496,6 +1529,7 @@ impl WorldMemory {
             Some(known) => *known = struck,
             None => {
                 self.actors.insert(id.to_string(), struck);
+                self.bound_retention();
             }
         }
     }

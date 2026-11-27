@@ -1,4 +1,4 @@
-//! A PASSAGE through a door or a dimension gate: the short scene a body plays
+//! A PASSAGE through a door or a gate between worlds: the short scene a body plays
 //! going in by one, and coming out of the one it arrives at (Jon, 2026-10-19:
 //! "a short sequence for entering and exiting doors. You should open the door
 //! walk through it"; at a gate, "the player faces the wormhole and jumps into

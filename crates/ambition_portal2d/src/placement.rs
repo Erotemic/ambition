@@ -416,7 +416,7 @@ pub fn transit_step_with_record(
                 let entering = front > 0.0 || enter.relative_velocity(center, vel).dot(enter.normal) < 0.0;
                 if front >= -TRANSIT_BEGIN_MARGIN
                     && entering
-                    && crate::snag::in_line_with(body, &enter.aperture())
+                    && crate::snag::in_line_with(crate::snag::Outline::of(kinematics), &enter.aperture())
                     && capture.strict_intersects(body)
                 {
                     return TransitStep::Begin {

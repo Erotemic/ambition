@@ -396,6 +396,30 @@ In the lab tower preview, show which exits a body can reach from each
 landing with its usual jump and climb.
 In the throne arena, preview the steps with the light set for the sleeping
 boss. Check that the deck edges are visible from the floor.
+Use the same source for the throne arena and practice arena gallery
+spans and props. Keep each arena's doors and encounter IDs in its room.
+In the War Room, show the uplink arrival points and the height of each
+firing line with the deck surfaces. Use the collision cells for the deck
+tops. The editor can move an authored top to a grid boundary.
+At Eureka's Gate Court, show where the street and raised walk meet the
+quad. Show the gate and dialer clearance beside the first step.
+In the quad, show the jumps between the raised walks and the drop to
+the manhole. Show the sign positions with the ladder and door frames.
+At the tether ground station, show the gallery ends and the car's
+travel from the floor to the roof. Include the width of a rider at the
+gallery height.
+On the tether ascent, show the path of a body that leaves the car on
+each side. Show where the body lands and how it reaches the opening.
+Show the altitude signs from the car at their height.
+At the terminus, show the arrival position, the gap at the shaft,
+and the view through the window from the deck. Place the docking
+bay sign beside the exit that loads that room.
+In the docking bay, show where a body leaves the east ladder at the
+service deck and the hauler walk. Use the ledge spans to place the
+gantry braces and the gaps in the rails.
+On the observation deck, show the planet from the floor and the center
+of the viewing walk. Use the slope points to draw the floor and braces.
+Show where holding Up joins the ramps.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever
@@ -417,6 +441,25 @@ For route tests, load the room once. Restore the same start state for
 each set of inputs so the guards and doors start in the same state.
 In the ossuary, show the light from a visitor on each plinth. Check that
 the text and the altar edge are visible at the room's light level.
+On Searchlight Ridge, show the joint between the two rock sheets. Use
+room coordinates on both sides and let the rock sheets overlap. Show
+the end of each beam so an author can see where it fades into the sky.
+On Gallows Hill, use the points of the `SurfaceChain` to draw the
+terrace and place its piers. Show where a body can join the terrace
+with Up and where the footpath continues below it.
+In Lower Godwin, show where a body can leave the bell tower ladder to
+reach each landing. Show the bakery door and the two talk prompts
+below the loft in the same view.
+In Crumb's bakery, show the floor route past the flour sacks and the
+raised route above them. Show how much of the press the sacks hide
+from each approach.
+At the allotments, show both routes to the greenhouse roof and the
+drop to the roof from the ridge. Show the gap above the Plot 13 ladder
+and the clear space below the trellis.
+On Searchlight Moor, show the water and the bank cells with the
+boardwalk above them. Show the gaps where a body can leave the
+boardwalk. Use the deck spans and the ladder cells to draw the
+watchtower braces and the mast.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

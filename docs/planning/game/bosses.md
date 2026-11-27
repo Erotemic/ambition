@@ -587,9 +587,9 @@ are not fought.
   encounter, not a practice copy: beating him drops his chest (400) and is
   saved. Generator:
   `game/ambition_map_assets/ambition_content/generators/war_room/make_specs.py`.
-  The room is 1920 x 768: a flat floor, two ledges a double jump up, a bar
-  over the middle a double jump over them. It wears the regime's castle
-  skin and backdrop until it has its own.
+  The room is 1920 x 768. The floor is open between the relay bays.
+  Steps from both sides connect the floor, the ledges, and the command
+  gallery. The command wall shows the two uplink stations.
 - **Art:** the renderer's `supreme_leader` (16 rows, 640 x 480 frames),
   `command_uplink`, and the shots `supreme_leader_bolt` and
   `supreme_leader_shell` (`projectiles/regime_shots.py`).
@@ -610,7 +610,7 @@ are not fought.
 - Later story content (not a decision gate): the capital, the route to
   him, and his name and history (Q182/Q183 keep the Hall and the title
   for now).
-- A cue of his own, and a War Room backdrop of its own.
+- A cue of his own.
 - Human playtest and tuning: the uplink's blows, the lines' heights against
   every body, the Mandate's reach.
 

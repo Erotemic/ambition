@@ -279,9 +279,11 @@ value as completion of that owner's contract.
    landed 2026-11-25: each lift is an object of the batch that a caller
    retires alone (schema 543). Door occurrences landed the same day: a
    scripted door stands in its own room's gate solids while shut, and a
-   `ToggleDoor` switch of the same request opens it (schema 544). Open: the
-   second-instance witness, which waits on two concurrent copies of one
-   room. Rollback through one child's retirement is witnessed.) Producer-validity delegation
+   `ToggleDoor` switch of the same request opens it (schema 544). The
+   second-instance witness waits on a product rule: today one room is live
+   at most once, by design (a seat joins the live room another holds), so
+   no concurrent copy exists; filed as
+   [Q188](awaiting-maintainer-decision.md#q188--can-one-authored-room-be-live-twice-at-once). Rollback through one child's retirement is witnessed.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently
@@ -455,7 +457,10 @@ value as completion of that owner's contract.
    technique now spends its move's action interval (`trigger_over`), and a
    time-scale status is its own `ClockDilation` (schema 537) that travel
    and every action clock read, apart from the relativistic proper-time
-   rate. Open: CPU-only and human-seat Smash acceptance.)
+   rate. The CPU-only and human-seat Smash acceptance landed 2026-11-27:
+   `local_hitlag_holds_only_the_struck_bodies_with_cpus_and_with_a_human_seat`
+   holds travel and move time through every whole-hitstop step, and
+   releases only the remainder at expiry, in both compositions.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves
@@ -506,8 +511,10 @@ value as completion of that owner's contract.
 11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
     landed 2026-11-23 (`6fe56fb12`): a `TacticalWorld` body admits,
     refreshes, acquires and reports exactly its attended set; the cheap
-    road and omniscient target are unchanged. Open: a `TargetBelief`
-    direct-evidence budget and retention over time.
+    road and omniscient target are unchanged. Done 2026-11-27: a
+    `TargetBelief` body admits the same attended set (no view built), and
+    memory keeps at most `WorldMemory::RETAINED_AT_MOST` (32) rows, living
+    foes first.
     [OBS2](engine/world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
     landed 2026-11-23 (`4488b2d65`, schema 531): memory carries observed
     liveness and evidence source/`SimTick` cut; a hit keeps its hostility
@@ -2525,8 +2532,10 @@ a fall loop under the ledge from 0, 80, 160 and 240 px below the lip, and
 she fell when it closed. A stick tilt turned both mouths and threw her back
 out the way she came. Now the shaft leans toward her facing
 (`lean_degrees`) and the mouths stay level, so one fall puts her up and
-over: rise 190, lean 25 hangs her on the ledge from 0, 80 and 160 (240 is
-too deep). Alice keeps the move; GNU-ton's up-b is the same pair
+over: rise 190, lean 25 hung her on the ledge from 0, 80 and 160 (240 is
+too deep). Since the kernel crosses a pair inside its step (portal M2), lean
+20 does that (re-measured 2026-11-27; 25 now sets her on the stage's corner
+from 0 and 80 and drops her past the face from 160). Alice keeps the move; GNU-ton's up-b is the same pair
 (`action_at_a_distance`, in place of `levity`). Witness:
 `smash_it::the_portal_recovery_reaches_the_ledge`.
 
@@ -2788,7 +2797,7 @@ sandbox hub is reached by its own address; the gate network tests pass.
 
 **Blocked by:** none.
 
-### GATE-SPLIT — the gate network's engine capability apart from Ambition's gates
+### GATE-SPLIT — the gate network's engine capability apart from Ambition's gates — ✅ DONE 2026-11-27
 
 **Owner:** [gate network, engine and game parts](game/gate-network.md#engine-and-game-parts-planned-2026-11-26).
 
@@ -2802,14 +2811,19 @@ its dial reports `GateAddressLearned` and the game records its
 `gate.known.*` flag (and decides what a terminal lists, `knows`).
 
 Slice 3: the posted addresses and `start_known` are Ambition's own file
-(`data/gate_directory.ron`, schema `gate_directory`).
+(`data/gate_directory.ron`, schema `gate_directory`). Slice 4: the words are
+the game's: the engine's catalog is a chevron count and rings addressed by
+chevrons, the `gate_network` schema and its inscription, word addresses and
+spelling are Ambition's (`ambition_content_schemas::gate_network`, lowered
+into the catalog and `GateWordsResource`), and the engine's tests dial a
+fixture of numbered endpoints. Slice 5: the refusal words are the game's
+(`refusal_words`); the engine's `DialRefusal` keeps its kind and payload.
+Slice 6: the engine speaks of symbols and worlds (`GateSymbol`, a facility's
+`world`, `OtherWorld`); chevrons and dimensions are Ambition's (its file's
+`dimension`, its `Chevron` alias). The terminal's simulation stays the
+engine's and its panel the game's.
 
-**Next action:** the rest, one move per slice, each leaving the game
-playable: the word spelling
-(`GateNetworkCatalog::spell`, the inscription in the catalog), facilities
-and dimensions as a directory, the refusal words, and the terminal panel's
-remaining engine pieces; the engine keeps dialed passages with opaque keys
-(dial, link, idle timeout, phases, rollback, navigation).
+**Next action:** none; the acceptance holds.
 
 **Acceptance:** no engine crate names an inscription, chevron, dimension
 directory or Ambition address; a fixture game dials numbered endpoints
@@ -2817,7 +2831,7 @@ through the same capability; the gate network app and content tests pass.
 
 **Blocked by:** none.
 
-### GRAPPLE — the grapple swings, grabs from a distance, whips, and recovers in Smash
+### GRAPPLE — the grapple swings, grabs from a distance, whips, and recovers in Smash — ✅ DONE 2026-11-27
 
 **Owner:** [grapple](game/grapple.md).
 
@@ -2828,11 +2842,40 @@ her velocity, a lightly damped swing the stick pumps, a reel on the stick
 within authored bounds, and a jump that lets go with the swing's speed plus a
 hop, carried as the world's momentum (`carried_run`).
 
-**Next action:** G2, the grapple item hangs its body on the wire through a
-port (swing on a bite above, zip otherwise) and the rope is drawn while it
-holds; then G3 (grab, whip) and G4 (Smash recovery).
+G2 landed the same day: the grapple item hangs its body on the wire
+(`ambition.motion.hang_on_rope`, `ambition.motion.let_go_of_rope`; the
+wielder's `on_rope`), swings on a bite above, zips otherwise, and the rope is
+drawn from the motion facts (`the_grapple_swings`).
+
+G3 landed the same day: the aim cast sees bodies and loose items before the
+wall; a body is whipped toward the wielder, a loose item reeled to the hand.
+
+G4 landed the same day: a held rope winches itself in, and the Smash tether
+hangs her on one when it bites a ledge above her, swings her up and hands the
+last 48 px to the straight reel; the ledge-ahead search looks above her; the
+recovery planner knows `RecoveryRoute::Tether`; projectile_polygon's up-B
+winches.
+
+**Next action:** none; G1–G4 are done.
 
 **Acceptance:** [grapple](game/grapple.md#stages) G1–G4.
+
+**Blocked by:** none.
+
+### COMBAT-STANCES — Scout's hit kit in three stances — ✅ DONE 2026-11-27
+
+**Owner:** [combat stances](game/combat-stances.md).
+
+**State:** asked by Jon 2026-11-27; S1–S3 landed the same day (the
+mechanism, the three items, Stance II and III authored and witnessed).
+
+S4 landed the same day (the Lunge's smeared thrusts and plunge and the
+Crescent's arcs as v3 rows), and S5 measured all three stances in the
+dense-melee pit and kept the tuning (see the page).
+
+**Next action:** none; S1–S5 are done.
+
+**Acceptance:** [combat stances](game/combat-stances.md#stages) S1–S5.
 
 **Blocked by:** none.
 
@@ -3820,14 +3863,25 @@ the rest of the tick's change of velocity in the exit's chart. M2d landed
 the same day: transit moves no root (a settled item's carry crosses in its
 owner), the old completed-endpoint road is deleted, and the crossing reads
 the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
-P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26;
-the rider across the cut and S2/S3 remain). Host admission landed the same
+P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26,
+the rider beside the cut, S2's clipped deforming cast and S3's
+curve-carried cast 2026-11-27, with a round body in a cut cell, and a line
+on an aperture's own plane the same day; only a line leaving the plane or on
+a turning one reads the rigid fit). Host admission landed the same
 day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
-2026-11-26 (receipt in the owner's P4 section); its shared projectile source
-leg remains. P3 removes
+2026-11-26 and its shared projectile source leg 2026-11-27 (receipts in the
+owner's P4 section), and an unreachable moving portal is witnessed not to
+change a straight query's cells 2026-11-27; exact cell dependencies (a
+reuse cache keyed by what each cell reads) were measured the same day and not
+built: in `portal_lab`, 93 % of portal-cut preparations repeat their inputs,
+but all of them cost at most 2.4 % of step time. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
-chart transport and demand/ready-image capture without replacing working pools.
+chart transport and demand/ready-image capture without replacing working pools
+(V1, a window for each view of a room, V2, a window clipped to a rolled
+view, V3, a moving opening drawn when its bodies are, and the rest of V4
+landed 2026-11-27; V5, the card view's window, was already in place: P5/P6's
+V list is done).
 
 The follow-up [SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale)
 supplies the selected consumer-unit law; [PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)

@@ -135,6 +135,49 @@ pub fn isolate_per_view_projections(
     }
 }
 
+/// A portal window kept to one observer's camera
+/// ([`PortalWindowFor`](ambition_portal2d_presentation::PortalWindowFor), V1)
+/// is that view's projection, so [`isolate_per_view_projections`] draws it in
+/// that camera alone. Its layers at that moment are what it rests on. When the
+/// window is no longer kept to one view, it returns to them, and
+/// [`isolate_live_rooms`] bands it again.
+#[cfg(feature = "portal_render")]
+#[allow(clippy::type_complexity)]
+pub fn present_portal_windows_for_their_views(
+    mut commands: Commands,
+    windows: Query<
+        (
+            Entity,
+            Option<&ambition_portal2d_presentation::PortalWindowFor>,
+            Option<&ambition_sim_view::PresentedForView>,
+            Option<&RenderLayers>,
+            Option<&ProjectionRestingLayers>,
+        ),
+        With<ambition_portal2d_presentation::PortalConeMesh>,
+    >,
+) {
+    for (entity, kept, presented, layers, resting) in &windows {
+        match (kept, presented) {
+            (Some(kept), Some(presented)) if presented.0 == kept.0 => {}
+            (Some(kept), _) => {
+                let mut window = commands.entity(entity);
+                window.insert(ambition_sim_view::PresentedForView(kept.0));
+                if resting.is_none() {
+                    window.insert(ProjectionRestingLayers(layers.cloned().unwrap_or_default()));
+                }
+            }
+            (None, Some(_)) => {
+                let mut window = commands.entity(entity);
+                window.remove::<(ambition_sim_view::PresentedForView, ProjectionRestingLayers)>();
+                if let Some(resting) = resting {
+                    window.insert(resting.0.clone());
+                }
+            }
+            (None, None) => {}
+        }
+    }
+}
+
 /// Keep each drawable that presents a body (`PresentationOf`) in its body's
 /// live room (view half, cut V2g).
 ///
@@ -495,6 +538,44 @@ mod tests {
             outlines,
             scenery,
         }
+    }
+
+    /// A portal window kept to one view (`PortalWindowFor`, V1) is drawn by
+    /// that view's camera alone; when it is no longer kept, it returns to the
+    /// window layer and both cameras draw it. The control is a window kept to
+    /// no view: both cameras draw it throughout.
+    #[cfg(feature = "portal_render")]
+    #[test]
+    fn a_portal_window_kept_to_one_view_is_drawn_by_that_views_camera_alone() {
+        use ambition_portal2d_presentation::{PortalConeMesh, PortalWindowFor};
+        let mut fixture = two_views(true);
+        let window_layers = RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER);
+        for camera in fixture.cameras {
+            let authored = mask(&fixture.world, camera).with(PORTAL_WINDOW_RENDER_LAYER);
+            fixture.world.entity_mut(camera).insert(authored);
+        }
+        let kept = fixture
+            .world
+            .spawn((PortalConeMesh, window_layers.clone(), PortalWindowFor(fixture.presented[0])))
+            .id();
+        let shared = fixture.world.spawn((PortalConeMesh, window_layers.clone())).id();
+        let pass = |world: &mut World| {
+            world.run_system_once(present_portal_windows_for_their_views).expect("the mapping runs");
+            world.run_system_once(isolate_per_view_projections).expect("the isolation pass runs");
+        };
+        pass(&mut fixture.world);
+        let [first, second] = fixture.cameras;
+        let world = &fixture.world;
+        assert!(camera_draws(world, first, kept), "the window's own view draws it");
+        assert!(!camera_draws(world, second, kept), "the other view does not");
+        assert!(camera_draws(world, first, shared) && camera_draws(world, second, shared), "control");
+
+        fixture.world.entity_mut(kept).remove::<PortalWindowFor>();
+        pass(&mut fixture.world);
+        let world = &fixture.world;
+        assert_eq!(mask(world, kept), window_layers, "back on the window layer");
+        assert!(world.get::<PresentedForView>(kept).is_none());
+        assert!(camera_draws(world, first, kept) && camera_draws(world, second, kept));
     }
 
     /// Each camera draws its own view's projections and not the other's.

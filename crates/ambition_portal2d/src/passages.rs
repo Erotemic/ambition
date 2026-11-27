@@ -66,6 +66,10 @@ pub fn publish_portal_apertures(
     }
     let tuning = tuning.as_deref().copied().unwrap_or_default();
     passages.reset_apertures(tuning.convention.map_convention(), tuning.geometry.budget());
+    // The pairs are filed by the room `live.of` gives each portal, which is
+    // the sole live room for an unstamped one; a body read with no room is
+    // placed by the same rule.
+    passages.set_sole_room(live.sole());
     for (body, own) in &own_policies {
         passages.set_body_budget(body, own.0);
     }

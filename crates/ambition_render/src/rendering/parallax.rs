@@ -1037,7 +1037,7 @@ mod tests {
             let mut observers = portal::PortalObserverViews::default();
             observers
                 .of_mut(observer)
-                .capture(eye, eye, eye, visible, 0, None);
+                .capture(eye, eye, eye, visible, 0.0, 0, None);
             app.insert_resource(observers)
                 .insert_resource(portal::PortalViewers::one(portal::PortalViewer {
                     present: true,

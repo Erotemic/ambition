@@ -17,6 +17,7 @@ const ROPE: crate::movement::GrappleRope = crate::movement::GrappleRope {
     min_length: 60.0,
     max_length: 320.0,
     release_hop: 260.0,
+    winch_speed: 0.0,
 };
 
 fn frame() -> crate::MotionFrame {
@@ -150,6 +151,28 @@ fn a_jump_lets_go_with_the_swing_and_a_hop() {
     let leave = crate::movement::let_go_of_the_wire(&mut scratch.model, frame()).expect("on a held wire");
     assert!((leave.x - 300.0).abs() < 1e-2 && leave.y.abs() < 1e-2, "{leave:?}");
     assert!(wire(&scratch).is_none());
+}
+
+/// A winched rope takes itself in with no stick, down to its shortest, and
+/// the body rises with it on the swing.
+#[test]
+fn a_winched_rope_takes_itself_in() {
+    let world = test_world();
+    let mut scratch = BodyClusterScratch::new_with_abilities(ANCHOR + Vec2::new(0.0, 300.0), AbilitySet::sandbox_all());
+    let at = scratch.kinematics.pos;
+    let winched = crate::movement::GrappleRope { winch_speed: 300.0, max_length: 320.0, ..ROPE };
+    assert!(crate::movement::catch_the_grapple(&mut scratch.model, at, Vec2::ZERO, frame(), ANCHOR, winched));
+    for _ in 0..30 {
+        step_scratch(&world, &mut scratch, input(0.0, 0.0));
+    }
+    let w = wire(&scratch).expect("on the rope");
+    assert!((w.length - (300.0 - 300.0 * 0.5)).abs() < 6.0, "half a second of a 300 px/s winch: {w:?}");
+    for _ in 0..60 {
+        step_scratch(&world, &mut scratch, input(0.0, 0.0));
+    }
+    assert!((wire(&scratch).unwrap().length - ROPE.min_length).abs() < 1e-3, "{:?}", wire(&scratch));
+    let reach = (scratch.kinematics.pos - ANCHOR).length();
+    assert!((reach - ROPE.min_length).abs() < 6.0, "the winch shortened the rope but not her: {reach}");
 }
 
 /// The flyline's timed wire is not held: it keeps its clock and lets go on

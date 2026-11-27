@@ -158,7 +158,7 @@ fn two_rooms_with_eyes(eyes: &[(LiveRoomInstance, Option<Vec2>)]) -> App {
     for (room, camera) in eyes {
         let observer = camera.map(|centre| {
             let observer = app.world_mut().spawn_empty().id();
-            samples.of_mut(observer).capture(centre, centre, centre, Vec2::new(800.0, 450.0), 0, None);
+            samples.of_mut(observer).capture(centre, centre, centre, Vec2::new(800.0, 450.0), 0.0, 0, None);
             observer
         });
         viewers.publish(PortalViewer {
@@ -215,10 +215,70 @@ fn captures_allocate_only_for_visible_windows_and_preserve_pixel_density() {
     let mut samples = app.world_mut().resource_mut::<crate::PortalObserverViews>();
     let offscreen = center + Vec2::Y * 900.0;
     samples.of_mut(observer)
-        .capture(offscreen, offscreen, offscreen, Vec2::new(800.0, 450.0), 0, None);
+        .capture(offscreen, offscreen, offscreen, Vec2::new(800.0, 450.0), 0.0, 0, None);
     app.update();
     assert!(app.world_mut().query_filtered::<&Camera, With<PortalViewRig>>()
         .iter(app.world()).all(|camera| !camera.is_active));
+}
+
+/// A window draws only a current capture (V4). With both windows captured,
+/// then the budget lowered to one, the window that lost its capture shows
+/// no view rather than its last picture.
+#[test]
+fn a_window_over_the_capture_budget_shows_no_stale_picture() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let mut app = two_rooms_with_eyes(&[(room, Some(Vec2::new(300.0, 300.0)))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let step = |app: &mut App| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+    };
+    let shown = |app: &mut App| -> Vec<(bool, bool)> {
+        app.world_mut().query::<(&PortalViewRig, &Camera)>().iter(app.world())
+            .map(|(rig, camera)| (rig.drawn, camera.is_active)).collect()
+    };
+    step(&mut app);
+    let both = shown(&mut app);
+    assert!(both.iter().filter(|(drawn, _)| *drawn).count() >= 2, "premise: two windows drawn under the default budget: {both:?}");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 1;
+    step(&mut app);
+    let one = shown(&mut app);
+    assert_eq!(one.iter().filter(|(_, active)| *active).count(), 1, "{one:?}");
+    assert!(one.iter().all(|(drawn, active)| !drawn || *active), "a drawn window has a current capture: {one:?}");
+}
+
+/// The capture budget goes to the nearest window, not the first rig the
+/// query yields (V4). The eye stands nearer the second-spawned portal
+/// (yellow, 32 px past purple); with one capture, yellow's window takes it.
+#[test]
+fn the_capture_budget_goes_to_the_window_nearest_the_eye() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let mut app = two_rooms_with_eyes(&[(room, Some(Vec2::new(300.0, 300.0)))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let mut viewers = app.world_mut().resource_mut::<PortalViewers>();
+    let mut moved = PortalViewers::default();
+    for viewer in viewers.iter() {
+        moved.publish(PortalViewer { eye: Vec2::new(640.0, 300.0), ..viewer.clone() });
+    }
+    *viewers = moved;
+    let step = |app: &mut App| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+    };
+    let shown = |app: &mut App| -> Vec<(String, bool, bool)> {
+        app.world_mut().query::<(&PortalViewRig, &Camera)>().iter(app.world())
+            .filter(|(rig, _)| rig.room() == LiveRoomInstance::ACTIVATION)
+            .map(|(rig, camera)| (rig.channel.name().to_string(), rig.drawn, camera.is_active)).collect()
+    };
+    step(&mut app);
+    let both = shown(&mut app);
+    assert!(both.iter().filter(|(_, drawn, _)| *drawn).count() >= 2, "premise: both windows drawn: {both:?}");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 1;
+    step(&mut app);
+    let one = shown(&mut app);
+    let active: Vec<_> = one.iter().filter(|(_, _, active)| *active).map(|(name, ..)| name.clone()).collect();
+    assert_eq!(active.len(), 1, "{one:?}");
+    assert!(active[0].to_lowercase().contains("yellow"), "the nearer window is captured: {one:?}");
 }
 
 /// The windows of a room are made for the camera of the view that frames it.
@@ -353,17 +413,30 @@ fn a_capture_draws_its_own_window_only_when_its_pair_looks_at_itself() {
     assert!(!pair_looks_at_itself(&beside, &other));
 }
 
-/// A live room has one eye: the first the host publishes. A second eye in
-/// that room is refused, and an eye in another room is not.
+/// A live room has an eye for each observer (V1); its first is the one a
+/// room's single reader takes. A second eye of one observer is refused, and
+/// so is a second eye where either names no observer. An eye in another room
+/// is not.
 #[test]
-fn a_live_room_has_the_eye_of_the_first_observer_the_host_publishes() {
+fn a_live_room_has_the_eye_of_each_observer_the_host_publishes() {
     let room = LiveRoomInstance::ACTIVATION;
     let other = LiveRoomInstance::from_ordinal(1);
-    let eye_at = |x: f32, room| PortalViewer { present: true, eye: Vec2::new(x, 0.0), room: Some(room), ..default() };
+    let mut world = World::new();
+    let (first, second) = (world.spawn_empty().id(), world.spawn_empty().id());
+    let eye_at = |x: f32, room, observer| PortalViewer {
+        present: true,
+        observer,
+        eye: Vec2::new(x, 0.0),
+        room: Some(room),
+        ..default()
+    };
     let mut viewers = PortalViewers::default();
-    assert!(viewers.publish(eye_at(1.0, room)));
-    assert!(!viewers.publish(eye_at(2.0, room)), "a second eye in one room");
-    assert!(viewers.publish(eye_at(3.0, other)));
+    assert!(viewers.publish(eye_at(1.0, room, Some(first))));
+    assert!(!viewers.publish(eye_at(2.0, room, Some(first))), "a second eye of one observer");
+    assert!(!viewers.publish(eye_at(2.0, room, None)), "a second eye that names no observer");
+    assert!(viewers.publish(eye_at(2.0, room, Some(second))), "the eye of a second observer");
+    assert!(viewers.publish(eye_at(3.0, other, Some(first))));
+    assert_eq!(viewers.iter().filter(|viewer| viewer.room == Some(room)).count(), 2);
     assert_eq!(
         (viewers.in_room(Some(room)).map(|v| v.eye.x), viewers.in_room(Some(other)).map(|v| v.eye.x)),
         (Some(1.0), Some(3.0))
@@ -429,4 +502,187 @@ fn a_window_that_closed_when_the_viewer_crossed_is_the_far_pane() {
         (false, true),
         "at the right face the left window is closed, and it is the far pane"
     );
+}
+
+/// A window is clipped to what a rolled camera shows (V2): the camera's
+/// rect turned with it, not the unrolled rect around the same centre, and
+/// its capture is turned with it. The eye stands 30 px before the purple
+/// mouth; its window spans x 500..590 and y 236..364.
+///
+/// The camera (800 x 450) is centred at (516, 550). The control is the
+/// unrolled camera: it shows y 325..775, and the window is cut at y 325.
+/// Rolled a quarter turn, it shows x 291..741 and y 150..950: the whole
+/// window, which the unrolled clip had cut at the same line.
+#[test]
+fn a_window_under_a_rolled_camera_is_clipped_to_the_rolled_view() {
+    let centre = Vec2::new(516.0, 550.0);
+    let window = |roll: f32| -> (Vec<Vec2>, geometry::CaptureCameraFrame) {
+        let room = LiveRoomInstance::ACTIVATION;
+        let mut app = two_rooms_with_eyes(&[(room, Some(centre))]);
+        app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+        let mut viewers = app.world_mut().resource_mut::<PortalViewers>();
+        let mut moved = PortalViewers::default();
+        for viewer in viewers.iter() {
+            moved.publish(PortalViewer { eye: Vec2::new(470.0, 300.0), ..viewer.clone() });
+        }
+        *viewers = moved;
+        let observer = app.world().resource::<PortalViewers>().iter().next()
+            .and_then(|viewer| viewer.observer).unwrap();
+        app.world_mut().resource_mut::<crate::PortalObserverViews>().of_mut(observer)
+            .capture(centre, centre, centre, Vec2::new(800.0, 450.0), roll, 0, None);
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+        let (mesh, cone, captured) = app.world_mut().query::<&PortalViewRig>().iter(app.world())
+            .find(|rig| rig.room() == room && rig.channel.name().to_lowercase().contains("purple"))
+            .map(|rig| {
+                assert!(rig.drawn, "premise: the purple window is drawn");
+                (rig.mesh.clone(), rig.cone, rig.captured.expect("premise: captured"))
+            })
+            .unwrap();
+        let at = app.world().get::<Transform>(cone).unwrap().translation;
+        let frame = PortalWorldFrame { size: WORLD };
+        let origin = frame.to_render(Vec2::ZERO, 0.0).truncate();
+        let ex = frame.to_render(Vec2::X, 0.0).truncate() - origin;
+        let ey = frame.to_render(Vec2::Y, 0.0).truncate() - origin;
+        let to_world = Mat2::from_cols(ex, ey).inverse();
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(positions)) = app.world()
+            .resource::<Assets<Mesh>>().get(&mesh).unwrap().attribute(Mesh::ATTRIBUTE_POSITION).cloned()
+        else {
+            panic!("window mesh positions")
+        };
+        let world = positions.iter()
+            .map(|p| to_world * (Vec2::new(p[0], p[1]) + at.truncate() - origin))
+            .collect();
+        (world, captured)
+    };
+    let (upright, upright_capture) = window(0.0);
+    let min_y = |points: &[Vec2]| points.iter().map(|p| p.y).fold(f32::MAX, f32::min);
+    assert!((min_y(&upright) - 325.0).abs() < 1e-2, "control: cut at the unrolled view's top: {upright:?}");
+    assert!(upright_capture.axis.abs_diff_eq(Vec2::X, 1e-4), "control: {upright_capture:?}");
+
+    let (rolled, rolled_capture) = window(std::f32::consts::FRAC_PI_2);
+    for p in &rolled {
+        let d = *p - centre;
+        assert!(d.x.abs() <= 225.0 + 1e-2 && d.y.abs() <= 400.0 + 1e-2, "{p} outside the rolled view: {rolled:?}");
+    }
+    assert!(min_y(&rolled) < 300.0, "the window above y 325 is drawn: {rolled:?}");
+    assert!(rolled_capture.axis.x.abs() < 1e-4, "the capture turns with the view: {rolled_capture:?}");
+}
+
+/// Two views of one room each see a portal's window from their own eye (V1).
+///
+/// Two observers frame the room, one eye at (300, 300) and one at (470,
+/// 300). Each has its own rig for each portal, and each window is kept to its
+/// observer's camera (`PortalWindowFor`). The two purple windows are not the
+/// same shape: each is made from its own eye. The control is the room with
+/// one observer: two rigs, and no window kept to a view. When the second
+/// observer leaves, its rigs go and the first's windows are no longer kept.
+#[test]
+fn two_views_of_one_room_each_see_the_window_from_their_own_eye() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let centre = Vec2::new(516.0, 300.0);
+    let rows = |app: &mut App| -> Vec<(Option<Entity>, String, Option<PortalWindowFor>, Vec<[f32; 3]>)> {
+        let rigs: Vec<_> = app.world_mut().query::<&PortalViewRig>().iter(app.world())
+            .filter(|rig| rig.room() == room)
+            .map(|rig| (rig.observer(), rig.channel.name().to_lowercase(), rig.cone, rig.mesh.clone()))
+            .collect();
+        let mut rows: Vec<_> = rigs.into_iter().map(|(observer, channel, cone, mesh)| {
+            let kept = app.world().get::<PortalWindowFor>(cone).copied();
+            let positions = match app.world().resource::<Assets<Mesh>>().get(&mesh)
+                .and_then(|mesh| mesh.attribute(Mesh::ATTRIBUTE_POSITION).cloned())
+            {
+                Some(bevy::mesh::VertexAttributeValues::Float32x3(positions)) => positions,
+                _ => Vec::new(),
+            };
+            (observer, channel, kept, positions)
+        }).collect();
+        rows.sort_by(|a, b| (a.0, &a.1).cmp(&(b.0, &b.1)));
+        rows
+    };
+    let step = |app: &mut App| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+    };
+
+    let mut alone = two_rooms_with_eyes(&[(room, Some(centre))]);
+    alone.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    step(&mut alone);
+    let control = rows(&mut alone);
+    assert_eq!(control.len(), 2, "control: one rig for each portal: {control:?}");
+    assert!(control.iter().all(|row| row.2.is_none()), "control: no window kept to a view");
+
+    let mut app = two_rooms_with_eyes(&[(room, Some(centre)), (room, Some(centre))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let mut viewers = app.world_mut().resource_mut::<PortalViewers>();
+    let mut moved = PortalViewers::default();
+    for (index, viewer) in viewers.iter().enumerate() {
+        let eye = if index == 0 { Vec2::new(300.0, 300.0) } else { Vec2::new(470.0, 300.0) };
+        assert!(moved.publish(PortalViewer { eye, ..viewer.clone() }), "premise: both eyes are taken");
+    }
+    *viewers = moved;
+    let observers: Vec<Entity> = app.world().resource::<PortalViewers>().iter()
+        .filter(|viewer| viewer.room == Some(room))
+        .filter_map(|viewer| viewer.observer).collect();
+    assert_eq!(observers.len(), 2, "premise: two observers frame the room");
+    step(&mut app);
+    step(&mut app);
+    let both = rows(&mut app);
+    assert_eq!(both.len(), 4, "a rig for each portal and each observer: {both:?}");
+    for (observer, channel, kept, _) in &both {
+        assert!(observer.is_some(), "{channel}: a rig names its observer");
+        assert_eq!(kept.map(|kept| kept.0), *observer, "{channel}: the window is kept to its observer");
+    }
+    let purple: Vec<_> = both.iter().filter(|row| row.1.contains("purple")).collect();
+    assert_eq!(purple.len(), 2);
+    assert!(!purple[0].3.is_empty() && !purple[1].3.is_empty(), "premise: both purple windows have a mesh");
+    assert_ne!(purple[0].3, purple[1].3, "each purple window is made from its own eye");
+
+    // The second observer leaves: its rigs go, and the first's windows are
+    // drawn for every camera again.
+    let mut viewers = app.world_mut().resource_mut::<PortalViewers>();
+    let first: Vec<PortalViewer> = viewers.iter().take(1).cloned().collect();
+    viewers.clear();
+    viewers.publish(first[0].clone());
+    step(&mut app);
+    step(&mut app);
+    let left = rows(&mut app);
+    assert_eq!(left.len(), 2, "{left:?}");
+    assert!(left.iter().all(|row| row.0 == first[0].observer && row.2.is_none()), "{left:?}");
+}
+
+/// Only a captured window holds a capture target (V4). Two windows are
+/// captured; with the budget lowered to one, the window that lost it keeps
+/// its target for a moment (control: one step later there are still two
+/// images), then lets it go, so one image is left. With the budget raised
+/// again, it takes a new target and is captured.
+#[test]
+fn a_window_without_a_capture_lets_its_target_go() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let mut app = two_rooms_with_eyes(&[(room, Some(Vec2::new(300.0, 300.0)))]);
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    let step = |app: &mut App| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+        app.update();
+    };
+    let state = |app: &mut App| -> (usize, usize, usize) {
+        let images = app.world().resource::<Assets<Image>>().len();
+        let rigs: Vec<(bool, bool)> = app.world_mut().query::<(&PortalViewRig, &Camera, &RenderTarget)>()
+            .iter(app.world())
+            .filter(|(rig, ..)| rig.room() == room)
+            .map(|(_, camera, target)| (camera.is_active, matches!(target, RenderTarget::Image(_))))
+            .collect();
+        (images, rigs.iter().filter(|(active, _)| *active).count(), rigs.iter().filter(|(_, held)| *held).count())
+    };
+    step(&mut app);
+    assert_eq!(state(&mut app), (2, 2, 2), "premise: both windows captured");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 1;
+    step(&mut app);
+    assert_eq!(state(&mut app), (2, 1, 2), "control: the window that lost the budget keeps its target for a moment");
+    for _ in 0..5 {
+        step(&mut app);
+    }
+    assert_eq!(state(&mut app), (1, 1, 1), "only the captured window holds a target");
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 2;
+    step(&mut app);
+    assert_eq!(state(&mut app), (2, 2, 2), "the window takes a new target when it is captured again");
 }

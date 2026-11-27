@@ -13,6 +13,7 @@ fn row() -> EquipmentRow {
         exclusive_slot: None,
         withholds: Vec::new(),
         lends: Vec::new(),
+        rebinds: Default::default(),
     }
 }
 

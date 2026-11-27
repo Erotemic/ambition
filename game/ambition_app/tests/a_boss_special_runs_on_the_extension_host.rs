@@ -229,6 +229,15 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
             line.split('\t').nth(1).expect("a module line names its module").to_owned()
         })
         .collect();
+    // The modules the file provides: those the linked session runs from the
+    // module crate's own native build. A module another crate links in under
+    // the same provider (the `ambition::camera` view policy, which
+    // `ambition_world_port` ships) is not in the file.
+    let in_the_file: std::collections::BTreeSet<String> = linked_modules
+        .lines()
+        .filter(|line| line.contains("\tnative ambition_content_modules "))
+        .map(|line| line.split('\t').nth(1).expect("a module line names its module").to_owned())
+        .collect();
     drop(linked);
 
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -267,9 +276,8 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
     // Every module the file provides replaced its linked build: all its
     // entries loaded, none linked. A module can have more than one entry (the
     // sentry deploys and ticks its turret), so the replacements are counted
-    // by module. The file is the `ambition` provider's crate. A module of
-    // another provider (Mary-O's, linked into the same game) is not in it and
-    // stays linked.
+    // by module. A module the file does not provide (Mary-O's, or one another
+    // crate links in) stays linked.
     let is_loaded = |runner: &ambition_platformer2d::extension::EntryRunner| {
         matches!(runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. })
     };
@@ -277,15 +285,16 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
         .entries
         .iter()
         .filter(|e| !shipped.contains(&e.module.to_string()))
-        .partition(|e| e.module.to_string().starts_with("ambition::"));
+        .partition(|e| in_the_file.contains(&e.module.to_string()));
     assert_eq!(
         provided.iter().filter(|e| is_loaded(&e.runner)).count(),
         provided.len(),
-        "no linked entry of the file's modules runs beside the loaded ones"
+        "no linked entry of the file's modules runs beside the loaded ones: {:?}",
+        provided.iter().filter(|e| !is_loaded(&e.runner)).map(|e| &e.path).collect::<Vec<_>>()
     );
     assert!(
         !others.is_empty() && !others.iter().any(|e| is_loaded(&e.runner)),
-        "the modules of another provider stay linked: {:?}",
+        "the modules the file does not provide stay linked: {:?}",
         others.iter().map(|e| e.path.as_str()).collect::<Vec<_>>()
     );
     let modules: std::collections::BTreeSet<_> = provided.iter().map(|e| e.module.to_string()).collect();

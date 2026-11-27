@@ -274,7 +274,9 @@ fn guards_of<'a>(characters: Option<&'a PreparedCharacterRegistry>, worn: Option
 #[allow(clippy::type_complexity)]
 pub fn publish_guard_volumes(
     mut commands: Commands,
-    characters: Option<Res<PreparedCharacterRegistry>>,
+    // The running session's frozen cast: a reload publishes the App's cast
+    // before the session that plays it is activated (`SessionCast`).
+    characters: ambition_characters::prepared::SessionCast,
     landmarks: BodyLandmarks,
     candidates: Query<
         Entity,
@@ -303,7 +305,7 @@ pub fn publish_guard_volumes(
 ) {
     selected.clear();
     // A new cast can give a guard to an existing form.
-    if characters.as_ref().is_some_and(|characters| characters.is_changed()) {
+    if characters.is_changed() {
         selected.extend(bodies.iter().map(|(body, ..)| body));
         removed_states.clear();
     } else {
@@ -315,7 +317,7 @@ pub fn publish_guard_volumes(
     }
     let mut bodies = bodies.iter_many_mut(selected.iter().copied());
     while let Some((body, worn, kin, feet, health, state, volumes)) = bodies.fetch_next() {
-        let guards = guards_of(characters.as_deref(), Some(worn));
+        let guards = guards_of(characters.get(), Some(worn));
         if guards.is_empty() {
             if let Some(mut volumes) = volumes.filter(|volumes| !volumes.pieces.is_empty()) {
                 volumes.pieces.clear();
@@ -387,7 +389,9 @@ pub fn tick_guard_states(
 pub fn resolve_deflects(
     mut commands: Commands,
     mut deflects: ReplayMessageReader<DeflectedBodyHit>,
-    characters: Option<Res<PreparedCharacterRegistry>>,
+    // The running session's frozen cast: a reload publishes the App's cast
+    // before the session that plays it is activated (`SessionCast`).
+    characters: ambition_characters::prepared::SessionCast,
     worn: Query<&CharacterForm>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     mut bodies: Query<(
@@ -413,7 +417,7 @@ pub fn resolve_deflects(
             * freeze.scale_of(body)
     };
     for deflect in deflects.read() {
-        let Some(spec) = guards_of(characters.as_deref(), worn.get(deflect.defender).ok()).get(usize::from(deflect.guard))
+        let Some(spec) = guards_of(characters.get(), worn.get(deflect.defender).ok()).get(usize::from(deflect.guard))
         else {
             continue;
         };

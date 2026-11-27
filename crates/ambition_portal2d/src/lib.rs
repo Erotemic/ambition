@@ -99,7 +99,7 @@ mod body_contract_tests;
 #[cfg(any(test, feature = "test-owner"))]
 pub mod test_owner;
 mod snag;
-pub use snag::{fits_through, snag_push, snag_straddlers};
+pub use snag::{fits_through, snag_push, snag_straddlers, Outline};
 pub use rollback_registration::{
     register_portal_generator_rollback_state, register_portal_rollback_state, register_rollback_state,
 };

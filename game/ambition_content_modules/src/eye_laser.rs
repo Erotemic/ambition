@@ -214,6 +214,7 @@ mod tests {
                 names_spawns: true,
                 cooldown_ready: true,
                 swept: true,
+                on_rope: false,
             },
         }
     }

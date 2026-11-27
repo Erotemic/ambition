@@ -141,9 +141,13 @@ queries that prefix over `[t0, tau]` and the arrival record only over
 `[tau, 1]`. Probe (deleted): a shot where the body was before it crossed now
 hits (t 0.15, was a miss); a shot at the exit before the crossing no longer
 hits (was a hit at t 0); a later one at the exit hits from t 0.5. The
-strike-victim road (projectiles) passes the record; the boss feature road,
-held items and the pose-held/kernel-collapsed `reconcile_transit` seed are
-unchanged, and the next-step seed still restarts at the arrival.
+strike-victim road (projectiles) passes the record, and since 2026-11-27 so
+does the boss feature road (`BossTargets`, same system, same tick). Held
+items do not, and must not: item physics runs in `CoreHeldItems`, before
+`PortalSet::Transit`, so a body's path there is still its whole tick in the
+entry chart and its `CrossedTravel` is the last tick's. The
+pose-held/kernel-collapsed `reconcile_transit` seed is unchanged, and the
+next-step seed still restarts at the arrival.
 
 **Landed (2026-11-25): generic transit takes every root crossing the
 budget admits.** After a transfer, the rest of the tick is a straight leg in
@@ -318,7 +322,10 @@ agree at pace 1: the far-side projectile bounce still gives −26.5, and the
 guard's portal rebound tests pass unchanged.
 
 Still open in M3:
-- SUP1's changing-support input through a portal. Without portals the
+- SUP1's changing-support input through a portal. (Status 2026-11-27:
+  landed for a cut cell, a cell beyond one, a curve-carried cell and a round
+  body in a cut cell; see S1–S3 below. Only a line on an aperture's own
+  plane still reads the rigid fit.) Without portals the
   kernel's contact already reads SUP1's per-point travel (`displacement_at`
   on a deforming line, landed with SUP1). A cell cut by a portal still reads
   the published rigid fit, because the deforming cast does not admit portal
@@ -347,12 +354,27 @@ Still open in M3:
   a pair admitted beside the body gives the cast a scene. The stretching
   line meets the body at t 0.5, where its end arrives, with that end's
   travel (+10). Before, it read the rigid fit, a contact at once. Its
-  control, a mouth on the line's own plane, still reads the rigid fit.
+  second case, a mouth on the line's own plane, read the rigid fit until
+  the on-plane split below landed; it is now met at t 0.5 too.
   Core lib (942), runtime with `portal` (306) and the app's portal tests
   (53) pass.
-  Still open: a cell cut by a portal or beyond one, and a line on an
-  aperture's plane (the portal's own host). Those need the deforming
-  `line_parts` split and the clipped cast described above.
+  A cell cut by a portal or beyond one landed as S2's clipped cast, and a
+  curve-carried cell and a round body in a cut cell as S3 (2026-11-27).
+  **Landed (2026-11-27): a line on an aperture's own plane.** A
+  deforming line that lies on an aperture's plane, each of its ends
+  crossing that plane's normal exactly as the (translating) plane moves
+  (`Scene::plane_carrying_line`), is split by the rigid path's
+  `line_parts` from its end pose; the split holds through the tick, and
+  each piece is read by its ends' own travel (`deforming_in`: the clipped
+  cast, or the curved search for a curve-carried piece or a round body).
+  A line that leaves the plane, or lies on a turning one, still reads the
+  rigid fit. Witness
+  `a_deforming_line_on_a_portals_plane_is_read_by_its_shape_motion`: a
+  wall flush with a static entry, above the opening, its lower end sliding
+  down onto a body that straddles the opening's end, is met at t 2/3, as
+  the same wall with no portal. The rigid fit met it at t 1/3, and so did
+  the old dispatch (control run with the old `material_cast.rs`: 0.333).
+  Core lib (976) and portal2d lib (145) pass.
 
 ## Required motion operation
 
@@ -857,14 +879,62 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   count differed) and, when the counts matched, paired its segments with the
   wrong history. Each piece now carries its own history, the cut points at
   the same place along the same segment as the tick began
-  (`a_cut_changing_line_keeps_each_pieces_material_history`). The rider test
-  across the cut is still open.
+  (`a_cut_changing_line_keeps_each_pieces_material_history`). *Rider landed
+  2026-11-27:* a body standing on either piece beside the hole is carried by
+  its material place exactly as on the whole line
+  (`a_rider_beside_the_cut_keeps_its_material_place_on_both_sides`). S1 is
+  done.
 - **S2 — carry and swept bounds in the cut cell** use the shape motion
   (`shape_before`) on each side. Test: a rider on the stretching line
   crosses the portal and keeps its material point; the deforming-segment
   cast finds the same contact time on either side.
+  *Cast landed 2026-11-27:* a cell a portal cuts, and a cell beyond one,
+  reads a deforming segment by its shape motion, clipped to the piece the
+  cell's (moving) planes keep (`clipped_deforming_segment_cast`): an end or
+  a body corner where the cell keeps it, a cut point reaching a face, and
+  the piece appearing over the body (an end crossing a plane, or the segment
+  passing the corner where two planes meet). With equal end motion it
+  answers the cut translation cast
+  (`a_clipped_deforming_cast_with_equal_end_motion_is_the_cut_translation_cast`,
+  600 random cut cells, also run at 6000); a cut root cell meets a stretching
+  end half way through the tick where the rigid fit arrived at its end
+  (`a_cut_root_cell_reads_a_stretching_line_by_its_shape_motion`). A line
+  on a portal's plane landed 2026-11-27 (S1's receipt above); a
+  curve-carried cell and a round body in a cut cell landed under S3.
 - **S3 — a curve-carried cell** (a curved support on a moving host)
   through a portal. Test: the GNU hump's material place survives a crossing.
+  *Cast landed 2026-11-27.* A cell carried on a curve (beyond a turning
+  pair) read a deforming segment by its rigid fit. The curved interval
+  search now takes its obstacle's motion as a parameter (`curved::Motion`):
+  the rigid pose as before, or a segment whose two ends each travel
+  straight (`Deforming`, bounded by its faster end against the cell's
+  material variation), so `against_deforming_where` follows the ends there
+  too. Witnesses: `a_curve_carried_deforming_cast_with_equal_end_motion_is_the_rigid_curved_cast`
+  (200 random segments beyond a pair turning 0.6 rad: every contact time
+  agrees within 1e-6, and the two motions refuse exactly the same grazing
+  cases) and `a_curve_carried_cell_reads_a_stretching_line_by_its_shape_motion`
+  (one end sweeping up through the far part is met when the search says,
+  where the rigid fit read another time). The first version built the
+  segment's bounding planes in `f32`; near x 100 that widened the bound by
+  ~1e-6, so a near-grazing interval could never be excluded and refused
+  with `Precision`. The planes are built in `f64` (`segment_planes`).
+  Core lib (973), runtime with `portal` (311) and the app's portal tests
+  (52) pass. Not run: the GNU hump
+  itself crossing a portal in the game; this is the cast the world's chain
+  contact calls (`World` → `against_deforming_where`).
+  *Round body in a cut cell, same day.* A circle in a cut affine cell goes
+  through the same search (`a_round_body_reads_a_deforming_line_in_and_out_of_a_cut`:
+  300 random segments, uncut ones against the exact deforming cast,
+  cut ones with equal end motion against the cut translation cast). Its
+  first run found the translation cast itself wrong for circles. A circle
+  met on a segment's interior was rejected, because the contact lies on
+  the segment's other side by construction and the one-instant window
+  test refused it by a rounding step. The cast then reported the cut point
+  or an end, about 1e-3 of a tick later (t 0.05096 against the true
+  0.05005). Every rigid round body meeting a line in a cut cell took that
+  road. A face contact on a segment's side now skips its twin plane. A line
+  on an aperture's plane landed the same day (S1's receipt above); only a
+  line that leaves the plane, or lies on a turning one, reads the rigid fit.
 
 **P5/P6 — observer and capture** ([view/capture
 contract](portals-one-transit-for-every-mover.md)). Keep the current
@@ -873,16 +943,92 @@ separately.
 - **V1 — observer identity.** Each view (a seat, a multiview split, the
   card view) names its observer, and a window's capture is keyed by it.
   Test: two same-room views each see the portal window from their own eye.
+  *Done 2026-11-27.* A room has an eye for each observer that frames it
+  (`PortalViewers::publish`; before, the room's first view was its only eye
+  and a second view of the room saw the first view's windows). A rig is
+  keyed by room, observer and channel, and while its room has the eyes of
+  several observers its window carries `PortalWindowFor(observer)`, which the
+  renderer maps to that view's projection (`present_portal_windows_for_their_views`
+  → `PresentedForView`), so only that view's camera draws it; when the room
+  has one eye again the window returns to the layers it rested on. Witnesses:
+  `two_views_of_one_room_each_see_the_window_from_their_own_eye` (four rigs,
+  each window kept to its observer, the two purple windows made from their
+  own eyes; control one observer; the second leaves and its rigs go),
+  `a_portal_window_kept_to_one_view_is_drawn_by_that_views_camera_alone`
+  (render), and the host's eye test (two views of one room: two eyes, in id
+  order). Limits: a window kept to one view is not in another window's
+  capture (recursion between windows of a shared room is off); the card view
+  draws no window yet (V5). Not photographed: `capture_scene` makes one view,
+  and no tool makes two views of one room; a single-view shot of the lab is
+  unchanged.
 - **V2 — rolled viewport clipping.** Test: under a rolled camera the
   window clips to the rolled viewport (a pixel test and a capture).
+  *Done 2026-11-27.* The camera's sample (`PortalCameraContinuityHostView`)
+  now records the view's roll (`roll_radians`, `view_axis`), and a window is
+  clipped to the view's rect turned with it (`CaptureCameraFrame::clip`),
+  not the unrolled rect around the same centre; its capture frame maps the
+  turned rect, so the capture turns with the view. Unrolled, the clip is the
+  bounds as before. `capture_scene --camera-roll` pins the roll into the
+  sample beside the centre and size. Witness:
+  `a_window_under_a_rolled_camera_is_clipped_to_the_rolled_view` (an 800 x
+  450 camera at (516, 550): unrolled it cuts the window at y 325; a quarter
+  turn shows the whole window, every vertex inside the turned rect, and the
+  capture's axis turned). Captures of `portal_lab` at the red mouth rolled
+  0°, 30° and 90° draw the window to the corners of its side of the screen.
 - **V3 — ordered crossing samples.** A body straddling a moving aperture
   is drawn in both charts at the sample its step used. Test: the two
   halves meet at the aperture on the frame of a fast crossing.
+  *Done 2026-11-27.* Bodies are drawn off the tick's end (`PresentedPose`:
+  a phase ahead by default, a phase into the last tick when the game
+  interpolates), but every portal visual drew a moving opening at the
+  tick's end, so a body riding a moving opening was cut, and its far half
+  placed, by a plane up to a tick away from where it was drawn. The host
+  now says when bodies are drawn (`PortalPresentedTime`, from
+  `PresentationPhase`: `1 + phase`, or `phase` when interpolating), and the
+  rim, glow, label, window and carry draw each opening at that time by its
+  host's step (`presented_portal`: inside the tick it is the step's own
+  sample; past the end it goes on at the same travel). The carry names the
+  carried link by the links the body stepped through and cuts by the same
+  link drawn at that time. A portal its host did not move is unchanged.
+  Witnesses: `a_moving_portal_is_drawn_at_its_steps_sample_of_the_presented_time`
+  and `a_body_straddling_a_moving_opening_is_cut_where_the_opening_is_drawn`
+  (a pair carried 8 px a tick along the entry's normal, the body drawn half
+  a tick ahead: the cut picture is the tick-end picture moved 4 px; control,
+  the opening left at the tick's end, cuts elsewhere). A film of the lab's
+  moving openings (c132/c133) draws each glow on its host.
 - **V4 — demand and ready images.** A window draws only an admitted ready
   image, from the existing pools. Test: a new portal's first frame draws
   no stale image.
+  *No stale picture landed 2026-11-27:* a window over the capture budget
+  shows no view (its rims still draw) instead of its last capture; a new
+  rig already waited for its first capture
+  (`a_window_over_the_capture_budget_shows_no_stale_picture`: two windows
+  drawn, the budget lowered to one, and every drawn window has a current
+  capture). A Low-tier capture of `portal_lab` shows rims and no stale or
+  blank opaque pane. Admission order landed the same day: rigs
+  are offered the budget at the seam first, then nearest to their eye, then
+  by channel slot, not in query order
+  (`the_capture_budget_goes_to_the_window_nearest_the_eye`). Targets on demand landed
+  the same day: a rig over the budget never allocated one, but a rig that
+  had captured kept its image for as long as it lived. A rig without a
+  capture for 0.5 s now removes its image and the material forgets it, so
+  a budget passing between two windows takes no new allocation and a window
+  that stays shut holds none (`a_window_without_a_capture_lets_its_target_go`,
+  with the held-for-a-moment control; a Low-tier lab capture still draws its
+  window). The rig itself (an inactive camera, no target) stays for each
+  visible paired endpoint, so its blend and shape go on. V4 is done.
 - **V5 — the card view's far-side window**, the remaining card-view item
   ([presentation order](presentation-order-and-25d-rendering.md)).
+  *Done (found 2026-11-27, landed with the card view's launch,
+  57735294e).* `realize_portal_windows` puts each window's capture mesh and
+  texture on the play plane at `PORTAL_DEPTH`, kept in step with the 2D
+  window (and hidden while it has no texture, so a V4-released target shows
+  no stale picture); its test is in `card_view/portal_windows.rs`. A
+  `--card-view` capture of `portal_lab` at the red mouth shows the far side
+  beside the pink line in both views. Seen there, not diagnosed: the robot
+  is missing from the card view's inset, both at the mouth and 60 px from
+  it (so not because the carry draws it in pieces), while the 2D view draws
+  it.
 
 ### M3 — Resolve contacts through the complete velocity witness
 
@@ -1024,6 +1170,10 @@ quarter of the tick, with an undeclared control row parked at x 510.
 Still open in M4:
 - ~~cost measurement on single-leg and chained traffic~~ (measured
   2026-11-25, below).
+- ~~retained target legs for every projectile road~~ (2026-11-27): the
+  boss feature road now passes its target's `CrossedTravel` as the body
+  road does. Held-item contact runs before transit, where no leg of this
+  tick exists yet (see the M1 receipt).
 
 **Cost of one transit step (2026-11-25).** `transit_step_with_tuning` on the
 two-pair fixture of `a_body_crosses_two_pairs_in_one_tick` (four wall

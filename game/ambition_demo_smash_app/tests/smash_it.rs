@@ -27,3 +27,4 @@ mod the_host_omits_only_what_the_game_does_not_use;
 mod the_brain_admits_by_the_geometry_that_hits;
 mod an_idle_select_screen_writes_nothing;
 mod a_training_reset_puts_the_fighters_back;
+mod local_hitlag_holds_only_the_struck_bodies;

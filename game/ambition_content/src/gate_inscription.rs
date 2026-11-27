@@ -8,7 +8,8 @@
 //! that use's place. The lit ring spells the whole address, its order too
 //! ([`ring_lit_marks`]).
 
-use ambition_platformer2d::world::rooms::{Chevron, DialRefusal, GateAddressRule};
+use ambition_content_schemas::gate_network::Chevron;
+use ambition_platformer2d::world::rooms::{DialRefusal, GateAddressRule};
 
 /// The bits of a place in an address.
 pub const GRID_BITS: usize = 4;
@@ -43,14 +44,24 @@ pub fn address_rule() -> GateAddressRule {
     GateAddressRule(address_fits)
 }
 
-/// What a terminal shows for a refused dial: the engine's words, except
-/// where Ambition's spelling is the reason.
+/// What a terminal shows for a refused dial. Each kind has its own words,
+/// so a player can tell a wrong address from a ring that is down.
 pub fn refusal_words(refusal: &DialRefusal) -> String {
     match refusal {
+        DialRefusal::Empty => "Enter an address first.".to_string(),
+        DialRefusal::NoSuchSymbol(chevron) => format!("The ring has no chevron {chevron}."),
         DialRefusal::Malformed => format!(
             "An address is at most {MAX_ADDRESS_LEN} chevrons, each used at most {MAX_CHEVRON_USES} times."
         ),
-        other => other.message(),
+        DialRefusal::Unknown => "No ring answers that address.".to_string(),
+        DialRefusal::SameFacility => "That ring is in this facility. Walk there.".to_string(),
+        DialRefusal::Offline(reason) => format!("OFFLINE: {reason}"),
+        DialRefusal::Busy(reason) => format!("BUSY: {reason}"),
+        DialRefusal::WrongKind => "A gate dials gates, and a portal reaches portals.".to_string(),
+        DialRefusal::OtherWorld => "A portal can not reach another world. That takes a gate.".to_string(),
+        DialRefusal::OutOfReach { distance, reach } => {
+            format!("Too far: that arch is {distance} away, and this one reaches {reach}.")
+        }
     }
 }
 
@@ -103,7 +114,7 @@ mod tests {
     use super::*;
 
     fn spelled(word: &str) -> Vec<Chevron> {
-        crate::gate_network::lowered_gate_network(crate::pack::shipped()).spell(word).expect("the word spells")
+        crate::gate_network::lowered_gate_words(crate::pack::shipped()).spell(word).expect("the word spells")
     }
 
     /// A chevron's grid: row k is its k-th use, the columns its place in
@@ -138,8 +149,8 @@ mod tests {
     fn every_shipped_address_keeps_the_inscription() {
         let catalog = crate::gate_network::lowered_gate_network(crate::pack::shipped());
         for ring in &catalog.rings {
-            let address = catalog.address_of(ring).expect("every ring has an address");
-            assert!(address_fits(&address), "`{}`'s address {address:?} does not fit the inscription", ring.zone);
+            let address = &ring.address;
+            assert!(address_fits(address), "`{}`'s address {address:?} does not fit the inscription", ring.zone);
         }
     }
 
@@ -171,6 +182,7 @@ mod tests {
     #[test]
     fn a_malformed_address_is_worded_by_the_game() {
         assert!(refusal_words(&DialRefusal::Malformed).contains("at most 16 chevrons"));
-        assert_eq!(refusal_words(&DialRefusal::Unknown), DialRefusal::Unknown.message());
+        assert_eq!(refusal_words(&DialRefusal::Unknown), "No ring answers that address.");
+        assert_eq!(refusal_words(&DialRefusal::Busy("a convoy".into())), "BUSY: a convoy");
     }
 }

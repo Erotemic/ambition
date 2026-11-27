@@ -41,11 +41,45 @@ options, written `* **(a) …`. Derive gates from the field, not from row prose.
 Q171–Q178, Q180–Q183 and Q185–Q187 were ruled on 2026-11-26 and are
 recorded in [`maintainer-decisions.md`](maintainer-decisions.md); their
 implementation work is in [`queue.md`](queue.md). Q179 stays open, deferred.
+Q188 (2026-11-27) gates only W2's second-instance witness; no queue row
+is blocked by it.
 
 `Q168` and `Q170` were decided on 2026-11-06 and are recorded in
 [`maintainer-decisions.md`](maintainer-decisions.md). Their remaining
 engineering and content work is indexed in [`tracks.md`](tracks.md), not held
 as a product-decision gate.
+
+## Q188 — Can one authored room be live twice at once?
+
+**Context (2026-11-27, W2 second-instance witness).** A live room instance
+(`LiveRoomInstance`) is the unit of rollback and of room-scoped identity.
+Today a room is live at most once: Alice and Bob in different rooms get two
+live rooms (OW1 cut 6d), and a player who enters a room another seat holds
+joins that live room (cut 6e). Re-entering an empty room makes a new copy,
+but the old one is gone by then (`a5ad66041`). So nothing can make two copies
+of one authored room live at the same time. The world-composition plan's
+last W2 item ([W2](engine/reusable-authored-world-composition.md#w2--bind-a-mechanism-with-different-domain-parts))
+asks for a mechanism copy in a second *concurrent* instance of the same
+room. Its per-room binding is already witnessed across two different live
+rooms (`a_lift_switch_sends_only_the_lift_in_its_own_live_room`) and across
+re-entry. The remaining witness needs a product rule, not engineering.
+
+**Options:**
+
+* **(a) A room is live at most once** (recommended default): an entering
+  seat joins the room's live instance, as today. The W2 item closes as not
+  applicable; nothing changes in the session.
+* **(b) Instanced rooms on request:** a room (or an entry) may declare that
+  each party gets its own copy, for example a dungeon run per party. This
+  needs an authored instancing policy, a rule for which copy a seat joins,
+  and the W2 witness on two concurrent copies.
+* **(c) Only engine-made rooms may be live twice:** scripted or generated
+  rooms (arenas, trials) can be instanced; authored world rooms stay
+  single. The W2 witness then runs on a scripted room.
+
+**Owner:** the session's live-room lifecycle
+([open-world runtime](engine/open-world-runtime-and-residency.md)) and the
+world-composition plan.
 
 ## Q179 — What does a quick press of Precision Blink do, if two quick presses are the directional blink?
 

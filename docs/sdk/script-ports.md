@@ -238,17 +238,17 @@ Port `ambition.feedback.lightning_aura@1`, request: `this.requests.push(request(
 
 ## `technique_use`
 
-Port `ambition.body.technique@1`, trigger: read as `this.trigger`.
+Port `ambition.body.technique@2`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
 | `held` | bool | The technique's control slot is held this tick. |
 | `released` | bool | The technique's control slot was released this tick. |
-| `user` | { pressed: bool, driven: bool, position: [x, y], size: [x, y], facing: number, frame_side: [x, y], frame_down: [x, y], aim_local: [x, y], mana: number or (), names_spawns: bool, cooldown_ready: bool, swept: bool } | The body that uses the technique, at this tick's read cut. |
+| `user` | { pressed: bool, driven: bool, position: [x, y], size: [x, y], facing: number, frame_side: [x, y], frame_down: [x, y], aim_local: [x, y], mana: number or (), names_spawns: bool, cooldown_ready: bool, swept: bool, on_rope: bool } | The body that uses the technique, at this tick's read cut. |
 
 ## `wielded_use`
 
-Port `ambition.items.wielded_use@4`, trigger: read as `this.trigger`.
+Port `ambition.items.wielded_use@5`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
@@ -264,10 +264,11 @@ Port `ambition.items.wielded_use@4`, trigger: read as `this.trigger`.
 | `names_spawns` | bool | The body can give its spawns a simulation identity. |
 | `cooldown_ready` | bool | The shared movement cooldown is ready. |
 | `swept` | bool | The body uses the swept motion model. |
+| `on_rope` | bool | The body hangs on a held rope (a grapple's). |
 
 ## `wielded_alternate`
 
-Port `ambition.items.wielded_alternate@1`, trigger: read as `this.trigger`.
+Port `ambition.items.wielded_alternate@2`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
@@ -283,6 +284,7 @@ Port `ambition.items.wielded_alternate@1`, trigger: read as `this.trigger`.
 | `names_spawns` | bool | The body can give its spawns a simulation identity. |
 | `cooldown_ready` | bool | The shared movement cooldown is ready. |
 | `swept` | bool | The body uses the swept motion model. |
+| `on_rope` | bool | The body hangs on a held rope (a grapple's). |
 
 ## `spawn_module_entity`
 
@@ -428,6 +430,36 @@ Port `ambition.motion.velocity@1`, request: `this.requests.push(request("<alias>
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `velocity` | [x, y] | required | The body's new velocity (world frame, units per second, +Y down). |
+
+## `hang_on_rope`
+
+Port `ambition.motion.hang_on_rope@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `anchor` | [x, y] | required | Where the rope is fixed (world frame, +Y down). |
+| `max_angle` | number | required | The swing's cap, radians from straight down; also the farthest from straight above the body the anchor may be. |
+| `swing_accel` | number | required | The stick's angular acceleration on the swing (radians/s²). |
+| `reel_speed` | number | required | How fast the stick reels the rope in or out (units/s). |
+| `min_length` | number | required | The shortest the reel takes the rope. |
+| `max_length` | number | required | The longest the rope pays out, and the longest it may bite at. |
+| `release_hop` | number | required | The rise a jump off the rope adds to the swing's speed (units/s). |
+| `winch_speed` | number | required | How fast the rope takes itself in on top of the stick's reel (units/s), down to `min_length`: a tether that swings the body up to what it bit. `0` leaves the length to the stick. |
+
+## `let_go_of_rope`
+
+Port `ambition.motion.let_go_of_rope@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+No fields: `request("let_go_of_rope", #{})`.
+
+## `reel_in`
+
+Port `ambition.items.reel_in@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `at` | [x, y] | required | A point in the item's box: where the line caught it (world frame). |
+| `flight_s` | number | required | How long the item flies back to the body, in seconds. |
 
 ## `observer_slow`
 

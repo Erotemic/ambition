@@ -18,6 +18,16 @@ pub struct TetherPullParams {
     pub speed: f32,
     /// Maximum reel time in seconds. The reel normally ends when the fighter reaches the latched anchor.
     pub timeout_s: f32,
+    /// A line that SWINGS: a ledge bitten above her hangs her on a rope that
+    /// takes itself in at this many px/s, so she swings up under it and the
+    /// reel pulls the last of the way. A ledge level with her or below is
+    /// reeled straight. `0` (or absent), every bite is reeled straight.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub winch: f32,
+}
+
+fn is_zero(winch: &f32) -> bool {
+    *winch == 0.0
 }
 
 /// Author a tether reel.
@@ -52,6 +62,13 @@ pub fn author_tether_pull(mut spec: MoveSpec, at_s: f32, params: TetherPullParam
         spec.id,
         params.timeout_s,
     );
+    assert!(
+        params.winch >= 0.0,
+        "move `{}` authors a swinging tether whose rope pays out at {}px/s, so it \
+         lowers her from what it bit",
+        spec.id,
+        params.winch,
+    );
     // The reel must be able to cross its full authored reach before timeout.
     assert!(
         params.speed * params.timeout_s >= params.reach,
@@ -70,5 +87,6 @@ pub fn author_tether_pull(mut spec: MoveSpec, at_s: f32, params: TetherPullParam
             params: ParamValue::from_typed(&params).expect("tether-pull params serialize"),
         }),
     });
+    spec.gates.recovery_route = Some(crate::AuthoredRecoveryRoute::Tether { reach: params.reach });
     spec
 }

@@ -139,8 +139,8 @@ fn ask(sim: &mut Platformer2dSimHarness, ring: &str, action: GateTerminalAction)
 
 /// The chevrons the word `word` spells on the network's rings.
 fn spell(sim: &Platformer2dSimHarness, word: &str) -> Vec<u8> {
-    let catalog = sim.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>();
-    catalog.spell(word).unwrap_or_else(|letter| panic!("`{word}` has '{letter}', on no chevron"))
+    let words = sim.world().resource::<ambition_content::gate_network::GateWordsResource>();
+    words.0.spell(word).unwrap_or_else(|letter| panic!("`{word}` has '{letter}', on no chevron"))
 }
 
 /// Dial the word `address` at the open terminal of `ring`; the answer's kind
@@ -499,7 +499,7 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
     // Ring 1 is in ring 7's facility, the gate stack: a walk, not a dial.
     let ring1 = {
         let catalog = sim.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>();
-        catalog.ring("intro_portal_zone").and_then(|ring| catalog.address_of(ring)).expect("ring 1 has an address")
+        catalog.ring("intro_portal_zone").map(|ring| ring.address.clone()).expect("ring 1 has an address")
     };
     assert_eq!(dial_chevrons(&mut sim, RING7, &ring1), "same_facility");
     assert_eq!(dial(&mut sim, RING7, "TANGENT"), "link");
@@ -513,7 +513,7 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
         distance: &|_: &str, _: &str| None,
         fits: &ambition_content::gate_inscription::address_fits,
     };
-    let tangent = catalog.spell("TANGENT").expect("TANGENT spells");
+    let tangent = spell(&sim, "TANGENT");
     let busy = ambition_platformer2d::world::rooms::resolve_dial(&catalog, &state, HUB_RING, &tangent, &facts);
     assert_eq!(busy.map(|ring| ring.zone.clone()).unwrap_err().kind(), "busy");
 }

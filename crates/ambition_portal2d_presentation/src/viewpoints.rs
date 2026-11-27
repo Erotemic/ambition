@@ -45,8 +45,10 @@ pub struct PortalViewer {
     pub occluders: Vec<ae::Aabb>,
 }
 
-/// Host viewpoints in publication order, with at most one eye per live room.
-/// Window rendering and far-side compositing read the same eye for a room.
+/// Host viewpoints in publication order. A live room has an eye for each
+/// observer that frames it (V1): each view's windows are made from its own
+/// eye and drawn for its own camera. An eye that names no observer is the
+/// room's only one.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalViewers {
     viewers: Vec<PortalViewer>,
@@ -65,18 +67,25 @@ impl PortalViewers {
         self.viewers.clear();
     }
 
-    /// Add a viewpoint. A second eye in a room that has one is refused: the
-    /// first observer of a room, in the order the host publishes, is the eye
-    /// of that room.
+    /// Add a viewpoint. A room has one eye for each observer: a second eye
+    /// of an observer the room already has is refused, and so is any second
+    /// eye when either names no observer (nothing could tell their windows
+    /// apart).
     pub fn publish(&mut self, viewer: PortalViewer) -> bool {
-        if viewer.room.is_some() && self.viewers.iter().any(|held| held.room == viewer.room) {
+        if viewer.room.is_some()
+            && self.viewers.iter().any(|held| {
+                held.room == viewer.room
+                    && (held.observer.is_none() || viewer.observer.is_none() || held.observer == viewer.observer)
+            })
+        {
             return false;
         }
         self.viewers.push(viewer);
         true
     }
 
-    /// The eye of live room `room`. A room that cannot be told has no eye.
+    /// The first eye of live room `room`, in the order the host published.
+    /// A room that cannot be told has no eye.
     pub fn in_room(&self, room: ambition_portal2d::PortalRoom) -> Option<&PortalViewer> {
         let room = room?;
         self.viewers.iter().find(|viewer| viewer.room == Some(room))

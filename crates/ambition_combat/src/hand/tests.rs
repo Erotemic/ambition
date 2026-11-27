@@ -24,6 +24,7 @@ fn granting_row(id: &str, on_hit: Option<OnHit>) -> EquipmentRow {
         exclusive_slot: None,
         withholds: Vec::new(),
         lends: Vec::new(),
+        rebinds: Default::default(),
     }
 }
 
@@ -36,6 +37,7 @@ fn plain_row(id: &str) -> EquipmentRow {
         exclusive_slot: None,
         withholds: Vec::new(),
         lends: Vec::new(),
+        rebinds: Default::default(),
     }
 }
 

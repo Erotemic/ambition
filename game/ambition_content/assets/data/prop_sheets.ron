@@ -568,6 +568,7 @@
     // and the fittings of its decks. The quarantine gate and the spur hatch
     // are the looks of two lock walls, and fill their walls' boxes.
     "orbital_hauler": (),
+    "orbital_bay_gangways": (),
     "orbital_shuttle": (),
     "orbital_freight_stack": (),
     "orbital_consignment": (),
@@ -619,6 +620,9 @@
     // Wolfenstein's slab: he lies on it under his sheet until he wakes
     // (`wolfenstein` rows `bench_sleep`, `bench_wake`); it stays after.
     "wolfenstein_bench": (),
+    // The command wall and gallery decks in the War Room.
+    "war_room_command_wall": (),
+    "war_room_galleries": (),
     // The old drain under Castle Godwin: its cracked wall and the cracked
     // floor over its mouth (`LockWall` looks: each fills its wall's box), and
     // the breach left when either is broken through.
@@ -827,6 +831,8 @@
     "climb_karman": (),
     "climb_satellite": (),
     "climb_navsat": (),
+    "climb_route_lower": (),
+    "climb_route_upper": (),
     "rookery_hide": (),
     "workshop_room": (),
     "point_lighthouse": (),
@@ -1125,6 +1131,7 @@
     // Eureka's quad, filled in.
     "quad_raised_walk": (),
     "quad_cafe": (),
+    "quad_campus_walks": (),
     "quad_lecture_hall": (),
     "quad_fountain": (),
     "quad_lab_front": (),
@@ -1142,8 +1149,10 @@
     "volcano_east": (),
     // The orbital station's observation deck: its window.
     "obs_deck_window": (),
+    "orbital_viewing_walk": (),
     // Eureka's gate court.
     "court_furniture": (),
+    "eureka_court_walks": (),
     // The founder's crypt, under the Searchlight Moor (Evil).
     "moor_crypt_gate": (),
     "crypt_room": (),

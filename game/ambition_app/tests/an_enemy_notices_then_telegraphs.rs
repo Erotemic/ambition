@@ -192,7 +192,7 @@ fn the_dilophosaurus_coils_before_it_spits() {
         let world = sim.world_mut();
         let mut q = world.query::<(&FeatureId, Option<&PinnedRow>)>();
         let Some((_, pin)) = q.iter(world).find(|(id, _)| id.as_str() == SPITTER) else { continue };
-        if pin.is_some_and(|pin| pin.is_pinned() && pin.rows.first().map(String::as_str) == Some("windup")) {
+        if pin.is_some_and(|pin| pin.is_pinned() && matches!(pin.rows.first().map(String::as_str), Some("windup" | "brain_windup"))) {
             windup_ticks += 1;
         }
     }
@@ -224,7 +224,7 @@ fn the_parrot_notices_then_hangs_for_its_tell_before_it_dives() {
         let Some((_, kin, pin)) = q.iter(world).find(|(id, ..)| id.as_str() == PARROT) else { continue };
         // First it hangs a beat on seeing the player (its notice).
         noticed |= pin.is_some_and(|pin| pin.is_pinned() && pin.rows.first().map(String::as_str) == Some("notice"));
-        if pin.is_some_and(|pin| pin.is_pinned() && pin.rows.first().map(String::as_str) == Some("windup")) {
+        if pin.is_some_and(|pin| pin.is_pinned() && matches!(pin.rows.first().map(String::as_str), Some("windup" | "brain_windup"))) {
             assert!(noticed, "it noticed the player before it told");
             tell_speeds.push(kin.vel.length());
         } else if !tell_speeds.is_empty() {
@@ -404,7 +404,10 @@ fn the_crew_and_the_duelists_are_seen_and_heard_noticing_before_they_wind_up() {
                 Some("notice") => {
                     seen.get_or_insert(tick);
                 }
-                Some("windup") => {
+                // The brain's own tell pins `brain_windup` first, falling
+                // back to `windup` on a sheet without it: either is the
+                // telegraph.
+                Some("windup" | "brain_windup") => {
                     aimed.get_or_insert(tick);
                     break;
                 }

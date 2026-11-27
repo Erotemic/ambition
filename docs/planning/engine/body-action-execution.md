@@ -755,10 +755,24 @@ animation. A body slowed by the dilation special now travels slowly as well
 as swinging slowly. A relativistic body's measured proper-time rate still
 slows only its own clocks, and its coordinate travel stays on world time.
 
-Still open:
-
-- The CPU-only and human-seat Smash acceptance. This VM cannot seat a
-  Smash round, so that acceptance has to run elsewhere.
+The CPU-only and human-seat Smash acceptance landed 2026-11-27. The earlier
+note that this VM cannot seat a Smash round was wrong: the demo's
+integration tests build the real app and route into battle. The test is
+`local_hitlag_holds_only_the_struck_bodies_with_cpus_and_with_a_human_seat`
+(`ambition_demo_smash_app`, `smash_it`). It runs two George mirrors for
+1800 ticks: CPUs at rung 9, then a human with no controller (neutral input)
+against a CPU. On every one-tick step a fighter spends wholly in hitstop,
+its released action share is 0, it does not travel, and its move time does
+not advance. On the step its hitstop runs out, the released share is
+`(step - remainder) / step`. Measured: CPU-only, 247 held steps and 16
+expiries; human seat, 333 and 20. In 217 and 316 of those held steps the
+other fighter, not in hitstop, moved or advanced its move, so the hold
+belongs to the struck body, not the match. The physical pose clock is
+checked where a body carries one. George reads no pose clock (no rig, no
+authored hurt profiles), so this run does not exercise it; the core
+witnesses cover it. Not covered here: the non-identity proper-time expiry
+and the authored world freeze (core/actor witnesses), and the home-adapter
+floor episode.
 
 ### Remove
 

@@ -136,7 +136,8 @@ fn a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid() {
 #[test]
 fn a_cell_states_each_fact_once() {
     let catalog = ambition_platformer2d::items::test_item_catalog();
-    let owned = OwnedItems::starter(catalog);
+    let mut owned = OwnedItems::starter(catalog);
+    owned.take(Item::LungeStance, 1);
     let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::of(catalog, Some(Item::GunSword), None), crate::menu::model::InventoryLayout::default());
     let details: Vec<String> = page
         .nodes
@@ -149,9 +150,9 @@ fn a_cell_states_each_fact_once() {
     assert_eq!(details[Item::GunSword.index()], "equipped");
     assert_eq!(details[Item::Grapple.index()], "equip");
     assert_eq!(details[Item::HealthCell.index()], "use | x3");
-    // A locked cell (a placeholder) says so once, and its name fits its cell:
+    // A cell the bag does not hold says so once, and its name fits its cell:
     // no "--" beside "not owned", no " - ???" after the name.
-    assert_eq!(details[Item::AxeStance.index()], "not owned");
+    assert_eq!(details[Item::LungeStance.index()], "not owned");
     assert_eq!(details[Item::Lightning.index()], "equip");
     let labels: Vec<String> = page
         .nodes

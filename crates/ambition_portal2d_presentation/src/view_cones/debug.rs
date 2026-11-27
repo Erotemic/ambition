@@ -169,7 +169,7 @@ fn portal_view_cone_debug_dump_text(
         );
     }
     let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
-    let (clip_min, clip_max) = portal_window_clip_rect(frame, host_view);
+    let view = portal_window_view(frame, host_view);
     let effective = effective_portal_capture_budget(config, quality);
 
     let _ = writeln!(out, "Portal view-cone debug dump");
@@ -178,9 +178,10 @@ fn portal_view_cone_debug_dump_text(
     let _ = writeln!(out, "frame.size: {}", fmt_vec2(frame.size));
     let _ = writeln!(
         out,
-        "clip_rect: {} -> {}",
-        fmt_vec2(clip_min),
-        fmt_vec2(clip_max)
+        "clip_rect: center {} size {} axis {}",
+        fmt_vec2(view.center),
+        fmt_vec2(view.size),
+        fmt_vec2(view.axis)
     );
     let _ = writeln!(out, "portal_count: {}", all.len());
     let _ = writeln!(out);
@@ -527,8 +528,7 @@ fn portal_view_cone_debug_dump_text(
                 &exit,
                 frame,
                 config,
-                clip_min,
-                clip_max,
+                view,
                 pane_z(config, viewer, portal, &partner, None).0,
                 capture_frame,
                 convention,
@@ -748,7 +748,7 @@ pub fn selected_portal_view_cone_debug_rows(
         "Resolved portal pair for debug_dump_portal.",
     ));
 
-    let (clip_min, clip_max) = portal_window_clip_rect(frame, host_view);
+    let view = portal_window_view(frame, host_view);
     for portal in &selected {
         let name = portal.channel.name();
         let Some(partner) = find_portal(portals, portal.channel.partner()) else {
@@ -800,8 +800,7 @@ pub fn selected_portal_view_cone_debug_rows(
             &exit,
             frame,
             config,
-            clip_min,
-            clip_max,
+            view,
             pane_z(config, viewer, portal, &partner, None).0,
             capture_frame,
             convention,

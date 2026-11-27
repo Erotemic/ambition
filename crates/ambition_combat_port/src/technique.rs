@@ -48,7 +48,7 @@ impl TechniqueUse {
 }
 
 impl Port for TechniqueUsePort {
-    const KEY: PortKey = PortKey::new("ambition.body.technique", 1);
+    const KEY: PortKey = PortKey::new("ambition.body.technique", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = TechniqueUse;
 
@@ -96,6 +96,7 @@ mod tests {
                 names_spawns: true,
                 cooldown_ready: true,
                 swept: true,
+                on_rope: false,
             },
         };
         let mut out = Vec::new();

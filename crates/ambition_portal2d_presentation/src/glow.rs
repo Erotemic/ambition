@@ -224,6 +224,7 @@ pub fn sync_portal_glows(
     time: Res<Time>,
     frames: PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
+    presented_time: Option<Res<crate::PortalPresentedTime>>,
     looks: Query<&ambition_portal2d::PortalLook>,
     active_session: Option<Res<ActiveSessionScope>>,
     style: Option<Res<PortalGlowStyle>>,
@@ -264,9 +265,11 @@ pub fn sync_portal_glows(
         }
     }
     // Each portal that can be drawn: its room is live.
-    let live: Vec<(Entity, crate::PortalPlacement, &PlacedPortal)> = portals
+    // At the time bodies are drawn (`PortalPresentedTime`).
+    let presented = crate::presented_portals(portals.iter(), presented_time.as_deref());
+    let live: Vec<(Entity, crate::PortalPlacement, &PlacedPortal)> = presented
         .iter()
-        .filter_map(|(entity, portal)| Some((entity, frames.of(entity)?, portal)))
+        .filter_map(|(entity, portal)| Some((*entity, frames.of(*entity)?, portal)))
         .collect();
 
     // The look of each live portal, by its room and channel, so the far side

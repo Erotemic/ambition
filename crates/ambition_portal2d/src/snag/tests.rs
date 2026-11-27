@@ -210,3 +210,62 @@ fn a_body_that_comes_at_an_opening_from_behind_is_on_its_back() {
     app.update();
     assert!(app.world().get::<crate::PortalBackside>(body).is_none(), "past the plane, it is on no back");
 }
+
+/// P3: a turned body is tested by its material box, not the world box
+/// around it. A 20 by 2 body turned 45 degrees, its long axis along the
+/// mouth's normal and 4 px along the face (material spans 3..5 of a ±12
+/// opening), is in line with the opening and is not snagged as it comes
+/// in from 12 px to 1 px in front of it. Its world box (half-span 11 in
+/// both mouth axes) said it was beside the opening and held it.
+/// An oversized body, 30 long along the face, still does not fit.
+#[test]
+fn a_turned_body_that_fits_the_opening_passes_and_an_oversized_one_does_not() {
+    use super::{fits_through, in_line_with, Outline};
+    let turn = std::f64::consts::FRAC_PI_4;
+    let material = ae::frame::BodyMaterial::IDENTITY.turned(turn).unwrap();
+    let long = Vec2::new(-(turn.sin() as f32), turn.cos() as f32);
+    let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, long, 12.0).unwrap().aperture();
+    let tangent = ap.frame.tangent();
+    let body = |size: Vec2, depth: f32| BodyKinematics { material, pos: tangent * 4.0 + ap.frame.normal * depth,
+        canonical_size: size, vel: Vec2::ZERO, facing: 1.0 };
+    let thin = Vec2::new(2.0, 20.0);
+    let (near, far) = (body(thin, 1.0), body(thin, 12.0));
+    assert!(in_line_with(Outline::of(near), &ap), "its material is in line: {:?}", Outline::of(near));
+    assert!(!in_line_with(near.aabb(), &ap), "premise: its world box is not");
+    assert_eq!(snag_push(Outline::of(near), Some(Outline::of(far)), &ap), None, "it comes in unsnagged");
+    assert!(snag_push(near.aabb(), Some(far.aabb()), &ap).is_some(), "premise: the world box was snagged");
+    let wide = body(Vec2::new(30.0, 2.0), 0.0);
+    assert!(!fits_through(Outline::of(wide), &ap), "30 along a 24 opening does not fit");
+    assert!(!in_line_with(Outline::of(wide), &ap));
+}
+
+/// P3: the snag's push is admitted against the room's solids. The kernel
+/// body half past an end would go back up 6 px onto the host; a ceiling
+/// 3 px above its head stops it there, at y 283, instead of the push
+/// carrying it 3 px into the block. Control: the same body with no ceiling
+/// goes the whole 6 px, to y 280.
+#[test]
+fn a_snag_push_does_not_carry_a_body_into_another_solid() {
+    let held_at = |ceiling: bool| {
+        let mut app = App::new();
+        app.add_systems(Update, crate::snag_straddlers);
+        let blocks = if ceiling {
+            vec![ae::Block::solid("ceiling", Vec2::new(0.0, 243.0), Vec2::new(60.0, 20.0))]
+        } else {
+            Vec::new()
+        };
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+            ae::RoomGeometry(ae::World::new("snag", Vec2::new(800.0, 600.0), Vec2::new(50.0, 50.0), blocks)));
+        app.world_mut().spawn(floor());
+        app.world_mut().spawn(exit());
+        let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), canonical_size: BODY * 2.0, facing: 1.0 };
+        let record = SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
+        let body = app.world_mut().spawn((kin, record)).id();
+        app.update();
+        app.world().get::<BodyKinematics>(body).unwrap().pos
+    };
+    let free = held_at(false);
+    assert!((free - Vec2::new(30.0, 280.0)).length() < 1e-3, "control: the whole push: {free:?}");
+    let stopped = held_at(true);
+    assert!((stopped - Vec2::new(30.0, 283.0)).length() < 1e-2, "stopped by the ceiling: {stopped:?}");
+}

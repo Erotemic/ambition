@@ -81,35 +81,40 @@ impl FeatureContact {
     }
 }
 
+/// The bosses a shot may reach: their published hurt material, and the
+/// travel each made this tick, up to a portal crossing too (M4).
+pub type BossTargets<'w, 's> = Query<'w, 's,
+    (
+        Entity,
+        &'static FeatureId,
+        &'static CenteredAabb,
+        &'static ambition_characters::actor::BodyHealth,
+        &'static DamageableVolumes,
+        Option<&'static ambition_platformer2d_core::BodyKinematics>,
+        Option<&'static ambition_platformer2d_core::SweepSample>,
+        Option<&'static ambition_platformer2d_core::CrossedTravel>,
+    ),
+    (With<FeatureSimEntity>, With<BossConfig>),
+>;
+
 /// Select the first live boss contact from its published hurt material.
 pub fn projectile_reaches_boss(
     cells: &ambition_platformer2d_core::frame::material_cast::MaterialCastCells<'_>,
     geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     may_touch: impl Fn(Entity) -> bool,
-    bosses: &Query<
-        (
-            Entity,
-            &FeatureId,
-            &CenteredAabb,
-            &ambition_characters::actor::BodyHealth,
-            &DamageableVolumes,
-            Option<&ambition_platformer2d_core::BodyKinematics>,
-            Option<&ambition_platformer2d_core::SweepSample>,
-        ),
-        (With<FeatureSimEntity>, With<BossConfig>),
-    >,
+    bosses: &BossTargets<'_, '_>,
 ) -> Result<Option<FeatureContact>, ambition_platformer2d_core::frame::thread::Refusal> {
     let mut first: Option<FeatureContact> = None;
-    for (entity, id, aabb, _, damageable, kin, motion) in bosses
+    for (entity, id, aabb, _, damageable, kin, motion, crossed) in bosses
         .iter()
-        .filter(|(entity, _, _, health, damageable, _, _)| {
+        .filter(|(entity, _, _, health, damageable, ..)| {
             may_touch(*entity)
                 && health.alive()
                 && damageable.published()
         })
     {
-        if let Some(hit) = damageable.swept_body_contact(entity, kin, motion, None, geometry, room, cells)? {
+        if let Some(hit) = damageable.swept_body_contact(entity, kin, motion, crossed, geometry, room, cells)? {
             let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
@@ -232,18 +237,7 @@ mod tests {
         let half = strike_box().half_size();
         world
             .run_system_once(
-                move |bosses: Query<
-                    (
-                        Entity,
-                        &FeatureId,
-                        &CenteredAabb,
-                        &ambition_characters::actor::BodyHealth,
-                        &DamageableVolumes,
-                        Option<&ambition_platformer2d_core::BodyKinematics>,
-                        Option<&ambition_platformer2d_core::SweepSample>,
-                    ),
-                    (With<FeatureSimEntity>, With<BossConfig>),
-                >| {
+                move |bosses: BossTargets| {
                     let source=ambition_platformer2d_core::BodyKinematics {
                         pos:start,canonical_size:half*2.0,..Default::default() };
                     let domain=source.canonical_box().unwrap();

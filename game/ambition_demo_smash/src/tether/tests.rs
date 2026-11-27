@@ -73,7 +73,7 @@ fn fighter(app: &mut App, at: ae::Vec2, on_ground: bool) -> Entity {
 /// Throw a line of `reach` that reels at `speed` for `timeout_s`; the
 /// throw's tick has run.
 fn throw_with(app: &mut App, actor: Entity, reach: f32, speed: f32, timeout_s: f32) {
-    let params = TetherPullParams { reach, speed, timeout_s };
+    let params = TetherPullParams { reach, speed, timeout_s, winch: 0.0 };
     let request = ActionRequest::Special {
         spec: SpecialActionSpec::Special(TETHER_PULL.to_string()),
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params).expect("tether params serialize"),

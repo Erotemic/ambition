@@ -15,7 +15,9 @@
 //! the body back to where it may be, and takes from its velocity what carried
 //! it there.
 //!
-//! The body is a box, and the rule is a no-worse rule: a body is never moved
+//! The body is its material box ([`Outline`]: the canonical box under its
+//! material map, so a turned body is tested as it is, not by the world box
+//! around it), and the rule is a no-worse rule: a body is never moved
 //! further past an end than it was, so a box standing into a slope beside an
 //! opening (the kernel's feet rule) is left as it is. A body with a shape of
 //! its own (a physics body) would answer the same question with its own
@@ -30,6 +32,48 @@ use crate::pieces::PortalAperture;
 use crate::rooms::PortalsByRoom;
 use crate::transit::{PortalBackside};
 use crate::types::{find_portal, PlacedPortal};
+
+/// A body's material box in the world: its canonical box's four corners under
+/// its material map, in order. A turned body's outline is what fits or does
+/// not fit an opening; the world box around it can be far wider (portal P3:
+/// a 20 by 2 body at 45 degrees has a 22 px world box).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Outline(pub [Vec2; 4]);
+
+impl Outline {
+    /// `body`'s material box, or its world box when its material map is not
+    /// usable (a numeric fault the kernel refuses on its own road).
+    pub fn of(body: BodyKinematics) -> Self {
+        let half = body.canonical_size * 0.5;
+        body.material_map()
+            .ok()
+            .and_then(|map| {
+                let corners = [Vec2::new(-half.x, -half.y), Vec2::new(half.x, -half.y), half, Vec2::new(-half.x, half.y)];
+                let mut out = [Vec2::ZERO; 4];
+                for (slot, corner) in out.iter_mut().zip(corners) {
+                    *slot = map.point(corner).ok().filter(|p| p.is_finite())?;
+                }
+                Some(Self(out))
+            })
+            .unwrap_or_else(|| body.aabb().into())
+    }
+
+    /// The same outline moved by `by`.
+    pub fn moved(self, by: Vec2) -> Self {
+        Self(self.0.map(|p| p + by))
+    }
+
+    pub fn center(&self) -> Vec2 {
+        self.0.iter().copied().sum::<Vec2>() * 0.25
+    }
+}
+
+impl From<ae::Aabb> for Outline {
+    fn from(b: ae::Aabb) -> Self {
+        let (lo, hi) = (b.min, b.max);
+        Self([Vec2::new(lo.x, lo.y), Vec2::new(hi.x, lo.y), Vec2::new(hi.x, hi.y), Vec2::new(lo.x, hi.y)])
+    }
+}
 
 /// How a body that cuts `opening`'s plane past one of its ends moves back,
 /// and the normal of what it is against. `None` when it does not cut the
@@ -49,7 +93,7 @@ use crate::types::{find_portal, PlacedPortal};
 /// - it cut the plane past the end before (a box standing into a slope
 ///   beside the opening, or one the snag holds on the host): the part past
 ///   the end goes no deeper into the side it was not on.
-pub fn snag_push(body: ae::Aabb, came_from: Option<ae::Aabb>, opening: &PortalAperture) -> Option<(Vec2, Vec2)> {
+pub fn snag_push<B: Into<Outline>>(body: B, came_from: Option<B>, opening: &PortalAperture) -> Option<(Vec2, Vec2)> {
     let came_from = came_from?;
     let h = opening.half_length;
     let here = corners(body, opening);
@@ -111,7 +155,7 @@ const NO_WORSE: f32 = 1.0e-3;
 /// opening. A body that cuts the plane past an end is snagged there, part
 /// through and part around, and is not taken through (the transit asks
 /// this before every transfer).
-pub fn fits_through(body: ae::Aabb, opening: &PortalAperture) -> bool {
+pub fn fits_through(body: impl Into<Outline>, opening: &PortalAperture) -> bool {
     let h = opening.half_length;
     cut(&corners(body, opening)).is_none_or(|(t0, t1)| t0 >= -h && t1 <= h)
 }
@@ -121,23 +165,22 @@ pub fn fits_through(body: ae::Aabb, opening: &PortalAperture) -> bool {
 /// line opens the hole ([`crate::transit`]): a body beside the opening, as
 /// one standing on a ledge whose top is the opening's end, leaves the host
 /// whole under it.
-pub fn in_line_with(body: ae::Aabb, opening: &PortalAperture) -> bool {
+pub fn in_line_with(body: impl Into<Outline>, opening: &PortalAperture) -> bool {
     let h = opening.half_length;
     corners(body, opening).iter().all(|p| p.x.abs() <= h)
 }
 
 /// Does `body` cut `opening`'s plane over the opening (not only past its
 /// ends)?
-pub(crate) fn cuts_opening(body: ae::Aabb, opening: &PortalAperture) -> bool {
+pub(crate) fn cuts_opening(body: impl Into<Outline>, opening: &PortalAperture) -> bool {
     let h = opening.half_length;
     cut(&corners(body, opening)).is_some_and(|(t0, t1)| t1 > -h && t0 < h)
 }
 
-/// The box's corners in the opening's own axes: along its face, and out of
-/// it.
-fn corners(b: ae::Aabb, opening: &PortalAperture) -> [Vec2; 4] {
-    let (lo, hi) = (b.min, b.max);
-    [Vec2::new(lo.x, lo.y), Vec2::new(hi.x, lo.y), Vec2::new(hi.x, hi.y), Vec2::new(lo.x, hi.y)].map(|p| {
+/// The outline's corners in the opening's own axes: along its face, and out
+/// of it.
+fn corners(b: impl Into<Outline>, opening: &PortalAperture) -> [Vec2; 4] {
+    b.into().0.map(|p| {
         let d = p - opening.frame.origin;
         Vec2::new(d.dot(opening.frame.tangent()), d.dot(opening.frame.normal))
     })
@@ -172,6 +215,40 @@ fn clip(poly: &[Vec2], keep: impl Fn(Vec2) -> f32) -> Vec<Vec2> {
         }
     }
     out
+}
+
+/// As much of `push` as the body's material travels before it meets a solid
+/// of its room: a push out of the host may not carry the body through
+/// anything else. The host it leaves is not met (a separating start is
+/// admitted). The cut is the body's own portal admission, so a part through
+/// an opening is pushed where it is. With no solids for the room the push is
+/// whole; a cast the kernel refuses (a numeric fault) leaves the push as it
+/// was, the snag's answer before admission.
+fn admitted_push(
+    collision: &ambition_platformer2d_world::collision::CollisionWorld,
+    geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    entity: Entity,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    body: BodyKinematics,
+    push: Vec2,
+) -> Vec2 {
+    use ambition_platformer2d_core::frame::{material_cast::MaterialCast, thread::MaterialPrimitive};
+    let in_room = room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+    let Some(world) = collision.room(in_room.as_ref()).and_then(|room| room.solids()) else {
+        return push;
+    };
+    let (Ok(domain), Ok(to_world)) = (body.canonical_box(), body.material_map()) else {
+        return push;
+    };
+    let admission = geometry.and_then(|geometry| geometry.motion_for(entity, room));
+    let Ok(cells) = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world }, body.pos, push, 0.0..1.0)
+        .cells(admission) else {
+        return push;
+    };
+    match world.first_material_contact(&cells, |_, _, _| Ok(true)) {
+        Ok(Some(hit)) => push * hit.contact.toi as f32,
+        Ok(None) | Err(_) => push,
+    }
 }
 
 /// Velocity with what carried the body into `against` taken out, relative to
@@ -209,6 +286,10 @@ pub fn snag_straddlers(
         Option<&ae::PoseOwnedExternally>,
     ), Without<ae::BodyInStorage>>,
     live: PortalRooms,
+    // The room's solids and its portal cut, so a push out of the host is
+    // stopped by whatever else it would carry the body into (P3).
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
@@ -225,26 +306,27 @@ pub fn snag_straddlers(
             if backside.is_some_and(|back| back.of_pair(portal.channel)) {
                 continue;
             }
-            let body = kin.aabb();
+            // A turned body is tested by its material box (P3).
+            let body = Outline::of(*kin);
             // The step's start, when the record is of this step.
             let came_from = sweep
                 .as_deref()
                 .and_then(|s| s.ending_at(kin.pos))
-                .map(|s| ae::Aabb::new(body.center() + (s.prev - s.curr), body.half_size()));
+                .map(|s| body.moved(s.prev - s.curr));
             let Some((push, against)) = snag_push(body, came_from, &portal.aperture()) else {
                 continue;
             };
             // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`).
             bevy::log::debug!(
                 target: "ambition_portal::transit_trace",
-                "snag body={entity} box={:?}..{:?} from={:?} push={push:?} against={against:?} portal={:?} half={} vel={:?}",
-                body.min,
-                body.max,
+                "snag body={entity} outline={:?} from={:?} push={push:?} against={against:?} portal={:?} half={} vel={:?}",
+                body.0,
                 came_from.map(|b| b.center()),
                 portal.pos,
                 portal.opening_half_length(),
                 kin.vel
             );
+            let push = admitted_push(&collision, geometry.as_deref(), entity, live.of(entity), *kin, push);
             ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), push);
             kin.vel = stop_into(portal, kin.pos, kin.vel, against);
         }

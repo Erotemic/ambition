@@ -20,9 +20,11 @@
 //! road. While a terminal is open it takes the seat's input
 //! ([`GATE_TERMINAL_CONTEXT`]), so the body at the terminal stands still.
 
+use ambition_content_schemas::gate_network::Chevron;
 use crate::gate_inscription::address_fits;
+use ambition_content_schemas::gate_network::GateWords;
 use ambition_platformer2d::world::rooms::{
-    Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalAction, GateTerminalIntent,
+    GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalAction, GateTerminalIntent,
     RingKind,
 };
 use bevy::prelude::*;
@@ -215,13 +217,14 @@ pub struct TerminalModel {
 /// map (`positions`), so its list is where it can take the traveller.
 pub fn known_addresses(
     catalog: &GateNetworkCatalog,
+    words: &GateWords,
     directory: &ambition_content_schemas::gate_directory::GateDirectory,
     positions: &GateRingPositions,
     ring: &str,
     flag: impl Fn(&str) -> bool,
 ) -> Vec<Vec<Chevron>> {
     let mut listed: Vec<Vec<Chevron>> =
-        directory.posted(ring).iter().filter_map(|word| catalog.spell(word).ok()).collect();
+        directory.posted(ring).iter().filter_map(|word| words.spell(word).ok()).collect();
     let from = catalog.ring(ring);
     let reachable = |candidate: &ambition_platformer2d::world::rooms::GateRing| {
         let Some(from) = from else {
@@ -234,26 +237,23 @@ pub fn known_addresses(
             return true;
         }
         let dimension = |ring: &ambition_platformer2d::world::rooms::GateRing| {
-            catalog.facility(&ring.facility).map(|facility| facility.dimension.clone())
+            catalog.facility(&ring.facility).map(|facility| facility.world.clone())
         };
         dimension(candidate) == dimension(from)
             && positions.distance(&from.zone, &candidate.zone).is_some_and(|distance| distance <= from.reach_px() as f32)
     };
     for candidate in &catalog.rings {
-        let Some(address) = catalog.address_of(candidate) else {
-            continue;
-        };
-        if candidate.zone != ring && reachable(candidate) && crate::gate_network::knows(directory, candidate, &flag) && !listed.contains(&address) {
-            listed.push(address);
+        if candidate.zone != ring && reachable(candidate) && crate::gate_network::knows(directory, words, candidate, &flag) && !listed.contains(&candidate.address) {
+            listed.push(candidate.address.clone());
         }
     }
     listed
 }
 
-fn address_row(catalog: &GateNetworkCatalog, address: Vec<Chevron>, recent: bool) -> ListRow {
+fn address_row(catalog: &GateNetworkCatalog, words: &GateWords, address: Vec<Chevron>, recent: bool) -> ListRow {
     let ring = catalog.ring_at(&address);
     ListRow::Address {
-        word: ring.and_then(|ring| ring.address.clone()).unwrap_or_default(),
+        word: ring.and_then(|ring| words.word(&ring.zone)).unwrap_or_default().to_string(),
         name: ring.map_or_else(|| "No ring answered".to_string(), |ring| ring.name.clone()),
         address,
         recent,
@@ -262,7 +262,7 @@ fn address_row(catalog: &GateNetworkCatalog, address: Vec<Chevron>, recent: bool
 
 fn address_dimension<'a>(catalog: &'a GateNetworkCatalog, address: &[Chevron]) -> Option<&'a str> {
     let ring = catalog.ring_at(address)?;
-    Some(&catalog.facility(&ring.facility)?.dimension)
+    Some(&catalog.facility(&ring.facility)?.world)
 }
 
 fn dimension_name(id: &str) -> String {
@@ -279,7 +279,7 @@ impl TerminalUi {
     }
 
     /// Group listed gates by their facility's dimension. Local arches keep a flat list.
-    pub fn list(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[Vec<Chevron>]) -> Vec<ListRow> {
+    pub fn list(&self, catalog: &GateNetworkCatalog, words: &GateWords, state: &GateNetworkState, known: &[Vec<Chevron>]) -> Vec<ListRow> {
         let mut addresses = known.to_vec();
         for address in &state.recent {
             if !addresses.contains(address) {
@@ -289,7 +289,7 @@ impl TerminalUi {
         let address_rows = |addresses: Vec<Vec<Chevron>>| addresses.into_iter()
             .map(|address| {
                 let recent = state.recent.contains(&address);
-                address_row(catalog, address, recent)
+                address_row(catalog, words, address, recent)
             }).collect::<Vec<_>>();
         let mut rows = if self.is_local_portal(catalog) {
             address_rows(addresses)
@@ -462,14 +462,14 @@ impl TerminalUi {
     }
 
     /// What the terminal shows now.
-    pub fn model(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[Vec<Chevron>]) -> TerminalModel {
+    pub fn model(&self, catalog: &GateNetworkCatalog, words: &GateWords, state: &GateNetworkState, known: &[Vec<Chevron>]) -> TerminalModel {
         let ring_id = self.ring.as_deref().unwrap_or_default();
         let ring = catalog.ring(ring_id);
         let facility = ring
             .and_then(|ring| catalog.facility(&ring.facility))
             .map_or_else(String::new, |facility| facility.name.clone());
         let far_name = |zone: &str| catalog.ring(zone).map_or_else(|| zone.to_string(), |ring| ring.name.clone());
-        let word = |address: &[Chevron]| catalog.word_of(address).map(str::to_string);
+        let word = |address: &[Chevron]| words.word_of(catalog, address).map(str::to_string);
         let (list_title, list_status, list_hint) = if self.is_local_portal(catalog) {
             ("Destinations".to_string(), "Choose a destination.", "Select a destination to dial it  ·  drag or scroll for more  ·  Back leaves")
         } else {
@@ -493,12 +493,12 @@ impl TerminalUi {
         } else {
             ("Point at a chevron and press to enter it; press \u{0394} to dial.".to_string(), false)
         };
-        let list = self.list(catalog, state, known);
+        let list = self.list(catalog, words, state, known);
         TerminalModel {
             title: ring.map_or_else(|| ring_id.to_string(), |ring| ring.name.clone()),
             facility,
             note: ring.map_or_else(String::new, |ring| ring.note.clone()),
-            inscription: catalog.inscription.chars().collect(),
+            inscription: words.inscription.clone(),
             entered: self.entered.clone(),
             entered_word: word(&self.entered),
             status,
@@ -583,6 +583,10 @@ mod tests {
         crate::gate_network::lowered_gate_network(crate::pack::shipped())
     }
 
+    fn words() -> GateWords {
+        crate::gate_network::lowered_gate_words(crate::pack::shipped())
+    }
+
     fn directory() -> ambition_content_schemas::gate_directory::GateDirectory {
         crate::gate_network::lowered_directory(crate::pack::shipped())
     }
@@ -592,7 +596,7 @@ mod tests {
     /// the engage press at the bottom.
     #[test]
     fn the_wheel_is_laid_out_as_the_ring() {
-        let n = catalog().chevrons();
+        let n = catalog().symbols();
         assert_eq!(n, 15);
         assert!((chevron_angle(7, n) - 270.0).abs() < 1e-3, "Δ at 12 o'clock");
         assert_eq!(WheelSlot::at_angle(270.0, n), WheelSlot::Chevron(7));
@@ -609,16 +613,17 @@ mod tests {
     #[test]
     fn chevrons_are_entered_by_the_wheel_and_engaged_by_the_delta() {
         let catalog = catalog();
+        let words = words();
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
-        let tangent = catalog.spell("TANGENT").unwrap();
+        let tangent = words.spell("TANGENT").unwrap();
         for chevron in &tangent {
             assert_eq!(ui.press_slot(WheelSlot::Chevron(*chevron)), TerminalEffect::None);
         }
         ui.press_slot(WheelSlot::Chevron(0));
         assert_eq!(ui.back(), TerminalEffect::None);
         assert_eq!(ui.press_slot(WheelSlot::Engage), TerminalEffect::Send(GateTerminalAction::Dial(tangent.clone())));
-        let model = ui.model(&catalog, &GateNetworkState::default(), &[]);
+        let model = ui.model(&catalog, &words, &GateNetworkState::default(), &[]);
         assert_eq!(model.entered_word.as_deref(), Some("TANGENT"));
         for _ in 0..tangent.len() {
             ui.back();
@@ -648,28 +653,29 @@ mod tests {
     #[test]
     fn the_list_dials_known_and_recent_addresses() {
         let catalog = catalog();
+        let words = words();
         let mut state = GateNetworkState::default();
         let wrong = vec![0, 1, 2, 3, 0];
-        state.recent = vec![catalog.spell("GENESIS").unwrap(), wrong.clone()];
+        state.recent = vec![words.spell("GENESIS").unwrap(), wrong.clone()];
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
-        let known = [catalog.spell("GENESIS").unwrap()];
-        let rows = ui.list(&catalog, &state, &known);
+        let known = [words.spell("GENESIS").unwrap()];
+        let rows = ui.list(&catalog, &words, &state, &known);
         assert!(matches!(&rows[0], ListRow::Dimension { id, destinations: 1, .. } if id == "jungle"));
         assert_eq!(rows.last(), Some(&ListRow::Close));
         assert_eq!(rows[rows.len() - 2], ListRow::Dial, "the dial is a row of the list, after the addresses");
         assert_eq!(ui.press_row(&rows[0]), TerminalEffect::None);
-        let gates = ui.list(&catalog, &state, &known);
+        let gates = ui.list(&catalog, &words, &state, &known);
         assert_eq!(gates[0], ListRow::Dimensions);
         assert!(matches!(&gates[1], ListRow::Address { word, recent: true, .. } if word == "GENESIS"));
         assert_eq!(
             ui.press_row(&gates[1]),
-            TerminalEffect::Send(GateTerminalAction::Dial(catalog.spell("GENESIS").unwrap()))
+            TerminalEffect::Send(GateTerminalAction::Dial(words.spell("GENESIS").unwrap()))
         );
         assert_eq!(ui.back(), TerminalEffect::None);
         let recent = rows.iter().find(|row| matches!(row, ListRow::Recent { .. })).unwrap();
         assert_eq!(ui.press_row(recent), TerminalEffect::None);
-        let recent_rows = ui.list(&catalog, &state, &known);
+        let recent_rows = ui.list(&catalog, &words, &state, &known);
         assert!(matches!(&recent_rows[2], ListRow::Address { address, word, recent: true, .. } if *address == wrong && word.is_empty()), "{recent_rows:?}");
         assert_eq!(ui.press_row(&recent_rows[2]), TerminalEffect::Send(GateTerminalAction::Dial(wrong)));
     }
@@ -677,17 +683,18 @@ mod tests {
     #[test]
     fn the_directory_groups_only_listed_gates_and_back_restores_its_position() {
         let catalog = catalog();
+        let words = words();
         let state = GateNetworkState::default();
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
-        let known = known_addresses(&catalog, &directory(), &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
-        let rows = ui.list(&catalog, &state, &known);
+        let known = known_addresses(&catalog, &words, &directory(), &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
+        let rows = ui.list(&catalog, &words, &state, &known);
         assert!(!rows.iter().any(|row| matches!(row, ListRow::Address { .. })));
         let science = rows.iter().position(|row| matches!(row, ListRow::Dimension { id, .. } if id == "science")).unwrap();
         ui.step_list(science as i32, rows.len());
         let parent_position = (ui.list_cursor, ui.list_window);
         assert_eq!(ui.press_row(&rows[science]), TerminalEffect::None);
-        let gates = ui.list(&catalog, &state, &known);
+        let gates = ui.list(&catalog, &words, &state, &known);
         let count = gates.iter().filter_map(|row| match row {
             ListRow::Address { address, .. } => {
                 assert_eq!(address_dimension(&catalog, address), Some("science"));
@@ -698,7 +705,7 @@ mod tests {
         assert!(count > 1, "multiple facilities in Science share one directory page");
         assert!(matches!(rows[science], ListRow::Dimension { destinations, .. } if destinations == count));
         assert_eq!(ui.list_cursor, 1, "the first gate is selected, after the back row");
-        assert_eq!(ui.model(&catalog, &state, &known).list_title, "Dimensions  /  Science");
+        assert_eq!(ui.model(&catalog, &words, &state, &known).list_title, "Dimensions  /  Science");
         ui.press_row(&ListRow::Dial);
         assert_eq!(ui.back(), TerminalEffect::None);
         assert_eq!(ui.directory, TerminalDirectory::Dimension("science".into()));
@@ -710,8 +717,8 @@ mod tests {
         assert_eq!(ui.list_hover, None);
         assert_eq!(ui.back(), TerminalEffect::Send(GateTerminalAction::Close));
 
-        let posted = [catalog.spell("LEGAL").unwrap()];
-        let rows = ui.list(&catalog, &state, &posted);
+        let posted = [words.spell("LEGAL").unwrap()];
+        let rows = ui.list(&catalog, &words, &state, &posted);
         assert_eq!(rows.iter().filter(|row| matches!(row, ListRow::Dimension { .. })).count(), 1);
         // LEGAL is the Gate Authority capital's (Q185).
         assert!(matches!(&rows[0], ListRow::Dimension { id, destinations: 1, .. } if id == "authority"));
@@ -720,11 +727,12 @@ mod tests {
     #[test]
     fn local_portal_arches_keep_a_direct_destination_list() {
         let catalog = catalog();
+        let words = words();
         let mut ui = TerminalUi::default();
         ui.open("magical_heights_arch", None);
-        let castle = catalog.spell("CASTLE").unwrap();
+        let castle = words.spell("CASTLE").unwrap();
         let state = GateNetworkState::default();
-        let model = ui.model(&catalog, &state, &[castle.clone()]);
+        let model = ui.model(&catalog, &words, &state, &[castle.clone()]);
         assert_eq!(model.list_title, "Destinations");
         assert!(matches!(&model.list[0], ListRow::Address { address, .. } if *address == castle));
         assert_eq!(ui.press_row(&model.list[0]), TerminalEffect::Send(GateTerminalAction::Dial(castle)));
@@ -738,23 +746,24 @@ mod tests {
         use crate::gate_network::gate_address_known_flag;
         use ambition_content_schemas::gate_directory::GateStartKnowledge;
         let catalog = catalog();
+        let words = words();
         let mut directory = directory();
-        let all = known_addresses(&catalog, &directory, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
+        let all = known_addresses(&catalog, &words, &directory, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
         if directory.start_known == GateStartKnowledge::All {
             // A gate lists gates: the portal arches are not on its list.
             let gates = catalog.rings.iter().filter(|ring| ring.kind == ambition_platformer2d::world::rooms::RingKind::Gate).count();
             assert_eq!(all.len(), gates - 1, "every other gate is listed: {all:?}");
         }
         directory.start_known = GateStartKnowledge::Discovered;
-        let spell = |word: &str| catalog.spell(word).unwrap();
-        let known = known_addresses(&catalog, &directory, &GateRingPositions::default(), "math_gate_return_zone", |_| false);
+        let spell = |word: &str| words.spell(word).unwrap();
+        let known = known_addresses(&catalog, &words, &directory, &GateRingPositions::default(), "math_gate_return_zone", |_| false);
         assert_eq!(known, [spell("LEGAL")]);
         let flag = gate_address_known_flag("GENESIS");
-        let known = known_addresses(&catalog, &directory, &GateRingPositions::default(), "math_gate_return_zone", |id| id == flag);
+        let known = known_addresses(&catalog, &words, &directory, &GateRingPositions::default(), "math_gate_return_zone", |id| id == flag);
         assert_eq!(known, [spell("LEGAL"), spell("GENESIS")]);
         // The sandbox hub posts the capital, and the capital posts the hub (Q185).
-        assert_eq!(known_addresses(&catalog, &directory, &GateRingPositions::default(), "hub_public_gate_zone", |_| false), [spell("LEGAL")]);
-        assert_eq!(known_addresses(&catalog, &directory, &GateRingPositions::default(), "authority_concourse_gate", |_| false), [spell("TESTING")]);
+        assert_eq!(known_addresses(&catalog, &words, &directory, &GateRingPositions::default(), "hub_public_gate_zone", |_| false), [spell("LEGAL")]);
+        assert_eq!(known_addresses(&catalog, &words, &directory, &GateRingPositions::default(), "authority_concourse_gate", |_| false), [spell("TESTING")]);
     }
 
     /// The status line reads the network: an open link, then a refusal by
@@ -763,29 +772,30 @@ mod tests {
     fn the_status_line_reads_the_link_and_the_refusal() {
         use ambition_platformer2d::world::rooms::DialRefusal;
         let catalog = catalog();
+        let words = words();
         let mut state = GateNetworkState::default();
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
         state.open_link(&catalog, "hub_public_gate_zone", "math_gate_return_zone").unwrap();
-        let model = ui.model(&catalog, &state, &[]);
+        let model = ui.model(&catalog, &words, &state, &[]);
         assert!(model.status.starts_with("LINK OPEN to Math Town gate hall"), "{}", model.status);
         assert!(model.list.contains(&ListRow::Hangup));
         ui.open("math_gate_return_zone", None);
-        let returning = ui.model(&catalog, &state, &[]);
+        let returning = ui.model(&catalog, &words, &state, &[]);
         assert!(returning.status.contains(&catalog.ring("hub_public_gate_zone").unwrap().name));
         assert!(returning.list.contains(&ListRow::Hangup));
         state.close_link("math_gate_return_zone");
-        assert!(!ui.model(&catalog, &state, &[]).list.contains(&ListRow::Hangup));
+        assert!(!ui.model(&catalog, &words, &state, &[]).list.contains(&ListRow::Hangup));
         ui.open("hub_public_gate_zone", None);
         let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
             ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot("terminal_user".into()), None);
         ui.subject = Some(subject.clone());
         state.report(
             &subject, "hub_public_gate_zone",
-            catalog.spell("SILENT").unwrap(),
+            words.spell("SILENT").unwrap(),
             Err(DialRefusal::Offline("The far ring is not yet built.".into())),
         );
-        let model = ui.model(&catalog, &state, &[]);
+        let model = ui.model(&catalog, &words, &state, &[]);
         assert!(model.refused && model.status.contains("OFFLINE"), "{}", model.status);
     }
 
@@ -837,10 +847,11 @@ mod tests {
     #[test]
     fn the_terminal_opens_on_the_list_and_the_dial_is_behind_a_row() {
         let catalog = catalog();
+        let words = words();
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
         assert_eq!(ui.focus, TerminalFocus::List);
-        let rows = ui.list(&catalog, &GateNetworkState::default(), &[]);
+        let rows = ui.list(&catalog, &words, &GateNetworkState::default(), &[]);
         let dial = rows.iter().position(|row| *row == ListRow::Dial).expect("a dial row");
         assert_eq!(ui.press_row(&rows[dial]), TerminalEffect::None);
         assert_eq!(ui.focus, TerminalFocus::Wheel);

@@ -342,12 +342,9 @@ mod tests {
     }
 
     #[test]
-    fn key_items_and_placeholder_abilities_inspect_when_owned() {
-        // A placeholder ability has no row, so even a granted one equips nothing.
+    fn key_items_inspect_when_owned() {
         let mut owned = OwnedItems::default();
-        owned.grant(catalog(), Item::AxeStance, 1);
         owned.grant(catalog(), Item::FieldSurvey, 1);
-        assert_eq!(decide_for(Item::AxeStance, &owned, None, None), MenuAction::Inspect(Item::AxeStance));
         assert_eq!(decide_for(Item::FieldSurvey, &owned, None, None), MenuAction::Inspect(Item::FieldSurvey));
     }
 

@@ -190,6 +190,10 @@ rear, rider, and near slots. Held art and body effects with a visual root
 follow that root's slot. The card view keeps the physical depth of each
 slot. A headless test checks rider selection when two beds overlap. Ultra
 captures of two occupied carts show the same overlap in 2D and side-on 2.5D.
+When a portal cuts a panel, rider, or item, the piece at the entry keeps
+its source slot and physical depth. The piece through the portal uses the
+exit layer. An Ultra fixture checks the overlap while a rider, the cart,
+and a held item cross a paired opening.
 
 ## One shared sample, two concrete Bevy renderers
 

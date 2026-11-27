@@ -4,6 +4,8 @@ use std::cmp::Reverse;
 
 use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
+#[cfg(feature = "portal_render")]
+use ambition_portal2d_presentation::PortalCarryOrder;
 use bevy::camera::visibility::RenderLayers;
 use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::ecs::entity::EntityHashMap;
@@ -79,6 +81,7 @@ pub(super) fn extract_vessel_orders(
         (Entity, Option<&HeldArtOf>, Option<&WornGearVisual>, Option<&PresentationOf>),
         Attachment,
     >>,
+    #[cfg(feature = "portal_render")] pieces: Extract<Query<(Entity, &PortalCarryOrder)>>,
     mut orders: ResMut<VesselOrders>,
 ) {
     orders.0.clear();
@@ -127,6 +130,15 @@ pub(super) fn extract_vessel_orders(
             .or_else(|| subject.map(|subject| subject.0));
         if let Some(order) = root.filter(|&root| riders.contains(root)).and_then(|root| orders.get(root)) {
             orders.0.insert(entity, order);
+        }
+    }
+    #[cfg(feature = "portal_render")]
+    for (entity, piece) in &pieces {
+        // The local piece replaces its source. The exit piece draws at the exit.
+        if let PortalCarryOrder::Entry(source) = *piece {
+            if let Some(order) = orders.get(source) {
+                orders.0.insert(entity, order);
+            }
         }
     }
 }

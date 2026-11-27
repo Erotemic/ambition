@@ -544,6 +544,12 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .after(camera::ViewCameraSet)
                     .after(ambition_portal2d_presentation::PortalObservationSet),
             );
+            app.add_systems(
+                Update,
+                camera::publish_portal_window_views
+                    .after(camera::ViewCameraSet)
+                    .before(PortalPresentationSet),
+            );
             // The time bodies are drawn at, so a moving opening is drawn at
             // it too (V3).
             app.add_systems(

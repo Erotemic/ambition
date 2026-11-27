@@ -221,6 +221,23 @@ impl CardViewSettings {
     pub fn for_game(mode: CardViewMode) -> Self {
         Self { mode, viewport_fraction: 0.48, ..Self::gameplay() }
     }
+
+    pub(super) fn inset_size(&self, size: UVec2) -> Option<UVec2> {
+        if size.x < 64 || size.y < 64 {
+            return None;
+        }
+        let w = ((size.x as f32 * self.viewport_fraction) as u32).clamp(32, size.x);
+        let h = ((w as f32 * size.y as f32 / size.x as f32) as u32).clamp(32, size.y);
+        Some(UVec2::new(w, h))
+    }
+
+    pub(super) fn projection_scale(&self, plane_scale: f32) -> f32 {
+        if self.mode == CardViewMode::Inset {
+            plane_scale / (self.viewport_fraction * self.zoom).max(0.05)
+        } else {
+            plane_scale
+        }
+    }
 }
 
 impl Default for CardViewSettings {
@@ -531,16 +548,20 @@ pub fn present_card_view_rigs(
                 clear_color: ClearColorConfig::Custom(Color::srgb(0.07, 0.08, 0.11)),
                 ..default()
             },
-            Projection::Orthographic(OrthographicProjection {
-                scaling_mode: ScalingMode::WindowSize,
-                near: 0.0,
-                far: CAMERA_DISTANCE * 2.0,
-                ..OrthographicProjection::default_3d()
-            }),
+            Projection::Orthographic(card_camera_projection()),
             RenderLayers::layer(CARD_VIEW_LAYER),
             ambition_sim_view::PresentsView(view),
             Name::new("Card view camera"),
         ));
+    }
+}
+
+pub(super) fn card_camera_projection() -> OrthographicProjection {
+    OrthographicProjection {
+        scaling_mode: ScalingMode::WindowSize,
+        near: 0.0,
+        far: CAMERA_DISTANCE * 2.0,
+        ..OrthographicProjection::default_3d()
     }
 }
 
@@ -559,12 +580,7 @@ pub fn place_card_view_cameras(
         };
         *transform = card_camera_transform(frame, &settings);
         if let Projection::Orthographic(orthographic) = &mut *projection {
-            let inset_scale = if settings.mode == CardViewMode::Inset {
-                (settings.viewport_fraction * settings.zoom).max(0.05)
-            } else {
-                1.0
-            };
-            orthographic.scale = frame.orthographic_scale / inset_scale;
+            orthographic.scale = settings.projection_scale(frame.orthographic_scale);
         }
     }
 }

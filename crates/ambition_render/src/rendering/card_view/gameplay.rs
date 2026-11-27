@@ -87,7 +87,7 @@ pub(super) fn route_card_outputs(
         let (active, order, viewport, clear_color, writeback) = if replacing {
             (true, plane.order, plane.viewport.clone(), plane.clear_color, plane.msaa_writeback)
         } else {
-            let viewport = inset_viewport(&plane, settings.viewport_fraction);
+            let viewport = inset_viewport(&plane, &settings);
             (viewport.is_some(), plane.order.saturating_add(1).max(6), viewport, ClearColorConfig::None, MsaaWriteback::Auto)
         };
         if card.is_active != active || card.order != order || !same_viewport(&card.viewport, &viewport)
@@ -161,15 +161,10 @@ fn same_clear_color(a: ClearColorConfig, b: ClearColorConfig) -> bool {
     }
 }
 
-fn inset_viewport(plane: &Camera, fraction: f32) -> Option<Viewport> {
+fn inset_viewport(plane: &Camera, settings: &CardViewSettings) -> Option<Viewport> {
     let size = plane.physical_viewport_size()?;
-    if size.x < 64 || size.y < 64 {
-        return None;
-    }
     let origin = plane.viewport.as_ref().map_or(UVec2::ZERO, |v| v.physical_position);
-    let w = ((size.x as f32 * fraction) as u32).clamp(32, size.x);
-    let h = ((w as f32 * size.y as f32 / size.x as f32) as u32).clamp(32, size.y);
-    let inset = UVec2::new(w, h);
+    let inset = settings.inset_size(size)?;
     Some(Viewport { physical_position: origin + size - inset, physical_size: inset, ..Default::default() })
 }
 

@@ -898,6 +898,11 @@ shared value preparation are sufficient until source proves otherwise.
    render layer families. The portal backdrop test covers two eyes in one
    live room and a third eye in a room that uses the same portal channels.
 
+   Portal windows use the final view pose, zoom, and pixel dimensions.
+   A tilted view projects its viewport onto the play plane. Its capture
+   covers the bounds of that projection. The comparison inset and its
+   main output share one capture for each portal and observer.
+
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
    and a performance comparison are open.

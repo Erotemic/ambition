@@ -27,7 +27,7 @@ pub struct WorldSprite;
 /// The sprite changes color while it is visible. Keep its card material.
 #[derive(Component, Default)]
 #[require(WorldSprite)]
-pub(super) struct AnimatedWorldSpriteTint;
+pub struct AnimatedWorldSpriteTint;
 
 /// Standing-stance render size of the textured player sprite, recorded when
 /// the sprite is built. The crouch squash in `sync_visuals` uses it to scale

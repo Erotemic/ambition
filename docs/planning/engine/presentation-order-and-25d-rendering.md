@@ -770,8 +770,9 @@ shared value preparation are sufficient until source proves otherwise.
    Sprite masks and shader glows follow the depth of the actor that
    owns the effect. The card view also uses the authored shaders for
    the Puppy Slug dream, the Flying Spaghetti Monster's sauce, and the
-   Mockingbird's flames. The space art uses the world sprite path.
-   In-game captures of these effects are pending.
+   Mockingbird's flames. The space art retains its sprite materials as
+   the tint changes. An offscreen fixture shows all four effects in
+   2D and side-on 2.5D at Medium and High. In-game captures are pending.
 
    World-space sprite producers mark their art with `WorldSprite`. The card
    renderer reads this marker and uses the sprite's world transform and

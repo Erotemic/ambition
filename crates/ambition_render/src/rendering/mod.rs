@@ -241,7 +241,7 @@ pub use parallax::{
     PresentedRoomParallax,
 };
 pub use primitives::{
-    EntityArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
+    AnimatedWorldSpriteTint, EntityArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
     PlayerVisual, PortalSprite, PropClip, PropTint, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
     WorldSprite,
 };

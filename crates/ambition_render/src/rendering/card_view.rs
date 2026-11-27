@@ -1870,10 +1870,11 @@ mod tests {
         assert_eq!(app.world().resource::<Assets<StandardMaterial>>().get(&material).unwrap().base_color, color);
         app.world_mut().entity_mut(card_of_scenery).despawn();
         app.update();
-        assert_eq!(shown(&mut app).len(), 6);
+        assert_eq!(shown(&mut app), found, "the card returns while its source exists");
         app.world_mut().entity_mut(scenery).despawn();
         app.update();
-        assert_eq!(shown(&mut app).len(), 3, "a prop that goes takes its card");
+        let remaining: Vec<_> = found.into_iter().filter(|at| at.x != 10.0).collect();
+        assert_eq!(shown(&mut app), remaining, "removing a prop removes its card");
     }
 
     #[test]

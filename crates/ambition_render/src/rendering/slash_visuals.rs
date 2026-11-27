@@ -92,6 +92,7 @@ pub(crate) fn slash_rotation(dir: ae::Vec2, _pose: SlashPose) -> f32 {
 /// A live slash effect: plays its row once over `frames * frame_duration`,
 /// then despawns.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub(crate) struct SlashVisual {
     age: f32,
     row_start: usize,

@@ -187,6 +187,7 @@ fn sheet_flipped(look: &PlatformLook, platform: &MovingPlatformState, air_x: f32
 /// rebuilt by room construction, so a platform has no id of its own. A room
 /// change replaces the whole roster and all its visuals.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct MovingPlatformVisual {
     /// The live room whose set holds the platform. The visual is stamped with
     /// it too, so only a view that frames that room draws it.

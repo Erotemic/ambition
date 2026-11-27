@@ -759,6 +759,13 @@ shared value preparation are sufficient until source proves otherwise.
    hub floor, doors, switches, and an open gate in side-on view. Wolfenstein's
    throne-room lightning uses the same line mesh in both views.
 
+   World-space sprite producers mark their art with `WorldSprite`. The card
+   renderer reads this marker and uses the sprite's world transform and
+   visibility. Ladders, vines, water, and lock walls use this path, including
+   fixture art that replaces placeholder sprites. A test checks that the
+   card view shows the ladder at the same position before and after this
+   replacement.
+
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
    and a performance comparison are open.

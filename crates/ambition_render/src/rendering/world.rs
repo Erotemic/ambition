@@ -14,7 +14,7 @@ use super::label_layout::WorldLabelFamily;
 use super::nameplates::DoorNameplateSource;
 use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, EntityArt, BlockVisual, FeatureVisual,
-    LockWallVisual, PropVisual, RoomVisual,
+    LockWallVisual, PropVisual, RoomVisual, WorldSprite,
 };
 use ambition_platformer2d_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
@@ -569,6 +569,7 @@ fn spawn_water_region(
                     size: render,
                 },
                 Name::new("Water backdrop"),
+                WorldSprite,
                 RoomVisual,
             ),
         );
@@ -585,6 +586,7 @@ fn spawn_water_region(
             Sprite::from_color(body_color, render),
             Transform::from_translation(world_to_bevy(world, region.aabb.center(), body_z)),
             Name::new(format!("Water body ({:?})", region.kind)),
+            WorldSprite,
             RoomVisual,
         ),
     );
@@ -611,6 +613,7 @@ fn spawn_water_region(
             Sprite::from_color(strip_color, strip_size),
             Transform::from_translation(world_to_bevy(world, strip_center, WORLD_Z_PLAYER + 6.0)),
             Name::new(format!("Water surface ({:?})", region.kind)),
+            WorldSprite,
             RoomVisual,
         ),
     );
@@ -722,6 +725,7 @@ fn spawn_climbable_region(
             Sprite::from_color(body_color, render),
             Transform::from_translation(world_to_bevy(world, region.aabb.center(), body_z)),
             Name::new(format!("Climbable body ({:?})", region.kind)),
+            WorldSprite,
             RoomVisual,
         ),
     );
@@ -752,6 +756,7 @@ fn spawn_climbable_region(
                     // Room y is down and the y of a child is up.
                     Transform::from_xyz(0.0, centre_y - y, 0.5),
                     Name::new(label.clone()),
+                    WorldSprite,
                 ));
                 y += 16.0;
             }
@@ -887,6 +892,7 @@ pub fn spawn_surface_chain_visuals(
                 session_scope,
                 (
                     Sprite::from_color(color, BVec2::new(length, THICKNESS)),
+                    WorldSprite,
                     Transform::from_translation((a + b) * 0.5)
                         .with_rotation(Quat::from_rotation_z(delta.y.atan2(delta.x))),
                     Name::new(format!(
@@ -1322,6 +1328,7 @@ pub fn spawn_loading_zone(
             anchor,
             Transform::from_translation(world_to_bevy(world, sprite_pos, DOOR_Z)),
             Name::new(format!("Loading zone: {}", zone.name)),
+            WorldSprite,
             crate::rendering::primitives::LoadingZoneVisual {
                 id: zone.id.clone(),
             },
@@ -1791,6 +1798,7 @@ pub fn sync_lock_wall_visuals(
                     ),
                     Transform::from_translation(world_to_bevy(&world.0, block.aabb.center(), LOCK_WALL_Z)),
                     Name::new(format!("LockWall: {}", block.name)),
+                    WorldSprite,
                     LockWallVisual {
                         block_name: block.name.clone(),
                         centre: block.aabb.center(),
@@ -1827,6 +1835,7 @@ pub fn sync_lock_wall_visuals(
                     LOCK_WALL_Z,
                 )),
                 Name::new(format!("LockWall: {}", block.name)),
+                WorldSprite,
                 LockWallVisual {
                     block_name: block.name.clone(),
                     centre: block.aabb.center(),

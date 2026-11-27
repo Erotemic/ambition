@@ -10,6 +10,7 @@ use bevy::prelude::*;
 
 /// Marks the persistent beacon sprite shown at a player's dropped recall mark.
 #[derive(Component)]
+#[require(crate::rendering::WorldSprite)]
 pub struct MarkBeaconVisual;
 
 /// How far above the mark (player center) the beacon's center sits, so it

@@ -582,17 +582,11 @@ shared value preparation are sufficient until source proves otherwise.
    body the 2D view composites (a fade, a flash, a warp, any reader of it as
    one image) is now one card of its composited cell, at the root's quad,
    drawn opaque because the cell already carries the fade: the card view
-   follows the 2D compositing decision instead of making its own. The flash
-   is decided once: `sync_hit_flash_overlays` publishes the cue it chose on
-   the body (`PresentedFlash`: colour and strength), and the card view lays
-   a silhouette over each of the body's cards: black base, the page's alpha,
-   emission in the cue's colour, as opaque as the cue is strong. The gate
-   cue's scanlines are drawn as its flat tint. Witness
-   `a_composited_body_is_one_card_and_its_flash_covers_it`: one card of the
-   atlas page at full opacity, a silhouette card at 0.75 in the cue's colour,
-   then part by part a silhouette per card, and none without a cue. The
-   baked-frame witness now draws its part phase directly. Render lib: 529
-   passed (default), 533 with `card_view`. A capture of `intro_wake_room`
+   follows the 2D compositing decision instead of making its own. A whole
+   frame uses the shared flash shader. When a rig draws from parts,
+   `PresentedFlash` supplies the tint and opacity for each part's flash.
+   `a_rigged_body_flashes_its_parts_only_without_a_whole_frame` checks both
+   paths. A capture of `intro_wake_room`
    with `--card-view` is pixel-identical to the same capture at the parent
    commit (no body flashes or fades there).
 
@@ -774,11 +768,13 @@ shared value preparation are sufficient until source proves otherwise.
    the tint changes. An offscreen fixture shows all four effects in
    2D and side-on 2.5D at Medium and High. In-game captures are pending.
 
-   Sheet-drawn actors use the same damage flash and gate scanline shader
-   in both renderers. The card renderer draws the effect above the actor's
-   sheet card and removes it when the cue ends. A Medium offscreen test
-   scene shows both cues in 2D, side-on 2.5D, and oblique 2.5D. Rigged
-   cards still use a flat tint for the gate cue.
+   Both renderers use the same damage flash and gate scanline shader on
+   sheet-drawn actors and on rigged actors with a whole frame. The card
+   uses the whole frame's tint and opacity. When a rig has only parts, each
+   part uses a flat flash until a whole frame is available. The shared
+   overlay goes away when the cue ends. An Ultra offscreen fixture with
+   Scout's published parts shows the damage flash and gate transit in 2D,
+   side-on 2.5D, and oblique 2.5D.
 
    World-space sprite producers mark their art with `WorldSprite`. The card
    renderer reads this marker and uses the sprite's world transform and

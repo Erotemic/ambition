@@ -428,7 +428,7 @@ mod tests {
     use super::super::CardBodyDepth;
 
     #[test]
-    fn a_flash_draws_on_its_sheet_body_until_the_cue_ends() {
+    fn a_flash_draws_on_a_whole_body_until_the_cue_ends() {
         let mut app = App::new();
         app.init_resource::<Assets<HitFlashMaterial>>()
             .init_resource::<Assets<CardMaterial<HitFlashMaterial>>>()
@@ -443,10 +443,18 @@ mod tests {
             tint: Vec4::ONE,
         });
         let mut sources = Vec::new();
-        for representation in [CardBodyRepresentation::Sprite, CardBodyRepresentation::Rigged] {
+        for (index, representation) in [
+            CardBodyRepresentation::Sprite,
+            CardBodyRepresentation::RiggedFrame,
+            CardBodyRepresentation::RiggedParts,
+        ].into_iter().enumerate() {
             let actor = world.spawn_empty().id();
             world.resource_mut::<CardRootDepths>().roots.insert(actor, CardBodyDepth {
-                plane_z: 2.5, source_z: 20.0, order_scale: 1.0, front_part: 0.0, representation,
+                plane_z: (index as f32 + 1.0) * 2.5,
+                source_z: 20.0,
+                order_scale: 1.0,
+                front_part: 0.0,
+                representation,
             });
             sources.push(world.spawn((
                 PresentationOf(actor),
@@ -466,10 +474,12 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         app.update();
-        let shown = flash_cards(app.world_mut());
-        assert_eq!(shown.len(), 1);
-        assert_eq!(shown[0].0, sources[0]);
-        assert!(shown[0].1 > 2.5);
+        let mut shown = flash_cards(app.world_mut());
+        shown.sort_by(|a, b| a.1.total_cmp(&b.1));
+        assert_eq!(shown.len(), 2);
+        assert_eq!([shown[0].0, shown[1].0], sources[..2]);
+        assert!((2.5..5.0).contains(&shown[0].1) && shown[0].1 > 2.5);
+        assert!((5.0..7.5).contains(&shown[1].1) && shown[1].1 > 5.0);
 
         app.world_mut().resource_mut::<Assets<HitFlashMaterial>>().get_mut(&material).unwrap().control.x = 0.0;
         app.update();

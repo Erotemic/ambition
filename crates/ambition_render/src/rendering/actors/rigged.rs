@@ -548,6 +548,8 @@ pub struct RiggedLocalSample {
     pub frame: usize,
     /// The frame's own opacity (a fading frame is one picture fading).
     pub frame_opacity: f32,
+    /// Tint and opacity applied to the body in the scene.
+    pub body_color: LinearRgba,
     pub draws: Vec<PartDraw>,
     /// Where the frame's parts stand in the body's own frame: the feet of
     /// the frame's quad (its size, anchor, crouch squash and mirror row),
@@ -578,6 +580,13 @@ impl RiggedLocalSample {
     /// The parts to draw, when the sample has parts.
     pub fn parts(&self) -> Option<&[PartDraw]> {
         (self.state == LocalSampleState::Parts).then_some(self.draws.as_slice())
+    }
+
+    /// The body color for loose parts when a composed frame is unavailable.
+    pub(in crate::rendering) fn direct_body_color(&self) -> LinearRgba {
+        let mut color = self.body_color;
+        color.alpha *= self.frame_opacity;
+        color
     }
 }
 
@@ -627,13 +636,7 @@ pub struct RiggedPresentation {
     pub posed: Option<Arc<PosedParts>>,
     /// This frame's draws placed by a [`PartPose`] (reused).
     pub posed_draws: Vec<PartDraw>,
-    /// What this body's cell of the atlas holds now: the draws its page last
-    /// rendered there, where, and that render's [`ImpostorAtlas::generation`].
-    /// The cell holds them only while the page's generation is still that
-    /// one: another body's change re-renders (and clears) the whole page, and
-    /// a body not drawn into that render (on a baked clip of a hybrid) lost
-    /// its pixels. `None` until first rendered.
-    pub shown: Option<(Vec<PartDraw>, Vec3, u64)>,
+    shown: Option<ShownParts>,
     /// POSE-CONTINUITY's clip blend: the pose drawn before the last change of
     /// row, the seconds of the blend left, and the authored row (before
     /// facing) and draws of the last frame drawn. See [`CLIP_BLEND_SECONDS`].
@@ -644,6 +647,36 @@ pub struct RiggedPresentation {
     /// POSE-CONTINUITY's follow-through: what the pose the body came into
     /// set swinging, and the seconds since. See [`FOLLOW_THROUGH_SECONDS`].
     pub swing: Option<(ambition_sprite_sheet::character::FollowThrough, f32)>,
+}
+
+struct ShownParts {
+    draws: Vec<PartDraw>,
+    target: PartDrawTarget,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum PartDrawTarget {
+    World(LinearRgba),
+    // A page render clears all cells. The generation identifies its result.
+    Atlas { place: Vec3, generation: u64 },
+}
+
+impl RiggedPresentation {
+    fn update_draws(&mut self, draws: &[PartDraw], target: PartDrawTarget) -> bool {
+        match &mut self.shown {
+            Some(shown) if shown.target == target && shown.draws == draws => false,
+            Some(shown) => {
+                shown.draws.clear();
+                shown.draws.extend_from_slice(draws);
+                shown.target = target;
+                true
+            }
+            None => {
+                self.shown = Some(ShownParts { draws: draws.to_vec(), target });
+                true
+            }
+        }
+    }
 }
 
 /// How long a change between two of the body's carriage poses
@@ -1279,6 +1312,7 @@ pub fn sample_rigged_presentations(
         sample.row = None;
         sample.frame = 0;
         sample.frame_opacity = 1.0;
+        sample.body_color = LinearRgba::WHITE;
         sample.feet = None;
         sample.baked = None;
         let Ok((animator, pose, mask, root_sprite, root_anchor)) = roots.get(root) else {
@@ -1292,6 +1326,7 @@ pub fn sample_rigged_presentations(
             presentation.swing = None;
             continue;
         }
+        sample.body_color = root_sprite.map_or(LinearRgba::WHITE, |sprite| sprite.color.to_linear());
         let flipbook = presentation.pages.flipbook.clone();
         // `None` for a baked clip of a hybrid: `check_rows` at attach makes
         // sure that every other row has draws. A tweened clip draws the frame
@@ -1652,11 +1687,10 @@ pub fn drive_rigged_presentations(
             if let Some((request, answer)) = asked.as_mut() {
                 part_set::answer(request, answer, &presentation, draws, place);
             }
-            let frame_opacity = sample.frame_opacity;
             drive_direct_presentation(
                 &mut presentation,
                 draws,
-                frame_opacity,
+                sample.direct_body_color(),
                 &mut root_sprite,
                 place,
                 root_visible,
@@ -1701,21 +1735,9 @@ pub fn drive_rigged_presentations(
         // third of its size, 2026-10-05).
         let place = atlas.cell_feet(impostor.cell, impostor.feet).extend(0.0);
         owner_transform.set_if_neq(Transform::from_translation(place));
-        let current = presentation
-            .shown
-            .as_ref()
-            .is_some_and(|(shown, at, generation)| *generation == atlas.generation && *at == place && shown.as_slice() == draws);
-        if !current {
+        let slots_changed = presentation.update_draws(draws, PartDrawTarget::Atlas { place, generation: atlas.generation });
+        if slots_changed {
             changed[class][page] = true;
-        }
-        match presentation.shown.as_mut() {
-            Some((shown, at, _)) if !current => {
-                shown.clear();
-                shown.extend_from_slice(draws);
-                *at = place;
-            }
-            Some(_) => {}
-            None => presentation.shown = Some((draws.to_vec(), place, u64::MAX)),
         }
         // Stamped with the page's generation after the render decision.
         drawn_into.push((owner, class, page));
@@ -1777,7 +1799,7 @@ pub fn drive_rigged_presentations(
         // a write marks every slot's `Transform` changed, so the hall
         // propagated and re-extracted thousands of part slots a frame whose
         // bodies had not changed frame.
-        if !current {
+        if slots_changed {
             write_slots(&presentation, draws, &mut slots, |draw| part_color(draw, LinearRgba::WHITE));
         }
     }
@@ -1821,7 +1843,7 @@ pub fn drive_rigged_presentations(
             continue;
         };
         if let Ok((_, _, mut presentation, _, _, _)) = owners.get_mut(owner) {
-            if let Some((_, _, stamped)) = presentation.shown.as_mut() {
+            if let Some(ShownParts { target: PartDrawTarget::Atlas { generation: stamped, .. }, .. }) = presentation.shown.as_mut() {
                 // A page that did not render keeps its generation, and so does
                 // every cell that was current; a page that rendered redrew
                 // every body drawn into it this frame.
@@ -1958,16 +1980,13 @@ fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mu
 /// the root's child (a player's root is its simulation body), so it follows
 /// the root's visibility explicitly.
 ///
-/// ⚠ A FADE FRAME IS APPROXIMATED. `frame_opacity` is the opacity of the
-/// composited frame (`opacity(composite(parts))`); spread over the parts, a
-/// part overlapping another shows the one under it through it. Exact group
-/// opacity needs the frame composited first (the semantic part plan's optional
-/// group composition); five characters fade a death or blink row this way.
+/// Exact group opacity requires a composed frame. When the frame is
+/// unavailable, each part uses the body's opacity.
 #[allow(clippy::too_many_arguments)]
 fn drive_direct_presentation(
     presentation: &mut RiggedPresentation,
     draws: &[PartDraw],
-    frame_opacity: f32,
+    body_color: LinearRgba,
     // The `Mut` itself: it is only read here, but for the image, which is
     // compared first, so an unchanged root stays unchanged.
     root_sprite: &mut Mut<Sprite>,
@@ -1982,28 +2001,9 @@ fn drive_direct_presentation(
     if root_sprite.image != ambition_sprite_sheet::character::NO_BAKED_IMAGE {
         root_sprite.image = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
     }
-    // The root's colour (a tint, a flash) multiplies every part, as it
-    // multiplied the composited body. Part pages are sampled as sRGB here, so
-    // a draw's tint (a multiply on stored sRGB values) is an sRGB colour.
-    let mut root_color = root_sprite.color.to_linear();
-    root_color.alpha *= frame_opacity;
-    let current = presentation
-        .shown
-        .as_ref()
-        .is_some_and(|(shown, color, _)| shown.as_slice() == draws && *color == root_color.to_vec3());
-    if current {
-        return;
+    if presentation.update_draws(draws, PartDrawTarget::World(body_color)) {
+        write_slots(presentation, draws, slots, |draw| part_color(draw, body_color));
     }
-    match presentation.shown.as_mut() {
-        Some((shown, color, generation)) => {
-            shown.clear();
-            shown.extend_from_slice(draws);
-            *color = root_color.to_vec3();
-            *generation = 0;
-        }
-        None => presentation.shown = Some((draws.to_vec(), root_color.to_vec3(), 0)),
-    }
-    write_slots(presentation, draws, slots, |draw| part_color(draw, root_color));
 }
 
 /// The sprite colour of one draw, multiplied by `root` (a tint or flash on
@@ -2011,7 +2011,7 @@ fn drive_direct_presentation(
 /// values, so it is an sRGB colour; the page is sampled decoded and the camera
 /// encodes again (a camera in `ART_COMPOSITING`), or blends it in linear
 /// light (the world's).
-fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
+pub(in crate::rendering) fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
     let (tint, opacity) = (draw.tint(), draw.opacity());
     let part = Color::srgba(tint.x, tint.y, tint.z, opacity).to_linear();
     Color::LinearRgba(LinearRgba::new(

@@ -776,6 +776,11 @@ shared value preparation are sufficient until source proves otherwise.
    Scout's published parts shows the damage flash and gate transit in 2D,
    side-on 2.5D, and oblique 2.5D.
 
+   Direct rigs use the body tint and opacity from one sample in both
+   renderers. An opacity change refreshes the 2D slots. Each tinted card
+   keeps its material as the tint or opacity changes. An Ultra offscreen
+   fixture shows these changes on Scout's direct parts in both renderers.
+
    World-space sprite producers mark their art with `WorldSprite`. The card
    renderer reads this marker and uses the sprite's world transform and
    visibility. Ladders, vines, water, and lock walls use this path, including

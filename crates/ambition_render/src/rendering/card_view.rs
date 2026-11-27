@@ -112,7 +112,7 @@ use ambition_sprite_sheet::character::rigged::PartDraw;
 
 use super::retained_entities::RetainedEntities;
 use super::actors::rigged::{
-    BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
+    part_color, BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
 };
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
@@ -245,8 +245,10 @@ pub struct CardBody {
 }
 
 /// One drawn part of a [`CardBody`].
-#[derive(Component, Debug)]
-pub struct CardPart;
+#[derive(Component, Debug, Default)]
+pub struct CardPart {
+    tinted_material: Option<Handle<StandardMaterial>>,
+}
 
 /// A card drawing one held or wielded item.
 #[derive(Component)]
@@ -800,30 +802,56 @@ fn sprite_material(texture: Option<Handle<Image>>, color: Color) -> StandardMate
     }
 }
 
-fn animated_sprite_material(
+/// Update a material owned by one card.
+fn retain_sprite_material(
     handle: Option<&Handle<StandardMaterial>>,
-    sprite: &Sprite,
+    image: &Handle<Image>,
+    color: Color,
     materials: &mut Assets<StandardMaterial>,
 ) -> Handle<StandardMaterial> {
-    let texture = (sprite.image != Handle::default()).then(|| sprite.image.clone());
+    let texture = (*image != Handle::default()).then_some(image);
     if let Some(handle) = handle {
         if let Some(material) = materials.get(handle) {
-            if material.base_color != sprite.color || material.base_color_texture != texture {
+            if material.base_color != color || material.base_color_texture.as_ref() != texture {
                 let mut material = materials.get_mut(handle).unwrap();
-                material.base_color = sprite.color;
-                material.base_color_texture = texture;
+                material.base_color = color;
+                material.base_color_texture = texture.cloned();
             }
             return handle.clone();
         }
     }
-    materials.add(sprite_material(texture, sprite.color))
+    materials.add(sprite_material(texture.cloned(), color))
+}
+
+enum PartMaterial {
+    Shared(Handle<StandardMaterial>),
+    Tinted { image: Handle<Image>, color: Color },
+}
+
+impl CardPart {
+    fn material(
+        &mut self,
+        draw: &PartMaterial,
+        materials: &mut Assets<StandardMaterial>,
+    ) -> Handle<StandardMaterial> {
+        match draw {
+            PartMaterial::Shared(material) => material.clone(),
+            PartMaterial::Tinted { image, color } => {
+                let handle = retain_sprite_material(self.tinted_material.as_ref(), image, *color, materials);
+                if self.tinted_material.as_ref() != Some(&handle) {
+                    self.tinted_material = Some(handle.clone());
+                }
+                handle
+            }
+        }
+    }
 }
 
 type CardQuery<'w, 's> = Query<
     'w,
     's,
-    (&'static mut Mesh3d, &'static mut MeshMaterial3d<StandardMaterial>, &'static mut Transform, &'static mut Visibility),
-    (With<CardPart>, Without<CardBody>),
+    (&'static mut CardPart, &'static mut Mesh3d, &'static mut MeshMaterial3d<StandardMaterial>, &'static mut Transform, &'static mut Visibility),
+    Without<CardBody>,
 >;
 
 /// Show `shown` as a body's cards, in order, spawning what it lacks and
@@ -835,16 +863,19 @@ fn show_cards(
     owner: Entity,
     source: Entity,
     layer: &RenderLayers,
-    shown: &[(Handle<Mesh>, Handle<StandardMaterial>, Transform)],
+    materials: &mut Assets<StandardMaterial>,
+    shown: &[(Handle<Mesh>, PartMaterial, Transform)],
 ) {
     for (index, (mesh, material, local)) in shown.iter().enumerate() {
         if body.parts.get(index).is_none_or(|entity| commands.get_entity(*entity).is_err()) {
+            let mut part = CardPart::default();
+            let material = part.material(material, materials);
             let card = commands
                 .spawn((
-                    CardPart,
+                    part,
                     CardScope::Source(source),
                     Mesh3d(mesh.clone()),
-                    MeshMaterial3d(material.clone()),
+                    MeshMaterial3d(material),
                     *local,
                     Visibility::Inherited,
                     layer.clone(),
@@ -858,20 +889,21 @@ fn show_cards(
             }
             continue;
         }
-        let Ok((mut card_mesh, mut card_material, mut transform, mut visibility)) = cards.get_mut(body.parts[index]) else {
+        let Ok((mut part, mut card_mesh, mut card_material, mut transform, mut visibility)) = cards.get_mut(body.parts[index]) else {
             continue;
         };
+        let material = part.bypass_change_detection().material(material, materials);
         if card_mesh.0 != *mesh {
             card_mesh.0 = mesh.clone();
         }
-        if card_material.0 != *material {
-            card_material.0 = material.clone();
+        if card_material.0 != material {
+            card_material.0 = material;
         }
         transform.set_if_neq(*local);
         visibility.set_if_neq(Visibility::Inherited);
     }
     for &card in body.parts.iter().skip(shown.len()) {
-        if let Ok((_, _, _, mut visibility)) = cards.get_mut(card) {
+        if let Ok((.., mut visibility)) = cards.get_mut(card) {
             visibility.set_if_neq(Visibility::Hidden);
         }
     }
@@ -888,7 +920,7 @@ pub(super) struct CardBodyScratch {
     by_owner: RetainedEntities<Entity>,
     ranked: Vec<(Option<LiveRoomInstance>, f32, Entity, Option<usize>)>,
     rank_of: HashMap<Entity, CardBodyDepth>,
-    shown: Vec<(Handle<Mesh>, Handle<StandardMaterial>, Transform)>,
+    shown: Vec<(Handle<Mesh>, PartMaterial, Transform)>,
 }
 
 /// Realize every sampled rigged body as cards.
@@ -1029,22 +1061,22 @@ pub(super) fn realize_card_bodies(
             });
         }
         if let Some(baked) = baked {
-            let mut color = root_sprite.map_or(Srgba::WHITE, |sprite| sprite.color.to_srgba());
-            if composited.is_none() {
-                color.alpha *= sample.frame_opacity;
-            }
             let mut place = *root;
             place.translation.z = depth.plane_z;
             body_transform.set_if_neq(place);
             body_visibility.set_if_neq(Visibility::Inherited);
             let Some(page_size) = images.get(&baked.image).map(|image| image.size().as_vec2()) else {
                 // Not loaded yet: draw nothing rather than the last clip's parts.
-                show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &[]);
+                show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &[]);
                 continue;
             };
             let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
-            let material = cache.textured_material(&baked.image, color.to_u8_array(), &mut materials);
-            show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &[
+            let material = if sample.body_color == LinearRgba::WHITE {
+                PartMaterial::Shared(cache.textured_material(&baked.image, [255; 4], &mut materials))
+            } else {
+                PartMaterial::Tinted { image: baked.image.clone(), color: Color::LinearRgba(sample.body_color) }
+            };
+            show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &[
                 (mesh, material, Transform::IDENTITY),
             ]);
             continue;
@@ -1061,7 +1093,7 @@ pub(super) fn realize_card_bodies(
 
         shown.clear();
         let flipbook = &presentation.pages.flipbook;
-        let translucent = sample.frame_opacity < 1.0;
+        let body_color = sample.direct_body_color();
         for (index, draw) in draws.iter().enumerate() {
             let part = flipbook.parts[usize::from(draw.part)];
             let Some(page) = presentation.pages.pages.get(usize::from(part.page)) else {
@@ -1077,11 +1109,11 @@ pub(super) fn realize_card_bodies(
                 anchor: part.anchor(),
                 flip: [false; 2],
             }, &mut meshes);
-            let mut color = draw.color;
-            if translucent {
-                color[3] = (f32::from(color[3]) * sample.frame_opacity).round() as u8;
-            }
-            let material = cache.textured_material(page, color, &mut materials);
+            let material = if body_color == LinearRgba::WHITE {
+                PartMaterial::Shared(cache.textured_material(page, draw.color, &mut materials))
+            } else {
+                PartMaterial::Tinted { image: page.clone(), color: part_color(draw, body_color) }
+            };
             let mut local = card_part_local(draw, index);
             local.translation.z *= depth.order_scale;
             if let Some(flash) = flash {
@@ -1091,12 +1123,12 @@ pub(super) fn realize_card_bodies(
                     .or_insert_with(|| materials.add(flash_material(page, flash)))
                     .clone();
                 shown.push((mesh.clone(), material, local));
-                shown.push((mesh, silhouette, local * Transform::from_translation(Vec3::Z * FLASH_STEP * depth.order_scale)));
+                shown.push((mesh, PartMaterial::Shared(silhouette), local * Transform::from_translation(Vec3::Z * FLASH_STEP * depth.order_scale)));
             } else {
                 shown.push((mesh, material, local));
             }
         }
-        show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &shown);
+        show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &shown);
     }
 }
 
@@ -1484,7 +1516,7 @@ pub(super) fn realize_card_scenery(
         let mesh = cache.sprite_mesh(TextureQuad::baked(&frame, page_size), &sprite.image_mode, &mut meshes);
         let material = if animated_tint {
             let handle = card.as_ref().map(|(_, material, ..)| &material.0);
-            animated_sprite_material(handle, sprite, &mut materials)
+            retain_sprite_material(handle, &sprite.image, sprite.color, &mut materials)
         } else {
             let color = sprite.color.to_srgba().to_u8_array();
             cache.textured_material(&frame.image, color, &mut materials)

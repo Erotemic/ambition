@@ -1659,23 +1659,55 @@ fn a_fading_frame_is_composited_with_nothing_reading_it() {
 /// part drawn directly, as it multiplied the composited body.
 #[test]
 fn a_direct_body_tints_its_parts_with_its_root_colour() {
-
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let sheet = raider(&sprite_content, true);
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
     let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
-    app.update();
+    #[cfg(feature = "card_view")]
+    {
+        use crate::rendering::card_view::{realize_card_bodies, CardMeshes};
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<CardMeshes>()
+            .add_systems(Update, realize_card_bodies.after(RiggedDriveSet));
+    }
+    settle(&mut app);
     let owner = owner(&app, root);
     let slot = app.world().get::<RiggedPresentation>(owner).unwrap().slots[0];
     let plain = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
-    // The stand-in animator does not write the colour, so this stays.
-    app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::LinearRgba(LinearRgba::new(1.0, 0.5, 0.25, 0.5));
+    app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::linear_rgba(2.0, 0.5, 0.25, 0.5);
     app.update();
     let tinted = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
-    assert!((tinted.red - plain.red).abs() < 1.0e-6);
+    assert!((tinted.red - plain.red * 2.0).abs() < 1.0e-6);
     assert!((tinted.green - plain.green * 0.5).abs() < 1.0e-6);
     assert!((tinted.blue - plain.blue * 0.25).abs() < 1.0e-6);
     assert!((tinted.alpha - plain.alpha * 0.5).abs() < 1.0e-6);
+
+    #[cfg(feature = "card_view")]
+    let material_before = assert_card_color(&mut app, owner, tinted);
+
+    app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::linear_rgba(2.0, 0.5, 0.25, 0.25);
+    app.update();
+    let faded = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
+    assert!((faded.alpha - plain.alpha * 0.25).abs() < 1.0e-6);
+    assert_eq!(faded.to_vec3(), tinted.to_vec3());
+
+    #[cfg(feature = "card_view")]
+    {
+        assert_eq!(assert_card_color(&mut app, owner, faded), material_before);
+    }
+
+    #[cfg(feature = "card_view")]
+    fn assert_card_color(app: &mut App, owner: Entity, expected: LinearRgba) -> AssetId<StandardMaterial> {
+        use crate::rendering::card_view::CardBody;
+        let world = app.world_mut();
+        let mut bodies = world.query::<&CardBody>();
+        let body = bodies.iter(world).find(|body| body.owner == owner).unwrap();
+        let material = &world.get::<MeshMaterial3d<StandardMaterial>>(body.parts[0]).unwrap().0;
+        let tint = world.resource::<Assets<StandardMaterial>>().get(material).unwrap().base_color;
+        assert_eq!(tint.to_linear(), expected);
+        material.id()
+    }
 }
 
 /// ⭐ THE RENDERER TAKES ITS POSE FROM WHOEVER GIVES ONE (the ragdoll seam). A

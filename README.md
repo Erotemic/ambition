@@ -240,9 +240,10 @@ The helper script wraps common desktop modes:
 
 Use `./run_game.sh --card-view` to start with the oblique 2.5D view.
 Use `./run_game.sh --features card_view` to start in 2D with live switching
-available. Press **Ctrl+F5** to cycle through 2D, side-on 3D, oblique 2.5D,
-and a comparison inset. Use **Ctrl+[** and **Ctrl+]** to change yaw. Add
-**Shift** to change pitch. The comparison inset shows the primary local view.
+available. Open **F3 → Renderer** to see and select the current mode.
+Press **Ctrl+F5** to cycle through 2D, side-on 2.5D, oblique 2.5D, and a
+comparison inset. Use **Ctrl+[** and **Ctrl+]** to change yaw. Add **Shift**
+to change pitch. The comparison inset shows the primary local view.
 
 Use `./run_game.sh --help` for the full list. `--ship` selects the portable
 native distribution profile used for the packaged Steam build: fat LTO, one

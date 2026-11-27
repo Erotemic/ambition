@@ -925,6 +925,7 @@ pub struct MenuButtonSources<'w, 's> {
     store: Option<Res<'w, leafwing_input_manager::user_input::updating::CentralInputStore>>,
     pages: Option<Res<'w, ambition_input::MenuShortcutPages>>,
     pads: Query<'w, 's, Entity, With<Gamepad>>,
+    devices: Query<'w, 's, &'static Gamepad>,
 }
 
 impl MenuButtonSources<'_, '_> {
@@ -953,7 +954,8 @@ impl MenuButtonSources<'_, '_> {
             Some(table) => table,
             None => { fallback = BindingTable::from_action_map(&map); &fallback }
         };
-        history.sample(table, actions, store, pad, route, map.is_changed() || table_changed, enabled, pages, frame);
+        let device = self.devices.get(pad).ok();
+        history.sample(table, actions, store, pad, device, route, map.is_changed() || table_changed, enabled, pages, frame);
     }
 }
 

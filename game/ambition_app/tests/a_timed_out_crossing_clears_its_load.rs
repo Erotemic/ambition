@@ -77,7 +77,11 @@ fn a_timed_out_crossing_clears_the_host_load_and_its_cover() {
             .iter(world)
             .next()
             .and_then(|map| map.get_buttonlike(&InputAction::Interact))
-            .and_then(|bindings| bindings.first().cloned())
+            .and_then(|bindings| bindings.iter().find(|binding| matches!(
+                // The keyboard's binding: the table lists a pad's first.
+                ambition_platformer2d::input::physical_control_of(binding.as_ref()),
+                ambition_platformer2d::input::PhysicalControl::Key(_),
+            )).cloned())
             .expect("Interact has a binding")
     };
     // Stand in a door of the live room. Rollback is dormant in ordinary play

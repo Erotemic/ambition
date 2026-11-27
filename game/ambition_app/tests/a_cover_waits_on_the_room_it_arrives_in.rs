@@ -45,7 +45,11 @@ fn a_committed_crossing_names_the_live_room_it_arrived_in() {
             .iter(world)
             .next()
             .and_then(|map| map.get_buttonlike(&InputAction::Interact))
-            .and_then(|bindings| bindings.first().cloned())
+            .and_then(|bindings| bindings.iter().find(|binding| matches!(
+                // The keyboard's binding: the table lists a pad's first.
+                ambition_platformer2d::input::physical_control_of(binding.as_ref()),
+                ambition_platformer2d::input::PhysicalControl::Key(_),
+            )).cloned())
             .expect("Interact has a binding")
     };
     {

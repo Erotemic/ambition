@@ -701,6 +701,7 @@ fn the_brain_can_see_an_any_attack_cancel_the_trigger_would_accept() {
         tag: WindowTag::Cancelable {
             into: vec!["any_attack".to_string()],
             condition: ambition_entity_catalog::CancelCondition::OnHit,
+            press: None,
         },
         volumes: vec![],
         sustain_effect: None,
@@ -760,6 +761,7 @@ fn outside_the_cancel_window_the_brain_is_told_the_body_is_busy() {
         tag: WindowTag::Cancelable {
             into: vec!["any_attack".to_string()],
             condition: ambition_entity_catalog::CancelCondition::OnHit,
+            press: None,
         },
         volumes: vec![],
         sustain_effect: None,

@@ -456,7 +456,7 @@ mod tests {
             .windows
             .iter()
             .filter_map(|w| match &w.tag {
-                WindowTag::Cancelable { into, condition } => Some((into.clone(), *condition)),
+                WindowTag::Cancelable { into, condition, .. } => Some((into.clone(), *condition)),
                 _ => None,
             })
             .collect();
@@ -574,7 +574,7 @@ mod tests {
             .windows
             .iter()
             .filter_map(|w| match &w.tag {
-                WindowTag::Cancelable { into, condition }
+                WindowTag::Cancelable { into, condition, .. }
                     if *condition == CancelCondition::OnBlock =>
                 {
                     Some(into)

@@ -861,6 +861,17 @@ pub enum WindowTag {
         /// rows parse unchanged.
         #[serde(default)]
         condition: CancelCondition,
+        /// Which follow-up takes the successor this window names (the first
+        /// move id in `into`). `None`, the default: an undirected follow-up
+        /// (a neutral press, the button still held, or the playing move
+        /// pressed again), which is a jab chain. `Some(dir)`: a press aimed
+        /// `dir`, which takes it instead of the tilt that press would have
+        /// played, so a string branches by the stick (a level, a rising and
+        /// a low second step). A directed press with no window of its own
+        /// plays its tilt as before. `Some(Neutral)` names nothing: the
+        /// neutral press is the undirected follow-up.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        press: Option<AttackDir>,
     },
     /// The picture of the move is over. From the start of this window the
     /// body is drawn by what it does (it stands, it walks, it falls), and the
@@ -2688,13 +2699,22 @@ impl MoveSpec {
     /// A `Cancelable` window with `into: ["jab2"]` permits jab2 and also
     /// nominates it. A follow-up press inside that window takes the
     /// nomination and does not restart the playing move. This is a jab chain.
-    pub fn cancel_successors(&self, t: f32, contact: MoveContact) -> impl Iterator<Item = &str> {
+    ///
+    /// `press` is the follow-up asking: `None` for an undirected one, and
+    /// `Some(dir)` for a press aimed `dir`. Only the windows authored for
+    /// that follow-up nominate (`WindowTag::Cancelable::press`).
+    pub fn cancel_successors(
+        &self,
+        t: f32,
+        contact: MoveContact,
+        press: Option<AttackDir>,
+    ) -> impl Iterator<Item = &str> {
         self.windows
             .iter()
             .filter(move |w| w.start_s <= t && t < w.end_s)
             .filter_map(move |w| match &w.tag {
-                WindowTag::Cancelable { into, condition } => {
-                    condition.permits(contact).then_some(into)
+                WindowTag::Cancelable { into, condition, press: answers } => {
+                    (*answers == press && condition.permits(contact)).then_some(into)
                 }
                 _ => None,
             })
@@ -2840,7 +2860,7 @@ impl MoveSpec {
     /// move with no `Cancelable` window refuses everything.
     pub fn cancel_permits(&self, t: f32, contact: MoveContact, names: &[&str]) -> bool {
         self.windows.iter().any(|w| match &w.tag {
-            WindowTag::Cancelable { into, condition } => {
+            WindowTag::Cancelable { into, condition, .. } => {
                 w.start_s <= t
                     && t < w.end_s
                     && condition.permits(contact)
@@ -2901,7 +2921,7 @@ impl MoveSpec {
             .windows
             .iter()
             .filter_map(|w| match &w.tag {
-                WindowTag::Cancelable { into, condition } => Some(CancelWindow {
+                WindowTag::Cancelable { into, condition, .. } => Some(CancelWindow {
                     start_s: w.start_s,
                     end_s: w.end_s,
                     into: into.clone(),

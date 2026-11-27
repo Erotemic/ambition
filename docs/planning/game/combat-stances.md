@@ -184,11 +184,52 @@ themselves on a hit.
 
 - **SP1:** directed successors in the engine (catalog schema, trigger road,
   readout), with a combat unit test.
+  *Landed 2026-11-27.*
+  - `WindowTag::Cancelable.press: Option<AttackDir>`, serde default.
+  - `MoveSpec::cancel_successors(t, contact, press)` nominates only the
+    windows authored for that follow-up.
+  - On the trigger road (`moveset/mod.rs`), a press aimed somewhere other
+    than neutral takes its direction's branch before its tilt; a smash
+    flick never does.
+  - Witness: `a_directed_press_takes_the_branch_its_window_names`. Up takes
+    the branch, neutral takes the undirected step, and a direction with no
+    branch plays its tilt.
+- **SP1b (found while authoring):** an actor ignored any hit within 0.2 s
+  of its last (`ACTOR_DAMAGE_IFRAME_S`, the actor road's repeat guard), so
+  a move's pulses closer than that never landed. A probe of the Lunge
+  flurry dealt 2 damage over two laps.
+  - `actor_hit.rs` no longer arms the guard for a hit a move's volume made
+    (`HitEvent::attacker_move_instance`). Those volumes keep their own
+    per-pulse ledger (`HitboxHits`).
+  - Contact, hazards and shots still arm it.
+  - A window armed by anything else still holds a strike off.
+  - This is the same finding as `CombatRules::hit_repeat_window_scale`,
+    which zeroes the window for the platform fighter, but scoped to the
+    hits that do not need it.
 - **SP2:** Lunge re-authored, and the witnesses in `combat_stances.rs`
   updated: the flurry hits several times, and the corkscrew carries the foe
   up.
 - **SP3:** Crescent re-authored. Witnesses: the string's down branch reaches
   the flurry, and the up branch launches.
+  *Landed 2026-11-27 (SP2, SP3).* The moves are in `player_robot.ron`, and
+  the Crescent's forward air is its own move (`crescent_air_forward`).
+  Holding pulses use `Autolink` with pull 7, an anchor at a small foe's
+  centre height, and `hitlag_scale` 0.4. A pull of 18 flung the foe past
+  its anchor and into the robot before the next pulse.
+  Witnesses:
+  - `the_crescent_string_turns_with_the_stick`:
+    - up then down is arc, rise, flurry;
+    - down then level is arc, dip, sweep;
+    - up then up is arc, rise, rise finish.
+  - `a_lunge_thrust_that_lands_becomes_a_flurry`:
+    - a whiff then held is the long lunge;
+    - a landed thrust then held is the flurry, at least 5 damage from one
+      press (6 measured: thrust, two laps of two stabs, the push-out).
+    - The foe strikes back when provoked and would cut the string, so the
+      robot is scripted-invulnerable in the witness.
+
+  Seen and not yet tuned (SP5): every holding pulse still holds the
+  attacker's own move clock for about 5 ticks, as a full hit does.
 - **SP4:** the look. Rows for the flurry, the corkscrew and the crescent
   branches, republished, with captures.
 - **SP5:** a headless feel measurement against `dense_melee_pit`: hits per

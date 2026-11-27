@@ -160,11 +160,21 @@ pub fn run_visible() {
     // later -- as the profiler resource's own creation used to -- hides plugin
     // construction, which is the larger half of startup.
     ambition_platformer2d::dev_tools::profiling::note_process_start();
-    if cli_force_headless()
+    let card_view = std::env::args().any(|arg| arg == "--card-view");
+    let headless = cli_force_headless()
         || cli_headless_acceptance_cycle()
         || cli_headless_ticks_requested()
-        || no_display_server_available()
-    {
+        || no_display_server_available();
+    if card_view && (headless || !cfg!(feature = "card_view")) {
+        let reason = if headless {
+            "the 2.5D view needs a window"
+        } else {
+            "this build needs the card_view Cargo feature"
+        };
+        eprintln!("ambition_app: --card-view: {reason}");
+        std::process::exit(2);
+    }
+    if headless {
         let max_ticks = cli_headless_ticks();
         let reason = if cli_headless_acceptance_cycle() {
             "--headless-acceptance-cycle flag"
@@ -202,7 +212,10 @@ pub fn run_visible() {
         return;
     }
     let shell_hosted = !cli_direct_entry();
-    let mut app = build_visible_app(VisibleRenderMode::Windowed, shell_hosted);
+    let mut app = build_visible_app_with(VisibleRenderMode::Windowed, shell_hosted, |_app| {
+        #[cfg(feature = "card_view")]
+        install_card_view(_app, card_view);
+    });
     // The production windowed host opens on the "Powered by Ambition" card, then
     // hands off to the launcher. Direct entry and the headless ownership tests
     // (which call `build_visible_app` directly) deliberately skip it.
@@ -211,6 +224,39 @@ pub fn run_visible() {
 
     }
     app.run();
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "card_view"))]
+fn install_card_view(app: &mut App, start_in_card_view: bool) {
+    use ambition_platformer2d::render::rendering::card_view::{CardViewMode, CardViewPlugin, CardViewSettings};
+    let mode = if start_in_card_view { CardViewMode::Gameplay } else { CardViewMode::Plane };
+    app.insert_resource(CardViewSettings::for_game(mode));
+    app.add_plugins(CardViewPlugin);
+    app.add_systems(PreUpdate, card_view_shortcuts.after(bevy::input::InputSystems));
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "card_view"))]
+fn card_view_shortcuts(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut settings: ResMut<ambition_platformer2d::render::rendering::card_view::CardViewSettings>,
+) {
+    if !keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
+        || keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
+    {
+        return;
+    }
+    let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    if !shift && keys.just_pressed(KeyCode::F5) {
+        settings.mode = settings.mode.next();
+        info!("Gameplay renderer: {:?}", settings.mode);
+    }
+    let direction = i32::from(keys.just_pressed(KeyCode::BracketRight))
+        - i32::from(keys.just_pressed(KeyCode::BracketLeft));
+    if direction != 0 {
+        let angle = if shift { &mut settings.pitch_radians } else { &mut settings.yaw_radians };
+        let limit = if shift { 25_f32 } else { 45_f32 }.to_radians();
+        *angle = (*angle + (direction as f32 * 3.0).to_radians()).clamp(-limit, limit);
+    }
 }
 
 /// Observable result of stepping the exact production shared-host composition

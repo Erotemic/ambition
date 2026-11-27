@@ -203,7 +203,8 @@ pub struct MovingPlatformVisual {
 /// ([`PlatformLook::front_row`]): over the platform's width, from its top up
 /// to the top of the near side ([`PlatformLook::rim_px`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Vessel {
+struct Vessel<'a> {
+    platform: &'a str,
     room: LiveRoomInstance,
     /// The depth its near side is drawn at.
     front_z: f32,
@@ -227,8 +228,8 @@ pub struct VesselBox {
     pub rim: f32,
 }
 
-impl From<&Vessel> for VesselBox {
-    fn from(vessel: &Vessel) -> Self {
+impl From<&Vessel<'_>> for VesselBox {
+    fn from(vessel: &Vessel<'_>) -> Self {
         Self {
             room: vessel.room,
             left: vessel.left,
@@ -243,16 +244,27 @@ impl From<&Vessel> for VesselBox {
 /// renderer that draws them inserted this resource; a 2D-only app pays
 /// nothing for it.
 #[derive(Resource, Default, Debug)]
-pub struct PresentedVessels(pub Vec<VesselBox>);
+pub struct PresentedVessels(pub Vec<(VesselOccurrence, VesselBox)>);
 
-impl Vessel {
-    fn of(room: LiveRoomInstance, platform: &MovingPlatformState, look: &PlatformLook) -> Option<Self> {
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct VesselOccurrence {
+    room: LiveRoomInstance,
+    platform: Box<str>,
+}
+
+impl<'a> Vessel<'a> {
+    fn occurrence(&self) -> VesselOccurrence {
+        VesselOccurrence { room: self.room, platform: self.platform.into() }
+    }
+
+    fn of(room: LiveRoomInstance, platform: &'a MovingPlatformState, look: &PlatformLook) -> Option<Self> {
         look.front_row.as_ref()?;
         let span = (look.span_px[1] - look.span_px[0]).max(1.0);
         let k = platform.size.x / span;
         let half = platform.size * 0.5;
         let (_, front_z) = look_layer(look, true)?;
         Some(Self {
+            platform: &platform.id,
             room,
             front_z,
             left: platform.pos.x - half.x,
@@ -286,8 +298,11 @@ impl Vessel {
 /// On a body's visual: it is seated in a vessel ([`seat_bodies_in_vessels`]),
 /// so what is drawn from it stays inside its seat, under the near side. A
 /// limb drawn apart reads it (`follow_limb_twins`).
-#[derive(Component, Debug, Clone, Copy)]
-pub struct SeatedInVessel;
+#[derive(Component, Debug)]
+pub struct SeatedInVessel {
+    pub vessel: VesselOccurrence,
+    pub slot: usize,
+}
 
 /// Draw each body that stands IN a thing (the cart's bed) behind that thing's
 /// near side, and leave every other body in front of it: the near side is
@@ -316,13 +331,13 @@ pub fn seat_bodies_in_vessels(
         (Entity, &super::primitives::FeatureVisual, &mut Transform),
         Without<super::primitives::PlayerVisual>,
     >,
-    marked: Query<Entity, With<SeatedInVessel>>,
+    marked: Query<(Entity, &SeatedInVessel)>,
     mut commands: Commands,
     mut seated: Local<Vec<(usize, Entity)>>,
     published: Option<ResMut<PresentedVessels>>,
 ) {
     seated.clear();
-    let vessels: Vec<Vessel> = looks
+    let vessels: Vec<Vessel<'_>> = looks
         .map(|looks| {
             platforms
                 .iter()
@@ -336,12 +351,14 @@ pub fn seat_bodies_in_vessels(
         })
         .unwrap_or_default();
     if let Some(mut published) = published {
-        if !published.0.iter().copied().eq(vessels.iter().map(VesselBox::from)) {
-            published.0 = vessels.iter().map(VesselBox::from).collect();
+        if !published.0.iter().map(|(id, bounds)| (id.platform.as_ref(), *bounds))
+            .eq(vessels.iter().map(|vessel| (vessel.platform, VesselBox::from(vessel))))
+        {
+            published.0 = vessels.iter().map(|vessel| (vessel.occurrence(), VesselBox::from(vessel))).collect();
         }
     }
     if vessels.is_empty() {
-        for entity in &marked {
+        for (entity, _) in &marked {
             commands.entity(entity).try_remove::<SeatedInVessel>();
         }
         return;
@@ -367,20 +384,24 @@ pub fn seat_bodies_in_vessels(
     seated.sort_unstable();
     // A body that left its cart, or whose cart is gone, is drawn by its own
     // depth again.
-    for entity in &marked {
+    for (entity, _) in &marked {
         if !seated.iter().any(|&(_, body)| body == entity) {
             commands.entity(entity).try_remove::<SeatedInVessel>();
-        }
-    }
-    for &(_, entity) in seated.iter() {
-        if !marked.contains(entity) {
-            commands.entity(entity).try_insert(SeatedInVessel);
         }
     }
     let mut seat = 0;
     for (i, &(vessel, entity)) in seated.iter().enumerate() {
         seat = if i > 0 && seated[i - 1].0 == vessel { seat + 1 } else { 0 };
-        let z = vessels[vessel].seat_z(seat);
+        let vessel = &vessels[vessel];
+        if marked.get(entity).ok().is_none_or(|(_, current)| {
+            current.slot != seat || current.vessel.room != vessel.room || current.vessel.platform.as_ref() != vessel.platform
+        }) {
+            commands.entity(entity).try_insert(SeatedInVessel {
+                vessel: vessel.occurrence(),
+                slot: seat,
+            });
+        }
+        let z = vessel.seat_z(seat);
         let transform = match players.get_mut(entity) {
             Ok((_, transform, _)) => Some(transform),
             Err(_) => actors.get_mut(entity).ok().map(|(_, _, transform)| transform),

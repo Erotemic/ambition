@@ -142,6 +142,7 @@ print_plan=0
 reuse=0
 extra_features=()
 game_args=()
+card_view=0
 
 # Launch target. Defaults to the multi-game host (the Ambition title screen).
 # The `sanic` / `mary-o` / `smash` / `twintrack` mode aliases retarget this to a demo's OWN standalone
@@ -270,6 +271,7 @@ Options and mode aliases:
   validate-only,
   --validate-only         Validate LDtk and exit.
   --features LIST         Add extra comma-separated cargo features.
+  --card-view             Start Ambition with the 2.5D gameplay view.
   --no-default-features   Pass --no-default-features to cargo.
   -j, --jobs N            Pass cargo --jobs N.
   --jobs=N                Pass cargo --jobs N.
@@ -489,6 +491,9 @@ while [[ $# -gt 0 ]]; do
         --features=*)
             extra_features+=("${1#--features=}")
             ;;
+        --card-view)
+            card_view=1
+            ;;
         --no-default-features)
             no_default_features=1
             ;;
@@ -610,6 +615,11 @@ for feature_list in "${extra_features[@]}"; do
         features+=("$feature_list")
     fi
 done
+if [[ "$card_view" -eq 1 ]]; then
+    [[ "$target_pkg" == "ambition_app" ]] || fail "--card-view is available in the Ambition app"
+    features+=(card_view)
+    game_args+=(--card-view)
+fi
 
 if [[ "${#features[@]}" -gt 0 ]]; then
     IFS=,

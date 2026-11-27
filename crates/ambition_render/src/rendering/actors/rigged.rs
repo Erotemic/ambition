@@ -135,7 +135,11 @@ const SLOT_DEPTH_STEP: f32 = 1.0e-4;
 /// (`write_slots`) and a reader's placed parts (`part_set::answer`) both
 /// take their placement from here.
 pub(super) fn slot_local(draw: &PartDraw, index: usize) -> Transform {
-    Transform::from_translation(Vec3::new(draw.at.x, -draw.at.y, index as f32 * SLOT_DEPTH_STEP))
+    part_local_transform(draw, index as f32 * SLOT_DEPTH_STEP)
+}
+
+pub(in crate::rendering) fn part_local_transform(draw: &PartDraw, depth: f32) -> Transform {
+    Transform::from_translation(Vec3::new(draw.at.x, -draw.at.y, depth))
         .with_rotation(Quat::from_rotation_z(-draw.rotation))
         .with_scale(draw.scale.extend(1.0))
 }
@@ -567,6 +571,7 @@ pub struct BakedFrame {
     pub size: Vec2,
     pub anchor: Vec2,
     pub flip_x: bool,
+    pub flip_y: bool,
 }
 
 impl RiggedLocalSample {
@@ -773,12 +778,16 @@ type RootShows = (
 const VIEW_MARGIN: f32 = 256.0;
 const SLOT_HOLD_FRAMES: u8 = 8;
 
+/// This camera supplies a plane footprint for an appearance consumer.
+#[derive(Component)]
+pub(crate) struct AppearanceSampleCamera;
+
 /// The cameras, for what each one shows. A part slot is not a camera; the
 /// filter says so, because the slots' layers are written beside this read.
 type Views<'w, 's> = Query<
     'w,
     's,
-    (&'static Camera, &'static Projection, &'static GlobalTransform, Option<&'static RenderLayers>),
+    (&'static Camera, &'static Projection, &'static GlobalTransform, Option<&'static RenderLayers>, Has<AppearanceSampleCamera>),
     (Without<RiggedImpostorCamera>, Without<RiggedPartSlot>),
 >;
 
@@ -790,8 +799,8 @@ type Views<'w, 's> = Query<
 fn world_views(views: &Views) -> Vec<(Rect, RenderLayers)> {
     views
         .iter()
-        .filter(|(camera, ..)| camera.is_active)
-        .filter_map(|(camera, projection, transform, layers)| {
+        .filter(|(camera, _, _, _, sample)| camera.is_active || *sample)
+        .filter_map(|(camera, projection, transform, layers, _)| {
             let Projection::Orthographic(ortho) = projection else {
                 return None;
             };
@@ -1406,6 +1415,7 @@ fn baked_frame(
         size: sprite.custom_size?,
         anchor: root_anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
         flip_x: sprite.flip_x,
+        flip_y: sprite.flip_y,
     })
 }
 

@@ -386,6 +386,12 @@ At the smelter, show the walking lane in front of the slag pots. Use the
 ledge bounds to place the crane loading step and both gantry floors.
 At Clinker Row, show the final text positions on the laundry notice. Let
 an author group the lines of a sign so they keep their order and spacing.
+At the gatehouse, show the body width on the watch ladder. Check that the
+body clears the catwalk edge when it climbs down.
+For the barracks bunks, use the climbable cells to draw the rungs. Use
+the same bounds to place the brackets on each bed frame.
+Track each prop's drawing inputs separately. A change to the bunk drawing
+also marks the watch gallery for regeneration because both use one file.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

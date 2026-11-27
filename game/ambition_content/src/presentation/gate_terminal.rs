@@ -27,10 +27,11 @@
 //! owns the seat, the terminal reads nothing. The chevrons being entered light
 //! on the ring (`GateDialPreview`).
 
+use ambition_content_schemas::gate_network::Chevron;
 use crate::gate_inscription::{position_grid, ring_lit_marks, GRID_BITS};
 use ambition_platformer2d::render::rendering::gate_portal_visuals::{GateRingOverlays, RingOverlay};
 use ambition_platformer2d::world::rooms::{
-    Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalIntent, RingKind,
+    GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalIntent, RingKind,
 };
 use ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
@@ -145,7 +146,7 @@ fn light_dialed_addresses(
 ) {
     let mut by_ring = std::collections::BTreeMap::new();
     // The rows have frames per chevron, in the inscription's order.
-    if let Some(catalog) = catalog.as_deref().filter(|catalog| catalog.chevrons() > 0) {
+    if let Some(catalog) = catalog.as_deref().filter(|catalog| catalog.symbols() > 0) {
         for ring in catalog.rings.iter().filter(|ring| ring.kind != RingKind::Portal) {
             let entering = preview.by_ring.get(&ring.zone).map(Vec::as_slice).filter(|chevrons| !chevrons.is_empty());
             let sending = state.as_deref().and_then(|state| state.route_from(&ring.zone)).map(|link| link.address);
@@ -154,7 +155,7 @@ fn light_dialed_addresses(
                 continue;
             }
             let lit = ring_lit_marks(address).into_iter().map(|mark| {
-                let (row, at) = mark.frame(catalog.chevrons());
+                let (row, at) = mark.frame(catalog.symbols());
                 RingOverlay { row: row.to_string(), at }
             });
             by_ring.insert(ring.zone.clone(), lit.collect::<Vec<_>>());
@@ -361,7 +362,7 @@ fn drive_gate_terminal(
             let words = words.as_deref().map(|words| &words.0).unwrap_or(&no_words);
             let known = known_addresses(&catalog, words, directory, positions.as_deref().unwrap_or(&none), &ring, knows);
             let mut rows = ui.list(&catalog, words, &state, &known);
-            let count = catalog.chevrons();
+            let count = catalog.symbols();
             let mut effects = Vec::new();
             // Mouse and touch: on the wheel a moving pointer points and a press
             // presses. On the list a hover is drawn and never moves the cursor

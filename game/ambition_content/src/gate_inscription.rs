@@ -8,7 +8,8 @@
 //! that use's place. The lit ring spells the whole address, its order too
 //! ([`ring_lit_marks`]).
 
-use ambition_platformer2d::world::rooms::{Chevron, DialRefusal, GateAddressRule};
+use ambition_content_schemas::gate_network::Chevron;
+use ambition_platformer2d::world::rooms::{DialRefusal, GateAddressRule};
 
 /// The bits of a place in an address.
 pub const GRID_BITS: usize = 4;
@@ -48,7 +49,7 @@ pub fn address_rule() -> GateAddressRule {
 pub fn refusal_words(refusal: &DialRefusal) -> String {
     match refusal {
         DialRefusal::Empty => "Enter an address first.".to_string(),
-        DialRefusal::NoSuchChevron(chevron) => format!("The ring has no chevron {chevron}."),
+        DialRefusal::NoSuchSymbol(chevron) => format!("The ring has no chevron {chevron}."),
         DialRefusal::Malformed => format!(
             "An address is at most {MAX_ADDRESS_LEN} chevrons, each used at most {MAX_CHEVRON_USES} times."
         ),
@@ -57,7 +58,7 @@ pub fn refusal_words(refusal: &DialRefusal) -> String {
         DialRefusal::Offline(reason) => format!("OFFLINE: {reason}"),
         DialRefusal::Busy(reason) => format!("BUSY: {reason}"),
         DialRefusal::WrongKind => "A gate dials gates, and a portal reaches portals.".to_string(),
-        DialRefusal::OtherDimension => "A portal can not reach another world. That takes a gate.".to_string(),
+        DialRefusal::OtherWorld => "A portal can not reach another world. That takes a gate.".to_string(),
         DialRefusal::OutOfReach { distance, reach } => {
             format!("Too far: that arch is {distance} away, and this one reaches {reach}.")
         }

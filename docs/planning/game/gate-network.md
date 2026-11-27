@@ -301,6 +301,18 @@ fixture network of numbered endpoints with no inscription.
 `gate_inscription::refusal_words` words every kind. The network's checksum
 folds each refusal's payload, not its words.
 
+*Slice 6 (2026-11-27).* The engine speaks of symbols and worlds: its
+address is a sequence of `GateSymbol` (`symbols` on the catalog,
+`DialRefusal::NoSuchSymbol`), a facility is in a `world`, and a portal
+refuses `OtherWorld`. Chevrons and dimensions are Ambition's words: its file
+keeps `dimension` (`AuthoredGateFacility`, lowered to the engine's `world`)
+and its code calls a symbol a `Chevron` (the alias in
+`ambition_content_schemas::gate_network`). No engine crate names an
+inscription, a chevron, a dimension directory or an Ambition address; the
+engine's own tests dial a fixture of numbered endpoints; the terminal's
+simulation (a press opens it, a request dials, a close leaves) stays the
+engine's, and its panel is the game's. GATE-SPLIT is done.
+
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).

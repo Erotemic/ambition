@@ -2790,7 +2790,7 @@ sandbox hub is reached by its own address; the gate network tests pass.
 
 **Blocked by:** none.
 
-### GATE-SPLIT — the gate network's engine capability apart from Ambition's gates
+### GATE-SPLIT — the gate network's engine capability apart from Ambition's gates — ✅ DONE 2026-11-27
 
 **Owner:** [gate network, engine and game parts](game/gate-network.md#engine-and-game-parts-planned-2026-11-26).
 
@@ -2811,11 +2811,12 @@ spelling are Ambition's (`ambition_content_schemas::gate_network`, lowered
 into the catalog and `GateWordsResource`), and the engine's tests dial a
 fixture of numbered endpoints. Slice 5: the refusal words are the game's
 (`refusal_words`); the engine's `DialRefusal` keeps its kind and payload.
+Slice 6: the engine speaks of symbols and worlds (`GateSymbol`, a facility's
+`world`, `OtherWorld`); chevrons and dimensions are Ambition's (its file's
+`dimension`, its `Chevron` alias). The terminal's simulation stays the
+engine's and its panel the game's.
 
-**Next action:** the rest, one move per slice, each leaving the game
-playable: facilities and dimensions as a directory, and the terminal panel's remaining engine pieces; the engine keeps dialed
-passages with opaque keys (dial, link, idle timeout, phases, rollback,
-navigation).
+**Next action:** none; the acceptance holds.
 
 **Acceptance:** no engine crate names an inscription, chevron, dimension
 directory or Ambition address; a fixture game dials numbered endpoints

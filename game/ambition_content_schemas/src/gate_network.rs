@@ -15,9 +15,12 @@ use std::collections::BTreeMap;
 
 use ambition_content_pack::{lowered_rules, rules_schema, PreparedContentPack, SchemaRegistration};
 use ambition_platformer2d_world::rooms::{
-    default_gate_idle_timeout_secs, gate_network_problems, Chevron, GateFacility, GateNetworkCatalog, GateRing,
-    GateStatusRule, RingKind,
+    default_gate_idle_timeout_secs, gate_network_problems, GateFacility, GateNetworkCatalog, GateRing, GateStatusRule,
+    GateSymbol, RingKind,
 };
+
+/// One chevron of a ring: Ambition's name for the engine's numbered symbol.
+pub type Chevron = GateSymbol;
 use serde::Deserialize;
 
 /// The authored FILE kind.
@@ -35,9 +38,23 @@ pub struct AuthoredGateNetwork {
     /// each chevron is its own symbol.
     pub inscription: String,
     /// Each logistical facility that holds rings.
-    pub facilities: Vec<GateFacility>,
+    pub facilities: Vec<AuthoredGateFacility>,
     /// Each ring of the network.
     pub rings: Vec<AuthoredGateRing>,
+}
+
+/// One logistical facility: a gate station and the rings it holds. Two
+/// rings in one facility never dial each other (that is a walk); two
+/// facilities of one dimension can.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredGateFacility {
+    pub id: String,
+    /// What a terminal calls it.
+    pub name: String,
+    /// The dimension it is in: the engine's world, which a portal does not
+    /// leave.
+    pub dimension: String,
 }
 
 /// One ring, as written: the engine's ring with its address as a word or as
@@ -171,8 +188,12 @@ impl AuthoredGateNetwork {
             .collect();
         let catalog = GateNetworkCatalog {
             idle_timeout_secs: self.idle_timeout_secs,
-            chevrons: u16::try_from(inscription.len()).unwrap_or(u16::MAX),
-            facilities: self.facilities.clone(),
+            symbols: u16::try_from(inscription.len()).unwrap_or(u16::MAX),
+            facilities: self
+                .facilities
+                .iter()
+                .map(|facility| GateFacility { id: facility.id.clone(), name: facility.name.clone(), world: facility.dimension.clone() })
+                .collect(),
             rings,
         };
         (catalog, GateWords { inscription, words })
@@ -240,7 +261,7 @@ mod tests {
             inscription: "LEGALLYDISTINCT".into(),
             facilities: ["home", "math", "ninja"]
                 .iter()
-                .map(|id| GateFacility { id: (*id).into(), name: (*id).into(), dimension: "home".into() })
+                .map(|id| AuthoredGateFacility { id: (*id).into(), name: (*id).into(), dimension: "home".into() })
                 .collect(),
             rings: rings
                 .iter()
@@ -286,7 +307,7 @@ mod tests {
         let (catalog, words) =
             network(&[("hub", Some("LEGAL"), None), ("math", Some("TANGENT"), None), ("ring7", None, Some(vec![9, 13, 2]))])
                 .lower();
-        assert_eq!(catalog.chevrons(), 15);
+        assert_eq!(catalog.symbols(), 15);
         assert_eq!(catalog.ring("math").map(|ring| ring.address.clone()), Some(vec![10, 3, 12, 2, 1, 12, 14]));
         assert_eq!(words.word_of(&catalog, &[0, 1, 2, 3, 4]), Some("LEGAL"));
         assert_eq!(words.word_of(&catalog, &[0, 1, 2, 3, 0]), None);
@@ -307,7 +328,7 @@ mod tests {
             "the address `LEGAL` reaches both `hub` and `math`",
             "`ninja.address` `SILENTO` has 'O', which is on no chevron",
             "`ninja` has both an address word and glyphs",
-            "`hub` and `math` answer the same chevrons",
+            "`hub` and `math` answer the same symbols",
         ] {
             assert!(problems.iter().any(|p| p.contains(expected)), "missing {expected:?} in {problems:?}");
         }

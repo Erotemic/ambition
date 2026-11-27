@@ -159,16 +159,16 @@ pub fn sync_portal_ring_animation(
 }
 
 /// The prop kind of the round ring's lit glyphs (`interdimensional_gate_glyphs`):
-/// its `lit` row has one frame per chevron, that chevron's glyph ablaze where
+/// its `lit` row has one frame per symbol, that symbol's glyph ablaze where
 /// the ring draws it, and its `bit` and `used` rows one frame per cell of each
-/// chevron's position grid (`chevron * 16 + row * 4 + column`), all on the
+/// symbol's position grid (`symbol * 16 + row * 4 + column`), all on the
 /// ring's own canvas.
 pub const GATE_GLYPHS_PROP_KIND: &str = "gate_glyphs";
 
 /// The prop kind of the lit glyphs of a ring of prop kind `ring_kind`: its
 /// kind with the `ring` at its end made `glyphs` (`gate_ring` lights
 /// [`GATE_GLYPHS_PROP_KIND`], `triangle_gate_ring` lights
-/// `triangle_gate_glyphs`), so each shape of ring lights its own chevrons.
+/// `triangle_gate_glyphs`), so each shape of ring lights its own symbols.
 /// `None` for a kind that is no ring.
 pub fn ring_glyphs_kind(ring_kind: &str) -> Option<String> {
     ring_kind.strip_suffix("ring").map(|stem| format!("{stem}glyphs"))
@@ -329,7 +329,7 @@ mod tests {
     fn catalog_of(zones: &[&str]) -> ambition_platformer2d_world::rooms::GateNetworkCatalog {
         use ambition_platformer2d_world::rooms::{GateNetworkCatalog, GateRing};
         GateNetworkCatalog {
-            chevrons: 15,
+            symbols: 15,
             idle_timeout_secs: 30,
             rings: zones
                 .iter().enumerate()

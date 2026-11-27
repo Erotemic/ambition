@@ -20,10 +20,11 @@
 //! road. While a terminal is open it takes the seat's input
 //! ([`GATE_TERMINAL_CONTEXT`]), so the body at the terminal stands still.
 
+use ambition_content_schemas::gate_network::Chevron;
 use crate::gate_inscription::address_fits;
 use ambition_content_schemas::gate_network::GateWords;
 use ambition_platformer2d::world::rooms::{
-    Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalAction, GateTerminalIntent,
+    GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalAction, GateTerminalIntent,
     RingKind,
 };
 use bevy::prelude::*;
@@ -236,7 +237,7 @@ pub fn known_addresses(
             return true;
         }
         let dimension = |ring: &ambition_platformer2d::world::rooms::GateRing| {
-            catalog.facility(&ring.facility).map(|facility| facility.dimension.clone())
+            catalog.facility(&ring.facility).map(|facility| facility.world.clone())
         };
         dimension(candidate) == dimension(from)
             && positions.distance(&from.zone, &candidate.zone).is_some_and(|distance| distance <= from.reach_px() as f32)
@@ -261,7 +262,7 @@ fn address_row(catalog: &GateNetworkCatalog, words: &GateWords, address: Vec<Che
 
 fn address_dimension<'a>(catalog: &'a GateNetworkCatalog, address: &[Chevron]) -> Option<&'a str> {
     let ring = catalog.ring_at(address)?;
-    Some(&catalog.facility(&ring.facility)?.dimension)
+    Some(&catalog.facility(&ring.facility)?.world)
 }
 
 fn dimension_name(id: &str) -> String {
@@ -595,7 +596,7 @@ mod tests {
     /// the engage press at the bottom.
     #[test]
     fn the_wheel_is_laid_out_as_the_ring() {
-        let n = catalog().chevrons();
+        let n = catalog().symbols();
         assert_eq!(n, 15);
         assert!((chevron_angle(7, n) - 270.0).abs() < 1e-3, "Δ at 12 o'clock");
         assert_eq!(WheelSlot::at_angle(270.0, n), WheelSlot::Chevron(7));

@@ -311,7 +311,7 @@ mod tests {
         let directory = lowered_directory(crate::pack::shipped());
         let dimension = |zone: &str| {
             let ring = catalog.ring(zone).expect("a ring");
-            catalog.facility(&ring.facility).expect("a facility").dimension.clone()
+            catalog.facility(&ring.facility).expect("a facility").world.clone()
         };
         let posted_rings = |zone: &str| -> Vec<String> {
             directory

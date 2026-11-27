@@ -279,9 +279,11 @@ value as completion of that owner's contract.
    landed 2026-11-25: each lift is an object of the batch that a caller
    retires alone (schema 543). Door occurrences landed the same day: a
    scripted door stands in its own room's gate solids while shut, and a
-   `ToggleDoor` switch of the same request opens it (schema 544). Open: the
-   second-instance witness, which waits on two concurrent copies of one
-   room. Rollback through one child's retirement is witnessed.) Producer-validity delegation
+   `ToggleDoor` switch of the same request opens it (schema 544). The
+   second-instance witness waits on a product rule: today one room is live
+   at most once, by design (a seat joins the live room another holds), so
+   no concurrent copy exists; filed as
+   [Q188](awaiting-maintainer-decision.md#q188--can-one-authored-room-be-live-twice-at-once). Rollback through one child's retirement is witnessed.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently

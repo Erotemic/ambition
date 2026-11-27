@@ -53,7 +53,7 @@ whose west side is now an edge.
 | `frontier_siding_trestle` | The road crosses the gulch. Two hatches lead to the inspection walks below it. There is a jump between the walks. Drop through the loose planks in the middle to board the freight. |
 | `frontier_sprocket_row` | Hettie Gimbal is in the garage. A transfer walk links the garage hoist to the boiler in the parts yard. The street passes below the work platforms to the closed workshop gate. |
 | `frontier_freight_tail` | Hollis Teague is on the caboose. Gangways connect the two loading cars at deck height. Ladders connect the gangways to the roofs. The decks lead to the flat car. |
-| `frontier_freight_cars` | a tank car, an ore car, a box car, a flat car with a loose crate |
+| `frontier_freight_cars` | The tank car leads to an ore hopper. The sorting car has a deck passage to the flat car. A One-Armed Bandit guards the roof above it. Ladders connect the passage and the roof at both ends. |
 | `frontier_rustler_head` | the head of the train and the Rustler, the outlaw engine; off its pilot into Clinker Flats |
 | `frontier_clinker_yard` | Clinker Flats' yard: the dock (Lou Shunter), the tipple road up to the works |
 | `frontier_clinker_works` | the smelter works: furnace house, slag pots, crane gantry (Magda Ferro) |

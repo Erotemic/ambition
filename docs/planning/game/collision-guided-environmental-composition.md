@@ -376,6 +376,8 @@ Use the collision face to place the bottom of the raised boiler.
 On the Number 9 freight tail, show the roof and floor of each loading
 car with the gangway between cars. Show the ladder ends and the clearance
 for a body in each passage.
+On the Number 9 sorting car, show the coin path above the solid roof. Show
+the gangways from the ore hopper and to the flat car in the same view.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

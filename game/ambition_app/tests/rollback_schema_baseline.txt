@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v550
+ggrs-rollback-schema-v553
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -149,6 +149,7 @@ combat.hitbox_exclusions	component-clone	HitboxExclusions	bevy_ggrs clone snapsh
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.hitbox_on_hit	component-clone-custom-checksum	HitboxOnHit	bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection
+combat.hitbox_target	component-clone	HitboxTarget	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.pending_projectile_outcomes	component-clone-custom-checksum	PendingProjectileOutcomes	bevy_ggrs clone snapshot + bounded pending projectile facts on their observer
 combat.ray_strike	component-clone	RayStrike	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.room_pace	component-clone-custom-checksum	RoomPace	bevy_ggrs clone snapshot + a live room's impact hold expiry and eased clock scale
@@ -364,6 +365,7 @@ map.falling_hazard	entity-mapping	FallingHazard	bevy_ggrs LoadWorld entity-refer
 map.hitbox	entity-mapping	Hitbox	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox_exclusions	entity-mapping	HitboxExclusions	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox_hits	entity-mapping	HitboxHits	bevy_ggrs LoadWorld entity-reference remapping
+map.hitbox_target	entity-mapping	HitboxTarget	bevy_ggrs LoadWorld entity-reference remapping
 map.item_custody	entity-mapping	ItemCustody	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_member	entity-mapping	Limb	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_rig	entity-mapping	LimbRig	bevy_ggrs LoadWorld entity-reference remapping

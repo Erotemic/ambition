@@ -244,11 +244,12 @@
           "presence": "optional",
           "values": [
             "Default",
-            "SceneArt"
+            "SceneArt",
+            "SceneLabel"
           ],
           "on_invalid": "refused",
           "default": "Default",
-          "sample": "SceneArt"
+          "sample": "SceneLabel"
         }
       ]
     },

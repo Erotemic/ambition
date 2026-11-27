@@ -1,5 +1,6 @@
-//! Walk the high road and fight for the grave goods with player inputs.
+//! Travel through the Fantasy Dimension with player inputs.
 
+use ambition_app::AgentAction;
 use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::items::{ItemCatalog, OwnedItems};
@@ -11,6 +12,64 @@ use bevy::prelude::World;
 
 use crate::common::walk::{Pad, Press, Walker as _, fight, the_player, walk_through, walk_to};
 use crate::common::{base, fixed_60hz_room_sim};
+
+#[test]
+fn the_gate_stack_service_ladder_reaches_pirate_sky_and_back() {
+    const STACK: &str = "gate_stack_lower";
+    const ARENA: &str = "pirate_sky_arena";
+    const SHAFT_CENTER: f32 = 208.0;
+    let mut sim = fixed_60hz_room_sim(STACK);
+    sim.step_n(base(), 30);
+    let climbed = (0..420).any(|_| {
+        let move_x = ((SHAFT_CENTER - sim.observation().player_pos.0) / 24.0).clamp(-1.0, 1.0);
+        sim.step(AgentAction { move_x, move_y: -1.0, ..base() }).active_room == ARENA
+    });
+    assert!(climbed, "climb from the stack floor to the arena: {:?}", sim.observation().player_pos);
+    let landed = (0..90).any(|_| sim.step(base()).on_ground);
+    assert!(landed, "land on the arena pad: {:?}", sim.observation().player_pos);
+    assert_eq!(sim.observation().active_room, ARENA);
+
+    let returned = (0..180).any(|tick| {
+        let jump = sim.observation().on_ground && tick % 12 == 0;
+        sim.step(AgentAction { move_y: 1.0, jump, ..base() }).active_room == STACK
+    });
+    assert!(returned, "drop through the arena pad: {:?}", sim.observation().player_pos);
+
+    let reached_floor = (0..420).any(|tick| {
+        let observation = sim.observation();
+        if observation.on_ground && observation.player_pos.1 > 660.0 {
+            return true;
+        }
+        let jump = observation.on_ground && tick % 12 == 0;
+        sim.step(AgentAction { move_y: 1.0, jump, ..base() });
+        false
+    });
+    assert!(reached_floor, "return to the stack floor: {:?}", sim.observation().player_pos);
+    assert_eq!(sim.observation().active_room, STACK);
+}
+
+#[test]
+fn both_pirate_sky_lookout_platforms_can_be_reached_from_the_floor() {
+    let mut sim = fixed_60hz_room_sim("pirate_sky_arena");
+    sim.step_n(base(), 30);
+    let half_height = sim.observation().player_size.1 * 0.5;
+    for x in [576.0, 1824.0] {
+        sim.teleport_player((x, 992.0 - half_height));
+        sim.step_n(base(), 10);
+        let mut highest = sim.observation().player_pos.1;
+        let reached = (0..420).any(|tick| {
+            let observation = sim.observation();
+            highest = highest.min(observation.player_pos.1);
+            if observation.on_ground && observation.player_pos.1 + half_height <= 641.0 {
+                return true;
+            }
+            let jump = observation.on_ground && tick % 12 == 0;
+            sim.step(AgentAction { jump, jump_held: true, ..base() });
+            false
+        });
+        assert!(reached, "reach the lookout above x={x}: highest y={highest}, last position {:?}", sim.observation().player_pos);
+    }
+}
 
 fn gate_stands(world: &mut World, gate: &str) -> bool {
     sole_live_room_component::<FeatureEcsWorldOverlay>(world)

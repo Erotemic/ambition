@@ -31,6 +31,15 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .top { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--rule); }
 .top .tabs { flex-wrap: wrap; }
+.preview-setting { white-space: nowrap; }
+[data-list-previews="off"] .card .img,
+[data-list-previews="off"] .mini .checker { display: none; }
+@media (max-width: 760px) {
+  .top { gap: 6px 10px; padding: 6px 10px; }
+  .top .tabs { order: 1; flex: 0 0 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .top .tabs a { white-space: nowrap; }
+  .top .search { order: 2; flex-basis: 100%; }
+}
 .brand { font-weight: 700; letter-spacing: .02em; color: var(--fg); text-decoration: none; }
 .tabs { display: flex; gap: 2px; }
 .tabs a { padding: 5px 10px; border-radius: 4px; color: var(--muted); text-decoration: none; }
@@ -40,6 +49,13 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 button, select { font: inherit; color: var(--fg); background: var(--panel2); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 9px; cursor: pointer; }
 button.ghost { background: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.content-editor { box-sizing: border-box; width: min(37rem, calc(100% - 24px)); max-height: 90dvh; padding: 14px 16px; color: var(--fg); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; margin: auto; }
+.content-editor::backdrop { background: #0008; }
+.content-editor label { display: grid; gap: 4px; margin-bottom: 8px; min-width: 0; }
+.content-editor input { box-sizing: border-box; width: 100%; padding: 4px 8px; color: var(--fg); background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; }
+.content-editor select { min-width: 0; width: 100%; }
+.cast-role-edit { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+.cast-role-edit button { margin-bottom: 8px; }
 .stamp { padding: 4px 16px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--rule); }
 .stamp.stale { background: var(--infer-bg); color: var(--infer); }
 .stamp pre { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }

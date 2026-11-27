@@ -589,6 +589,7 @@ fn ray(
         launch_dir: None,
         lifetime_s: life,
         look: "laser".into(),
+        jump: None,
     })
 }
 

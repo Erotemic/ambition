@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use ambition_sfx::{AudioContextOwner, SfxEmitter, SfxListeners};
+use ambition_sfx::{AudioContextOwner, PresentationSourceId, SfxEmitter, SfxId, SfxListeners, SfxSpace};
 use bevy::{
     asset::{Assets, Handle},
     ecs::system::SystemParam,
@@ -32,6 +32,7 @@ pub struct SfxVoice {
     began: Duration,
     duration: Option<Duration>,
     applied_gain: f32,
+    group: Option<OneShotGroup>,
 }
 
 #[derive(Clone, Debug)]
@@ -43,7 +44,69 @@ enum VoiceOutput {
 
 /// Accepted one-shots that have not ended. Recording uses the clip duration.
 #[derive(Resource, Default, Debug)]
-pub struct SfxOneShots(pub Vec<SfxVoice>);
+pub struct SfxOneShots {
+    pub(crate) voices: Vec<SfxVoice>,
+    recent: Vec<OneShotStart>,
+}
+
+const ONE_SHOT_LIMIT: usize = 24;
+const FAMILY_VOICE_LIMIT: usize = 2;
+const RETRIGGER_TIME: Duration = Duration::from_millis(45);
+
+impl SfxOneShots {
+    pub fn has_voices(&self) -> bool {
+        !self.voices.is_empty()
+    }
+
+    pub(crate) fn expire_starts(&mut self, owner: Option<AudioContextOwner>, now: Duration) {
+        self.recent.retain(|start| {
+            Some(start.owner) == owner && now.saturating_sub(start.at) < RETRIGGER_TIME
+        });
+    }
+
+    pub(crate) fn can_start(&self, owner: AudioContextOwner, group: &OneShotGroup) -> bool {
+        !self.recent.iter().any(|start| &start.group == group)
+            && self.voices.iter().filter(|voice| voice.owner == owner).count() < ONE_SHOT_LIMIT
+            && self.voices.iter()
+                .filter(|voice| voice.owner == owner && voice.group.as_ref() == Some(group))
+                .count() < FAMILY_VOICE_LIMIT
+    }
+
+    pub(crate) fn track(&mut self, mut voice: SfxVoice, group: OneShotGroup) {
+        self.recent.push(OneShotStart {
+            owner: voice.owner,
+            at: voice.began,
+            group: group.clone(),
+        });
+        voice.group = Some(group);
+        self.voices.push(voice);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct OneShotGroup {
+    pub scope: OneShotScope,
+    pub family: OneShotFamily,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum OneShotScope {
+    Global,
+    Spatial(Option<SfxSpace>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum OneShotFamily {
+    Cue(PresentationSourceId, SfxId),
+    Named(SfxId),
+}
+
+#[derive(Debug)]
+struct OneShotStart {
+    owner: AudioContextOwner,
+    group: OneShotGroup,
+    at: Duration,
+}
 
 #[derive(SystemParam)]
 pub struct SfxVoiceOutput<'w> {
@@ -59,7 +122,7 @@ impl SfxVoiceOutput<'_> {
         self.time.elapsed()
     }
 
-    fn gain(&self, emitter: SfxEmitter) -> f32 {
+    pub(crate) fn gain(&self, emitter: SfxEmitter) -> f32 {
         self.listeners.gain(emitter) * self.mix.effective_sfx.clamp(0.0, 1.0)
     }
 
@@ -91,6 +154,7 @@ impl SfxVoiceOutput<'_> {
             began: self.time.elapsed(),
             duration: loop_fade.is_none().then_some(duration),
             applied_gain: gain,
+            group: None,
         }
     }
 }
@@ -188,7 +252,7 @@ pub fn update_sfx_attenuation(
     mut loops: ResMut<crate::sfx_loops::SfxLoopPlayback>,
 ) {
     shots
-        .0
+        .voices
         .retain_mut(|voice| voice.update(&output, &selection, &mut instances));
     loops
         .held

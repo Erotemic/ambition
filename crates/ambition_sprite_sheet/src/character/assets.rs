@@ -127,9 +127,9 @@ impl CharacterSpriteAssets {
         self.parts_admitted
     }
 
-    /// Every ready sheet realization.
+    /// Ready character and prop sheets.
     pub fn ready_sheets(&self) -> impl Iterator<Item = &CharacterSpriteAsset> {
-        self.sheets.values()
+        self.sheets.values().chain(self.props.values())
     }
 
     /// Give every ready sheet without a transform flipbook the one `realize`

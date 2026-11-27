@@ -10,7 +10,7 @@
 
 use ambition_platformer2d_core as ae;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// What tier a character occupies in the Hall of Characters and other
 /// gallery rooms. Drives layout: `MainHall` characters get 128×192 slots,
@@ -592,6 +592,34 @@ pub struct PettingSpec {
     pub contact_offset: (f32, f32),
 }
 
+/// How important a character is to the pack's story.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub enum CastImportance {
+    #[default]
+    Unclassified,
+    Primary,
+    Secondary,
+    Tertiary,
+    Background,
+}
+
+/// Cast information for authoring tools.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CharacterCast {
+    #[serde(default)]
+    pub importance: CastImportance,
+    /// Role groups and their labels. A pack can supply its own groups and labels.
+    #[serde(default)]
+    pub roles: BTreeMap<String, BTreeSet<String>>,
+}
+
+impl CharacterCast {
+    fn is_empty(&self) -> bool {
+        self.importance == CastImportance::Unclassified && self.roles.is_empty()
+    }
+}
+
 /// One character entry in `character_catalog.ron`.
 #[allow(
     dead_code,
@@ -674,6 +702,9 @@ pub struct CharacterCatalogEntry {
     /// generator uses `tags = ["boss"]` to fence basement entries).
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Cast information. The catalog supplies this data to authoring tools.
+    #[serde(default, skip_serializing_if = "CharacterCast::is_empty")]
+    pub cast: CharacterCast,
     /// Behind-the-scenes authoring context: who or what the character parodies,
     /// the name joke, visual/thematic references, and design intent that future
     /// artists and writers should preserve. This is not necessarily canonical

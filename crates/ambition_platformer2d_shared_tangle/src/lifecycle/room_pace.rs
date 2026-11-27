@@ -66,10 +66,21 @@ pub struct RoomHolds<'w, 's> {
 }
 
 impl RoomHolds<'_, '_> {
-    /// Hold each room until its tick, keeping a later hold it already has.
-    /// Several holds of one room this tick keep the latest, also for a room
-    /// whose root has no pace yet.
+    /// Set each room's hold to the latest expiry.
     pub fn hold_until(&mut self, holds: impl IntoIterator<Item = (Room, u64)>) {
+        self.set_holds(holds, |held, until| until > held);
+    }
+
+    /// Start one hold per free room. Use the latest expiry in this group of requests.
+    pub fn start_holds(&mut self, now: u64, holds: impl IntoIterator<Item = (Room, u64)>) {
+        self.set_holds(holds, |held, until| held <= now && until > now);
+    }
+
+    fn set_holds(
+        &mut self,
+        holds: impl IntoIterator<Item = (Room, u64)>,
+        accepts: impl Fn(u64, u64) -> bool,
+    ) {
         let mut latest = std::collections::BTreeMap::<Room, u64>::new();
         for (room, until) in holds {
             let held = latest.entry(room).or_insert(until);
@@ -81,13 +92,14 @@ impl RoomHolds<'_, '_> {
             };
             match pace {
                 Some(mut pace) => {
-                    if pace.held_until < until {
+                    if accepts(pace.held_until, until) {
                         pace.held_until = until;
                     }
                 }
-                None => {
+                None if accepts(0, until) => {
                     self.commands.entity(root).insert(RoomPace { held_until: until, ..RoomPace::default() });
                 }
+                None => {}
             }
         }
     }

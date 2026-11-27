@@ -71,6 +71,8 @@ pub struct WorldLabel {
     /// Where the owner wants the label, in Bevy world space, including Z. The
     /// pass always places from here, never from the current transform.
     pub anchor: Vec3,
+    /// Keep the text inside these room bounds when they are set.
+    pub(super) bounds: Option<Rect>,
     /// The opacity the owner asked for (a nameplate's rank fade; 1.0 for
     /// static signage). The pass may only reduce it.
     pub owner_opacity: f32,
@@ -92,6 +94,7 @@ impl WorldLabel {
             owner_id: owner_id.into(),
             family,
             anchor,
+            bounds: None,
             owner_opacity: 1.0,
             text_color: Color::WHITE,
             outline_color: None,
@@ -237,15 +240,13 @@ pub fn mirror_static_world_labels_per_view(
 /// Tunables for the placement pass.
 #[derive(Resource, Clone, Debug)]
 pub struct WorldLabelLayoutSettings {
-    /// Off-switch. When disabled, every label draws at its owner's anchor and
-    /// opacity (the pre-AC12 behaviour).
+    /// When disabled, labels keep their anchors and their owner opacity.
+    /// Room bounds still apply.
     pub enabled: bool,
     /// Empty space required between two labels' boxes, world px.
     pub padding_px: f32,
-    /// How far a label may move up from its anchor (+Y in Bevy space, world
-    /// px) before it is hidden instead. Far from its owner, a label no
-    /// longer names it. Sized for four lines of world text in one cluster
-    /// (a four-fighter match's taunts).
+    /// Maximum vertical distance from the anchor, in world pixels.
+    /// The pass hides the label if there is no space in this range.
     pub max_displacement_px: f32,
     /// Opacity multiplier for a label that overlaps a driven body. Low enough
     /// that the body shows through, high enough that the label stays legible.
@@ -333,6 +334,7 @@ pub(crate) struct LabelPlacement {
     pub anchor: Vec2,
     /// Full drawn size of the text.
     pub size: Vec2,
+    pub bounds: Option<Rect>,
     pub owner_opacity: f32,
     /// Resolved position: `Some(anchor)` unless the label had to yield, and
     /// `None` when there was nowhere to put it.
@@ -344,6 +346,12 @@ pub(crate) struct LabelPlacement {
     /// Resolved opacity. Zero means the label could not be placed or the
     /// owner asked for zero.
     pub opacity: f32,
+}
+
+fn bounded_anchor(anchor: Vec2, size: Vec2, bounds: Option<Rect>) -> Vec2 {
+    let Some(bounds) = bounds else { return anchor };
+    let half = size.min(bounds.size()) * 0.5;
+    anchor.clamp(bounds.min + half, bounds.max - half)
 }
 
 /// The whole policy, as a pure function over boxes.
@@ -364,7 +372,8 @@ pub(crate) fn resolve_label_layout(
 
     let mut occupied: Vec<LabelBox> = Vec::with_capacity(labels.len());
     for label in labels.iter_mut() {
-        label.placed = Some(label.anchor);
+        let anchor = bounded_anchor(label.anchor, label.size, label.bounds);
+        label.placed = Some(anchor);
         label.opacity = label.owner_opacity;
         if label.opacity <= 0.0 {
             // An invisible label reserves no space, so it cannot push a visible
@@ -373,29 +382,34 @@ pub(crate) fn resolve_label_layout(
         }
 
         let half = label.size * 0.5;
+        let below = label.bounds.is_some_and(|bounds| {
+            anchor.y + half.y + settings.max_displacement_px > bounds.max.y
+        });
+        let direction = if below { -1.0 } else { 1.0 };
         let mut candidate = LabelBox {
-            center: label.anchor,
+            center: anchor,
             half,
         };
         let mut resolved = None;
-        // Lift just above the highest box it overlaps. Each pass raises the
-        // highest blocker it can still meet, so this settles in at most one
-        // pass per placed label. The loop bound states that.
+        // Move past the last box in this direction. A move clears at least
+        // one blocker. Near the ceiling, move down into the room.
         for _ in 0..=occupied.len() {
             let blocked_to = occupied
                 .iter()
                 .filter(|placed| candidate.overlaps(placed, settings.padding_px))
-                .map(|placed| placed.center.y + placed.half.y)
+                .map(|placed| direction * placed.center.y + placed.half.y)
                 .max_by(f32::total_cmp);
-            let Some(top) = blocked_to else {
+            let Some(edge) = blocked_to else {
                 resolved = Some(candidate);
                 break;
             };
-            let lifted = top + half.y + settings.padding_px;
-            if lifted - label.anchor.y > settings.max_displacement_px {
+            let y = direction * (edge + half.y + settings.padding_px);
+            if (y - anchor.y).abs() > settings.max_displacement_px
+                || label.bounds.is_some_and(|bounds| y - half.y < bounds.min.y || y + half.y > bounds.max.y)
+            {
                 break;
             }
-            candidate.center.y = lifted;
+            candidate.center.y = y;
         }
 
         let placed = match resolved {
@@ -592,15 +606,16 @@ pub fn layout_world_labels(
 ) {
     let ease = ease_fraction(settings.opacity_ease_secs, time.delta_secs());
     if !settings.enabled {
-        // The policy is declined for all views: every label draws at its
-        // owner's anchor and opacity.
-        for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children, _) in
+        for (mut label, text, font, layout, mut transform, mut visibility, mut text_color, children, _) in
             &mut labels
         {
-            // Written only when it moves: an unchanged write marks the label
-            // for propagation and extraction each frame.
-            if transform.translation != label.anchor {
-                transform.translation = label.anchor;
+            let mut translation = label.anchor;
+            if label.bounds.is_some() {
+                let size = label_size(layout.map(|layout| layout.size), text.as_str(), label_font_px(font), &settings);
+                translation = bounded_anchor(label.anchor.truncate(), size, label.bounds).extend(label.anchor.z);
+            }
+            if transform.translation != translation {
+                transform.translation = translation;
             }
             let opacity = label.owner_opacity;
             label.rendered_opacity = opacity;
@@ -657,6 +672,7 @@ pub fn layout_world_labels(
                     label_font_px(font),
                     &settings,
                 ),
+                bounds: label.bounds,
                 owner_opacity: label.owner_opacity,
                 placed: Some(anchor),
                 opacity: label.owner_opacity,
@@ -950,10 +966,32 @@ mod tests {
             distance_sq: 0.0,
             anchor,
             size,
+            bounds: None,
             owner_opacity: 1.0,
             placed: Some(anchor),
             opacity: 1.0,
         }
+    }
+
+    #[test]
+    fn edge_labels_fit_inside_the_room() {
+        let bounds = Rect::from_corners(Vec2::new(-200.0, -120.0), Vec2::new(200.0, 120.0));
+        let mut labels = [
+            label("left", WorldLabelFamily::Fixture, Vec2::new(-192.0, 0.0), Vec2::new(100.0, 14.0)),
+            label("right", WorldLabelFamily::Fixture, Vec2::new(192.0, 0.0), Vec2::new(120.0, 14.0)),
+            label("ceiling", WorldLabelFamily::Fixture, Vec2::new(0.0, 110.0), Vec2::new(100.0, 14.0)),
+            label("sign", WorldLabelFamily::Signage, Vec2::new(0.0, 110.0), Vec2::new(150.0, 14.0)),
+        ];
+        for label in &mut labels[..3] {
+            label.bounds = Some(bounds);
+        }
+
+        resolve_label_layout(&mut labels, &[], &settings());
+
+        let placed = |id| labels.iter().find(|label| label.owner_id == id).unwrap().placed.unwrap();
+        assert_eq!(placed("left"), Vec2::new(-150.0, 0.0));
+        assert_eq!(placed("right"), Vec2::new(140.0, 0.0));
+        assert_eq!(placed("ceiling"), Vec2::new(0.0, 96.0));
     }
 
     /// Two labels from different families that start on top of each other do

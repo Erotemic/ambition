@@ -423,7 +423,11 @@ pub fn emit_hit_feedback(
         victim_source
     };
     // Heard in the room the hit is seen in.
-    sfx.in_space(vfx.sfx_space()).write_for_body(
+    let heavy = crate::strike_weight::StrikeWeightRules::is_heavy(weight, damage);
+    sfx.in_space(vfx.sfx_space()).with_group(ambition_sfx::SfxGroup {
+        id: ambition_sfx::SfxGroup::IMPACT,
+        priority: u8::from(heavy),
+    }).write_for_body(
         sound_source,
         ambition_sfx::SfxMessage::Play {
             id: resolve_strike_sfx(hurt, strike_sfx, damage, weight),
@@ -436,7 +440,7 @@ pub fn emit_hit_feedback(
             strength: weight.map_or(1.0, |weight| {
                 damage.max(0) as f32 / weight.heavy_at_damage.max(1) as f32
             }),
-            heavy: crate::strike_weight::StrikeWeightRules::is_heavy(weight, damage),
+            heavy,
             material: hurt.material,
             launch,
         },

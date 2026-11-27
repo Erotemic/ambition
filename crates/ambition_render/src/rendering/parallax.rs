@@ -15,10 +15,14 @@ use std::collections::HashSet;
 use super::primitives::RoomVisual;
 use super::view_isolation::ProjectionRestingLayers;
 use ambition_persistence::settings::ParallaxBudget;
+#[cfg(feature = "portal_render")]
+use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_world::rooms::RoomMetadata;
+#[cfg(feature = "portal_render")]
+use ambition_portal2d_presentation::PortalViewRig;
 use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
 
 /// Camera-relative background panel.
@@ -839,27 +843,20 @@ pub fn sync_parallax_layers(
 pub fn sync_portal_capture_parallax_layers(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    // Copy the root set only (`Without<MirroredParallaxLayer>`); copying every
-    // view's panels would stack N skies in one capture. The capture is made
-    // for the one global host view (`PortalCameraContinuityHostView`), so the
-    // root set is its source.
+    // Copy only the roots. Each camera places its own copies.
     sources: Query<
-        (Entity, Ref<Sprite>, &ParallaxLayerVisual),
+        (Entity, Ref<Sprite>, &ParallaxLayerVisual, Option<&InRoomInstance>),
         (
             Without<PortalCaptureParallaxLayerVisual>,
             Without<MirroredParallaxLayer>,
         ),
     >,
-    rigs: Query<
-        (Entity, &ambition_portal2d_presentation::PortalViewRig),
-        Without<PortalCaptureParallaxLayerVisual>,
-    >,
+    rigs: Query<(Entity, &PortalViewRig), Without<PortalCaptureParallaxLayerVisual>>,
     mut copies: Query<(
         Entity,
         &PortalCaptureParallaxLayerVisual,
         &mut Sprite,
         &mut Transform,
-        &mut RenderLayers,
     )>,
 ) {
     let Some(session_scope) =
@@ -867,26 +864,28 @@ pub fn sync_portal_capture_parallax_layers(
     else {
         return;
     };
+    let belongs_to_capture = |rig: &PortalViewRig,
+                              layer: &ParallaxLayerVisual,
+                              stamp: Option<&InRoomInstance>| {
+        stamp.is_none_or(|stamp| stamp.0 == rig.room()) && seen_through_a_portal(layer)
+    };
     let mut live: HashSet<(Entity, Entity)> = HashSet::new();
-    for (entity, copy, mut sprite, mut transform, mut render_layers) in &mut copies {
-        let Ok((_, source_sprite, source_layer)) = sources.get(copy.source) else {
+    for (entity, copy, mut sprite, mut transform) in &mut copies {
+        let Ok((_, source_sprite, source_layer, stamp)) = sources.get(copy.source) else {
             commands.entity(entity).despawn();
             continue;
         };
-        if !seen_through_a_portal(source_layer) {
-            commands.entity(entity).despawn();
-            continue;
-        }
         let Ok((_, rig)) = rigs.get(copy.rig) else {
             commands.entity(entity).despawn();
             continue;
         };
+        if !belongs_to_capture(rig, source_layer, stamp) {
+            commands.entity(entity).despawn();
+            continue;
+        }
         live.insert((copy.rig, copy.source));
         let (placed, panel_size) =
             portal_backdrop_layout(source_layer, source_sprite.custom_size, rig);
-        // Each written only when it changes: a written sprite is extracted
-        // again, a written transform propagated, and these layers (one per
-        // capture, numbered past 64) are a heap allocation to build.
         if source_sprite.is_changed() {
             *sprite = Sprite {
                 custom_size: panel_size,
@@ -895,15 +894,14 @@ pub fn sync_portal_capture_parallax_layers(
         } else if sprite.custom_size != panel_size {
             sprite.custom_size = panel_size;
         }
-        if !render_layers.iter().eq([rig.parallax_layer()]) {
-            *render_layers = RenderLayers::none().with(rig.parallax_layer());
-        }
         transform.set_if_neq(placed);
     }
 
     for (rig_entity, rig) in &rigs {
-        for (source_entity, source_sprite, source_layer) in &sources {
-            if live.contains(&(rig_entity, source_entity)) || !seen_through_a_portal(source_layer) {
+        for (source_entity, source_sprite, source_layer, stamp) in &sources {
+            if live.contains(&(rig_entity, source_entity))
+                || !belongs_to_capture(rig, source_layer, stamp)
+            {
                 continue;
             }
             let (transform, panel_size) =
@@ -921,7 +919,7 @@ pub fn sync_portal_capture_parallax_layers(
                         rig: rig_entity,
                         source: source_entity,
                     },
-                    RenderLayers::none().with(rig.parallax_layer()),
+                    RenderLayers::from_layers(&[rig.parallax_layer()]),
                     RoomVisual,
                     Name::new(format!(
                         "Portal capture parallax layer {} ({})",
@@ -940,7 +938,7 @@ pub fn sync_portal_capture_parallax_layers(
 fn portal_backdrop_layout(
     source: &ParallaxLayerVisual,
     source_size: Option<Vec2>,
-    rig: &ambition_portal2d_presentation::PortalViewRig,
+    rig: &PortalViewRig,
 ) -> (Transform, Option<Vec2>) {
     let mut layer = *source;
     let panel_size = if let Some(visible) = rig.parallax_visible_view() {
@@ -1138,13 +1136,94 @@ mod tests {
     }
 
     #[test]
-    fn portal_capture_parallax_layers_use_dynamic_masks() {
-        let private_layer = 32 + 255;
-        let copy_layers = RenderLayers::none().with(private_layer);
-        let capture_layers = RenderLayers::layer(0).with(private_layer);
+    fn portal_captures_draw_only_their_own_rooms_backdrop() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, LiveRoomInstance};
+        use ambition_portal2d_presentation as portal;
 
-        assert!(copy_layers.intersects(&capture_layers));
-        assert!(!copy_layers.intersects(&RenderLayers::layer(0)));
+        let mut app = App::new();
+        app.insert_resource(portal::PortalEffectSelection {
+            active: portal::PortalVisualEffect::ViewCones,
+        })
+            .insert_resource(portal::PortalViewConeConfig {
+                mode: portal::PortalViewConeMode::Static,
+                ..default()
+            })
+            .insert_resource(portal::PortalCaptureQualityBudget { max_active_captures: 8 })
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<ColorMaterial>>()
+            .init_resource::<Time>()
+            .add_systems(
+                Update,
+                (portal::sync_portal_view_cones, sync_portal_capture_parallax_layers).chain(),
+            );
+        let world_size = Vec2::new(1000.0, 600.0);
+        let mut viewers = portal::PortalViewers::default();
+        let mut source_for_room = std::collections::HashMap::new();
+        let world = app.world_mut();
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::from_ordinal(1)];
+        for (room, eyes) in rooms.into_iter().zip([&[300.0, 470.0][..], &[400.0][..]]) {
+            let geometry = ae::World::new("portal backdrop test", world_size, Vec2::ZERO, vec![]);
+            spawn_live_room(world, room, ae::RoomGeometry(geometry));
+            let source = world
+                .spawn((
+                    InRoomInstance(room),
+                    Sprite { custom_size: Some(world_size), ..default() },
+                    ParallaxLayerVisual {
+                        factor: Vec2::ONE,
+                        z: -17.0,
+                        panel_scale: 1.0,
+                        travel: Vec2::ZERO,
+                        world_size,
+                    },
+                ))
+                .id();
+            source_for_room.insert(room, source);
+            for (color, x, normal) in [
+                (portal::PortalChannelColor::Purple, 500.0, Vec2::NEG_X),
+                (portal::PortalChannelColor::Yellow, 532.0, Vec2::X),
+            ] {
+                let placed = portal::PlacedPortal::fixed(
+                    portal::PortalChannel::Authored(color),
+                    Vec2::new(x, 300.0),
+                    normal,
+                    48.0,
+                )
+                .unwrap();
+                world.spawn((InRoomInstance(room), placed));
+            }
+            for x in eyes {
+                assert!(viewers.publish(portal::PortalViewer {
+                    present: true,
+                    observer: Some(world.spawn_empty().id()),
+                    room: Some(room),
+                    eye: Vec2::new(*x, 300.0),
+                    half_size: Vec2::splat(12.0),
+                    ..default()
+                }));
+            }
+        }
+        app.insert_resource(viewers);
+        for _ in 0..2 {
+            app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+            app.update();
+        }
+        let world = app.world_mut();
+        let mut copies = world.query::<(&PortalCaptureParallaxLayerVisual, &RenderLayers)>();
+        let mut captures = world.query::<(Entity, &portal::PortalViewRig, &Camera, &RenderLayers)>();
+        let active: Vec<_> = captures
+            .iter(world)
+            .filter(|(_, _, camera, _)| camera.is_active)
+            .collect();
+        assert_eq!(active.len(), 6, "both portals capture for all three eyes");
+        for (entity, capture, _, layers) in active {
+            let shown: Vec<_> = copies
+                .iter(world)
+                .filter(|(_, copy_layers)| copy_layers.intersects(layers))
+                .map(|(copy, _)| (copy.rig, copy.source))
+                .collect();
+            assert_eq!(shown, [(entity, source_for_room[&capture.room()])]);
+        }
     }
 }
 

@@ -30,7 +30,8 @@ use ambition_extension_host::BodyRecords;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, InRoomInstance, SessionScopeSet, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, InRoomInstance, PresentationOf, SessionScopeSet, SessionScopedEntity,
+    SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 use ambition_render::rendering::{BossOverlaySet, FeatureVisual, RoomVisual};
@@ -64,6 +65,8 @@ pub fn install(app: &mut App) {
     // renders.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<FlameMaterial>::default());
+        #[cfg(feature = "card_view")]
+        ambition_render::rendering::card_view::install_card_mesh_material::<FlameMaterial>(app);
     }
     app.add_systems(
         Update,
@@ -89,7 +92,7 @@ pub fn install(app: &mut App) {
 /// are (0 none), `y` the x-flip, `z` how cold the fire is (0 red, 1 blue),
 /// `w` the time. `shape`: `x` the quad as a multiple of the sprite, `y` the
 /// sprite's width over its height.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct FlameMaterial {
     #[uniform(0)]
     pub uv_rect: Vec4,
@@ -101,6 +104,9 @@ pub struct FlameMaterial {
     #[sampler(4)]
     pub body_texture: Handle<Image>,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_render::rendering::card_view::CardMaterialSource for FlameMaterial {}
 
 impl Material2d for FlameMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -183,6 +189,7 @@ pub fn attach_flames(
                     // Hidden until it is angry.
                     Visibility::Hidden,
                     FlameOverlay { source, height: 0.0, cold: 0.0 },
+                    PresentationOf(source),
                     RoomVisual,
                     Name::new(format!("Flames: {}", visual.id)),
                 ),
@@ -334,6 +341,7 @@ pub struct SpaceSky;
 
 /// One part of a room's space, which [`pose_of`] places.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+#[require(ambition_render::rendering::AnimatedWorldSpriteTint)]
 pub enum SpacePart {
     /// The dark, with its dust and its soft lower edge.
     Dark,

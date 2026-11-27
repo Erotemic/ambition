@@ -29,8 +29,8 @@
 //!   does not stop when the clock is scaled to zero;
 //! * it is the same on a replayed frame, because both the expiry and the clock
 //!   it is compared to rewind together;
-//! * overlapping connects are `max`, which is deterministic and needs no
-//!   ordering rule;
+//! * connects on one tick use the longest hold. A hold must end before a
+//!   room can start another one;
 //! * and there is NO HAND-BACK. Nothing here writes a scale. The ladder re-reads
 //!   every fact every frame and its last rung is `1.0`, so an expired hold
 //!   restores the pace by ceasing to be true. The imperative
@@ -43,9 +43,7 @@ use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 /// The tick this freeze ends on, or `None` when the world is not frozen.
 ///
 /// ⛔ AN ABSOLUTE EXPIRY, not a decrementing counter. A counter is mutable state
-/// touched every tick for no reason; an expiry is written once per connect and
-/// read thereafter, and two overlapping hits combine with `max` rather than
-/// with an accumulation rule somebody has to remember.
+/// touched every tick for no reason; an expiry is set when a hold starts.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ImpactHitstop {
     pub until_tick: Option<u64>,
@@ -123,7 +121,7 @@ pub fn request_impact_hitstop_on_resolved_hits(
     // The hold of each struck room, by the victim's room.
     let mut in_rooms: Vec<(Room, f32)> = Vec::new();
     for hit in hits.read() {
-        if !is_a_connect(&hit.source) {
+        if !is_a_connect(&hit.source) || !hit.hitlag_seconds.is_finite() {
             continue;
         }
         // The victim's room states the game's rules; they fold into a copy
@@ -142,13 +140,17 @@ pub fn request_impact_hitstop_on_resolved_hits(
             in_rooms.push((room, seconds));
         }
     }
-    let until_after = |seconds: f32| tick.0 + (seconds * TICKS_PER_SECOND).round().max(0.0) as u64;
-    holds.hold_until(in_rooms.into_iter().filter(|(_, seconds)| *seconds > 0.0).map(|(room, seconds)| (room, until_after(seconds))));
-    if wanted <= 0.0 {
+    let until_after = |seconds: f32| tick.0.saturating_add((seconds * TICKS_PER_SECOND).round().max(0.0) as u64);
+    holds.start_holds(
+        tick.0,
+        in_rooms.into_iter().map(|(room, seconds)| (room, until_after(seconds)))
+            .filter(|(_, until)| *until > tick.0),
+    );
+    let until = until_after(wanted);
+    if until <= tick.0 || hold.is_freezing(*tick) {
         return;
     }
-    let until = until_after(wanted);
-    hold.until_tick = Some(hold.until_tick.map_or(until, |held| held.max(until)));
+    hold.until_tick = Some(until);
 }
 
 #[cfg(test)]

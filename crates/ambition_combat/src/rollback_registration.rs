@@ -611,6 +611,10 @@ where
         OWNER, "combat.hitbox_exclusions", |excluded| excluded.bodies.iter().copied().collect(),
     );
     registrar.rollback_map_entities::<crate::strike::HitboxExclusions>(OWNER, "map.hitbox_exclusions");
+    registrar.rollback_component_clone_entity_ref::<crate::strike::HitboxTarget>(
+        OWNER, "combat.hitbox_target", |target| target.0,
+    );
+    registrar.rollback_map_entities::<crate::strike::HitboxTarget>(OWNER, "map.hitbox_target");
     // Presentation, but it rides the strike entity family: a volume restored
     // without it would grow the unauthored stand-in over its owner's own art.
     registrar.rollback_component_clone::<crate::strike::DepictedByOwner>(OWNER, "combat.depicted_by_owner",
@@ -877,6 +881,7 @@ mod pending_hit_checksum_tests {
         use crate::{HitIdentity, HitOrigin};
         let mut pending = staged(HitReaction::Strike);
         pending.0[0].event.origin = Some(HitOrigin {
+            ray_jump: None,
             projectile: Some(HitIdentity { id: Some(SimId::placement("shot")), room: Some(LiveRoomInstance::ACTIVATION), session: Some(SessionScopeId(1)) }),
             attacker: Some(HitIdentity { id: Some(SimId::placement("deflector")), room: Some(LiveRoomInstance::ACTIVATION), session: Some(SessionScopeId(1)) }),
         });

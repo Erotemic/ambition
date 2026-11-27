@@ -309,12 +309,13 @@ mod tests {
         app.add_systems(Update, update_sfx_attenuation.after(audio_play_sfx_loops));
         app.world_mut().resource_mut::<SfxListeners>().0 = vec![Vec2::ZERO];
         app.world_mut().write_message(OwnedSfxMessage {
+            group: None,
             owner: Some(AudioContextOwner::Gameplay(1)), source: "fixture".into(),
             request: SfxMessage::Land { pos: Vec2::ZERO, strength: 0.1 },
             space: None,
         });
         app.update();
-        let gain = |app: &App| app.world().resource::<SfxOneShots>().0[0].gain;
+        let gain = |app: &App| app.world().resource::<SfxOneShots>().voices[0].gain;
         assert!((gain(&app) - 0.1).abs() < 1e-6);
         app.world_mut().resource_mut::<SfxListeners>().0[0] = Vec2::new(880.0, 0.0);
         app.update();
@@ -350,16 +351,99 @@ mod tests {
         app.add_systems(Update, update_sfx_attenuation.after(audio_play_sfx_loops));
         app.world_mut().resource_mut::<SfxListeners>().listen(Vec2::ZERO, Some(SfxSpace(2)));
         app.world_mut().write_message(OwnedSfxMessage {
+            group: None,
             owner: Some(AudioContextOwner::Gameplay(1)), source: "fixture".into(),
             request: SfxMessage::Land { pos: Vec2::ZERO, strength: 1.0 },
             space: Some(SfxSpace(1)),
         });
         app.update();
-        let gain = |app: &App| app.world().resource::<SfxOneShots>().0[0].gain;
+        let gain = |app: &App| app.world().resource::<SfxOneShots>().voices[0].gain;
         assert_eq!(gain(&app), 0.0, "another room's listener heard it");
         app.world_mut().resource_mut::<SfxListeners>().listen(Vec2::ZERO, Some(SfxSpace(1)));
         app.update();
         assert!(gain(&app) > 0.0, "its own room's listener does not hear it");
+    }
+
+    #[test]
+    fn crowded_sounds_share_voices_and_keep_the_best_audible_impact() {
+        use crate::{
+            audio_play_sfx_messages, spatial::{SfxOneShots, update_sfx_attenuation},
+            SfxPlaybackState,
+        };
+        use ambition_sfx::{OwnedSfxMessage, SfxGroup, SfxListeners, SfxMessage, SfxSpace};
+        use bevy::{prelude::{IntoScheduleConfigs, Vec2}, time::TimeUpdateStrategy};
+        use std::time::Duration;
+
+        let mut app = app();
+        let mut registry = app.world().resource::<ActiveAudioSelection>()
+            .sfx_for_source(&"fixture".into()).unwrap().clone();
+        let heavy = SfxId::from_static("fixture.heavy");
+        registry.sfx.push(SfxSpec { id: Some("fixture.heavy".into()), ..registry.sfx[0].clone() });
+        app.world_mut().resource_mut::<ActiveAudioSelection>()
+            .select_gameplay(1, "fixture", None, Some(registry), BTreeSet::new());
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(20)));
+        app.add_message::<OwnedSfxMessage>();
+        app.add_systems(Update, audio_play_sfx_messages.before(audio_play_sfx_loops));
+        app.add_systems(Update, update_sfx_attenuation.after(audio_play_sfx_loops));
+        let mut listeners = app.world_mut().resource_mut::<SfxListeners>();
+        let here = SfxSpace(1);
+        let there = SfxSpace(2);
+        listeners.listen(Vec2::ZERO, Some(here));
+        listeners.listen(Vec2::ZERO, Some(there));
+        let play = |app: &mut App, id, group, pos, space| {
+            app.world_mut().write_message(OwnedSfxMessage {
+                owner: Some(AudioContextOwner::Gameplay(1)),
+                source: "fixture".into(),
+                request: SfxMessage::Play { id, emitter: ambition_sfx::SfxEmitter::point(pos) },
+                group,
+                space: Some(space),
+            });
+        };
+        let group = |priority| Some(SfxGroup { id: SfxGroup::IMPACT, priority });
+        let light = SfxId::new(HUM);
+        let burst = |app: &mut App| {
+            for _ in 0..300 {
+                play(app, light, group(0), Vec2::ZERO, here);
+            }
+            play(app, heavy, group(1), Vec2::new(500.0, 0.0), here);
+            play(app, heavy, group(2), Vec2::new(5000.0, 0.0), here);
+        };
+        burst(&mut app);
+        play(&mut app, light, group(0), Vec2::ZERO, there);
+        for _ in 0..300 {
+            play(&mut app, light, None, Vec2::ZERO, here);
+        }
+        app.update();
+        let playback = |app: &App| app.world().resource::<SfxPlaybackState>().clone();
+        let first = playback(&app);
+        assert_eq!(first.accepted_playbacks, 3);
+        assert_eq!(first.suppressed_playbacks, 600);
+        assert!(first.played_this_pass.iter().any(|record| record.id == heavy && record.gain > 0.0));
+        assert_eq!(first.played_this_pass.iter().filter(|record| record.id == heavy).count(), 1);
+
+        burst(&mut app);
+        app.update();
+        assert_eq!(playback(&app).accepted_playbacks, 3);
+        app.update();
+        burst(&mut app);
+        app.update();
+        assert_eq!(playback(&app).accepted_playbacks, 4);
+        for _ in 0..2 {
+            app.update();
+        }
+        burst(&mut app);
+        app.update();
+        assert_eq!(playback(&app).accepted_playbacks, 4, "the two live impacts fill the family");
+
+        for family in 0..100 {
+            play(&mut app, light, Some(SfxGroup {
+                id: SfxId::new(&format!("fixture.family.{family}")),
+                priority: 0,
+            }), Vec2::ZERO, here);
+        }
+        app.update();
+        assert_eq!(app.world().resource::<SfxOneShots>().voices.len(), 24);
+        assert_eq!(playback(&app).accepted_playbacks, 24);
     }
 
     #[test]
@@ -389,6 +473,7 @@ mod tests {
             space: None,
         };
         app.world_mut().write_message(OwnedSfxMessage {
+            group: None,
             owner: Some(AudioContextOwner::Gameplay(1)),
             source: "fixture".into(),
             request: SfxMessage::Play {
@@ -412,8 +497,8 @@ mod tests {
             app.world_mut().resource_mut::<SfxListeners>().0[0] = Vec2::new(position, 0.0);
             app.update();
             let shots = app.world().resource::<SfxOneShots>();
-            assert_eq!(shots.0.len(), 1);
-            assert_eq!(shots.0[0].gain, gain);
+            assert_eq!(shots.voices.len(), 1);
+            assert_eq!(shots.voices[0].gain, gain);
             let loops = app.world().resource::<SfxLoopPlayback>();
             assert_eq!(loops.held(KEY).unwrap().voice.gain, gain);
             assert_eq!(loops.started, 1);
@@ -423,7 +508,7 @@ mod tests {
             .resource_mut::<crate::SfxMix>()
             .effective_sfx = 0.25;
         app.update();
-        assert_eq!(app.world().resource::<SfxOneShots>().0[0].gain, 0.125);
+        assert_eq!(app.world().resource::<SfxOneShots>().voices[0].gain, 0.125);
         assert_eq!(
             app.world()
                 .resource::<SfxLoopPlayback>()
@@ -437,7 +522,7 @@ mod tests {
             .resource_mut::<crate::SfxMix>()
             .effective_sfx = 0.0;
         app.update();
-        assert_eq!(app.world().resource::<SfxOneShots>().0[0].gain, 0.0);
+        assert_eq!(app.world().resource::<SfxOneShots>().voices[0].gain, 0.0);
         assert_eq!(
             app.world()
                 .resource::<SfxLoopPlayback>()
@@ -470,6 +555,7 @@ mod tests {
         // A menu cue has no world position and stays audible with no listener.
         app.world_mut().resource_mut::<SfxListeners>().0.clear();
         app.world_mut().write_message(OwnedSfxMessage {
+            group: None,
             owner: Some(AudioContextOwner::Gameplay(1)),
             source: "fixture".into(),
             request: SfxMessage::Play {
@@ -480,7 +566,7 @@ mod tests {
         });
         app.update();
         assert_eq!(
-            app.world().resource::<SfxOneShots>().0.last().unwrap().gain,
+            app.world().resource::<SfxOneShots>().voices.last().unwrap().gain,
             1.0
         );
         send(
@@ -517,7 +603,7 @@ mod tests {
         }
         assert!(app.world().resource::<SfxLoopPlayback>().fading.is_empty());
         assert!(
-            app.world().resource::<SfxOneShots>().0.is_empty(),
+            app.world().resource::<SfxOneShots>().voices.is_empty(),
             "finished one-shots are released"
         );
     }

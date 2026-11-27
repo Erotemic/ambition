@@ -237,6 +237,19 @@ pub struct OwnedSfxMessage {
     /// The listening space it sounds in (a live room's); `None` reaches every
     /// listener. A global request stays global.
     pub space: Option<crate::SfxSpace>,
+    pub group: Option<SfxGroup>,
+}
+
+/// Cues with the same group compete for playback in the same listening space.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SfxGroup {
+    pub id: SfxId,
+    /// A higher value selects this cue before other audible cues.
+    pub priority: u8,
+}
+
+impl SfxGroup {
+    pub const IMPACT: SfxId = SfxId::from_static("impact");
 }
 
 /// Mechanics-facing writer that captures audio ownership at emission time.
@@ -251,31 +264,38 @@ pub struct SfxWriter<'w> {
 
 impl<'w> SfxWriter<'w> {
     pub fn write(&mut self, request: SfxMessage) {
-        self.write_in(None, request);
+        self.write_in(None, None, request);
     }
 
     /// This writer, for sounds made in `space` (a live room's): only the
     /// listeners of that space hear them.
     pub fn in_space(&mut self, space: Option<crate::SfxSpace>) -> SfxInSpace<'_, 'w> {
-        SfxInSpace { writer: self, space }
+        SfxInSpace { writer: self, space, group: None }
     }
 
-    fn write_in(&mut self, space: Option<crate::SfxSpace>, request: SfxMessage) {
+    fn write_in(&mut self, space: Option<crate::SfxSpace>, group: Option<SfxGroup>, request: SfxMessage) {
         let source = self
             .context
             .as_deref()
             .map(|context| context.source().clone())
             .unwrap_or_default();
-        self.write_from_in(space, source, request);
+        self.write_from_in(space, group, source, request);
     }
 
-    fn write_from_in(&mut self, space: Option<crate::SfxSpace>, source: impl Into<PresentationSourceId>, request: SfxMessage) {
+    fn write_from_in(
+        &mut self,
+        space: Option<crate::SfxSpace>,
+        group: Option<SfxGroup>,
+        source: impl Into<PresentationSourceId>,
+        request: SfxMessage,
+    ) {
         let owner = self.context.as_deref().and_then(SfxEmissionContext::owner);
         self.messages.write(OwnedSfxMessage {
             owner,
             source: source.into(),
             request,
             space,
+            group,
         });
     }
 
@@ -293,7 +313,7 @@ impl<'w> SfxWriter<'w> {
     /// sessions. Ownership is still captured from the active session context;
     /// callers cannot forge a retired session merely by naming another source.
     pub fn write_from(&mut self, source: impl Into<PresentationSourceId>, request: SfxMessage) {
-        self.write_from_in(None, source, request);
+        self.write_from_in(None, None, source, request);
     }
 }
 
@@ -301,11 +321,17 @@ impl<'w> SfxWriter<'w> {
 pub struct SfxInSpace<'a, 'w> {
     writer: &'a mut SfxWriter<'w>,
     space: Option<crate::SfxSpace>,
+    group: Option<SfxGroup>,
 }
 
 impl SfxInSpace<'_, '_> {
+    pub fn with_group(mut self, group: SfxGroup) -> Self {
+        self.group = Some(group);
+        self
+    }
+
     pub fn write(&mut self, request: SfxMessage) {
-        self.writer.write_in(self.space, request);
+        self.writer.write_in(self.space, self.group, request);
     }
 
     pub fn write_for_body(&mut self, source: Option<&PresentationSourceId>, request: SfxMessage) {
@@ -316,7 +342,7 @@ impl SfxInSpace<'_, '_> {
     }
 
     pub fn write_from(&mut self, source: impl Into<PresentationSourceId>, request: SfxMessage) {
-        self.writer.write_from_in(self.space, source, request);
+        self.writer.write_from_in(self.space, self.group, source, request);
     }
 }
 

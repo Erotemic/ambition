@@ -37,8 +37,8 @@ pub use content_schema::{
 };
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BodyInsets, PettingSpec, BrainPreset, CharacterBarks, CharacterCues, CharacterBodyKind,
-    CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
-    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PosedBodyScale,
+    CastImportance, CharacterCast, CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef,
+    CharacterTier, CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PosedBodyScale,
     RangedPreset, SpecialPreset, SpriteTuningSpec,
 };
 #[allow(
@@ -627,6 +627,44 @@ mod tests {
             .expect("authored row");
         assert_eq!(fallback.len(), 1);
         assert_eq!(fallback[0], "A reusable line.");
+    }
+
+    #[test]
+    fn cast_metadata_accepts_custom_roles_and_defaults_to_unclassified() {
+        let legacy = portrait_catalog_fixture("None");
+        assert_eq!(
+            legacy.get("npc_sample").unwrap().cast,
+            CharacterCast::default()
+        );
+
+        let data = parse_catalog(
+            r#"(
+                brain_presets: {},
+                action_set_presets: { "peaceful": (move_style: Walk) },
+                characters: {
+                    "npc_guide": (
+                        display_name: "Guide",
+                        manifest: "sprites/guide_spritesheet.ron",
+                        tier: MainHall,
+                        body_kind: Standard,
+                        default_action_set: "peaceful",
+                        cast: (
+                            importance: Secondary,
+                            roles: {
+                                "story": ["ally", "mentor"],
+                                "settlement": ["keeper-of-the-gate"],
+                            },
+                        ),
+                    ),
+                },
+            )"#,
+        );
+        let cast = &data.characters["npc_guide"].cast;
+        assert_eq!(cast.importance, CastImportance::Secondary);
+        assert_eq!(cast.roles["story"].len(), 2);
+        assert!(cast.roles["settlement"].contains("keeper-of-the-gate"));
+        let encoded = ron::to_string(&data).unwrap();
+        assert_eq!(parse_catalog(&encoded).characters["npc_guide"].cast, *cast);
     }
 
     /// The point of shipping suggested lines with the art: a character authored

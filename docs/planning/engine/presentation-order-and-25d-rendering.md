@@ -298,8 +298,8 @@ taxonomy for every render entity.
 Current [carry](../../../crates/ambition_portal2d_presentation/src/carry.rs)
 recognizes Sprite/Mesh2d/Text2d, capture cameras are Camera2d, and
 [`clip_material`](../../../crates/ambition_portal2d_presentation/src/clip_material.rs)
-implements Material2d. The current observer registry also admits only one
-eye per live room. The existing P5/P6 work owns those view boundaries.
+implements Material2d. The portal cone renderer keeps each window by room,
+observer, and channel. P5/P6 own the remaining portal view boundaries.
 A 3D adapter needs its own capture/clip realization of the same admitted
 material partitions, path, art coverage and presentation order; a new mesh
 bundle does not inherit the 2D shader contract.
@@ -582,17 +582,11 @@ shared value preparation are sufficient until source proves otherwise.
    body the 2D view composites (a fade, a flash, a warp, any reader of it as
    one image) is now one card of its composited cell, at the root's quad,
    drawn opaque because the cell already carries the fade: the card view
-   follows the 2D compositing decision instead of making its own. The flash
-   is decided once: `sync_hit_flash_overlays` publishes the cue it chose on
-   the body (`PresentedFlash`: colour and strength), and the card view lays
-   a silhouette over each of the body's cards: black base, the page's alpha,
-   emission in the cue's colour, as opaque as the cue is strong. The gate
-   cue's scanlines are drawn as its flat tint. Witness
-   `a_composited_body_is_one_card_and_its_flash_covers_it`: one card of the
-   atlas page at full opacity, a silhouette card at 0.75 in the cue's colour,
-   then part by part a silhouette per card, and none without a cue. The
-   baked-frame witness now draws its part phase directly. Render lib: 529
-   passed (default), 533 with `card_view`. A capture of `intro_wake_room`
+   follows the 2D compositing decision instead of making its own. A whole
+   frame uses the shared flash shader. When a rig draws from parts,
+   `PresentedFlash` supplies the tint and opacity for each part's flash.
+   `a_rigged_body_flashes_its_parts_only_without_a_whole_frame` checks both
+   paths. A capture of `intro_wake_room`
    with `--card-view` is pixel-identical to the same capture at the parent
    commit (no body flashes or fades there).
 
@@ -652,18 +646,17 @@ shared value preparation are sufficient until source proves otherwise.
    The room's ground is what the 2D view draws for its tiles: the skin of
    its blocks (`TerrainSkinMesh`, a few textured meshes per room) and the
    earth under its lines (`ChainEarth`, a hill's fill). These are the same
-   mesh assets here, drawn as cards (`realize_card_terrain`). They sit on
-   the play plane just behind its bodies (`TERRAIN_DEPTH` −0.5, in front
-   of a cart's near panel), with the earth 0.1 behind the block skin and
-   the skin's layers in their 2D order. They use the 2D blend, since a
-   skin picture has clear parts. A seated body is recessed behind the play
+   mesh assets here, drawn as cards (`realize_color_meshes`). Block skins
+   draw at `TERRAIN_DEPTH` −0.5 in source layer order. Filled ground draws
+   0.1 behind them. Track earth draws in the source order of its lane.
+   The card material keeps the texture, vertex colors, and opacity of the
+   source mesh. A seated body is recessed behind the play
    plane and is behind them, as the depth policy places it. The 2D meshes
    carry no normals, and the unlit 3D pipeline draws them as they are.
-   Witness `a_rooms_terrain_skin_is_a_card_on_the_play_plane`: the same
-   mesh, layer order kept, none for a hidden mesh, and the card leaves with
-   its mesh. Render lib with `card_view`: 536 passed. The same
-   `intro_fell` capture now shows the shepherd, the sheep and Scout
-   standing on the turf, and the hill's earth rising behind them.
+   The terrain card test checks mesh identity, layer order, visibility,
+   and removal. An Ultra fixture shows untextured ground and the default
+   attack sweep in both renderers. The `intro_fell` capture shows the
+   shepherd, the sheep, and Scout on the turf, with the hill behind them.
 
    **Portals (2026-11-25, `portal_render`).** A portal is a line of light
    on its host surface. The 2D view draws it as the `PortalGlow` sprite,
@@ -721,12 +714,12 @@ shared value preparation are sufficient until source proves otherwise.
    the view's centre and its size are the 2D ones times `1 / zoom`, since
    the card view shows `1 / zoom` of the 2D view's width. So the card view
    frames the backdrop as the 2D view does. Only the panels the 2D view
-   draws for that view are used (shown, and kept for it or for no view);
-   portal capture copies are left to their capture cameras. Witness
-   `a_parallax_panel_is_a_card_facing_the_card_camera`: a background
-   panel 200 right of the centre is a card at 80 right, 1 516 behind, facing
-   the camera, at scale 0.4, and a foreground one is in front. A panel kept
-   for another view, or hidden, makes no card. Render lib with
+   draws for that view are used.
+   Portal capture copies stay with their capture cameras. A background
+   card faces the camera's tilt and keeps the 2D orientation and offset
+   when the view rolls. A foreground card follows the same rule in front
+   of the play plane. A panel kept for another view, or hidden, makes
+   no card. Render lib with
    `card_view,portal_render`: 7 card-view tests passed. The `intro_fell`
    capture's card view shows the sky, its clouds, the distant hills,
    windmills and the triangle gate behind the shepherd, the sheep and
@@ -734,10 +727,12 @@ shared value preparation are sufficient until source proves otherwise.
 
    **Desktop rollout.** `./run_game.sh --card-view` starts in side-on 2.5D.
    A build with `card_view` can switch outputs during a session. The card
-   camera takes its view's viewport and target. The comparison inset and
-   the gameplay camera read the same observer frame. The plane camera
-   retains its sample request while the card camera draws in its place.
-   Card masks follow the room and view masks of their sources.
+   camera uses the target, viewport, and sample count of the gameplay
+   camera for its view. The comparison inset fits inside that viewport.
+   Both outputs read the same observer frame. The plane camera retains
+   its sample request while the card camera draws in its place. The same
+   gameplay camera supplies the room and view mask for the card output.
+   A gameplay camera without a mask draws layer zero.
 
    World labels use the glyph atlas and layout from Bevy. A private
    visibility camera keeps that layout available when the plane output
@@ -747,10 +742,16 @@ shared value preparation are sufficient until source proves otherwise.
    active and kept it paused while the cube was open.
 
    A card uses the existing portal capture mesh and texture for the far-side
-   window. The card follows the source window's visibility even when the
-   source keeps its image. Portal pieces use the existing clip mesh and
-   shader. In a Medium Portal Lab capture, Scout stays visible while
+   window. It stays at the seam and uses the source pane order and opaque
+   capture to replace the scene beneath it. The card follows the
+   source window's visibility even when the source keeps its image. Portal
+   pieces use the existing clip mesh and shader. An entry piece keeps its
+   actor's draw order. Exit pieces keep distinct depths when two sources
+   have the same depth. Tests cover both cases. In a Medium Portal Lab
+   capture, Scout stays visible while
    straddling the floor opening in 2D, side-on 2.5D, and oblique 2.5D.
+   An Ultra offscreen fixture checks both clipped pieces, an actor in front
+   of the entry piece, two overlapping panes, and a foreground band.
    P5/P6 still own cross-room and observer order. Moving platforms
    use their sprite frames. The cart's near layer covers seated riders and
    its far layer stays behind them. Sprite cards blend texture alpha and
@@ -759,9 +760,54 @@ shared value preparation are sufficient until source proves otherwise.
 
    The card view uses the hub skin and sprite-effect shaders through their
    3D fragment inputs. It also draws tiled blocks, doors, gate glyphs, blink
-   markers, slash sprites, and folded line meshes. Medium captures show the
-   hub floor, doors, switches, and an open gate in side-on view. Wolfenstein's
+   markers, slash sprites, the default attack sweep, and folded line meshes.
+   The sweep uses the same mesh and vertex opacity in both views.
+   Medium captures show the hub floor, doors, switches, and an open gate
+   in side-on view. Wolfenstein's
    throne-room lightning uses the same line mesh in both views.
+   At Ultra, both outputs use the same animated tunnel material inside
+   the gate membrane.
+
+   A moving platform keeps its depth when its sprite sheet draws from
+   parts. Both paths place each cart panel on its own layer. The parts
+   stay inside that layer's depth range. The cart test checks that the
+   rider stays between the panels and that a moving panel keeps its card.
+   An Ultra offscreen fixture shows Scout in the published cart and in
+   front of the part-drawn burning shark.
+
+   A room prop uses the same scenery depth for sheet frames and parts.
+   Each stack of parts fits between consecutive scenery depths. The
+   card view sorts transparent draws relative to a nearby point so
+   the camera distance does not round close layers to the same key.
+   Card cameras use direct draws to keep the order of an alpha batch.
+   An Ultra offscreen fixture checks three close, overlapping layers,
+   a prop drawn from parts, and the cart and rider.
+
+   Sprite masks and shader glows follow the depth of the actor that
+   owns the effect. The card view also uses the authored shaders for
+   the Puppy Slug dream, the Flying Spaghetti Monster's sauce, and the
+   Mockingbird's flames. The space art retains its sprite materials as
+   the tint changes. An offscreen fixture shows all four effects in
+   2D and side-on 2.5D at Medium and High. In-game captures are pending.
+
+   Both renderers use the same damage flash and gate scanline shader on
+   sheet-drawn actors and on rigged actors with a whole frame. The card
+   uses the whole frame's tint and opacity. When a rig has only parts, each
+   part uses a flat flash until a whole frame is available. The shared
+   overlay goes away when the cue ends. An Ultra offscreen fixture with
+   Scout's published parts shows the damage flash and gate transit in 2D,
+   side-on 2.5D, and oblique 2.5D.
+
+   Direct rigs use the body tint and opacity from one sample in both
+   renderers. An opacity change refreshes the 2D slots. Each tinted card
+   keeps its material as the tint or opacity changes. An Ultra offscreen
+   fixture shows these changes on Scout's direct parts in both renderers.
+
+   Flips on either axis apply to the frame and its anchor. The sheet
+   animator keeps the mirrored trim as the frame advances. Both views and
+   readers of composed rigs use the same sampled placement for the parts.
+   The frame and part tests cover both axes. An Ultra offscreen fixture
+   shows the upside-down shark as direct parts and as a composed frame.
 
    World-space sprite producers mark their art with `WorldSprite`. The card
    renderer reads this marker and uses the sprite's world transform and
@@ -783,11 +829,28 @@ shared value preparation are sufficient until source proves otherwise.
    in both renderers. Medium captures show the front in all three views.
 
    `capture_scene --renderer` fills the image with the selected renderer.
-   Each camera uses the same presented frame. An exact-tick Portal Lab
-   film at Medium shows an open gap. The floor opening and Scout are visible
-   in 2D at tick 74 and appear in the card views by tick 78. Use
-   `--at-tick 70 --frames 8 --stride 2 --player-at 1450,884@72:0,100`
-   with focus `1450,850` and size `1280x800` to inspect the gap.
+   Each camera uses the same presented frame. The card view keeps each
+   closed portal mesh and uses the 2D clip warm-up. It prepares bindings
+   after the capture image is ready. Both renderers now request
+   specialization again when a delayed mesh reaches the GPU.
+
+   To inspect the first frame of the floor opening in Portal Lab, use
+   `--at-tick 73 --player-at 1450,884@72:0,100` with focus `1450,850`,
+   size `1280x800`, and Medium quality. Scout, the portal picture, the
+   channel label, and the ground pickup are visible at tick 73 in 2D,
+   side-on 2.5D, and oblique 2.5D. To inspect the approach and exit, use
+   `--at-tick 70 --frames 8 --stride 2` for the same player movement.
+
+   A Medium capture at `900x1200 --camera-roll 90` shows the backdrop
+   at the same orientation and offset in 2D and side-on 2.5D. A
+   `--card-view` capture uses the game inset settings and draws both
+   outputs to the selected gameplay target. The live F3 panel can
+   switch between the inset and 2D while the simulation is stopped.
+
+   Each portal capture draws its own backdrop from the room it serves.
+   Local views, card outputs, menus, and portal captures use separate
+   render layer families. The portal backdrop test covers two eyes in one
+   live room and a third eye in a room that uses the same portal channels.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,
@@ -799,6 +862,8 @@ Keep the maintainer's product order in the queue.
 
 ## Focused acceptance and cost boundaries
 
+- Compare both outputs with the intended scene behavior. Record or repair
+  defects found in either output.
 - Exercise actual visible parts/effects for Scout on the bed, another actor
   alongside, jumping inside, leaving, flashing and holding an item. Check
   same-plane bodies

@@ -27,7 +27,7 @@ pub struct WorldSprite;
 /// The sprite changes color while it is visible. Keep its card material.
 #[derive(Component, Default)]
 #[require(WorldSprite)]
-pub(super) struct AnimatedWorldSpriteTint;
+pub struct AnimatedWorldSpriteTint;
 
 /// Standing-stance render size of the textured player sprite, recorded when
 /// the sprite is built. The crouch squash in `sync_visuals` uses it to scale
@@ -283,6 +283,7 @@ pub(super) fn spawn_world_label(
     pos: ae::Vec2,
     text: &str,
     font_size: f32,
+    bounds: Option<Rect>,
 ) -> Entity {
     let z = match family {
         // Sign text is above the board face and below an actor that walks in front of it.
@@ -290,6 +291,9 @@ pub(super) fn spawn_world_label(
         _ => WORLD_Z_PLAYER + 8.0,
     };
     let anchor = world_to_bevy(world, pos, z);
+    let mut label = super::label_layout::WorldLabel::new(owner_id, family, anchor)
+        .with_colors(WORLD_LABEL_COLOR, None);
+    label.bounds = bounds;
     commands.spawn_session_scoped(
         session_scope,
         (
@@ -302,8 +306,7 @@ pub(super) fn spawn_world_label(
             Transform::from_translation(anchor),
             Name::new(format!("World label: {text}")),
             RoomVisual,
-            super::label_layout::WorldLabel::new(owner_id, family, anchor)
-                .with_colors(WORLD_LABEL_COLOR, None),
+            label,
             // Room load has no view in scope, so this label is spawned unkeyed and
             // `mirror_static_world_labels_per_view` gives it to the lowest-id view
             // and copies it to the rest. In a one-view game this is the only
@@ -334,6 +337,7 @@ mod actor_band_tests {
                 ae::Vec2::splat(64.0),
                 "MIND THE TRIPOD",
                 14.0,
+                None,
             );
         });
         app.update();

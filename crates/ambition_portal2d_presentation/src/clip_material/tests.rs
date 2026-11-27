@@ -146,34 +146,44 @@ struct VertexOutput {
 }
 "#;
     let linear_to_srgb = "fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> { return pow(color, vec3<f32>(1.0 / 2.2)); }";
-    for srgb_output in [false, true] {
+    for (card_mesh, srgb_output) in [(false, false), (false, true), (true, false), (true, true)] {
+        let definitions = [("AMBITION_CARD_MESH", card_mesh), ("SRGB_OUTPUT", srgb_output)];
+        let vertex_import = if card_mesh {
+            "#import bevy_pbr::forward_io::VertexOutput"
+        } else {
+            "#import bevy_sprite::mesh2d_vertex_output::VertexOutput"
+        };
         let source = include_str!("../shaders/portal_clip.wgsl")
-            .replace(
-                "#import bevy_sprite::mesh2d_vertex_output::VertexOutput",
-                vertex_output,
-            )
+            .replace(vertex_import, vertex_output)
             .replace("#import bevy_render::color_operations::linear_to_srgb", linear_to_srgb)
             .replace("#{MATERIAL_BIND_GROUP}", "2");
-        let source = resolve_ifdef(&source, "SRGB_OUTPUT", srgb_output);
+        let source = resolve_ifdefs(&source, &definitions);
         let module = naga::front::wgsl::parse_str(&source)
-            .unwrap_or_else(|error| panic!("portal_clip.wgsl parses (SRGB_OUTPUT {srgb_output}): {error}"));
+            .unwrap_or_else(|error| panic!("portal_clip.wgsl parses with {definitions:?}: {error}"));
         naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::all(),
         )
         .validate(&module)
-        .unwrap_or_else(|error| panic!("portal_clip.wgsl validates (SRGB_OUTPUT {srgb_output}): {error}"));
+        .unwrap_or_else(|error| panic!("portal_clip.wgsl validates with {definitions:?}: {error}"));
     }
 }
 
-/// `source` with its `#ifdef def` / `#else` / `#endif` blocks resolved as
-/// Bevy's preprocessor resolves them with `def` defined or not.
-fn resolve_ifdef(source: &str, def: &str, defined: bool) -> String {
+/// Apply the shader definitions before parsing the shader.
+fn resolve_ifdefs(source: &str, definitions: &[(&str, bool)]) -> String {
     let mut kept = Vec::new();
     let mut keeping = vec![true];
     for line in source.lines() {
-        match line.trim() {
-            directive if directive == format!("#ifdef {def}") => keeping.push(defined),
+        let directive = line.trim();
+        if let Some(definition) = directive.strip_prefix("#ifdef ") {
+            let (_, enabled) = definitions
+                .iter()
+                .find(|(name, _)| *name == definition)
+                .unwrap_or_else(|| panic!("missing shader definition {definition}"));
+            keeping.push(*enabled);
+            continue;
+        }
+        match directive {
             "#else" => {
                 let branch = keeping.pop().expect("an #else inside an #ifdef");
                 keeping.push(!branch);

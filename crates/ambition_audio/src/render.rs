@@ -337,6 +337,8 @@ pub struct SfxPlaybackState {
     /// increment; `audio_play_sfx_messages` sends each message down exactly
     /// one branch.
     pub accepted_playbacks: u64,
+    /// Requests refused by a one-shot playback limit.
+    pub suppressed_playbacks: u64,
     pub rejected_wrong_owner: u64,
     pub rejected_unauthorized: u64,
     pub missing_source: u64,

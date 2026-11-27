@@ -24,6 +24,14 @@ pub(crate) struct StanceSquash {
     pub(crate) about_quad_foot: bool,
 }
 
+/// The axis signs for the sprite's authored flips.
+pub(crate) fn sprite_mirror(sprite: &Sprite) -> Vec2 {
+    Vec2::new(
+        if sprite.flip_x { -1.0 } else { 1.0 },
+        if sprite.flip_y { -1.0 } else { 1.0 },
+    )
+}
+
 impl StanceSquash {
     /// A body at full standing height — nothing to squash.
     pub(crate) const NONE: Self = Self {
@@ -203,8 +211,7 @@ pub(crate) fn draw_animator_frame(
     if animator.keeps_its_quad {
         return writes;
     }
-    // The anchor x mirrors with the facing flip so an off-centre trim stays consistent
-    // left/right.
+    // Mirror the anchor with the frame so an off-center trim stays in place.
     if let (Some((mut size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {
         // Crouch/crawl/slide/morph: scale the trimmed height by the collision
         // ratio so the feet stay on the floor.
@@ -213,9 +220,7 @@ pub(crate) fn draw_animator_frame(
             sprite.custom_size = Some(size);
             writes.sprite = true;
         }
-        if flip {
-            anchor_v.x = -anchor_v.x;
-        }
+        anchor_v *= sprite_mirror(sprite);
         if anchor.0 != anchor_v {
             anchor.0 = anchor_v;
             writes.anchor = true;

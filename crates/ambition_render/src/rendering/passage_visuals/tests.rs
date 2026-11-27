@@ -139,29 +139,42 @@ fn a_feature_body_its_passage_fades_is_declared_as_one_image() {
 /// the room look inserts `EntityArt`. Capture only after that art is bound.
 #[test]
 fn a_new_hub_door_opens_with_its_room_art_and_restores_it() {
+    use super::super::world::{apply_entity_art, spawn_loading_zone};
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d_world::rooms::{
+        LoadingZone, LoadingZoneActivation, LoadingZonePresentation, ZoneWay,
+    };
     use ambition_sprite_sheet::game_assets::{EntitySprite, GameAssets};
-    use super::super::world::{apply_entity_art, BoundEntitySprite};
 
     #[derive(Resource)]
     struct WantedArt(EntitySprite);
-    #[derive(Resource, Default)]
-    struct NewDoor(Option<Entity>);
 
     fn spawn_new_door(
         mut commands: Commands,
-        mut born: ResMut<NewDoor>,
+        mut born: Local<bool>,
         assets: Res<GameAssets>,
     ) {
-        if born.0.is_some() {
+        if *born {
             return;
         }
-        let ordinary = assets.entities.get(EntitySprite::DoorZone).unwrap().clone();
-        let door = commands.spawn((
-            LoadingZoneVisual { id: "hub_entry".into() },
-            Sprite::from_image(ordinary),
-            BoundEntitySprite { key: EntitySprite::DoorZone },
-        )).id();
-        born.0 = Some(door);
+        let room = ae::World::new("hub", ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new());
+        let zone = LoadingZone {
+            id: "hub_entry".into(),
+            name: "Gallery".into(),
+            activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb::new(ae::Vec2::splat(100.0), ae::Vec2::new(24.0, 48.0)),
+            presentation: LoadingZonePresentation::SceneLabel,
+        };
+        spawn_loading_zone(
+            &mut commands,
+            SessionSpawnScope::UNSCOPED,
+            &room,
+            &zone,
+            ZoneWay::BothWays,
+            Some(&assets),
+            None,
+        );
+        *born = true;
     }
 
     fn dress_new_door(
@@ -178,7 +191,6 @@ fn a_new_hub_door_opens_with_its_room_art_and_restores_it() {
         let mut app = door_test_app();
         add_door_art_catalog(&mut app);
         app.insert_resource(WantedArt(kind));
-        app.init_resource::<NewDoor>();
         // `chain` flushes deferred commands between the four stages ordered
         // by the shipped composition. The door is born on this update.
         app.add_systems(Update, (spawn_new_door, dress_new_door, apply_entity_art, sync_door_openings).chain());
@@ -187,7 +199,11 @@ fn a_new_hub_door_opens_with_its_room_art_and_restores_it() {
         let intended = app.world().resource::<GameAssets>().entities.get(kind).unwrap().clone();
         set_open_door(&mut app, zone);
         app.update();
-        let door = app.world().resource::<NewDoor>().0.expect("a door spawned in Update");
+        let world = app.world_mut();
+        let door = world
+            .query_filtered::<Entity, With<LoadingZoneVisual>>()
+            .single(world)
+            .expect("a door spawned in Update");
 
         let opening = app.world().get::<DoorOpening>(door).expect("an opening on the first entry update");
         assert_eq!(opening.closed, intended, "the first opening captures {kind:?}");

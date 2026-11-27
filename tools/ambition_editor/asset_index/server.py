@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gzip
+import io
 import json
 import os
 import re
@@ -11,17 +13,30 @@ import threading
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import yaml
 
-from . import page, paths, reviews, sources
+from . import catalog_page, edit_content, page, paths, reviews, sources
 
 #: What the page says when this server runs older code than the page it serves.
 RESTART = "./scripts/asset_inspector.py --kill"
 
 #: One byte range (RFC 9110): `bytes=first-last`, `bytes=first-` or the suffix `bytes=-length`.
 _RANGE = re.compile(r"bytes=(\d*)-(\d*)")
+_CATALOG_CHUNK = re.compile(r"[a-f0-9]{64}\.js")
+
+
+def _accepts_gzip(header):
+    encodings = {}
+    for entry in header.lower().split(","):
+        name, *params = entry.split(";")
+        quality = next((value.strip()[2:] for value in params if value.strip().startswith("q=")), "1")
+        try:
+            encodings[name.strip()] = 0 < float(quality) <= 1
+        except ValueError:
+            encodings[name.strip()] = False
+    return encodings.get("gzip", encodings.get("*", False))
 
 
 class _Slice:
@@ -48,10 +63,12 @@ def _code_stamp() -> tuple:
     return tuple(sorted((path.name, path.stat().st_mtime_ns) for path in Path(__file__).parent.glob("*.py")))
 
 
-def make_handler(repo: Path, catalog, status=None, landing=None):
+def make_handler(repo: Path, catalog, status=None, landing=None, out=None, profile="ambition"):
     """`landing` is the page's path relative to `repo`; `/` redirects to it."""
     lock = threading.Lock()
     started = _code_stamp()
+    pack = sources.pack_dir(repo, profile)
+    edits = {"/api/room-music": edit_content.room_music, "/api/character-cast": edit_content.character_cast}
     def current_catalog():
         return catalog() if callable(catalog) else catalog
 
@@ -64,12 +81,18 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")
+            if len(body) >= 1024:
+                self.send_header("Vary", "Accept-Encoding")
+                if _accepts_gzip(self.headers.get("Accept-Encoding", "")):
+                    body = gzip.compress(body, compresslevel=3, mtime=0)
+                    self.send_header("Content-Encoding", "gzip")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
-            path = urlsplit(self.path).path
+            url = urlsplit(self.path)
+            path = url.path
             if path == "/" and landing:
                 # The repository root is not a page; the landing page is the inspector.
                 self.send_response(302)
@@ -80,6 +103,14 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
             if path == "/api/build-status":
                 return self.reply(200, dict(status() if status else {"state": "done"}, server_stale=_code_stamp() != started,
                                             restart=RESTART))
+            if path in edits:
+                try:
+                    data = {key: values[0] for key, values in parse_qs(url.query, max_num_fields=8).items()}
+                    with lock:
+                        result = edits[path](repo, pack, data)
+                    return self.reply(200, result)
+                except (ValueError, OSError, KeyError, TypeError) as error:
+                    return self.reply(400, {"error": str(error)})
             if path != "/api/asset-reviews":
                 return super().do_GET()
             try:
@@ -90,7 +121,7 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
         def end_headers(self):
             if urlsplit(self.path).path.endswith("/catalog.js"):
                 self.send_header("Cache-Control", "no-store")
-            if self.command in ("GET", "HEAD"):
+            if self.command in ("GET", "HEAD") and not getattr(self, "catalog_response", False):
                 self.send_header("Accept-Ranges", "bytes")
             super().end_headers()
 
@@ -100,6 +131,12 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
             answer it can only play from the start."""
             match = _RANGE.fullmatch(self.headers.get("Range", "").strip())
             path = self.translate_path(self.path)
+            if out is not None:
+                file = Path(path)
+                if file == out / catalog_page.INDEX:
+                    return self.send_catalog(file, immutable=False)
+                if file.parent == out / catalog_page.CHUNKS and _CATALOG_CHUNK.fullmatch(file.name):
+                    return self.send_catalog(file, immutable=True)
             if not match or not any(match.groups()) or not os.path.isfile(path):
                 return super().send_head()
             size = os.path.getsize(path)
@@ -121,6 +158,31 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
             self.end_headers()
             return _Slice(file, end - start + 1)
 
+        def send_catalog(self, path, *, immutable):
+            self.catalog_response = True
+            accept = _accepts_gzip(self.headers.get("Accept-Encoding", ""))
+            zipped = path.with_suffix(".js.gz")
+            encoded = accept and (not immutable or zipped.is_file())
+            try:
+                if encoded and not immutable:
+                    body = gzip.compress(path.read_bytes(), compresslevel=3, mtime=0)
+                    file, length = io.BytesIO(body), len(body)
+                else:
+                    file = (zipped if encoded else path).open("rb")
+                    length = os.fstat(file.fileno()).st_size
+            except OSError:
+                self.send_error(404, "Catalog file not found")
+                return None
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(length))
+            self.send_header("Cache-Control", "private, max-age=31536000, immutable" if immutable else "no-store")
+            self.send_header("Vary", "Accept-Encoding")
+            if encoded:
+                self.send_header("Content-Encoding", "gzip")
+            self.end_headers()
+            return file
+
         def copyfile(self, source, outputfile):
             try:
                 super().copyfile(source, outputfile)
@@ -136,8 +198,12 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
                 if not 0 < length <= 65536 or self.headers.get_content_type() != "application/json":
                     return self.reply(400, {"error": "Send a JSON request of at most 64 KiB."})
                 data = json.loads(self.rfile.read(length))
+                if not isinstance(data, dict):
+                    raise ValueError("Send a JSON object.")
                 path = urlsplit(self.path).path
                 with lock:
+                    if path in edits:
+                        return self.reply(200, edits[path](repo, pack, data, save=True))
                     if self.command == "POST" and path == "/api/asset-preflight":
                         from . import preflight
                         selection = {}
@@ -163,7 +229,7 @@ def make_handler(repo: Path, catalog, status=None, landing=None):
                                                          f"was updated while it ran, restart it: {RESTART}"})
                     saved = reviews.save(repo, current, data)
                 self.reply(200, dict(reviews.snapshot(repo, current), saved=saved))
-            except reviews.ConflictError as error:
+            except (reviews.ConflictError, edit_content.Conflict) as error:
                 self.reply(409, {"error": str(error)})
             except (ValueError, OSError, KeyError, TypeError, AttributeError, subprocess.CalledProcessError) as error:
                 self.reply(400, {"error": str(error)})
@@ -294,14 +360,23 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
                 pass
         return None
 
-    first_build = build is not None and not (out / "index.html").is_file()
+    first_build = build is not None and not (out / "catalog.js").is_file()
     if first_build:
         build(log)
     elif (out / "catalog.js").is_file():
         # The previous index shows until the refresh is done; its page files are
         # this code's, so the page asks this server for the routes it has.
+        if not (out / catalog_page.INDEX).is_file():
+            log("Preparing the browser catalog from the existing index")
+            catalog_page.write(out, current_catalog())
         page.copy(out)
     content_inputs, fingerprint = sources.content_watch(repo, out, profile) if refresh_command else (set(), None)
+
+    def catalog_built_at():
+        try:
+            return catalog_page.read_index(out / catalog_page.INDEX).get("built_at")
+        except (OSError, ValueError):
+            return None
 
     def content_stamps():
         return {path: sources._stamp(path) for path in content_inputs | {binary or sources.default_binary(repo)}}
@@ -309,6 +384,7 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
     seen_publication = publication_stamp()
     seen_content = content_stamps() if refresh_command else {}
     status["content_fingerprint"] = fingerprint
+    status["built_at"] = catalog_built_at()
     child_box: list = []
     refresh_lock = threading.Lock()
     nice = shutil.which("nice")
@@ -335,7 +411,7 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
                 # during the build must start a second refresh.
                 seen_content = {path: seen_content.get(path, stamp) if path in content_inputs else stamp
                                 for path, stamp in content_stamps().items()}
-                status.update(state="done", generation=generation, content_fingerprint=fingerprint)
+                status.update(state="done", generation=generation, content_fingerprint=fingerprint, built_at=catalog_built_at())
         except Exception as error:
             status.update(state="failed", step=f"{type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}")
             print(f"Ambition Editor: the refresh failed; the page shows the previous index.\n{error}", flush=True)
@@ -363,10 +439,10 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
     import signal
     signal.signal(signal.SIGTERM, stop)
     if bind not in {"127.0.0.1", "::1"}:
-        print(f"Ambition Editor: binding {bind} — the review and preflight POST routes are reachable from other machines.",
+        print(f"Ambition Editor: binding {bind} — editing, reviews and preflight are reachable from other machines.",
               flush=True)
     landing = (out / "index.html").relative_to(repo).as_posix()
-    with ThreadingHTTPServer((bind, port), make_handler(repo, current_catalog, refresh_status, landing)) as server:
+    with ThreadingHTTPServer((bind, port), make_handler(repo, current_catalog, refresh_status, landing, out, profile)) as server:
         url_host = "localhost" if bind in {"127.0.0.1", "0.0.0.0"} else bind
         url = f"http://{url_host}:{server.server_port}/"
         print(f"Ambition Editor: {url}", flush=True)

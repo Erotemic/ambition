@@ -151,6 +151,59 @@ impl Drop for ScriptFile {
 }
 
 #[test]
+fn lightning_can_jump_to_one_enemy_outside_the_cone() {
+    use ambition_platformer2d::{
+        combat::components::FeatureId,
+        entity_catalog::placements::CharacterBrain,
+    };
+
+    let cast = |chance: f32, rollback: bool| {
+        let source = SOURCE.replace("const JUMP_CHANCE = 0.35;", &format!("const JUMP_CHANCE = {chance:.1};"));
+        let file = ScriptFile::new("jump", &source);
+        let mut options = crate::common::fixed_60hz_room_options("switch_lab")
+            .with_extension_module_files(vec![file.0.clone()]);
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 12);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).unwrap();
+        sim.step_n(AgentAction::default(), 30);
+        let player = primary(&mut sim);
+        let position = sim.world().get::<BodyKinematics>(player).unwrap().pos;
+        let placements = [("first", 72.0), ("second", 160.0), ("third", 226.0)];
+        for (name, offset) in placements {
+            sim.spawn_enemy_character_at(name, name, (position.x + offset, position.y),
+                (14.0, 23.0), CharacterBrain::Passive, "player_robot_v3");
+        }
+        sim.step_n(AgentAction::default(), 30);
+        equip(&mut sim, Item::Lightning);
+        let bodies = {
+            let world = sim.world_mut();
+            let mut query = world.query::<(Entity, &FeatureId)>();
+            placements.map(|(name, _)| query.iter(world)
+                .find(|(_, id)| id.as_str() == name).unwrap().0)
+        };
+        let health = |sim: &Platformer2dSimHarness| {
+            bodies.map(|body| sim.world().get::<BodyHealth>(body).unwrap().current())
+        };
+        let before = health(&sim);
+        for tick in 0..9 {
+            sim.step(held(tick == 0));
+        }
+        sim.rollback_health().unwrap();
+        let after = health(&sim);
+        std::array::from_fn::<_, 3, _>(|index| before[index] - after[index])
+    };
+    let off = cast(0.0, false);
+    assert!(off[0] > 0);
+    assert_eq!(&off[1..], &[0, 0]);
+    let on = cast(1.0, false);
+    assert_eq!(on[0], off[0]);
+    assert!(on[1] > 0);
+    assert_eq!(on[2], 0);
+    assert_eq!(cast(1.0, true), on);
+}
+
+#[test]
 fn a_fault_or_missing_mana_fires_nothing() {
     let mut sim = sandbox(vec![], false);
     let body = primary(&mut sim);

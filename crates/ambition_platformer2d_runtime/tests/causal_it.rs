@@ -199,6 +199,7 @@ fn three_domains_answer_one_question_about_one_body_on_one_tick() {
 
     app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 60;
     app.world_mut().write_message(BodyHitResolved {
+            ray_jump: None,
             projectile: None,
         body,
         attacker: None,

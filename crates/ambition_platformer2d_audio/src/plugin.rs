@@ -53,7 +53,7 @@ impl Plugin for Platformer2dAudioPlugin {
                 .run_if(
                     |shots: Res<ambition_audio::spatial::SfxOneShots>,
                      loops: Res<ambition_audio::SfxLoopPlayback>| {
-                        !shots.0.is_empty() || loops.has_voices()
+                        shots.has_voices() || loops.has_voices()
                     },
                 ),
         );

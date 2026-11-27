@@ -4,28 +4,32 @@
 (function () {
   "use strict";
   const C = window.ART_CATALOG;
+  if (!C) return;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const served = ["http:", "https:"].includes(location.protocol);
   const EMPTY = {reviews: [], versions: {}, backlog: {count: 0, rows: []}, issue_tags: {}, problems: [],
     scale: {min: 1, max: 10}, polish_threshold: 6, rubric: []};
-  let report = {...EMPTY, ...(C.reviews || {})}, writable = false, failure = "";
+  let report = {...EMPTY}, writable = false, failure = "", ready = false, loadingReport;
+  let summary = {latest: C.attention_reviews, backlog: {}, polish_threshold: C.polish_threshold};
   const drafts = new Map();
   const KIND_LABEL = {character: "Character", image: "Image", music: "Music", sfx: "Sound effect", font: "Font", world: "World"};
 
   const rowsFor = id => report.reviews.filter(row => row.id === id);  // newest first
-  const latest = id => rowsFor(id)[0] || null;
+  const latest = id => (ready ? rowsFor(id)[0] : summary.latest[id]) || null;
   const link = row => `#${row.kind === "character" ? "character" : row.kind === "image" ? "asset" : "item"}/${encodeURIComponent(row.id)}`;
   function chip(row) {
     if (!row) return "";
-    const tone = row.score < report.polish_threshold ? "c-warn" : row.score >= 7 ? "c-ok" : "c-info";
+    const tone = row.score < (ready ? report : summary).polish_threshold ? "c-warn" : row.score >= 7 ? "c-ok" : "c-info";
     return `<span class="chip ${tone}" title="${esc(row.label)}${row.relation !== "current" ? " (" + esc(row.relation) + " version)" : ""}">${esc(row.score)} ${esc(row.label)}</span>`;
   }
   const relation = row => row.relation === "current" ? "" : ` <span class="chip c-info">${esc(row.relation === "older" ? "older version" : row.relation)}</span>`;
   const needsWork = id => report.backlog.rows.filter(row => !id || row.id === id);
+  const workCount = id => ready ? needsWork(id).length : summary.backlog[id] || 0;
+  const counts = () => ready ? {reviews: report.reviews.length, backlog: report.backlog.count} : C.counts;
 
   function changed() {
     const tab = document.querySelector('[data-view="reviews"]');
-    if (tab) tab.textContent = `Reviews (${report.backlog.count})`;
+    if (tab) tab.textContent = `Reviews (${counts().backlog})`;
     window.dispatchEvent(new Event("asset-reviews-changed"));
   }
   async function request(method, data) {
@@ -34,7 +38,7 @@
     // 404: a server started before reviews moved here (it has the old routes).
     if (response.status === 404) throw new Error(`The inspector server is older than this page. Restart it: ./scripts/asset_inspector.py --kill${result.error ? ` (${result.error})` : ""}`);
     if (!response.ok) throw new Error(result.error || "Could not save the review.");
-    report = {...EMPTY, ...result}; writable = true; failure = "";
+    report = {...EMPTY, ...result}; writable = true; ready = true; failure = "";
     return result;
   }
   // Save one review. `data` is {id, version_id, score, notes, issues, part, furthest_played_*}.
@@ -42,6 +46,24 @@
   async function save(data) {
     return (await request("POST", data)).saved;
   }
+
+  async function loadSummary() {
+    if (!ready) summary = await window.ArtCatalog.load("review-summary");
+  }
+
+  function ensure() {
+    if (!loadingReport) loadingReport = (async () => {
+      if (served) {
+        try { await request("GET"); return; }
+        catch (error) { failure = "The review service is unavailable."; }
+      }
+      report = {...EMPTY, ...await window.ArtCatalog.load("reviews")};
+      ready = true;
+    })().then(changed).catch(error => { loadingReport = null; throw error; });
+    return loadingReport;
+  }
+
+  const loading = () => `<section class="box" id="asset-reviews"><h2>Reviews</h2><p role="status">${loadingReport ? "Loading reviews…" : "Could not load the reviews. Open the Reviews tab to retry."}</p></section>`;
 
   function rubric() {
     return report.rubric.map(band => `<span title="${esc(band.description)}">${esc(band.low)}–${esc(Math.ceil(band.high))} ${esc(band.label.toLowerCase())}</span>`).join(" · ");
@@ -56,6 +78,7 @@
   /* The review box of one subject. `opts`: kind, parts (names) and partLabel,
      audio (the href the page plays, to save how far it was heard). */
   function section(id, opts = {}) {
+    if (!ready) return loading();
     const kind = opts.kind, version = report.versions[id], rows = rowsFor(id);
     const tags = report.issue_tags[kind] || [], parts = opts.parts || [];
     const draft = drafts.get(id) || {};
@@ -164,12 +187,8 @@
     window.TableSort.wire(document.getElementById("review-all"), allSort, page);
   }
 
-  window.AssetReviews = {section, wire, page, save, changed, latest, chip, rowsFor, needsWork, report: () => report};
-  setTimeout(async () => {
-    if (served) {
-      try { await request("GET"); }
-      catch (error) { failure = "The review service is unavailable."; }
-    }
-    changed();
-  }, 0);
+  window.AssetReviews = {section, wire, page, save, changed, latest, chip, rowsFor, workCount,
+    counts, ensure, loadSummary, loading, ready: () => ready, writable: () => writable};
+  const tab = document.querySelector('[data-view="reviews"]');
+  if (tab) tab.textContent = `Reviews (${counts().backlog})`;
 })();

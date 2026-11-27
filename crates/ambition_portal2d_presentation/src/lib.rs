@@ -79,7 +79,8 @@ pub use visuals::{
 };
 pub use carry::{
     carry_through_pairs, give_back_carried_layers, CarriedLayers, CarryQuadPool, PortalCarried,
-    PortalCarryAtlas, PortalCarryBudget, PortalCarryLoad, PortalCarryCamera, PortalCarrySelection, PortalDrawnWith,
+    PortalCarryAtlas, PortalCarryBudget, PortalCarryLoad, PortalCarryCamera, PortalCarryOrder,
+    PortalCarrySelection, PortalDrawnWith,
 };
 
 /// Host-observation systems that publish data into this crate's presentation

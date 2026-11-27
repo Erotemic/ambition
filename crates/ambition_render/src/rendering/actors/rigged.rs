@@ -122,7 +122,7 @@ use ambition_sprite_sheet::character::rigged::{
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
 
-use super::BoundSpriteQuality;
+use super::{sprite_mirror, BoundSpriteQuality};
 
 /// Depth between two part slots of one body: the draw order of the flipbook.
 const SLOT_DEPTH_STEP: f32 = 1.0e-4;
@@ -548,6 +548,8 @@ pub struct RiggedLocalSample {
     pub frame: usize,
     /// The frame's own opacity (a fading frame is one picture fading).
     pub frame_opacity: f32,
+    /// Tint and opacity applied to the body in the scene.
+    pub body_color: LinearRgba,
     pub draws: Vec<PartDraw>,
     /// Where the frame's parts stand in the body's own frame: the feet of
     /// the frame's quad (its size, anchor, crouch squash and mirror row),
@@ -578,6 +580,13 @@ impl RiggedLocalSample {
     /// The parts to draw, when the sample has parts.
     pub fn parts(&self) -> Option<&[PartDraw]> {
         (self.state == LocalSampleState::Parts).then_some(self.draws.as_slice())
+    }
+
+    /// The body color for loose parts when a composed frame is unavailable.
+    pub(in crate::rendering) fn direct_body_color(&self) -> LinearRgba {
+        let mut color = self.body_color;
+        color.alpha *= self.frame_opacity;
+        color
     }
 }
 
@@ -627,13 +636,7 @@ pub struct RiggedPresentation {
     pub posed: Option<Arc<PosedParts>>,
     /// This frame's draws placed by a [`PartPose`] (reused).
     pub posed_draws: Vec<PartDraw>,
-    /// What this body's cell of the atlas holds now: the draws its page last
-    /// rendered there, where, and that render's [`ImpostorAtlas::generation`].
-    /// The cell holds them only while the page's generation is still that
-    /// one: another body's change re-renders (and clears) the whole page, and
-    /// a body not drawn into that render (on a baked clip of a hybrid) lost
-    /// its pixels. `None` until first rendered.
-    pub shown: Option<(Vec<PartDraw>, Vec3, u64)>,
+    shown: Option<ShownParts>,
     /// POSE-CONTINUITY's clip blend: the pose drawn before the last change of
     /// row, the seconds of the blend left, and the authored row (before
     /// facing) and draws of the last frame drawn. See [`CLIP_BLEND_SECONDS`].
@@ -644,6 +647,44 @@ pub struct RiggedPresentation {
     /// POSE-CONTINUITY's follow-through: what the pose the body came into
     /// set swinging, and the seconds since. See [`FOLLOW_THROUGH_SECONDS`].
     pub swing: Option<(ambition_sprite_sheet::character::FollowThrough, f32)>,
+}
+
+struct ShownParts {
+    draws: Vec<PartDraw>,
+    target: PartDrawTarget,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum PartDrawTarget {
+    World(LinearRgba),
+    // A page render clears all cells. The generation identifies its result.
+    Atlas { place: Vec3, generation: u64 },
+}
+
+impl RiggedPresentation {
+    /// Get the position and generation of the last draw to the atlas.
+    pub fn atlas_draw_stamp(&self) -> Option<(Vec3, u64)> {
+        match self.shown.as_ref()?.target {
+            PartDrawTarget::Atlas { place, generation } => Some((place, generation)),
+            PartDrawTarget::World(_) => None,
+        }
+    }
+
+    fn update_draws(&mut self, draws: &[PartDraw], target: PartDrawTarget) -> bool {
+        match &mut self.shown {
+            Some(shown) if shown.target == target && shown.draws == draws => false,
+            Some(shown) => {
+                shown.draws.clear();
+                shown.draws.extend_from_slice(draws);
+                shown.target = target;
+                true
+            }
+            None => {
+                self.shown = Some(ShownParts { draws: draws.to_vec(), target });
+                true
+            }
+        }
+    }
 }
 
 /// How long a change between two of the body's carriage poses
@@ -1279,6 +1320,7 @@ pub fn sample_rigged_presentations(
         sample.row = None;
         sample.frame = 0;
         sample.frame_opacity = 1.0;
+        sample.body_color = LinearRgba::WHITE;
         sample.feet = None;
         sample.baked = None;
         let Ok((animator, pose, mask, root_sprite, root_anchor)) = roots.get(root) else {
@@ -1292,6 +1334,7 @@ pub fn sample_rigged_presentations(
             presentation.swing = None;
             continue;
         }
+        sample.body_color = root_sprite.map_or(LinearRgba::WHITE, |sprite| sprite.color.to_linear());
         let flipbook = presentation.pages.flipbook.clone();
         // `None` for a baked clip of a hybrid: `check_rows` at attach makes
         // sure that every other row has draws. A tweened clip draws the frame
@@ -1377,14 +1420,13 @@ pub fn sample_rigged_presentations(
             let margin = impostor_margin(&flipbook);
             let cell = frame_size.max_element() + 2.0 * margin;
             let (size, anchor) = body_quad(animator, basis, root_sprite, root_anchor, frame_size, margin, cell);
-            sample.feet = Some(feet_place(
-                &Transform::IDENTITY,
+            sample.feet = Some(feet_in_root(
                 &flipbook,
                 size,
                 anchor,
                 cell,
                 margin,
-                root_sprite.flip_x,
+                sprite_mirror(root_sprite),
             ));
         }
         if sample.state == LocalSampleState::Baked {
@@ -1640,6 +1682,7 @@ pub fn drive_rigged_presentations(
         let impostor = presentation
             .impostor
             .filter(|impostor| !fresh_pages.contains(&(impostor.class, impostor.page)));
+        let feet_in_world = || sample.feet.map_or(*root_transform, |feet| root_transform.mul_transform(feet));
         let Some(impostor) = impostor else {
             // Drawn directly, the root shows no image at all.
             if frame_in_sprite.is_some() {
@@ -1648,15 +1691,14 @@ pub fn drive_rigged_presentations(
             let root_visible = root_shows(root_visibility);
             // The sample's feet (the body's own frame) carried by the root's
             // scene placement.
-            let place = sample.feet.map_or(*root_transform, |feet| root_transform.mul_transform(feet));
+            let place = feet_in_world();
             if let Some((request, answer)) = asked.as_mut() {
                 part_set::answer(request, answer, &presentation, draws, place);
             }
-            let frame_opacity = sample.frame_opacity;
             drive_direct_presentation(
                 &mut presentation,
                 draws,
-                frame_opacity,
+                sample.direct_body_color(),
                 &mut root_sprite,
                 place,
                 root_visible,
@@ -1701,21 +1743,9 @@ pub fn drive_rigged_presentations(
         // third of its size, 2026-10-05).
         let place = atlas.cell_feet(impostor.cell, impostor.feet).extend(0.0);
         owner_transform.set_if_neq(Transform::from_translation(place));
-        let current = presentation
-            .shown
-            .as_ref()
-            .is_some_and(|(shown, at, generation)| *generation == atlas.generation && *at == place && shown.as_slice() == draws);
-        if !current {
+        let slots_changed = presentation.update_draws(draws, PartDrawTarget::Atlas { place, generation: atlas.generation });
+        if slots_changed {
             changed[class][page] = true;
-        }
-        match presentation.shown.as_mut() {
-            Some((shown, at, _)) if !current => {
-                shown.clear();
-                shown.extend_from_slice(draws);
-                *at = place;
-            }
-            Some(_) => {}
-            None => presentation.shown = Some((draws.to_vec(), place, u64::MAX)),
         }
         // Stamped with the page's generation after the render decision.
         drawn_into.push((owner, class, page));
@@ -1738,11 +1768,7 @@ pub fn drive_rigged_presentations(
             atlas.cell_size(),
         );
         if let Some((request, answer)) = asked.as_mut() {
-            // Where its parts would be in the world: the root draws its cell
-            // there, and a reader of its parts draws there also.
-            let place =
-                feet_place(root_transform, &flipbook, size, anchor, atlas.cell_size(), margin, root_sprite.flip_x);
-            part_set::answer(request, answer, &presentation, draws, place);
+            part_set::answer(request, answer, &presentation, draws, feet_in_world());
         }
         if root_sprite.image != atlas.image {
             root_sprite.image = atlas.image.clone();
@@ -1777,7 +1803,7 @@ pub fn drive_rigged_presentations(
         // a write marks every slot's `Transform` changed, so the hall
         // propagated and re-extracted thousands of part slots a frame whose
         // bodies had not changed frame.
-        if !current {
+        if slots_changed {
             write_slots(&presentation, draws, &mut slots, |draw| part_color(draw, LinearRgba::WHITE));
         }
     }
@@ -1821,7 +1847,7 @@ pub fn drive_rigged_presentations(
             continue;
         };
         if let Ok((_, _, mut presentation, _, _, _)) = owners.get_mut(owner) {
-            if let Some((_, _, stamped)) = presentation.shown.as_mut() {
+            if let Some(ShownParts { target: PartDrawTarget::Atlas { generation: stamped, .. }, .. }) = presentation.shown.as_mut() {
                 // A page that did not render keeps its generation, and so does
                 // every cell that was current; a page that rendered redrew
                 // every body drawn into it this frame.
@@ -1958,16 +1984,13 @@ fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mu
 /// the root's child (a player's root is its simulation body), so it follows
 /// the root's visibility explicitly.
 ///
-/// ⚠ A FADE FRAME IS APPROXIMATED. `frame_opacity` is the opacity of the
-/// composited frame (`opacity(composite(parts))`); spread over the parts, a
-/// part overlapping another shows the one under it through it. Exact group
-/// opacity needs the frame composited first (the semantic part plan's optional
-/// group composition); five characters fade a death or blink row this way.
+/// Exact group opacity requires a composed frame. When the frame is
+/// unavailable, each part uses the body's opacity.
 #[allow(clippy::too_many_arguments)]
 fn drive_direct_presentation(
     presentation: &mut RiggedPresentation,
     draws: &[PartDraw],
-    frame_opacity: f32,
+    body_color: LinearRgba,
     // The `Mut` itself: it is only read here, but for the image, which is
     // compared first, so an unchanged root stays unchanged.
     root_sprite: &mut Mut<Sprite>,
@@ -1982,28 +2005,9 @@ fn drive_direct_presentation(
     if root_sprite.image != ambition_sprite_sheet::character::NO_BAKED_IMAGE {
         root_sprite.image = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
     }
-    // The root's colour (a tint, a flash) multiplies every part, as it
-    // multiplied the composited body. Part pages are sampled as sRGB here, so
-    // a draw's tint (a multiply on stored sRGB values) is an sRGB colour.
-    let mut root_color = root_sprite.color.to_linear();
-    root_color.alpha *= frame_opacity;
-    let current = presentation
-        .shown
-        .as_ref()
-        .is_some_and(|(shown, color, _)| shown.as_slice() == draws && *color == root_color.to_vec3());
-    if current {
-        return;
+    if presentation.update_draws(draws, PartDrawTarget::World(body_color)) {
+        write_slots(presentation, draws, slots, |draw| part_color(draw, body_color));
     }
-    match presentation.shown.as_mut() {
-        Some((shown, color, generation)) => {
-            shown.clear();
-            shown.extend_from_slice(draws);
-            *color = root_color.to_vec3();
-            *generation = 0;
-        }
-        None => presentation.shown = Some((draws.to_vec(), root_color.to_vec3(), 0)),
-    }
-    write_slots(presentation, draws, slots, |draw| part_color(draw, root_color));
 }
 
 /// The sprite colour of one draw, multiplied by `root` (a tint or flash on
@@ -2011,7 +2015,7 @@ fn drive_direct_presentation(
 /// values, so it is an sRGB colour; the page is sampled decoded and the camera
 /// encodes again (a camera in `ART_COMPOSITING`), or blends it in linear
 /// light (the world's).
-fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
+pub(in crate::rendering) fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
     let (tint, opacity) = (draw.tint(), draw.opacity());
     let part = Color::srgba(tint.x, tint.y, tint.z, opacity).to_linear();
     Color::LinearRgba(LinearRgba::new(
@@ -2022,40 +2026,21 @@ fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
     ))
 }
 
-/// The body's feet in the world, for a body whose quad (`body_quad`) is
-/// `size` at `anchor` over a cell `cell` sheet pixels square: one unit a sheet
-/// pixel, +y up, mirrored when the root is flipped.
-///
-/// ⛔ THROUGH THE ROOT'S WHOLE TRANSFORM. The baked quad is drawn through it,
-/// so the root's turn (the gravity of its room, a somersault, a crawler on a
-/// wall) turns the frame about the root. A body drawn directly draws nothing
-/// at its root, so its owner carries the turn: the feet offset and the mirror
-/// are in the root's own frame, and the root's transform is applied after
-/// them. An owner that took only the root's translation drew the player level
-/// in a room with sideways gravity (2026-10-05).
-fn feet_place(
-    root_transform: &Transform,
+/// Place the parts in the root's frame. Flip the feet offset and the parts
+/// together. The scene applies the root transform after this transform.
+fn feet_in_root(
     flipbook: &RiggedSpriteAsset,
     size: Vec2,
     anchor: Vec2,
     cell: f32,
     margin: f32,
-    flip_x: bool,
+    mirror: Vec2,
 ) -> Transform {
-    // The frame's feet pixel in that cell, in the quad's normalized space
-    // (+y up, mirrored with the image), carried to the world.
     let feet_in_cell = (Vec2::splat(margin) + flipbook.feet_pixel) / cell;
-    let mut feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
-    if flip_x {
-        feet.x = -feet.x;
-    }
-    let feet = (feet - anchor) * size;
-    let world_per_pixel = size / cell;
-    let flip = if flip_x { -1.0 } else { 1.0 };
-    root_transform.mul_transform(
-        Transform::from_translation(feet.extend(0.0))
-            .with_scale(Vec3::new(flip * world_per_pixel.x, world_per_pixel.y, 1.0)),
-    )
+    let feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
+    let offset = (feet * mirror - anchor) * size;
+    Transform::from_translation(offset.extend(0.0))
+        .with_scale((mirror * size / cell).extend(1.0))
 }
 
 /// The quad a body's frame is drawn on this frame, in a cell `cell` sheet
@@ -2072,7 +2057,8 @@ fn body_quad(
 ) -> (Vec2, Vec2) {
     // The squash of a sheet with no compact row is read off the root as the
     // animator drew it, before it is replaced.
-    let squash = stance_squash(animator, root_sprite, Some(root_anchor));
+    let mirror = sprite_mirror(root_sprite);
+    let squash = stance_squash(animator, root_sprite, root_anchor.0.y * mirror.y);
     // ⛔ A MIRROR ROW stands on the MIRRORED feet anchor. A body facing
     // left on a sheet drawn from both sides draws its mirror row unflipped
     // (`CharacterAnimator::face`), and the baked road places that frame at
@@ -2086,10 +2072,7 @@ fn body_quad(
     if let Some((ratio, held_y)) = squash {
         (size.y, anchor.y) = squashed_about(size.y, anchor.y, ratio, held_y);
     }
-    if root_sprite.flip_x {
-        anchor.x = -anchor.x;
-    }
-    (size, anchor)
+    (size, anchor * mirror)
 }
 
 /// The size and anchor of a body's cell quad (a cell `cell` sheet pixels
@@ -2142,10 +2125,10 @@ fn squashed_about(height: f32, anchor_y: f32, ratio: f32, held_y: f32) -> (f32, 
 /// `StanceSquash` (the anchor, or the quad's foot edge) need no copy here. For
 /// a quad of height `h0` and anchor `a0` drawn at `h1` and `a1`, the
 /// normalized height `t` that holds still is `(a0 h0 - a1 h1) / (h0 - h1)`.
-fn stance_squash(animator: &CharacterAnimator, root: &Sprite, anchor: Option<&Anchor>) -> Option<(f32, f32)> {
+fn stance_squash(animator: &CharacterAnimator, root: &Sprite, unflipped_anchor_y: f32) -> Option<(f32, f32)> {
     let (unsquashed, unsquashed_anchor) = animator.current_render()?;
     let (h0, a0) = (unsquashed.y, unsquashed_anchor.y);
-    let (h1, a1) = (root.custom_size?.y, anchor?.0.y);
+    let (h1, a1) = (root.custom_size?.y, unflipped_anchor_y);
     if h0 <= f32::EPSILON || (h0 - h1).abs() <= 1.0e-4 * h0 {
         return None;
     }

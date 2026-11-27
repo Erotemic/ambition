@@ -231,12 +231,18 @@ The helper script wraps common desktop modes:
 
 ```bash
 ./run_game.sh
+./run_game.sh --no-build
 ./run_game.sh release
 ./run_game.sh --ship
 ./run_game.sh hot release
 ./run_game.sh validate
 ./run_game.sh hot release -- --start-room goblin_encounter
 ```
+
+Use `./run_game.sh --no-build` to run the newest executable for the selected
+game without running Cargo. Use `./run_game.sh --no-build dev` to select only
+the debug executable. The launcher stops if it cannot find a build.
+The executable must support the content in the current checkout.
 
 Use `./run_game.sh --card-view` to start with the side-on 2.5D view.
 Use `./run_game.sh --features card_view` to start in 2D with live switching

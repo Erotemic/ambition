@@ -4,7 +4,11 @@
 // `1 - threshold`, so a texel shows once the god's damage fraction reaches its
 // threshold, and a texel with alpha 0 never shows. RGB is the sauce's own
 // shading. The god starts the fight clean and ends it dressed.
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#endif
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif

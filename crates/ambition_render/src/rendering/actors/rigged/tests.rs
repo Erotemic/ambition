@@ -174,6 +174,21 @@ fn owner(app: &App, root: Entity) -> Entity {
         .owner()
 }
 
+#[test]
+fn a_prop_sheet_binds_its_parts_without_a_character_sheet() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
+    let sheet = app.world().resource::<GameAssets>().characters.sheet("raider").unwrap().clone();
+    let mut assets = GameAssets::default();
+    assets.characters.props.insert("platform".into(), sheet);
+    app.insert_resource(assets);
+
+    settle(&mut app);
+
+    let owner = owner(&app, root);
+    assert!(app.world().get::<RiggedLocalSample>(owner).unwrap().parts().is_some());
+}
+
 /// `(translation, visible)` of every slot, in draw order: sheet pixels from
 /// the feet, +y up, in the body's private cell.
 fn slots(app: &App, owner: Entity) -> Vec<(Vec2, bool)> {
@@ -983,14 +998,9 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
     let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2_tall").expect("a published flipbook");
     let frame = flipbook.frame_size.as_vec2();
     let spec = try_load_spec_for_character_id(&sprite_content, "mary_o_v2_tall").unwrap();
-    // Where a quad of `size` at `anchor` draws the point at `uv` of itself
-    // (0..1, +y down), mirrored about the origin when `flip`.
-    let local = |size: Vec2, anchor: Vec2, uv: Vec2, flip: bool| {
-        let mut at = (Vec2::new(uv.x - 0.5, 0.5 - uv.y) - anchor) * size;
-        if flip {
-            at.x = -at.x;
-        }
-        at
+    // Map a point in the source frame to the quad with the specified axis signs.
+    let local = |size: Vec2, anchor: Vec2, uv: Vec2, signs: Vec2| {
+        (Vec2::new(uv.x - 0.5, 0.5 - uv.y) * signs - anchor) * size
     };
     // The anchors the game builds bodies with, from the builder the game uses
     // (`character_render_basis`): an NPC's (no authored quad) and a player's
@@ -1002,27 +1012,24 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
         crate::rendering::actors::character_render_basis(&spec, collision, Some(Vec2::new(61.0, 73.0)), Some(Vec2::ZERO)).1;
     assert_ne!(npc.0, player.0, "premise: the two conventions differ");
     for built_at in [npc, player] {
-        for flip in [false, true] {
+        for signs in [Vec2::ONE, Vec2::new(-1.0, 1.0), Vec2::new(1.0, -1.0), -Vec2::ONE] {
             let (mut app, root) = app_anchored(&sprite_content, true, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())), built_at);
-            app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
+            let mut sprite = app.world_mut().get_mut::<Sprite>(root).unwrap();
+            sprite.flip_x = signs.x < 0.0;
+            sprite.flip_y = signs.y < 0.0;
             settle(&mut app);
             let owner = owner(&app, root);
             assert!(draws_impostor(&app, root, owner));
             let size = app.world().get::<Sprite>(root).unwrap().custom_size.unwrap();
-            let mut anchor = app.world().get::<Anchor>(root).unwrap().0;
-            if flip {
-                // The drawn anchor is mirrored with the quad; unmirror it to
-                // read the quad in its own frame, as `local` mirrors after.
-                anchor.x = -anchor.x;
-            }
+            let anchor = app.world().get::<Anchor>(root).unwrap().0;
             let basis = app.world().get::<CharacterAnimator>(root).unwrap().render_basis.unwrap();
-            let base_anchor = basis.feet_anchor;
+            let base_anchor = basis.feet_anchor * signs;
             for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
-                let baked = local(basis.render_size, base_anchor, pixel / frame, flip);
-                let cell = local(size, anchor, (pixel + Vec2::splat(impostor_margin(&flipbook))) / IMPOSTOR_CELL, flip);
+                let baked = local(basis.render_size, base_anchor, pixel / frame, signs);
+                let cell = local(size, anchor, (pixel + Vec2::splat(impostor_margin(&flipbook))) / IMPOSTOR_CELL, signs);
                 assert!(
                     close(cell, baked),
-                    "{built_at:?} flip {flip}: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
+                    "{built_at:?} signs {signs}: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
                 );
             }
         }
@@ -1532,10 +1539,12 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
     assert_ne!(npc.0, player.0, "premise: the two conventions differ");
     for built_at in [npc, player] {
         for physical_scale in [Vec3::new(0.5, 0.5, 1.0), Vec3::new(-0.5, 0.5, 1.0), Vec3::new(2.0, 2.0, 1.0)] {
-        for flip in [false, true] {
+        for signs in [Vec2::ONE, Vec2::new(-1.0, 1.0), Vec2::new(1.0, -1.0), -Vec2::ONE] {
             for turn in [0.0, std::f32::consts::FRAC_PI_2, 0.6] {
                 let (mut app, root) = app_direct(&sprite_content, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())), built_at);
-                app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
+                let mut sprite = app.world_mut().get_mut::<Sprite>(root).unwrap();
+                sprite.flip_x = signs.x < 0.0;
+                sprite.flip_y = signs.y < 0.0;
                 let root_place =
                     Transform::from_translation(Vec3::new(40.0, -12.0, 3.0)).with_rotation(Quat::from_rotation_z(turn)).with_scale(physical_scale);
                 *app.world_mut().get_mut::<Transform>(root).unwrap() = root_place;
@@ -1547,10 +1556,7 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
                     // The baked frame: a quad of the basis size at its anchor,
                     // mirrored about the root when flipped, then drawn through
                     // the root's transform.
-                    let mut baked = (Vec2::new(pixel.x / frame.x - 0.5, 0.5 - pixel.y / frame.y) - basis.feet_anchor) * basis.render_size;
-                    if flip {
-                        baked.x = -baked.x;
-                    }
+                    let baked = (Vec2::new(pixel.x / frame.x - 0.5, 0.5 - pixel.y / frame.y) - basis.feet_anchor) * basis.render_size * signs;
                     let baked = root_place.transform_point(baked.extend(0.0)).truncate();
                     // The same pixel from the parts: sheet pixels from the feet,
                     // +y up, through the owner.
@@ -1558,7 +1564,7 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
                     let direct = place.transform_point(from_feet.extend(0.0)).truncate();
                     assert!(
                         close(direct, baked),
-                        "{built_at:?} flip {flip} turn {turn}: frame pixel {pixel} draws at {direct} directly, {baked} baked"
+                        "{built_at:?} signs {signs} turn {turn}: frame pixel {pixel} draws at {direct} directly, {baked} baked"
                     );
                 }
             }
@@ -1659,23 +1665,55 @@ fn a_fading_frame_is_composited_with_nothing_reading_it() {
 /// part drawn directly, as it multiplied the composited body.
 #[test]
 fn a_direct_body_tints_its_parts_with_its_root_colour() {
-
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let sheet = raider(&sprite_content, true);
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
     let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
-    app.update();
+    #[cfg(feature = "card_view")]
+    {
+        use crate::rendering::card_view::{realize_card_bodies, CardMeshes};
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<CardMeshes>()
+            .add_systems(Update, realize_card_bodies.after(RiggedDriveSet));
+    }
+    settle(&mut app);
     let owner = owner(&app, root);
     let slot = app.world().get::<RiggedPresentation>(owner).unwrap().slots[0];
     let plain = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
-    // The stand-in animator does not write the colour, so this stays.
-    app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::LinearRgba(LinearRgba::new(1.0, 0.5, 0.25, 0.5));
+    app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::linear_rgba(2.0, 0.5, 0.25, 0.5);
     app.update();
     let tinted = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
-    assert!((tinted.red - plain.red).abs() < 1.0e-6);
+    assert!((tinted.red - plain.red * 2.0).abs() < 1.0e-6);
     assert!((tinted.green - plain.green * 0.5).abs() < 1.0e-6);
     assert!((tinted.blue - plain.blue * 0.25).abs() < 1.0e-6);
     assert!((tinted.alpha - plain.alpha * 0.5).abs() < 1.0e-6);
+
+    #[cfg(feature = "card_view")]
+    let material_before = assert_card_color(&mut app, owner, tinted);
+
+    app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::linear_rgba(2.0, 0.5, 0.25, 0.25);
+    app.update();
+    let faded = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
+    assert!((faded.alpha - plain.alpha * 0.25).abs() < 1.0e-6);
+    assert_eq!(faded.to_vec3(), tinted.to_vec3());
+
+    #[cfg(feature = "card_view")]
+    {
+        assert_eq!(assert_card_color(&mut app, owner, faded), material_before);
+    }
+
+    #[cfg(feature = "card_view")]
+    fn assert_card_color(app: &mut App, owner: Entity, expected: LinearRgba) -> AssetId<StandardMaterial> {
+        use crate::rendering::card_view::CardBody;
+        let world = app.world_mut();
+        let mut bodies = world.query::<&CardBody>();
+        let body = bodies.iter(world).find(|body| body.owner == owner).unwrap();
+        let material = &world.get::<MeshMaterial3d<StandardMaterial>>(body.parts[0]).unwrap().0;
+        let tint = world.resource::<Assets<StandardMaterial>>().get(material).unwrap().base_color;
+        assert_eq!(tint.to_linear(), expected);
+        material.id()
+    }
 }
 
 /// ⭐ THE RENDERER TAKES ITS POSE FROM WHOEVER GIVES ONE (the ragdoll seam). A
@@ -2327,7 +2365,7 @@ fn a_baked_frame_is_one_card_at_the_root() {
     let hybrid = hybrid_raider(&sprite_content, "slash");
     let (mut app, root) = app_with(&sprite_content, true, raider_with(&sprite_content, Some(hybrid)));
     // Drawn part by part: a composited body is one card of its cell
-    // (`a_composited_body_is_one_card_and_its_flash_covers_it`).
+    // (`a_rigged_body_flashes_its_parts_only_without_a_whole_frame`).
     app.insert_resource(Composite(false));
     app.init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
@@ -2384,12 +2422,11 @@ fn a_baked_frame_is_one_card_at_the_root() {
 /// RV3: a body the 2D view composites (here every body is read as one image,
 /// as a flash or a fade asks) is one card of its cell in the card view,
 /// drawn whole: the cell carries the frame's fade, so the parts do not fade
-/// one by one. A flash (`PresentedFlash`) is one silhouette over that card,
-/// in the cue's colour, as strong as the cue; drawn part by part, each card
-/// has its silhouette; with no cue there is none.
+/// one by one. The shared flash overlay draws on the whole frame.
+/// A rig drawn directly has a silhouette over each part during a flash.
 #[cfg(feature = "card_view")]
 #[test]
-fn a_composited_body_is_one_card_and_its_flash_covers_it() {
+fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
     use crate::rendering::card_view::{realize_card_bodies, CardBody, CardMeshes};
     use crate::rendering::hit_flash::PresentedFlash;
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
@@ -2420,13 +2457,13 @@ fn a_composited_body_is_one_card_and_its_flash_covers_it() {
     assert_eq!(shown[0].base_color.alpha(), 1.0, "the cell carries the fade");
 
     let cue = PresentedFlash { intensity: 0.75, tint: Vec3::new(1.0, 0.5, 0.0) };
-    app.world_mut().entity_mut(root).insert(cue);
+    let color = Color::srgba_u8(120, 190, 240, 128);
+    app.world_mut().entity_mut(root).insert(cue).get_mut::<Sprite>().unwrap().color = color;
     app.update();
     let shown = cards(&mut app);
-    assert_eq!(shown.len(), 2, "the body and its silhouette");
-    assert_eq!(shown[1].base_color_texture.as_ref(), Some(&page));
-    assert_eq!(shown[1].base_color.alpha(), 0.75, "as strong as the cue");
-    assert_eq!(shown[1].emissive, Color::srgb(1.0, 0.5, 0.0).to_linear(), "in the cue's colour");
+    assert_eq!(shown.len(), 1, "the shared overlay draws the flash");
+    assert_eq!(shown[0].base_color_texture.as_ref(), Some(&page));
+    assert_eq!(shown[0].base_color.to_srgba().to_u8_array(), color.to_srgba().to_u8_array());
 
     app.insert_resource(Composite(false));
     for _ in 0..=COMPOSED_HOLD_FRAMES {
@@ -2434,8 +2471,148 @@ fn a_composited_body_is_one_card_and_its_flash_covers_it() {
     }
     assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none());
     let sampled = app.world().get::<RiggedLocalSample>(owner).unwrap().draws.len();
-    assert_eq!(cards(&mut app).len(), 2 * sampled, "part by part, a silhouette over each card");
+    let shown = cards(&mut app);
+    assert_eq!(shown.len(), 2 * sampled, "part by part, a silhouette over each card");
+    assert_eq!(shown[1].base_color.alpha(), 0.75, "as strong as the cue");
+    assert_eq!(shown[1].emissive, Color::srgb(1.0, 0.5, 0.0).to_linear(), "in the cue's colour");
     app.world_mut().entity_mut(root).insert(PresentedFlash::default());
     app.update();
     assert_eq!(cards(&mut app).len(), sampled, "no cue, no silhouette");
+}
+
+#[cfg(feature = "card_view")]
+#[test]
+fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
+    use ambition_platformer2d_core::Vec2 as WorldPoint;
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, PlayerVisual, RoomInstanceRoot};
+    use ambition_platformer2d_world::{collision::MovingPlatformSet, platforms::MovingPlatformState};
+    use ambition_sim_view::{BodyPoseView, FeatureViewIndex};
+    use crate::rendering::card_view::{realize_card_bodies, realize_card_sprite_bodies, CardBody, CardMeshes, CardRootDepths, CardSpriteBody};
+    use crate::rendering::moving_platforms::{seat_bodies_in_vessels, MovingPlatformVisual, PlatformLook, PlatformLooks, SeatedInVessel};
+
+    let content = ambition_sprite_sheet::test_support::shared_sprites();
+    let sheet = raider(&content, true);
+    let (mut app, rider) = app_direct(&content, sheet, Anchor::CENTER);
+    let sheet = app.world().resource::<GameAssets>().characters.sheet("raider").unwrap().clone();
+    let room = LiveRoomInstance::ACTIVATION;
+    let cart = MovingPlatformState::from_authored(
+        WorldPoint::new(100.0, 108.0), WorldPoint::new(96.0, 16.0), 0.0, 0.0,
+    ).with_visual("cart");
+    app.world_mut().spawn((RoomInstanceRoot, room, MovingPlatformSet(vec![cart])));
+    app.world_mut().entity_mut(rider).insert((
+        PlayerVisual,
+        BodyPoseView { pos: WorldPoint::new(100.0, 84.0), size: WorldPoint::new(16.0, 32.0), ..default() },
+    ));
+    app.insert_resource(PlatformLooks(HashMap::from([("cart".into(), PlatformLook {
+        sheet: None,
+        row: "idle".into(),
+        frame_px: [100.0, 60.0],
+        span_px: [2.0, 98.0],
+        top_px: 40.0,
+        faces_right: true,
+        front_row: Some("rail".into()),
+        rim_px: Some(12.0),
+    })])))
+    .init_resource::<FeatureViewIndex>()
+    .init_resource::<Assets<Mesh>>()
+    .init_resource::<Assets<StandardMaterial>>()
+    .init_resource::<CardMeshes>()
+    .init_resource::<CardRootDepths>()
+    .add_systems(Update, seat_bodies_in_vessels.before(RiggedDriveSet))
+    .add_systems(Update, (realize_card_bodies, realize_card_sprite_bodies).chain().after(RiggedDriveSet));
+    let mut layer = |index, kind: Option<&str>, front, z| {
+        let (sprite, anchor, animator) = build_character_presentation_with_render_size(&sheet, RENDER, Anchor::CENTER);
+        app.world_mut().spawn((
+            sprite, anchor, animator, BoundSpriteQuality::of(&sheet),
+            Transform::from_xyz(0.0, 0.0, z),
+            MovingPlatformVisual { room, index, sheet: kind.map(str::to_owned), front },
+        )).id()
+    };
+    let far = layer(0, Some("cart"), false, 11.0);
+    let near = layer(0, Some("cart"), true, 14.5);
+    let deck = layer(1, Some("deck"), false, 11.0);
+    app.world_mut().spawn((
+        PlayerVisual, Sprite::from_color(Color::WHITE, Vec2::ONE),
+        Transform::from_xyz(0.0, 0.0, 20.0),
+    ));
+    settle(&mut app);
+    assert!(app.world().get::<SeatedInVessel>(rider).is_some(), "the rider is inside the cart");
+
+    let placement = |app: &mut App, source| {
+        let owner = owner(app, source);
+        let world = app.world_mut();
+        let mut cards = world.query::<(Entity, &CardBody, &Transform)>();
+        let (entity, body, place) = cards.iter(world).find(|(_, body, _)| body.owner == owner).unwrap();
+        assert!(body.parts.len() > 1);
+        let last_depth = body.parts.iter()
+            .map(|part| world.get::<Transform>(*part).unwrap().translation.z + place.translation.z)
+            .max_by(f32::total_cmp).unwrap();
+        (entity, place.translation, last_depth)
+    };
+    let far = placement(&mut app, far);
+    let rider = placement(&mut app, rider);
+    let before = placement(&mut app, near);
+    let deck = placement(&mut app, deck);
+    let free_depth = app.world_mut().query_filtered::<&Transform, With<CardSpriteBody>>()
+        .single(app.world()).unwrap().translation.z;
+    assert!(far.2 < rider.1.z && rider.2 < before.1.z && before.2 < free_depth);
+    assert!(deck.2 < free_depth, "all parts of the deck are behind the free actor");
+
+    app.world_mut().get_mut::<Transform>(near).unwrap().translation.x += 30.0;
+    app.update();
+    let moved = placement(&mut app, near);
+    assert_eq!(moved, (before.0, before.1 + Vec3::X * 30.0, before.2));
+}
+
+#[cfg(feature = "card_view")]
+#[test]
+fn parts_of_a_room_prop_stay_in_the_props_depth() {
+    use ambition_platformer2d_world::rooms::PropDraw;
+    use crate::rendering::card_view::{realize_card_bodies, realize_card_scenery, realize_card_sprite_bodies, CardBody, CardMeshes, CardRootDepths, CardScenery, CardSpriteBody};
+    use crate::rendering::primitives::{PlayerVisual, PropVisual, WorldSprite};
+    use crate::rendering::world::SCENERY_Z_STEP;
+    use ambition_platformer2d_core::config::{WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+
+    let content = ambition_sprite_sheet::test_support::shared_sprites();
+    let sheet = raider(&content, true);
+    let (mut app, prop) = app_direct(&content, sheet, Anchor::CENTER);
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<CardMeshes>()
+        .init_resource::<CardRootDepths>()
+        .add_systems(Update, (realize_card_bodies, realize_card_sprite_bodies, realize_card_scenery).chain().after(RiggedDriveSet));
+    app.world_mut().spawn((
+        PlayerVisual, Sprite::from_color(Color::WHITE, Vec2::ONE),
+        Transform::from_xyz(0.0, 0.0, WORLD_Z_PLAYER),
+    ));
+    app.world_mut().entity_mut(prop).insert(PropVisual {
+        id: "prop".into(), kind: "prop".into(), name: "Prop".into(), size: RENDER, draw: PropDraw::Decoration, flip_y: false,
+    });
+
+    for (z, above_player) in [(WORLD_Z_DUMMY + 0.55, false), (WORLD_Z_PLAYER + 1.0, true)] {
+        app.world_mut().get_mut::<Transform>(prop).unwrap().translation.z = z;
+        let next = spawn_scenery(&mut app, z + SCENERY_Z_STEP);
+        settle(&mut app);
+        let owner = owner(&app, prop);
+        let world = app.world_mut();
+        let free_depth = world.query_filtered::<&Transform, With<CardSpriteBody>>().single(world).unwrap().translation.z;
+        let next_depth = world.query_filtered::<&Transform, With<CardScenery>>().single(world).unwrap().translation.z;
+        let mut cards = world.query::<(&CardBody, &Transform)>();
+        let (body, place) = cards.iter(world).find(|(body, _)| body.owner == owner).unwrap();
+        assert!(body.parts.len() > 1);
+        let root_depth = place.translation.z;
+        let parts: Vec<_> = body.parts.iter().map(|part| world.get::<Transform>(*part).unwrap().translation.z).collect();
+        assert!(parts.windows(2).all(|pair| pair[0] < pair[1]), "the parts keep their paint order");
+        assert!(root_depth + parts.last().unwrap() < next_depth, "one prop stays behind the next prop");
+        assert_eq!(root_depth > free_depth, above_player);
+        world.entity_mut(next).despawn();
+    }
+
+    fn spawn_scenery(app: &mut App, depth: f32) -> Entity {
+        let place = Transform::from_xyz(0.0, 0.0, depth);
+        app.world_mut().spawn((
+            WorldSprite, Sprite::from_color(Color::WHITE, Vec2::ONE), place,
+            GlobalTransform::from(place), InheritedVisibility::VISIBLE,
+        )).id()
+    }
 }

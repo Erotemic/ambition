@@ -17,8 +17,8 @@
 | [`gameplay_surround`](src/gameplay_surround.rs) | Fills the display area that the gameplay camera does not cover. |
 | [`gate_portal_fx`](src/gate_portal_fx.rs) | The wormhole of a gate, at Ultra. |
 | [`hud`](src/hud.rs) | Always-on player HUD: health, mana, and money meters (visible build). |
+| [`late_mesh_specialization`](src/late_mesh_specialization.rs) | Request specialization when the GPU receives a delayed mesh. |
 | [`lines`](src/lines/mod.rs) | Line effects: lightning, lasers, any look drawn along a line or round a body. |
-| [`mesh2d_late_meshes`](src/mesh2d_late_meshes.rs) | A 2D mesh whose GPU mesh arrives late is specialized when it arrives. |
 | [`platformer_presentation`](src/platformer_presentation.rs) | Generic platformer room presentation. |
 | [`quality`](src/quality.rs) | Live resolved visual-quality resource. |
 | [`reading_layout`](src/reading_layout.rs) | Where a block of text goes, for every overlay that shows one. |

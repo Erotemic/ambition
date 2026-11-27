@@ -62,6 +62,22 @@ A loop may update its emitter without restarting, and moving listeners update
 playing voices. Hosts without an output device may still calculate and record
 these decisions for diagnostics.
 
+## One-shot playback limits
+
+The one-shot player limits each cue in each listening space. Sounds with
+different cue IDs can share a limit when the emitter supplies a named
+`SfxGroup`. Combat uses one group for impact sounds, including the different
+materials in one crowd. The player considers audible requests first. In that
+set, a higher priority wins, followed by the larger gain.
+
+After a voice starts, its group waits 45 ms before another voice can start.
+Each group can hold two voices at once. The one-shot player holds at most 24
+voices across all groups. It discards excess requests before clip resolution.
+The time limit uses real time, so combat hitstop does not extend it.
+
+Combat uses the longest eligible hitstop on each tick. A room that already
+has an impact hold can start a new hold after the current one ends.
+
 ## Visual effects
 
 `ambition_vfx` provides presentation-neutral effect messages. Render/content

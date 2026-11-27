@@ -117,6 +117,7 @@ pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     let presentation = match field_string(entity, "presentation").as_deref() {
         None | Some("Default") => ambition_platformer2d_world::rooms::LoadingZonePresentation::Default,
         Some("SceneArt") => ambition_platformer2d_world::rooms::LoadingZonePresentation::SceneArt,
+        Some("SceneLabel") => ambition_platformer2d_world::rooms::LoadingZonePresentation::SceneLabel,
         Some(value) => return Err(format!("LoadingZone '{name}' has unknown presentation '{value}'")),
     };
     Ok(RoomEmission::zone(LoadingZone { presentation,

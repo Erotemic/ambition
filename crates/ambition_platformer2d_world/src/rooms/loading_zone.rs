@@ -60,6 +60,8 @@ pub enum LoadingZonePresentation {
     Default,
     /// The scene supplies the picture. Draw no marker or nameplate.
     SceneArt,
+    /// The scene supplies the label. Draw the marker with its animation.
+    SceneLabel,
 }
 
 /// A non-colliding rectangular trigger that swaps the active room.
@@ -75,6 +77,10 @@ pub struct LoadingZone {
 
 impl LoadingZone {
     pub fn shows_marker(&self) -> bool {
+        self.presentation != LoadingZonePresentation::SceneArt && !self.is_secret()
+    }
+
+    pub fn shows_label(&self) -> bool {
         self.presentation == LoadingZonePresentation::Default && !self.is_secret()
     }
 

@@ -3,7 +3,8 @@
 (function () {
   "use strict";
   const C = window.ART_CATALOG;
-  const items = C.items || {};
+  if (!C) return;
+  const items = C.items;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const app = () => document.getElementById("app");
   const query = () => document.getElementById("q").value.trim().toLowerCase();
@@ -13,7 +14,7 @@
   const chip = state => `<span class="chip ${STATE_CLASS[state] || "c-info"}">${esc(state)}</span>`;
   const editor = (path, line) => C.repo_abs ? `vscode://file/${C.repo_abs}/${path}${line ? ":" + line : ""}` : `${C.repo_href}/${path}`;
   const source = (path, line) => `<a href="${esc(editor(path, line))}" title="Open in the editor"><code>${esc(path)}${line ? ":" + line : ""}</code></a>`;
-  const itemLink = (id, text) => items[id] ? `<a href="#item/${encodeURIComponent(id)}">${esc(text || items[id].display)}</a>` : `<code>${esc(id)}</code>`;
+  const itemLink = (id, text) => Object.hasOwn(C.item_labels, id) ? `<a href="#item/${encodeURIComponent(id)}">${esc(text || C.item_labels[id])}</a>` : `<code>${esc(id)}</code>`;
   const R = () => window.AssetReviews;
   // One player for the whole page, docked at the bottom: it says what is playing and links to it.
   const bar = document.createElement("div");
@@ -225,7 +226,8 @@
   function search(terms) {
     const hit = text => terms.every(t => text.toLowerCase().includes(t));
     const found = Object.values(items).filter(i => hit(i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")));
-    const characters = Object.entries(C.inventory?.identities || {}).filter(([key, a]) => hit(key + " " + a.display + " " + (a.catalog?.tags || []).join(" ")));
+    const characters = Object.entries(C.inventory?.identities || {}).filter(([key, a]) =>
+      hit([key, a.display, (a.catalog.tags || []).join(" "), JSON.stringify(a.catalog.cast || {})].join(" ")));
     const images = Object.values(C.assets || {}).filter(a => hit(a.id + " " + a.display + " " + (a.tags || []).join(" ")));
     app().innerHTML = `<h1>Search <small>${esc(terms.join(" "))}</small></h1>
       <section class="box"><h2>Characters (${characters.length})</h2>${characters.slice(0, 60).map(([key, a]) => `<a href="#character/${encodeURIComponent(key)}">${esc(a.display)}</a>`).join(" · ") || '<p class="empty">None.</p>'}</section>
@@ -238,13 +240,9 @@
   function overview() {
     const terms = query().split(/\s+/).filter(Boolean);
     if (terms.length) return search(terms);
-    const I = C.inventory;
-    const cards = [];
-    if (I) {
-      const ids = Object.values(I.identities || {});
-      cards.push({title: "Characters", href: "#characters", n: ids.length,
-        line: I.profile.state === "available" ? `${Object.values(I.units).filter(u => u.status?.state === "missing").length} art bundles missing, ${Object.values(I.units).filter(u => ["partial", "stale"].includes(u.status?.state)).length} stale, ${Object.values(I.units).filter(u => u.status?.state === "possibly-stale").length} possibly stale` : "catalog unavailable"});
-    }
+    const counts = C.counts, status = C.unit_status;
+    const cards = [{title: "Characters", href: "#characters", n: counts.characters,
+      line: C.inventory.profile.state === "available" ? `${status.missing || 0} art bundles missing, ${(status.partial || 0) + (status.stale || 0)} stale, ${status["possibly-stale"] || 0} possibly stale` : "catalog unavailable"}];
     for (const [key, c] of Object.entries(C.categories || {}).sort((a, b) => a[1].order - b[1].order)) {
       if (key === "characters" || !(c.assets || 0)) continue;
       cards.push({title: c.label, href: "#cat/" + key, n: c.assets, line: key === "other" ? "no rule classified these: worth a look"
@@ -256,9 +254,9 @@
       const states = Object.entries(k.states).map(([s, n]) => `${n} ${s}`).join(", ");
       cards.push({title, href: "#" + VIEW[kind], n: k.count, line: (states || "none") + (k.notices.length ? " · notice" : "")});
     }
-    const reviews = R().report();
-    cards.push({title: "Reviews", href: "#reviews", n: reviews.reviews.length, line: `${reviews.backlog.count} need work`});
-    const attention = Object.values(items).filter(i => i.state !== "present").sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+    const {reviews, backlog} = R().counts();
+    cards.push({title: "Reviews", href: "#reviews", n: reviews, line: `${backlog} need work`});
+    const attention = Object.values(C.attention).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
     const notices = Object.entries(C.kinds || {}).flatMap(([kind, k]) => k.notices.map(n => `<p class="stamp stale">${esc(KINDS[kind] || kind)}: ${esc(n)}</p>`));
     app().innerHTML = `<h1>Assets</h1>
       <p class="lede">Everything the selected game ships or declares, what is missing or stale, and how to make it. Open any item to play or view it, see its source and where the game uses it, and review it.</p>
@@ -273,6 +271,7 @@
   /* One table of items, sorted by a click on a column header (`table_sort.js`).
      Each table (by `id`) keeps its own sort while the page is open. */
   const sorts = {};
+  const useCount = item => item.uses_count ?? item.uses.length;
   function table(id, rows, {kind: withKind = false, added: withAdded = false, limit = 1000, by = "", dir = 1} = {}) {
     const state = sorts[id] || (sorts[id] = {by, dir});
     const cols = {
@@ -281,7 +280,7 @@
       name: {label: "Name", value: i => i.display},
       ...(withAdded ? {added: {label: "Added (Git)", title: "First score commit in available Git history", value: i => Date.parse(i.added_at) || null, first: -1}} : {}),
       state: {label: "State", value: i => i.state},
-      uses: {label: "Uses", value: i => i.uses.length || null, first: -1},
+      uses: {label: "Uses", value: i => useCount(i) || null, first: -1},
       review: {label: "Review", title: "The newest review's score", value: i => R().latest(i.id)?.score ?? null, first: -1},
       why: {label: "Why", value: i => i.reasons[0] || null},
     };
@@ -289,7 +288,7 @@
     return `<table class="tbl" id="${esc(id)}"><thead><tr>${TableSort.headers(cols, state)}</tr></thead><tbody>
       ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.id)}" title="Play ${esc(i.display)}">▶</button>` : ""}</td>
         ${withKind ? `<td>${esc(KINDS[i.kind] || i.kind)}</td>` : ""}
-        <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td>${withAdded ? `<td>${i.added_at ? `<time datetime="${esc(i.added_at)}" title="${esc(i.added_at)}">${esc(i.added_at.slice(0, 10))}</time>` : '<small>Unknown</small>'}</td>` : ""}<td>${chip(i.state)}</td><td>${i.uses.length || ""}</td>
+        <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td>${withAdded ? `<td>${i.added_at ? `<time datetime="${esc(i.added_at)}" title="${esc(i.added_at)}">${esc(i.added_at.slice(0, 10))}</time>` : '<small>Unknown</small>'}</td>` : ""}<td>${chip(i.state)}</td><td>${useCount(i) || ""}</td>
         <td>${R().chip(R().latest(i.id))}${i.reviews?.score_changed ? ' <span title="The score changed after this review">⚠</span>' : ""}</td>
         <td>${i.reasons.length ? `<small>${esc(i.reasons[0])}</small>` : ""}</td></tr>`).join("")}</tbody></table>`;
   }
@@ -345,15 +344,16 @@
           style="left:${(r.at[0] - x0) / w * 100}%;top:${(r.at[1] - y0) / h * 100}%;width:${r.size[0] / w * 100}%;height:${r.size[1] / h * 100}%"></a>`).join("")}</div>
         <p class="n">Collision, water and climbable cells and entities, drawn by the LDtk tool. Click a room to see it below; a dashed room is on another depth.</p>`; })() : "";
       return `<h2>Map</h2>${map || '<p class="empty">No preview.</p>'}
-        <h2>Rooms (${rooms.length})</h2><table class="tbl"><thead><tr><th>Preview</th><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
-        ${rooms.map(r => `<tr id="${esc(anchor(r.id))}"><td>${pv?.rooms?.[r.id] ? `<a href="${esc(pv.rooms[r.id])}" title="Open ${esc(r.id)} full size"><img class="room-thumb" loading="lazy" src="${esc(pv.rooms[r.id])}" alt=""></a>` : ""}</td><td>${esc(r.id)}</td><td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
-          <td>${r.fight_music_track ? itemLink("music:" + r.fight_music_track, r.fight_music_track) : ""}</td><td>${esc(r.parallax_theme || "")}</td><td>${esc(r.biome || "")}</td></tr>`).join("")}</tbody></table>`;
+        <h2>Rooms (${rooms.length})</h2><div class="tablebox"><table class="tbl"><thead><tr><th>Preview</th><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
+        ${rooms.map(r => `<tr id="${esc(anchor(r.id))}"><td>${pv?.rooms?.[r.id] ? `<a href="${esc(pv.rooms[r.id])}" title="Open ${esc(r.id)} full size"><img class="room-thumb" loading="lazy" src="${esc(pv.rooms[r.id])}" alt=""></a>` : ""}</td>
+          <td>${esc(r.id)}${window.AssetEdits.served ? `<div><button type="button" data-edit-music="${esc(r.id)}" aria-label="Edit music for ${esc(r.id)}">Edit music</button></div>` : ""}</td>
+          <td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
+          <td>${r.fight_music_track ? itemLink("music:" + r.fight_music_track, r.fight_music_track) : ""}</td><td>${esc(r.parallax_theme || "")}</td><td>${esc(r.biome || "")}</td></tr>`).join("")}</tbody></table></div>`;
     }
     const rows = Object.entries(item.details).filter(([, v]) => v !== null && v !== "" && !(Array.isArray(v) && !v.length));
     return rows.length ? `<h2>Details</h2><table class="tbl">${rows.map(([k, v]) => `<tr><th>${esc(k.replace(/_/g, " "))}</th><td>${esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`).join("")}</table>` : "";
   }
 
-  const served = location.protocol.startsWith("http");
   // What is typed in a music review form, by render, until it is saved: the page
   // draws itself again when the reviews arrive or change, and that must not
   // clear a review being written.
@@ -368,7 +368,7 @@
       <p><button type="button" class="ghost" data-play="${esc(item.id)}" data-href="${esc(target.href)}" data-note="${esc(target.roles.join(", "))}">▶</button>
         <b>${esc(target.roles.join(" · "))}</b> <code>${esc(target.version_id)}</code>
         ${old ? ` · reviewed ${R().chip(old)}` : " · not reviewed"}</p>
-      ${served ? `<div class="controls"><label>Score <input name="score" type="number" min="${low}" max="${high}" step="0.1" required value="${esc(typed.score)}"></label>
+      ${R().writable() ? `<div class="controls"><label>Score <input name="score" type="number" min="${low}" max="${high}" step="0.1" required value="${esc(typed.score)}"></label>
         <span class="n">1–3 replace · 3–5 major polish · 5–7 acceptable · 7–9 strong · 9–10 standout</span></div>
         <textarea name="notes" rows="3" placeholder="What works, what to change">${esc(typed.notes)}</textarea>
         <div class="controls">${tags.map(t => `<label><input type="checkbox" name="issues" value="${esc(t)}"${typed.issues.includes(t) ? " checked" : ""}> ${esc(t)}</label>`).join(" ")}</div>
@@ -400,6 +400,7 @@
 
   function musicReviews(item) {
     if (item.kind !== "music") return "";
+    if (!R().ready()) return R().loading();
     const rows = R().rowsFor(item.id), targets = item.review_targets || [], last = rows[0];
     const history = last ? `<p>Latest: ${R().chip(last)} · ${esc(last.reviewed_at)}${last.relation !== "current" ? ` · ${esc(last.relation)} version` : ""}</p>
       ${item.reviews?.score_changed ? '<p class="stamp stale">The score changed after this review: the review is of an older version.</p>' : ""}
@@ -456,6 +457,15 @@
         parts: item.kind === "world" ? (item.details.rooms || []).map(room => room.id) : [], partLabel: "Room"})}`;
     R().wire();
     wireMusicReviews();
+    app().querySelectorAll("[data-edit-music]").forEach(button => button.onclick = () =>
+      window.AssetEdits.music(item.id, button.dataset.editMusic, result => {
+        for (const room of item.details.rooms) {
+          if (Object.hasOwn(result.levels, room.id)) Object.assign(room, result.levels[room.id]);
+        }
+        item.related = [...new Set(item.details.rooms.flatMap(room =>
+          [room.music_track, room.fight_music_track].filter(Boolean).map(track => "music:" + track)))].sort();
+        if (location.hash === "#item/" + encodeURIComponent(item.id) && app().querySelector("[data-edit-music]")) detail(item.id);
+      }));
     document.querySelectorAll(".room-box").forEach(box => box.onclick = event => {
       event.preventDefault();
       const row = document.getElementById(box.dataset.room);

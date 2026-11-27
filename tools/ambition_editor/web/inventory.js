@@ -1,7 +1,9 @@
 /* The CLI and this page consume the same derived owner report. */
 (function () {
   "use strict";
-  const C = window.ART_CATALOG, I = C.inventory;
+  const C = window.ART_CATALOG;
+  if (!C) return;
+  const I = C.inventory, Catalog = window.ArtCatalog, unitDetails = {};
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent, chosen = new Set(), filters = {};
   const link = (uid, label) => `<a href="#inventory/unit/${enc(uid)}">${esc(label || uid)}</a>`;
@@ -12,9 +14,40 @@
   const table = (heads, rows) => `<div class="tablebox"><table><thead><tr>${heads.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   const needs = unit => !!unit.runtime_defects?.length || ["missing","partial","stale"].includes(unit.status?.state) || Object.values(unit.status?.tiers || {}).some(t => ["missing","partial","stale"].includes(t.state));
   const tabs = [["current","Current game"],["needs","Needs generation"],["unused","Registered with no known use"],["all","All targets"],["concepts","Concepts"],["history","History"],["unregistered","Unregistered products"],["runtime","Live snapshot"]];
-  let stop = () => {};
+  let stop = () => {}, comparisonVersion = 0;
+  function stopComparison() {
+    comparisonVersion++;
+    stop();
+    stop = () => {};
+  }
+
+  async function loadUnit(id) {
+    Object.assign(unitDetails, await Catalog.record("unit", id));
+    return unitDetails[id];
+  }
+
+  async function load(route, loadImages) {
+    const [mode] = route.split('/');
+    if (mode === 'unit') {
+      const unit = await loadUnit(route.slice(5));
+      if (unit) await Promise.all([loadImages(), ...unit.identities.map(async key => {
+        Object.assign(C.characterDetails, await Catalog.record("character", key));
+      })]);
+    } else if (mode === 'history') {
+      await loadImages();
+    } else if (mode === 'runtime') {
+      Object.assign(I, await Catalog.load(mode));
+    } else if (['concepts', 'unregistered'].includes(mode)) {
+      I[mode === 'unregistered' ? 'local_products' : mode] = await Catalog.load(mode);
+    } else {
+      await Promise.all([
+        Catalog.load('inventory').then(rows => Object.assign(I.units, rows)),
+        document.getElementById('q').value.trim() && Catalog.load('inventory-search').then(index => { I.search = index; })
+      ]);
+    }
+  }
   function coverage(unit) {
-    const rows = unit.identities.flatMap(cid => I.identities[cid].coverage.map(c => [esc(I.identities[cid].display), esc(c.action), esc(c.tier),
+    const rows = unit.identities.flatMap(cid => C.characterDetails[cid].coverage.map(c => [esc(I.identities[cid].display), esc(c.action), esc(c.tier),
       c.source_available === null ? 'unknown' : String(c.source_available), c.profile_selected === null ? 'unknown' : String(c.profile_selected),
       chip(c.resolution.state), esc(c.resolution.row), esc((c.resolution.steps || []).join(' → ')), c.valid ? 'valid' : 'missing or invalid']));
     return table(['Body','Action','Tier','Source','Profile','Resolution','Row','Steps','Runtime product'], rows);
@@ -61,18 +94,29 @@
     function show(actor) {
       if (seen.has(actor.key)) return '';
       seen.add(actor.key);
-      const cover=(I.units[actor.units[0]]?.assets || []).map(id=>C.assets[id]).find(a=>a.identities?.includes(actor.key))?.cover;
+      const cover = Catalog.previews() && actor.inventory_cover;
       return `<li>${cover?`<img src="${esc(cover)}" loading="lazy" width="36" height="48" style="object-fit:contain;vertical-align:middle" alt="">`:''}<b><a href="#character/${enc(actor.key)}">${esc(actor.display)}</a></b> <code>${esc(actor.key)}</code> ${actor.relations.form_of ? chip('form') : actor.relations.part_of ? chip('part') : ''}
         ${actor.units.map(uid => link(uid)).join(' · ')} ${actor.relations.derived_from ? `<span>derived from ${esc(actor.relations.derived_from)} (independent identity)</span>` : ''}
         ${(children.get(actor.key) || []).length ? `<details><summary>Forms and parts</summary><ul>${children.get(actor.key).map(show).join('')}</ul></details>` : ''}</li>`;
     }
     return `<details open><summary>Game identities, forms and parts (${ids.length})</summary><ul>${ids.filter(a => !a.relations.form_of && !a.relations.part_of).map(show).join('')}${ids.filter(a => !seen.has(a.key)).map(show).join('')}</ul></details>`;
   }
-  function compare() {
+  async function compare() {
+    stopComparison();
+    const version = comparisonVersion;
     const area = document.getElementById('comparison');
-    const selected = [...chosen].flatMap(uid => {
-      const u=I.units[uid]; if(!u) return [];
-      const looks=(u.assets || []).map(id=>C.assets[id]).filter(a=>a.layout);
+    area.innerHTML = '<p class="empty" role="status">Loading the selected animations…</p>';
+    let units;
+    try {
+      units = (await Promise.all([...chosen].map(loadUnit))).filter(Boolean);
+      await Catalog.assetRecords(units.flatMap(unit => unit.assets || []));
+    } catch (error) {
+      if (version === comparisonVersion) area.innerHTML = '<p class="empty">The comparison could not load. Select Compare again to retry.</p>';
+      return;
+    }
+    if (version !== comparisonVersion) return;
+    const selected = units.flatMap(u => {
+      const looks=(u.assets || []).map(id=>C.assetDetails[id]).filter(a=>a?.layout);
       return looks.length?looks.map(a=>({...u,compare_asset:a})):[u];
     });
     area.innerHTML = `<h2>Compare published action (${selected.length})</h2><p><label>action <input id="compare-action" value="death"></label> <label>view <select id="compare-framing"><option value="subject">Body</option><option value="frame">Full animation frame</option></select></label> <label>clock <select id="compare-clock"><option value="time">elapsed time</option><option value="phase">common phase</option></select></label> <label>scale <select id="compare-scale"><option>1</option><option selected>2</option><option>3</option></select></label> <button id="compare-play">restart / play</button> <button id="compare-pause">pause</button> <input id="compare-scrub" aria-label="Comparison time" type="range" min="0" max="5000" value="0"></p><div class="thumbs">${selected.map((u,i) => `<figure><canvas id="compare-${i}" class="checker"></canvas><figcaption>${link(u.id, u.compare_asset?.display || u.id)} ${esc(u.compare_asset?.name || "")} <span id="compare-state-${i}"></span></figcaption></figure>`).join('')}</div>`;
@@ -113,36 +157,38 @@
     ['compare-action','compare-clock','compare-scale','compare-framing'].forEach(id=>get(id).onchange=()=>{origin=performance.now();elapsed=0;draw();});
     draw();
   }
-  window.renderArtInventory = function (route) {
-    stop(); stop=()=>{};
+  function render(route) {
+    stopComparison();
     const app=document.getElementById('app');
     if (!I) { app.innerHTML='<p>Rebuild the inspector to obtain owner reports.</p>'; return; }
     let body='', mode=route.split('/')[0];
     const head=`<nav class="tabs inventory-tabs">${tabs.map(([key,label])=>`<a href="#inventory/${key}"${mode===key?' class="on"':''}>${label}</a>`).join('')}</nav><p>Provider ${esc(I.profile.provider || 'unavailable')} · pack ${esc(I.profile.pack || 'unknown')} · content <code>${esc(I.profile.fingerprint || 'unavailable')}</code> · ${I.complete?'owner reports complete':'owner reports incomplete'}</p>${I.warnings.length?`<details><summary>Owner notices (${I.warnings.length})</summary>${json(I.warnings)}</details>`:''}`;
-    if(mode==='unit') body=unitView(I.units[route.slice(5)]);
+    if(mode==='unit') body=unitView(unitDetails[route.slice(5)]);
     else if(mode==='concepts') body=table(['Concept','Products'],Object.entries(I.concepts).map(([key,ids])=>[esc(key),ids.map(uid=>link(uid)).join(' · ')]));
     else if(mode==='history') {
       body=Object.entries(C.lineages || I.lineages).filter(([key,row])=>JSON.stringify([key,row]).toLowerCase().includes(document.getElementById('q').value.toLowerCase())).map(([key,row])=>{
         const actor=Object.values(I.identities).find(actor=>actor.lineages?.includes(key) && !actor.relations.part_of && !actor.relations.form_of);
         const current=actor?.preview ? {...C.assets[actor.preview.asset], display:actor.display, cover:actor.preview.cover} :
-          Object.values(C.assets).find(asset=>asset.identities?.length && asset.lineages?.some(lineage=>lineage.lineage===key));
+          Object.values(C.assets).find(asset=>asset.identities?.length && asset.lineage_ids?.includes(key));
         return window.ArtLineage.render(row, current);
       }).join('');
     }
     else if(mode==='unregistered') body=table(['Product','Registration','Declared producer','Lineage'],I.local_products.filter(p=>['unregistered','unknown'].includes(p.registration)).map(p=>[esc(p.path),chip(p.registration),esc((p.provenance || []).map(r=>r.generator.id).join(', ') || 'unknown'),esc(p.lineages.join(', ') || 'unknown')]));
-    else if(mode==='runtime') { const r=I.runtime; body=r?`<h2>Live snapshot</h2><p>Content ${r.content_fingerprint===I.profile.fingerprint?'matches':'differs or unavailable'} · tick ${esc(r.tick)} · loaded sheet generation ${esc(r.sheet_generation)}</p>${table(['Character','Target','Requested pose / clip','Resolved row / frame','Tier','Local product'],r.visuals.map(v=>[esc(v.character_id),esc(v.target),esc(v.requested_pose+' / '+v.requested_clip),esc(v.resolved_row+' / '+v.frame),esc(v.quality_tier),(() => {const u=Object.values(I.units).find(u=>u.published.some(p=>p.key===v.sheet_key)); return u?link(u.id)+' · '+(u.published.some(p=>p.fingerprint===v.manifest_fingerprint)?'loaded manifest matches local product':'loaded manifest differs from local products'):'unknown';})() ]))}${json(r)}`:'<p>Build with <code>--runtime-snapshot PATH</code>. Capture one with <code>capture_scene --art-snapshot</code>. A local report cannot establish live state.</p>'; }
+    else if(mode==='runtime') { const r=I.runtime; body=r?`<h2>Live snapshot</h2><p>Content ${r.content_fingerprint===I.profile.fingerprint?'matches':'differs or unavailable'} · tick ${esc(r.tick)} · loaded sheet generation ${esc(r.sheet_generation)}</p>${table(['Character','Target','Requested pose / clip','Resolved row / frame','Tier','Local product'],r.visuals.map(v=>[esc(v.character_id),esc(v.target),esc(v.requested_pose+' / '+v.requested_clip),esc(v.resolved_row+' / '+v.frame),esc(v.quality_tier),(() => {const entry=Object.entries(I.published).find(([, sheets])=>sheets.some(p=>p.key===v.sheet_key)); return entry?link(entry[0])+' · '+(entry[1].some(p=>p.fingerprint===v.manifest_fingerprint)?'loaded manifest matches local product':'loaded manifest differs from local products'):'unknown';})() ]))}${json(r)}`:'<p>Build with <code>--runtime-snapshot PATH</code>. Capture one with <code>capture_scene --art-snapshot</code>. A local report cannot establish live state.</p>'; }
     else {
       let units=Object.values(I.units).filter(u=>mode==='current'?['referenced','available-look'].includes(u.game_use):mode==='needs'?needs(u):mode==='unused'?u.game_use==='no-known-use':true);
       const fields=['generation_status','game_use','registration','kind','generator_family','visual_family','species','body_base','identity_kind','metadata_state','lineage','tag','animation_gap'];
-      const field=(u,f)=>f==='generation_status'?[u.status.state]:f==='game_use'?[u.game_use]:f==='registration'?[u.registration]:f==='kind'?[u.kind]:f==='generator_family'?[u.generator_family || u.generator.family]:f==='lineage'?(u.lineages.length?u.lineages:['unknown']):f==='tag'?u.identities.flatMap(cid=>I.identities[cid].catalog.tags || []):f==='metadata_state'?[...new Set(Object.values(u.facts).map(f=>f.state))]:f==='animation_gap'?u.identities.flatMap(cid=>I.identities[cid].coverage.filter(c=>!c.valid || !['direct','alias'].includes(c.resolution.state)).map(c=>c.action)):[value(u.facts[f])];
+      const field=(u,f)=>f==='generation_status'?[u.status.state]:f==='game_use'?[u.game_use]:f==='registration'?[u.registration]:f==='kind'?[u.kind]:f==='generator_family'?[u.generator_family || u.generator.family]:f==='lineage'?(u.lineages.length?u.lineages:['unknown']):f==='tag'?u.identities.flatMap(cid=>I.identities[cid].catalog.tags || []):f==='metadata_state'?[...new Set(Object.values(u.facts).map(f=>f.state))]:f==='animation_gap'?u.identities.flatMap(cid=>I.identities[cid].coverage_gaps):[value(u.facts[f])];
       const facetHtml=fields.map(f=>{const values=[...new Set(units.flatMap(u=>field(u,f)))].sort();return `<label>${esc(f)} <select data-inv-facet="${f}"><option value="">all</option>${values.map(v=>`<option${filters[f]===v?' selected':''}>${esc(v)}</option>`).join('')}</select></label>`;}).join(' ');
-      units=units.filter(u=>fields.every(f=>!filters[f] || field(u,f).includes(filters[f])) && JSON.stringify([u.id,u.kind,u.facts,u.generator,u.source,u.lineages,u.identities.map(cid=>I.identities[cid])]).toLowerCase().includes(document.getElementById('q').value.toLowerCase()));
+      const query = document.getElementById('q').value.toLowerCase().trim();
+      units = units.filter(u => fields.every(f => !filters[f] || field(u,f).includes(filters[f])) && (!query || I.search?.[u.id]?.includes(query)));
       body=`<div class="controls">${facetHtml}</div><p>${units.length} bundles <button id="compare-chosen">Compare selected action</button></p>${identityRows(units)}${table(['Compare','Bundle','Kind','Game use','Generation','Tier gaps','Family','Lineage'],units.map(u=>[`<input type="checkbox" data-choose="${esc(u.id)}"${chosen.has(u.id)?' checked':''}>`,link(u.id),esc(u.kind),chip(u.game_use),chip(u.status.state),esc(Object.entries(u.status.tiers || {}).filter(([,v])=>v.state!=='current').map(([k,v])=>k+': '+v.state).join(', ')),esc(value(u.facts.visual_family)),esc(u.lineages.join(', ') || 'unknown')]))}<div id="comparison"></div>`;
     }
     app.innerHTML=head+body;
-    app.querySelectorAll('[data-inv-facet]').forEach(el=>el.onchange=()=>{filters[el.dataset.invFacet]=el.value;window.renderArtInventory(route);});
+    app.querySelectorAll('[data-inv-facet]').forEach(el=>el.onchange=()=>{filters[el.dataset.invFacet]=el.value;render(route);});
     app.querySelectorAll('[data-choose]').forEach(el=>el.onchange=()=>{if(el.checked)chosen.add(el.dataset.choose);else chosen.delete(el.dataset.choose);});
-    const button=document.getElementById('compare-chosen');if(button)button.onclick=()=>{stop();compare();};
-  };
-  window.addEventListener('hashchange',()=>{stop();stop=()=>{};});
+    const button = document.getElementById('compare-chosen');
+    if (button) button.onclick = compare;
+  }
+  window.ArtInventory = {render, load, stop: stopComparison};
 })();

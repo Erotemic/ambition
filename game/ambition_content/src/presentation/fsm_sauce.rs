@@ -20,7 +20,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, SessionScopedEntity, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, PresentationOf, SessionScopedEntity, SpawnSessionScopedExt};
 use ambition_render::rendering::{BossOverlaySet, FeatureVisual, RoomVisual};
 use ambition_sprite_sheet::boss::{BossAnimator, BossDrawnCell};
 
@@ -38,6 +38,10 @@ pub fn install(app: &mut App) {
     }
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/fsm_sauce.wgsl");
     app.add_plugins(Material2dPlugin::<SauceMaterial>::default());
+    #[cfg(feature = "card_view")]
+    if app.get_sub_app(bevy::render::RenderApp).is_some() {
+        ambition_render::rendering::card_view::install_card_mesh_material::<SauceMaterial>(app);
+    }
     app.add_systems(
         Update,
         (attach_sauce_overlays, sync_sauce_overlays, cleanup_sauce_overlays)
@@ -51,7 +55,7 @@ pub fn install(app: &mut App) {
 
 /// `uv_rect`: the layer cell in its page; `control.x`: damage fraction,
 /// `control.y`: x-flip.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct SauceMaterial {
     #[uniform(0)]
     pub uv_rect: Vec4,
@@ -61,6 +65,9 @@ pub struct SauceMaterial {
     #[sampler(3)]
     pub sauce_texture: Handle<Image>,
 }
+
+#[cfg(feature = "card_view")]
+impl ambition_render::rendering::card_view::CardMaterialSource for SauceMaterial {}
 
 impl Material2d for SauceMaterial {
     fn fragment_shader() -> ShaderRef {
@@ -113,6 +120,7 @@ pub fn attach_sauce_overlays(
                     // Hidden until its first sync has placed it on a cell.
                     Visibility::Hidden,
                     SauceOverlay { source },
+                    PresentationOf(source),
                     RoomVisual,
                     Name::new(format!("Sauce overlay: {}", visual.id)),
                 ),

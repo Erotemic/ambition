@@ -303,6 +303,7 @@ pub fn spawn_room_visuals(
             label.payload.position,
             &text,
             14.0,
+            None,
         );
         if let Some(legend) = legend {
             commands.entity(sign).insert(legend);
@@ -399,14 +400,7 @@ pub(crate) fn prop_sprite_bundle(
     }
     // Which way the prop points is authored data, not a second sheet.
     sprite.flip_y = flip_y;
-    if flip_y {
-        // A packed sheet trims each frame, and the anchor places the trimmed
-        // rect in its frame. A flip mirrors the frame, so it mirrors that
-        // placement also, as the facing flip does for x
-        // (`draw_animator_frame`). Without this the art of a pipe head that
-        // hangs from a ceiling stood off its shaft by the trim.
-        anchor.0.y = -anchor.0.y;
-    }
+    anchor.0 *= super::actors::sprite_mirror(&sprite);
     (sprite, anchor, animator)
 }
 
@@ -434,7 +428,7 @@ impl PropTile {
 const SCENERY_Z_BACK: f32 = WORLD_Z_DUMMY + 0.55;
 pub(super) const SCENERY_Z_FRONT: f32 = WORLD_Z_DUMMY + 0.95;
 /// The z step between pieces of scenery listed one after the other.
-const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
+pub(super) const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
 /// Where a backdrop prop (a wall of the room, `AuthoredPropSheet::backdrop`)
 /// draws: behind the room's blocks and its back motes (`WORLD_Z_BLOCK - 1`
 /// and further), and the water backdrop (`WATER_BACKDROP_Z`), in front of
@@ -1339,7 +1333,7 @@ pub fn spawn_loading_zone(
     if let (LoadingZoneActivation::Door, Some(theme)) = (zone.activation, theme) {
         visual.insert(super::terrain_skin::ThemedDoor(theme));
     }
-    if matches!(zone.activation, LoadingZoneActivation::Door) {
+    if grounded && zone.shows_label() {
         let label = match one_way {
             Some((warning, _)) => format!("{} ({warning})", zone.name),
             None => zone.name.clone(),
@@ -1349,35 +1343,43 @@ pub fn spawn_loading_zone(
     if one_way.is_some() {
         visual.insert(OneWayZone(way));
     }
+    let edge_exit = zone.activation == LoadingZoneActivation::EdgeExit;
+    let bounds = edge_exit.then(|| {
+        let size = BVec2::new(world.size.x, world.size.y);
+        Rect::from_center_size(BVec2::ZERO, (size - BVec2::splat(16.0)).max(BVec2::ONE))
+    });
+    let ceiling_exit = edge_exit && size.x >= size.y && zone.aabb.top() <= 1.0;
+    let label_position = |gap| {
+        let offset = zone.aabb.half_size().y + gap;
+        zone.aabb.center() + ae::Vec2::new(0.0, if ceiling_exit { offset } else { -offset })
+    };
     if let Some((warning, _)) = one_way {
-        // Over the zone and over its nameplate, big: read from across the
-        // room, not at the threshold.
-        let over = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 52.0);
         let sign = spawn_world_label(
             commands,
             session_scope,
             world,
             format!("fixture:zone_way:{}", zone.id),
             WorldLabelFamily::Fixture,
-            over,
+            label_position(52.0),
             warning,
             20.0,
+            bounds,
         );
         // Hidden with the zone's picture where a portal or a game draws it
         // (`hide_portal_loading_zone_visuals`).
         commands.entity(sign).insert(crate::rendering::primitives::LoadingZoneVisual { id: zone.id.clone() });
     }
-    if !matches!(zone.activation, LoadingZoneActivation::Door) {
-        let label_pos = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 18.0);
+    if !grounded && zone.shows_label() {
         spawn_world_label(
             commands,
             session_scope,
             world,
             format!("fixture:zone:{}", zone.id),
             WorldLabelFamily::Fixture,
-            label_pos,
+            label_position(18.0),
             &zone.name,
             13.0,
+            bounds,
         );
     }
 }
@@ -1574,6 +1576,7 @@ fn spawn_chest_label(
         aabb.center() + ae::Vec2::new(0.0, -half_h - 22.0),
         name,
         14.0,
+        None,
     );
 }
 
@@ -2592,8 +2595,11 @@ mod prop_geometry_tests {
         let authored = BVec2::new(64.0, 32.0);
         // `(top, bottom)` of the drawn art about the middle of its box, +y up.
         let drawn = |flip_y: bool| {
-            let (sprite, anchor, _) = prop_sprite_bundle(PropDraw::Enclosure, flip_y, &asset, authored);
+            let (mut sprite, mut anchor, mut animator) = prop_sprite_bundle(PropDraw::Enclosure, flip_y, &asset, authored);
             assert_eq!(sprite.flip_y, flip_y);
+            let built_anchor = anchor;
+            super::super::actors::draw_held_frame(&mut sprite, &mut animator, &mut anchor, false);
+            assert_eq!(anchor, built_anchor, "a frame update keeps the mirrored trim");
             let size = sprite.custom_size.expect("a sized sprite");
             let middle = -anchor.0.y * size.y;
             (middle + size.y * 0.5, middle - size.y * 0.5)
@@ -2975,6 +2981,7 @@ mod themed_brick_tests {
 
 #[cfg(test)]
 mod zone_presentation_tests {
+    use super::super::primitives::LoadingZoneVisual;
     use super::*;
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
     use ambition_platformer2d_world::rooms::LoadingZonePresentation;
@@ -2991,17 +2998,25 @@ mod zone_presentation_tests {
         };
         let hidden_room = LiveRoomInstance::ACTIVATION;
         let visible_room = hidden_room.next();
+        let scene_label_room = visible_room.next();
         spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(hidden_room)), &room, &zone, ZoneWay::BothWays, None, None);
         zone.presentation = LoadingZonePresentation::Default;
         spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
+        zone.presentation = LoadingZonePresentation::SceneLabel;
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(scene_label_room)), &room, &zone, ZoneWay::BothWays, None, None);
         zone.id = "secret_way".into();
         assert!(zone.is_secret());
         spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
         ecs.flush();
-        let visuals: Vec<_> = ecs.query::<(&crate::rendering::primitives::LoadingZoneVisual, &InRoomInstance)>().iter(&ecs).collect();
-        assert_eq!(visuals.len(), 1);
-        assert_eq!(visuals[0].0.id, "shared_door");
-        assert_eq!(visuals[0].1.0, visible_room);
-        assert_eq!(ecs.query::<&DoorNameplateSource>().iter(&ecs).count(), 1);
+        let mut visuals = ecs.query::<(&LoadingZoneVisual, &Sprite, &InRoomInstance, Option<&DoorNameplateSource>)>();
+        let mut label_by_room: Vec<_> = visuals
+            .iter(&ecs)
+            .map(|(visual, _, room, label)| {
+                assert_eq!(visual.id, "shared_door");
+                (room.0, label.is_some())
+            })
+            .collect();
+        label_by_room.sort_unstable();
+        assert_eq!(label_by_room, [(visible_room, true), (scene_label_room, false)]);
     }
 }

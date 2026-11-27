@@ -38,7 +38,7 @@ const FX_Z: f32 = 0.01;
 
 /// The material of the layer. Bindings are `vec4` uniforms and two textures,
 /// as the other materials of the game are, for WebGL2.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct GatePortalFxMaterial {
     /// The membrane's current frame on its sheet, `(min.x, min.y, max.x,
     /// max.y)` normalized.

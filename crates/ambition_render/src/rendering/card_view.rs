@@ -22,31 +22,29 @@
 //! - a body's parts are [`CARD_PART_STEP`] apart in paint order.
 //!
 //! A moving platform uses the same sprite frame in both views. A vessel's
-//! near and far sprite layers enclose its riders.
+//! near and far layers enclose its riders. A platform keeps its layer when
+//! its sheet draws from parts.
 //!
 //! # One picture, when the 2D view has one
 //!
 //! A body the 2D view composites (a fading frame, a flash, a warp, any reader
 //! of it as one image) is drawn here as one card of its composited cell, as
 //! the 2D root draws it: a fading frame fades as one picture, not part by
-//! part. A body's flash ([`PresentedFlash`]) is a silhouette card over each of
-//! its cards, in the cue's colour, as strong as the cue.
+//! part. A whole frame uses the shared flash shader. A direct rig uses a
+//! silhouette over each part when a whole frame is not available.
 //!
 //! # Bodies drawn from a sheet
 //!
 //! A body with no rigged presentation (an actor or a player the 2D view
 //! draws from a sheet cell) is one card of the cell it draws, ranked with the
-//! rigged bodies on its depth by the same logical order.
+//! rigged bodies on its depth by the same logical order. It uses the shared
+//! flash material for combat and gate transit cues.
 //!
 //! # The room's terrain
 //!
-//! The skin of a room's blocks ([`TerrainSkinMesh`], what the 2D view draws
-//! as its tiles) and the earth under its lines ([`ChainEarth`], a hill's
-//! fill) are the same meshes here, pictures on the play plane just behind
-//! its bodies ([`TERRAIN_DEPTH`]), the earth behind the block skin and the
-//! skin's layers in their 2D order. A
-//! body recessed behind the play plane (a seated one) is behind it, as the
-//! policy places everything behind that plane.
+//! The card view uses the room's block skins and earth meshes. The block
+//! skins draw at [`TERRAIN_DEPTH`] in source layer order. Filled ground
+//! draws behind them. Track earth draws in the order of its lane.
 //!
 //! # Held and wielded art
 //!
@@ -98,29 +96,28 @@ use std::collections::HashMap;
 
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::visibility::RenderLayers;
-use bevy::camera::{ClearColorConfig, ScalingMode, Viewport};
+use bevy::camera::{ClearColorConfig, ScalingMode};
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::sprite::{SpriteImageMode, TextureSlice};
 
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, PlayerVisual};
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, PlayerVisual, PresentationOf};
 use ambition_sprite_sheet::character::rigged::PartDraw;
 
 use super::retained_entities::RetainedEntities;
 use super::actors::rigged::{
-    BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
+    part_color, BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
 };
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
-use super::chain_skin::ChainEarth;
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
-use super::primitives::{AnimatedWorldSpriteTint, WorldSprite};
-use super::terrain_skin::TerrainSkinMesh;
+use super::primitives::{AnimatedWorldSpriteTint, PropVisual, WorldSprite};
 
 /// The distance from the play plane to a vessel's far sprite layer.
 pub const VESSEL_DEPTH: f32 = 40.0;
@@ -161,6 +158,8 @@ const BACKDROP_DISTANCE: f32 = 1500.0;
 const FOREGROUND_DISTANCE: f32 = 1000.0;
 /// The near sprite layer's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
+/// The depth available to a platform layer's parts.
+const PLATFORM_PART_DEPTH: f32 = 0.05;
 /// How far the camera stands from what it looks at.
 const CAMERA_DISTANCE: f32 = 2000.0;
 
@@ -244,16 +243,14 @@ pub struct CardBody {
 }
 
 /// One drawn part of a [`CardBody`].
-#[derive(Component, Debug)]
-pub struct CardPart;
+#[derive(Component, Debug, Default)]
+pub struct CardPart {
+    tinted_material: Option<Handle<StandardMaterial>>,
+}
 
 /// A card drawing one held or wielded item.
 #[derive(Component)]
 pub struct CardHeldArt;
-
-/// The card of one mesh of a room's terrain skin.
-#[derive(Component)]
-pub struct CardTerrain;
 
 /// The card of a body drawn from a sheet (no rigged presentation).
 #[derive(Component)]
@@ -276,12 +273,43 @@ type SpriteBodyFilter = (
     Without<CardSpriteBody>,
 );
 
-/// Each drawn rigged root's card depth and its 2D depth, this frame: where
-/// its held art goes.
+/// The depth of each drawn body and its parts for this frame.
 #[derive(Resource, Default, Debug)]
 pub struct CardRootDepths {
     roots: HashMap<Entity, CardBodyDepth>,
     fronts: HashMap<Option<LiveRoomInstance>, f32>,
+}
+
+impl CardRootDepths {
+    fn scenery_depth(&self, z: f32, room: Option<LiveRoomInstance>) -> f32 {
+        scenery_depth(z, self.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP))
+    }
+
+    fn representation_of(&self, subject: Option<&PresentationOf>) -> Option<CardBodyRepresentation> {
+        self.roots.get(&subject?.0).map(|depth| depth.representation)
+    }
+
+    fn effect_depth(&self, subject: Option<&PresentationOf>, source_z: f32) -> Option<f32> {
+        let depth = self.roots.get(&subject?.0)?;
+        let bias = source_z - depth.source_z;
+        let offset = if bias < 0.0 {
+            bias.max(-CARD_BODY_STEP * 0.5)
+        } else {
+            // An effect above the body has the gap between its front part
+            // and the flash layer.
+            let fraction = (bias / super::hit_flash::FLASH_OVERLAY_Z_BIAS).min(1.0);
+            depth.front_part + fraction * FLASH_STEP
+        };
+        Some(depth.plane_z + offset * depth.order_scale)
+    }
+}
+
+/// How the card renderer draws an actor's body.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CardBodyRepresentation {
+    Sprite,
+    RiggedFrame,
+    RiggedParts,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -289,6 +317,8 @@ struct CardBodyDepth {
     plane_z: f32,
     source_z: f32,
     order_scale: f32,
+    front_part: f32,
+    representation: CardBodyRepresentation,
 }
 
 /// The card view: install it beside the 2D presentation.
@@ -309,7 +339,6 @@ impl Plugin for CardViewPlugin {
                 realize_card_bodies,
                 realize_card_sprite_bodies,
                 realize_card_held_art,
-                realize_card_terrain,
             )
                 .chain()
                 .run_if(card_outputs_enabled)
@@ -338,14 +367,14 @@ impl Plugin for CardViewPlugin {
         );
         app.add_systems(
             PostUpdate,
-            (retire_card_outputs, gameplay::select_gameplay_cameras)
+            (retire_card_outputs, gameplay::route_card_outputs)
                 .chain()
                 .before(bevy::camera::CameraUpdateSystems),
         );
         app.add_systems(
             PostUpdate,
             labels::prepare_label_layout
-                .after(gameplay::select_gameplay_cameras)
+                .after(gameplay::route_card_outputs)
                 .after(super::view_isolation::isolate_live_rooms)
                 .before(bevy::camera::CameraUpdateSystems),
         );
@@ -359,7 +388,7 @@ impl Plugin for CardViewPlugin {
             PostUpdate,
             gameplay::isolate_cards
                 .after(super::view_isolation::isolate_live_rooms)
-                .after(gameplay::select_gameplay_cameras)
+                .after(gameplay::route_card_outputs)
                 .after(world_mesh::CardWorldMeshSet)
                 .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility)
                 .run_if(card_outputs_enabled),
@@ -369,6 +398,7 @@ impl Plugin for CardViewPlugin {
             Update,
             portal_windows::realize_portal_windows
                 .after(ambition_portal2d_presentation::sync_portal_view_cones)
+                .after(realize_card_bodies)
                 .run_if(card_outputs_enabled)
                 .after(ViewCameraSet),
         );
@@ -416,6 +446,9 @@ pub fn present_card_view_rigs(
         commands.spawn((
             CardViewCamera,
             Camera3d::default(),
+            // Indirect instance compaction can change the order of a
+            // batch. Alpha-blended cards need their sorted order.
+            bevy::render::view::NoIndirectDrawing,
             // As the TwinTrack spacetime view and the pause cube: a
             // higher-order Camera3d composited over the gameplay Camera2d,
             // its clear held to its own viewport.
@@ -424,7 +457,7 @@ pub fn present_card_view_rigs(
             Camera {
                 // Below the pause scrim (7) and the front HUD (9).
                 order: 6,
-                // Until its target is measured (`place_card_view_cameras`).
+                // The output router activates this camera.
                 is_active: false,
                 clear_color: ClearColorConfig::Custom(Color::srgb(0.07, 0.08, 0.11)),
                 ..default()
@@ -442,50 +475,17 @@ pub fn present_card_view_rigs(
     }
 }
 
-/// The card renderer's camera adapter: look at the view's presented frame
-/// from the settings' turn and tilt, through a viewport in the window's lower
-/// right corner, showing the middle of what the 2D view shows ([`CardViewSettings::zoom`]). A
-/// camera stays inactive until its target is measured, so it never covers the
-/// 2D view with a whole-target clear.
+/// Set the card camera's pose and scale from the view's presented frame.
 pub fn place_card_view_cameras(
     frames: Res<PresentedViewFrames>,
     settings: Res<CardViewSettings>,
-    plane: Query<
-        (&Camera, Option<&ambition_sim_view::PresentsView>),
-        (With<Camera2d>, With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>, Without<CardViewCamera>),
-    >,
     mut cameras: Query<
-        (&mut Camera, &mut Transform, &mut Projection, &ambition_sim_view::PresentsView),
+        (&mut Transform, &mut Projection, &ambition_sim_view::PresentsView),
         With<CardViewCamera>,
     >,
 ) {
-    for (mut camera, mut transform, mut projection, presents) in &mut cameras {
-        let frame = frames.of(presents.0);
-        if settings.mode == CardViewMode::Inset {
-            let plane_viewport = plane.iter().find_map(|(camera, view)| {
-                (view.is_none_or(|view| view.0 == presents.0))
-                    .then_some(camera.viewport.as_ref()).flatten()
-            });
-            let size = plane_viewport.map(|v| v.physical_size).or_else(|| camera.physical_target_size());
-            let viewport = size.and_then(|size| card_viewport(size, settings.viewport_fraction))
-                .map(|mut viewport| {
-                    if let Some(plane) = plane_viewport {
-                        viewport.physical_position += plane.physical_position;
-                    }
-                    viewport
-                });
-            let active = viewport.is_some() && frame.is_some();
-            let rect = |v: &Option<Viewport>| v.as_ref().map(|v| (v.physical_position, v.physical_size));
-            if rect(&camera.viewport) != rect(&viewport) {
-                camera.viewport = viewport;
-            }
-            if camera.order != 6 || camera.is_active != active {
-                camera.order = 6;
-                camera.is_active = active;
-                camera.clear_color = ClearColorConfig::None;
-            }
-        }
-        let Some(frame) = frame else {
+    for (mut transform, mut projection, presents) in &mut cameras {
+        let Some(frame) = frames.of(presents.0) else {
             continue;
         };
         *transform = card_camera_transform(frame, &settings);
@@ -511,20 +511,6 @@ pub fn card_camera_transform(frame: &PresentedViewFrame, settings: &CardViewSett
     };
     let rotation = Quat::from_euler(EulerRot::YXZ, yaw, -pitch, frame.roll_radians);
     Transform::from_translation(target + rotation * Vec3::Z * CAMERA_DISTANCE).with_rotation(rotation)
-}
-
-fn card_viewport(target: UVec2, fraction: f32) -> Option<Viewport> {
-    let (width, height) = (target.x, target.y);
-    if width < 64 || height < 64 {
-        return None;
-    }
-    let w = ((width as f32 * fraction) as u32).clamp(32, width);
-    let h = ((w as f32 * height as f32 / width as f32) as u32).clamp(32, height);
-    Some(Viewport {
-        physical_position: UVec2::new(width - w, height - h),
-        physical_size: UVec2::new(w, h),
-        ..default()
-    })
 }
 
 /// The depth of a body in the policy (module docs): the play plane, or the
@@ -817,30 +803,56 @@ fn sprite_material(texture: Option<Handle<Image>>, color: Color) -> StandardMate
     }
 }
 
-fn animated_sprite_material(
+/// Update a material owned by one card.
+fn retain_sprite_material(
     handle: Option<&Handle<StandardMaterial>>,
-    sprite: &Sprite,
+    image: &Handle<Image>,
+    color: Color,
     materials: &mut Assets<StandardMaterial>,
 ) -> Handle<StandardMaterial> {
-    let texture = (sprite.image != Handle::default()).then(|| sprite.image.clone());
+    let texture = (*image != Handle::default()).then_some(image);
     if let Some(handle) = handle {
         if let Some(material) = materials.get(handle) {
-            if material.base_color != sprite.color || material.base_color_texture != texture {
+            if material.base_color != color || material.base_color_texture.as_ref() != texture {
                 let mut material = materials.get_mut(handle).unwrap();
-                material.base_color = sprite.color;
-                material.base_color_texture = texture;
+                material.base_color = color;
+                material.base_color_texture = texture.cloned();
             }
             return handle.clone();
         }
     }
-    materials.add(sprite_material(texture, sprite.color))
+    materials.add(sprite_material(texture.cloned(), color))
+}
+
+enum PartMaterial {
+    Shared(Handle<StandardMaterial>),
+    Tinted { image: Handle<Image>, color: Color },
+}
+
+impl CardPart {
+    fn material(
+        &mut self,
+        draw: &PartMaterial,
+        materials: &mut Assets<StandardMaterial>,
+    ) -> Handle<StandardMaterial> {
+        match draw {
+            PartMaterial::Shared(material) => material.clone(),
+            PartMaterial::Tinted { image, color } => {
+                let handle = retain_sprite_material(self.tinted_material.as_ref(), image, *color, materials);
+                if self.tinted_material.as_ref() != Some(&handle) {
+                    self.tinted_material = Some(handle.clone());
+                }
+                handle
+            }
+        }
+    }
 }
 
 type CardQuery<'w, 's> = Query<
     'w,
     's,
-    (&'static mut Mesh3d, &'static mut MeshMaterial3d<StandardMaterial>, &'static mut Transform, &'static mut Visibility),
-    (With<CardPart>, Without<CardBody>),
+    (&'static mut CardPart, &'static mut Mesh3d, &'static mut MeshMaterial3d<StandardMaterial>, &'static mut Transform, &'static mut Visibility),
+    Without<CardBody>,
 >;
 
 /// Show `shown` as a body's cards, in order, spawning what it lacks and
@@ -852,16 +864,19 @@ fn show_cards(
     owner: Entity,
     source: Entity,
     layer: &RenderLayers,
-    shown: &[(Handle<Mesh>, Handle<StandardMaterial>, Transform)],
+    materials: &mut Assets<StandardMaterial>,
+    shown: &[(Handle<Mesh>, PartMaterial, Transform)],
 ) {
     for (index, (mesh, material, local)) in shown.iter().enumerate() {
         if body.parts.get(index).is_none_or(|entity| commands.get_entity(*entity).is_err()) {
+            let mut part = CardPart::default();
+            let material = part.material(material, materials);
             let card = commands
                 .spawn((
-                    CardPart,
+                    part,
                     CardScope::Source(source),
                     Mesh3d(mesh.clone()),
-                    MeshMaterial3d(material.clone()),
+                    MeshMaterial3d(material),
                     *local,
                     Visibility::Inherited,
                     layer.clone(),
@@ -875,20 +890,21 @@ fn show_cards(
             }
             continue;
         }
-        let Ok((mut card_mesh, mut card_material, mut transform, mut visibility)) = cards.get_mut(body.parts[index]) else {
+        let Ok((mut part, mut card_mesh, mut card_material, mut transform, mut visibility)) = cards.get_mut(body.parts[index]) else {
             continue;
         };
+        let material = part.bypass_change_detection().material(material, materials);
         if card_mesh.0 != *mesh {
             card_mesh.0 = mesh.clone();
         }
-        if card_material.0 != *material {
-            card_material.0 = material.clone();
+        if card_material.0 != material {
+            card_material.0 = material;
         }
         transform.set_if_neq(*local);
         visibility.set_if_neq(Visibility::Inherited);
     }
     for &card in body.parts.iter().skip(shown.len()) {
-        if let Ok((_, _, _, mut visibility)) = cards.get_mut(card) {
+        if let Ok((.., mut visibility)) = cards.get_mut(card) {
             visibility.set_if_neq(Visibility::Hidden);
         }
     }
@@ -903,9 +919,10 @@ pub fn card_part_local(draw: &PartDraw, index: usize) -> Transform {
 #[derive(Default)]
 pub(super) struct CardBodyScratch {
     by_owner: RetainedEntities<Entity>,
+    rigged_roots: EntityHashSet,
     ranked: Vec<(Option<LiveRoomInstance>, f32, Entity, Option<usize>)>,
-    rank_of: HashMap<Entity, CardBodyDepth>,
-    shown: Vec<(Handle<Mesh>, Handle<StandardMaterial>, Transform)>,
+    placements: HashMap<Entity, CardBodyDepth>,
+    shown: Vec<(Handle<Mesh>, PartMaterial, Transform)>,
 }
 
 /// Realize every sampled rigged body as cards.
@@ -914,7 +931,10 @@ pub(super) fn realize_card_bodies(
     mut commands: Commands,
     owners: Query<(Entity, &RiggedPresentationOf, &RiggedPresentation, &RiggedLocalSample)>,
     roots: Query<
-        (&Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>, Option<&PresentedFlash>),
+        (
+            &Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>,
+            Option<&PresentedFlash>, Option<&MovingPlatformVisual>, Has<PropVisual>, Option<&Visibility>,
+        ),
         (Without<CardBody>, Without<CardPart>),
     >,
     atlas: Option<Res<RiggedImpostorAtlas>>,
@@ -934,6 +954,7 @@ pub(super) fn realize_card_bodies(
         SpriteBodyFilter,
     >,
     rooms: LiveRooms,
+    platform_looks: Option<Res<PlatformLooks>>,
     mut scratch: Local<CardBodyScratch>,
 ) {
     let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
@@ -941,21 +962,35 @@ pub(super) fn realize_card_bodies(
     };
     let layer = RenderLayers::layer(CARD_VIEW_LAYER);
 
-    let CardBodyScratch { by_owner, ranked, rank_of, shown } = &mut *scratch;
+    let CardBodyScratch { by_owner, rigged_roots, ranked, placements, shown } = &mut *scratch;
     by_owner.reconcile(&mut commands, |owner| owners.contains(*owner));
 
     // Rank the drawn bodies on each depth by their logical order.
+    rigged_roots.clear();
     ranked.clear();
+    placements.clear();
     for (owner, of, _, sample) in &owners {
+        rigged_roots.insert(of.0);
         let drawable = (sample.parts().is_some() && sample.feet.is_some()) || sample.baked.is_some();
         if !drawable {
             continue;
         }
-        if let Ok((root, seated, ..)) = roots.get(of.0) {
+        let Ok((root, seated, .., platform, prop, _)) = roots.get(of.0) else {
+            continue;
+        };
+        if let Some(platform) = platform {
+            let part_count = sample.parts().map_or(1, <[PartDraw]>::len).max(1);
+            placements.insert(owner, CardBodyDepth {
+                plane_z: platform_depth(platform, platform_looks.as_deref()),
+                source_z: root.translation.z,
+                order_scale: (PLATFORM_PART_DEPTH / (part_count as f32 * CARD_PART_STEP)).min(1.0),
+                front_part: 0.0,
+                representation: CardBodyRepresentation::Sprite,
+            });
+        } else if !prop {
             ranked.push((rooms.of(of.0), root.translation.z, owner, seated.map(|seat| seat.slot)));
         }
     }
-    let rigged_roots: Vec<Entity> = owners.iter().map(|(_, of, ..)| of.0).collect();
     for (entity, place, seated, kind, visibility) in &sprite_bodies {
         let body = kind.is_none_or(|kind| kind.kind == FeatureVisualKind::Actor);
         let shown = visibility.is_none_or(|visibility| *visibility != Visibility::Hidden);
@@ -964,7 +999,6 @@ pub(super) fn realize_card_bodies(
         }
     }
     ranked.sort_unstable_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.cmp(&b.2)));
-    rank_of.clear();
     if let Some(depths) = root_depths.as_deref_mut() {
         depths.roots.clear();
         depths.fronts.clear();
@@ -984,12 +1018,18 @@ pub(super) fn realize_card_bodies(
                 }
                 (depth, scale)
             };
-            rank_of.insert(owner, CardBodyDepth { plane_z, source_z, order_scale });
+            placements.insert(owner, CardBodyDepth {
+                plane_z,
+                source_z,
+                order_scale,
+                front_part: 0.0,
+                representation: CardBodyRepresentation::Sprite,
+            });
         }
     }
     if let Some(depths) = root_depths.as_deref_mut() {
         for (entity, ..) in &sprite_bodies {
-            if let Some(depth) = rank_of.get(&entity) {
+            if let Some(depth) = placements.get(&entity) {
                 depths.roots.insert(entity, *depth);
             }
         }
@@ -1014,45 +1054,73 @@ pub(super) fn realize_card_bodies(
             // Spawned this frame: filled from the next.
             continue;
         };
-        let (Some(depth), Ok((root, _, root_sprite, root_anchor, flash))) = (rank_of.get(&owner), roots.get(of.0)) else {
+        let Ok((root, _, root_sprite, root_anchor, flash, _, prop, visibility)) = roots.get(of.0) else {
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        if let Some(depths) = root_depths.as_deref_mut() {
-            depths.roots.insert(of.0, *depth);
-        }
+        let depth = placements.get(&owner).copied().or_else(|| {
+            if !prop || visibility == Some(&Visibility::Hidden) || (sample.baked.is_none() && sample.feet.is_none()) {
+                return None;
+            }
+            let source_z = root.translation.z;
+            let room = rooms.of(of.0);
+            let projected = |z| root_depths.as_deref()
+                .map_or_else(|| scenery_depth(z, CARD_BODY_STEP), |depths| depths.scenery_depth(z, room));
+            let plane_z = projected(source_z);
+            let span = projected(source_z + super::world::SCENERY_Z_STEP) - plane_z;
+            let count = sample.parts().map_or(1, |parts| parts.len()).max(1);
+            Some(CardBodyDepth {
+                plane_z,
+                source_z,
+                order_scale: span / (count as f32 * CARD_PART_STEP),
+                front_part: 0.0,
+                representation: CardBodyRepresentation::Sprite,
+            })
+        });
+        let Some(depth) = depth else {
+            body_visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
         let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
         // A baked frame is one card at the root, drawn whole; so is a body
         // the 2D view composites, as its cell (its fade is in the cell).
         let composited = sample.parts().and_then(|_| {
             composited_frame(presentation, atlas.as_deref()?, root_sprite, root_anchor, layouts.as_deref())
         });
-        if let Some(baked) = sample.baked.as_ref().or(composited.as_ref()) {
-            let opacity = if composited.is_some() { 1.0 } else { sample.frame_opacity };
+        let baked = sample.baked.as_ref().or(composited.as_ref());
+        if let Some(depths) = root_depths.as_deref_mut() {
+            let front_part = sample.parts()
+                .filter(|_| baked.is_none())
+                .map_or(0.0, |parts| parts.len().saturating_sub(1) as f32 * CARD_PART_STEP);
+            depths.roots.insert(of.0, CardBodyDepth {
+                front_part,
+                representation: if baked.is_some() {
+                    CardBodyRepresentation::RiggedFrame
+                } else {
+                    CardBodyRepresentation::RiggedParts
+                },
+                ..depth
+            });
+        }
+        if let Some(baked) = baked {
             let mut place = *root;
             place.translation.z = depth.plane_z;
             body_transform.set_if_neq(place);
             body_visibility.set_if_neq(Visibility::Inherited);
             let Some(page_size) = images.get(&baked.image).map(|image| image.size().as_vec2()) else {
                 // Not loaded yet: draw nothing rather than the last clip's parts.
-                show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &[]);
+                show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &[]);
                 continue;
             };
             let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
-            let opacity = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
-            let material = cache.textured_material(&baked.image, [255, 255, 255, opacity], &mut materials);
-            let local = Transform::IDENTITY;
-            shown.clear();
-            shown.push((mesh.clone(), material, local));
-            if let Some(flash) = flash {
-                let silhouette = cache
-                    .flashes
-                    .entry((baked.image.id(), flash_key(flash)))
-                    .or_insert_with(|| materials.add(flash_material(&baked.image, flash)))
-                    .clone();
-                shown.push((mesh, silhouette, local.with_translation(Vec3::Z * FLASH_STEP * depth.order_scale)));
-            }
-            show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &shown);
+            let material = if sample.body_color == LinearRgba::WHITE {
+                PartMaterial::Shared(cache.textured_material(&baked.image, [255; 4], &mut materials))
+            } else {
+                PartMaterial::Tinted { image: baked.image.clone(), color: Color::LinearRgba(sample.body_color) }
+            };
+            show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &[
+                (mesh, material, Transform::IDENTITY),
+            ]);
             continue;
         }
         let (Some(draws), Some(feet)) = (sample.parts(), sample.feet) else {
@@ -1067,7 +1135,7 @@ pub(super) fn realize_card_bodies(
 
         shown.clear();
         let flipbook = &presentation.pages.flipbook;
-        let translucent = sample.frame_opacity < 1.0;
+        let body_color = sample.direct_body_color();
         for (index, draw) in draws.iter().enumerate() {
             let part = flipbook.parts[usize::from(draw.part)];
             let Some(page) = presentation.pages.pages.get(usize::from(part.page)) else {
@@ -1083,11 +1151,11 @@ pub(super) fn realize_card_bodies(
                 anchor: part.anchor(),
                 flip: [false; 2],
             }, &mut meshes);
-            let mut color = draw.color;
-            if translucent {
-                color[3] = (f32::from(color[3]) * sample.frame_opacity).round() as u8;
-            }
-            let material = cache.textured_material(page, color, &mut materials);
+            let material = if body_color == LinearRgba::WHITE {
+                PartMaterial::Shared(cache.textured_material(page, draw.color, &mut materials))
+            } else {
+                PartMaterial::Tinted { image: page.clone(), color: part_color(draw, body_color) }
+            };
             let mut local = card_part_local(draw, index);
             local.translation.z *= depth.order_scale;
             if let Some(flash) = flash {
@@ -1097,12 +1165,12 @@ pub(super) fn realize_card_bodies(
                     .or_insert_with(|| materials.add(flash_material(page, flash)))
                     .clone();
                 shown.push((mesh.clone(), material, local));
-                shown.push((mesh, silhouette, local * Transform::from_translation(Vec3::Z * FLASH_STEP * depth.order_scale)));
+                shown.push((mesh, PartMaterial::Shared(silhouette), local * Transform::from_translation(Vec3::Z * FLASH_STEP * depth.order_scale)));
             } else {
                 shown.push((mesh, material, local));
             }
         }
-        show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &shown);
+        show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &shown);
     }
 }
 
@@ -1262,6 +1330,7 @@ pub(super) fn realize_card_sprite_bodies(
     for (entity, sprite, anchor, place) in &bodies {
         // Ranked only when it is a shown body with no rigged presentation.
         let drawn = depths.roots.get(&entity)
+            .filter(|depth| depth.representation == CardBodyRepresentation::Sprite)
             .and_then(|depth| Some((depth.plane_z, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
         let Some((depth, (frame, page_size))) = drawn else {
             if let Some(card) = by_body.get(&entity) {
@@ -1298,88 +1367,6 @@ pub(super) fn realize_card_sprite_bodies(
                     ))
                     .id();
                 by_body.insert(entity, card);
-            }
-        }
-    }
-}
-
-/// Realize each mesh of a room's terrain skin as a card of the same mesh on
-/// the play plane ([`TERRAIN_DEPTH`]), its skin layer's 2D depth kept as its
-/// order among the terrain.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn realize_card_terrain(
-    mut commands: Commands,
-    terrain: Query<
-        (
-            Entity,
-            &Mesh2d,
-            &bevy::sprite_render::MeshMaterial2d<bevy::sprite_render::ColorMaterial>,
-            &Transform,
-            &GlobalTransform,
-            Option<&InheritedVisibility>,
-            Has<ChainEarth>,
-        ),
-        (Or<(With<TerrainSkinMesh>, With<ChainEarth>)>, Without<CardTerrain>),
-    >,
-    mut cards: Query<(&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility), With<CardTerrain>>,
-    color_materials: Option<Res<Assets<bevy::sprite_render::ColorMaterial>>>,
-    materials: Option<ResMut<Assets<StandardMaterial>>>,
-    mut cache: ResMut<CardMeshes>,
-    mut by_mesh: Local<RetainedEntities<Entity>>,
-) {
-    let (Some(color_materials), Some(mut materials)) = (color_materials, materials) else {
-        return;
-    };
-    by_mesh.reconcile(&mut commands, |mesh| terrain.contains(*mesh));
-    for (entity, mesh, skin, local, global, visibility, earth) in &terrain {
-        let shown = visibility.is_none_or(|visibility| visibility.get());
-        let Some((skin, image)) = color_materials
-            .get(&skin.0)
-            .and_then(|skin| Some((skin, skin.texture.clone()?)))
-            .filter(|_| shown)
-        else {
-            if let Some((.., mut card_visibility)) = by_mesh.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-                card_visibility.set_if_neq(Visibility::Hidden);
-            }
-            continue;
-        };
-        let color = skin.color.to_srgba().to_u8_array();
-        let material = cache.textured_material(&image, color, &mut materials);
-        let (scale, rotation, translation) = global.to_scale_rotation_translation();
-        let place = Transform {
-            translation: translation.truncate().extend(if earth {
-                TERRAIN_DEPTH - EARTH_BEHIND_SKIN
-            } else {
-                TERRAIN_DEPTH + local.translation.z
-            }),
-            rotation,
-            scale,
-        };
-        match by_mesh.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
-                if card_mesh.0 != mesh.0 {
-                    card_mesh.0 = mesh.0.clone();
-                }
-                if card_material.0 != material {
-                    card_material.0 = material;
-                }
-                transform.set_if_neq(place);
-                card_visibility.set_if_neq(Visibility::Inherited);
-            }
-            None => {
-                let card = commands
-                    .spawn((
-                        CardTerrain,
-                        CardScope::Source(entity),
-                        Mesh3d(mesh.0.clone()),
-                        MeshMaterial3d(material),
-                        place,
-                        Visibility::Inherited,
-                        RenderLayers::layer(CARD_VIEW_LAYER),
-                        Name::new("Card terrain"),
-                    ))
-                    .id();
-                by_mesh.insert(entity, card);
             }
         }
     }
@@ -1425,6 +1412,7 @@ pub(super) fn realize_card_scenery(
         (
             Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
             &InheritedVisibility, Option<&MovingPlatformVisual>, Has<AnimatedWorldSpriteTint>,
+            Option<&PresentationOf>,
         ),
         (ScenerySource, Without<CardScenery>),
     >,
@@ -1448,7 +1436,7 @@ pub(super) fn realize_card_scenery(
         return;
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
-    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint) in &scenery {
+    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject) in &scenery {
         let shown = visibility.get()
             && sprite.color.alpha() > 0.0
             && !depths.roots.contains_key(&entity);
@@ -1465,15 +1453,18 @@ pub(super) fn realize_card_scenery(
             sprite_card_place(local, platform_depth(platform, platform_looks.as_deref()))
         } else {
             let place = global.compute_transform();
-            let front = if place.translation.z >= ambition_platformer2d_core::config::WORLD_Z_PLAYER {
-                let room = rooms.stamped(entity)
-                    .or_else(|| parents.iter_ancestors(entity).find_map(|parent| rooms.stamped(parent)))
-                    .or_else(|| rooms.of(entity));
-                depths.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP)
-            } else {
-                CARD_BODY_STEP
-            };
-            sprite_card_place(&place, scenery_depth(place.translation.z, front))
+            let z = place.translation.z;
+            let depth = depths.effect_depth(subject, z).unwrap_or_else(|| {
+                let room = if z >= ambition_platformer2d_core::config::WORLD_Z_PLAYER {
+                    rooms.stamped(entity)
+                        .or_else(|| parents.iter_ancestors(entity).find_map(|parent| rooms.stamped(parent)))
+                        .or_else(|| rooms.of(entity))
+                } else {
+                    None
+                };
+                depths.scenery_depth(z, room)
+            });
+            sprite_card_place(&place, depth)
         };
         // Keep the quad when the size of an unsliced sprite changes.
         if matches!(sprite.image_mode, SpriteImageMode::Auto) {
@@ -1484,7 +1475,7 @@ pub(super) fn realize_card_scenery(
         let mesh = cache.sprite_mesh(TextureQuad::baked(&frame, page_size), &sprite.image_mode, &mut meshes);
         let material = if animated_tint {
             let handle = card.as_ref().map(|(_, material, ..)| &material.0);
-            animated_sprite_material(handle, sprite, &mut materials)
+            retain_sprite_material(handle, &sprite.image, sprite.color, &mut materials)
         } else {
             let color = sprite.color.to_srgba().to_u8_array();
             cache.textured_material(&frame.image, color, &mut materials)
@@ -1523,20 +1514,23 @@ pub(super) fn realize_card_scenery(
     }
 }
 
-/// Where a parallax panel's card stands for a card camera: facing the
-/// camera, along its view from the view's centre `target`, at the panel's 2D
-/// offset from that centre scaled by `scale`; behind the play plane for a
-/// background layer, in front of it for a foreground one.
-pub fn backdrop_card_place(camera: &Transform, target: Vec2, panel: Vec2, layer_z: f32, scale: f32) -> Transform {
+/// Face the panel toward the camera. Keep its 2D orientation when the view rolls.
+fn backdrop_card_place(
+    camera: &Transform,
+    frame: &PresentedViewFrame,
+    panel: Vec2,
+    layer_z: f32,
+    scale: f32,
+) -> Transform {
     let along = if layer_z < FOREGROUND_PARALLAX_Z {
         -(BACKDROP_DISTANCE - layer_z)
     } else {
         FOREGROUND_DISTANCE + (layer_z - FOREGROUND_PARALLAX_Z) * BAND_ORDER_SCALE
     };
-    let offset = (panel - target) * scale;
-    let rotation = camera.rotation;
+    let offset = (panel - frame.plane_center) * scale;
+    let rotation = camera.rotation * Quat::from_rotation_z(-frame.roll_radians);
     Transform {
-        translation: target.extend(0.0) + rotation * Vec3::new(offset.x, offset.y, along),
+        translation: frame.plane_center.extend(0.0) + rotation * Vec3::new(offset.x, offset.y, along),
         rotation,
         scale: Vec3::new(scale, scale, 1.0),
     }
@@ -1597,7 +1591,7 @@ pub(super) fn realize_card_backdrop(
             };
             let (mesh, material) = sprite_card(sprite, &cell, page_size, &mut meshes, &mut materials, &mut cache);
             let card_place =
-                backdrop_card_place(camera_place, frame.plane_center, place.translation.truncate(), layer.z, scale);
+                backdrop_card_place(camera_place, frame, place.translation.truncate(), layer.z, scale);
             match by_panel.get(&(panel, camera)).and_then(|card| cards.get_mut(*card).ok()) {
                 Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
                     if card_mesh.0 != mesh {
@@ -1671,7 +1665,10 @@ mod tests {
         let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
         let root = app.world_mut().spawn_empty().id();
         let no_card = app.world_mut().spawn_empty().id();
-        app.world_mut().resource_mut::<CardRootDepths>().roots.insert(root, CardBodyDepth { plane_z: -20.0, source_z: 5.0, order_scale: 1.0 });
+        app.world_mut().resource_mut::<CardRootDepths>().roots.insert(root, CardBodyDepth {
+            plane_z: -20.0, source_z: 5.0, order_scale: 1.0, front_part: 0.0,
+            representation: CardBodyRepresentation::Sprite,
+        });
         let item = |at: Vec3, holder| {
             (
                 Sprite { image: image.clone(), custom_size: Some(Vec2::new(10.0, 4.0)), ..default() },
@@ -1738,58 +1735,6 @@ mod tests {
         );
     }
 
-    /// RV3: each mesh of a room's terrain skin is a card of the same mesh on
-    /// the play plane, its layer order kept; a hidden mesh shows none, and a
-    /// mesh that goes takes its card with it.
-    #[test]
-    fn a_rooms_terrain_skin_is_a_card_on_the_play_plane() {
-        use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
-        let mut app = App::new();
-        app.init_resource::<Assets<Mesh>>()
-            .init_resource::<Assets<StandardMaterial>>()
-            .init_resource::<Assets<ColorMaterial>>()
-            .init_resource::<CardMeshes>()
-            .add_systems(Update, realize_card_terrain);
-        let image = Handle::<Image>::default();
-        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(Rectangle::new(32.0, 16.0));
-        let skin = app.world_mut().resource_mut::<Assets<ColorMaterial>>().add(ColorMaterial {
-            texture: Some(image.clone()),
-            ..ColorMaterial::from_color(Color::WHITE)
-        });
-        let terrain = |z: f32| {
-            (
-                Mesh2d(mesh.clone()),
-                MeshMaterial2d(skin.clone()),
-                Transform::from_xyz(0.0, 0.0, z),
-                GlobalTransform::from_translation(Vec3::new(40.0, -12.0, 7.0 + z)),
-                TerrainSkinMesh { theme: ambition_sprite_sheet::game_assets::ParallaxTheme::new("cave"), centre: Vec2::ZERO },
-            )
-        };
-        let cap = app.world_mut().spawn(terrain(0.03)).id();
-        app.world_mut().spawn(terrain(0.005));
-        app.world_mut().spawn((terrain(0.01), InheritedVisibility::HIDDEN));
-        app.update();
-        let shown = |app: &mut App| {
-            let world = app.world_mut();
-            let mut cards = world.query_filtered::<(&Mesh3d, &Transform, &Visibility), With<CardTerrain>>();
-            let mut found: Vec<(bool, f32)> = cards
-                .iter(world)
-                .filter(|(.., visibility)| **visibility != Visibility::Hidden)
-                .map(|(card, place, _)| (card.0 == mesh, place.translation.z))
-                .collect();
-            found.sort_by(|a, b| a.1.total_cmp(&b.1));
-            found
-        };
-        let found = shown(&mut app);
-        assert_eq!(found.len(), 2, "the hidden mesh shows none");
-        assert!(found.iter().all(|(same, _)| *same), "the 2D mesh itself");
-        assert!((found[0].1 - (TERRAIN_DEPTH + 0.005)).abs() < 1e-6 && (found[1].1 - (TERRAIN_DEPTH + 0.03)).abs() < 1e-6);
-        assert!(found[1].1 < card_body_depth(false, 0) && found[1].1 > -NEAR_PANEL_GAP, "behind the bodies, before the near panel");
-        app.world_mut().entity_mut(cap).despawn();
-        app.update();
-        assert_eq!(shown(&mut app).len(), 1, "a mesh that goes takes its card");
-    }
-
     /// RV3: a room's props and its turf are cards at their 2D places, in the
     /// 2D view's order: a backdrop prop behind the cart's back panel, the
     /// turf in front of the block skin, a scenery prop in front of the turf
@@ -1829,11 +1774,13 @@ mod tests {
         app.world_mut().spawn((sprite(Vec3::new(30.0, 0.0, -11.0)), prop()));
         app.world_mut().spawn((sprite(Vec3::new(40.0, 0.0, 2.01)), ChainTurfPiece));
         app.world_mut().spawn((sprite(Vec3::new(50.0, 0.0, 10.7)), prop())).insert(InheritedVisibility::HIDDEN);
-        app.world_mut().spawn((
+        let actor = app.world_mut().spawn((
             sprite(Vec3::new(60.0, 0.0, 19.0)),
             prop(),
             BoundFeatureKind::new(FeatureVisualKind::Actor, Vec2::new(16.0, 24.0)),
-        ));
+        )).id();
+        app.world_mut().spawn((sprite(Vec3::new(70.0, 0.0, 18.94)), WorldSprite, PresentationOf(actor)));
+        app.world_mut().spawn((sprite(Vec3::new(80.0, 0.0, 19.8)), WorldSprite, PresentationOf(actor)));
         app.update();
         let shown = |app: &mut App| {
             let world = app.world_mut();
@@ -1848,7 +1795,7 @@ mod tests {
         };
         let found = shown(&mut app);
         let xs: Vec<f32> = found.iter().map(|at| at.x).collect();
-        assert_eq!(xs, vec![10.0, 20.0, 30.0, 40.0], "no hidden prop, and the actor prop is a body");
+        assert_eq!(xs, vec![10.0, 20.0, 30.0, 40.0, 70.0, 80.0], "no hidden prop, and the actor prop is a body");
         let depth = |x: f32| found.iter().find(|at| at.x == x).unwrap().z;
         let front = card_body_depth(false, 1) + CARD_BODY_STEP;
         let near = |a: f32, b: f32| (a - b).abs() < 1e-4;
@@ -1860,6 +1807,8 @@ mod tests {
         assert!(TERRAIN_DEPTH + 0.04 < depth(40.0) && depth(40.0) < depth(10.0) && depth(10.0) < PORTAL_DEPTH,
             "skin, turf, scenery, then the portal line");
         assert!(PORTAL_DEPTH < card_body_depth(false, 0), "behind the bodies");
+        assert!(depth(70.0) < card_body_depth(false, 0));
+        assert!(depth(80.0) > card_body_depth(false, 0) && depth(80.0) < card_body_depth(false, 1));
         let mut bodies = app.world_mut().query_filtered::<(), With<CardSpriteBody>>();
         assert_eq!(bodies.iter(app.world()).count(), 2, "the player and the actor prop");
         let card_of_scenery = {
@@ -1883,10 +1832,11 @@ mod tests {
         assert_eq!(app.world().resource::<Assets<StandardMaterial>>().get(&material).unwrap().base_color, color);
         app.world_mut().entity_mut(card_of_scenery).despawn();
         app.update();
-        assert_eq!(shown(&mut app).len(), 4);
+        assert_eq!(shown(&mut app), found, "the card returns while its source exists");
         app.world_mut().entity_mut(scenery).despawn();
         app.update();
-        assert_eq!(shown(&mut app).len(), 3, "a prop that goes takes its card");
+        let remaining: Vec<_> = found.into_iter().filter(|at| at.x != 10.0).collect();
+        assert_eq!(shown(&mut app), remaining, "removing a prop removes its card");
     }
 
     #[test]
@@ -1969,7 +1919,7 @@ mod tests {
     /// front of the play plane. A panel kept for another view, or hidden,
     /// shows none here.
     #[test]
-    fn a_parallax_panel_is_a_card_facing_the_card_camera() {
+    fn a_parallax_panel_keeps_its_2d_orientation_in_a_rolled_card_view() {
         let mut app = App::new();
         app.init_resource::<Assets<Image>>()
             .init_resource::<Assets<Mesh>>()
@@ -1983,7 +1933,7 @@ mod tests {
         let frame = super::super::camera::PresentedViewFrame {
             room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
             plane_center: Vec2::new(100.0, 50.0),
-            roll_radians: 0.0,
+            roll_radians: std::f32::consts::FRAC_PI_2,
             orthographic_scale: 1.0,
         };
         app.insert_resource(PresentedViewFrames::of_views(vec![(view, frame)]));
@@ -2016,9 +1966,11 @@ mod tests {
         let back = shown.iter().find(|place| local(place).z < 0.0).expect("a background card");
         let front = shown.iter().find(|place| local(place).z > 0.0).expect("a foreground card");
         let scale = 1.0 / settings.zoom;
-        assert!(local(back).distance(Vec3::new(200.0 * scale, 0.0, -(BACKDROP_DISTANCE + 16.0))) < 1e-2, "{:?}", local(back));
-        assert!(local(front).distance(Vec3::new(0.0, 100.0 * scale, FOREGROUND_DISTANCE + 0.5)) < 1e-2, "{:?}", local(front));
-        assert!(back.rotation.angle_between(rotation) < 1e-5, "facing the card camera");
+        assert!(local(back).distance(Vec3::new(0.0, -200.0 * scale, -(BACKDROP_DISTANCE + 16.0))) < 1e-2, "{:?}", local(back));
+        assert!(local(front).distance(Vec3::new(100.0 * scale, 0.0, FOREGROUND_DISTANCE + 0.5)) < 1e-2, "{:?}", local(front));
+        let panel_in_view = rotation.inverse() * back.rotation;
+        assert!((panel_in_view * Vec3::X).distance(-Vec3::Y) < 1e-5);
+        assert!((panel_in_view * Vec3::Z).distance(Vec3::Z) < 1e-5);
         assert_eq!(back.scale, Vec3::new(scale, scale, 1.0));
         assert!(local(back).z.abs() < CAMERA_DISTANCE, "inside the camera's far plane");
     }

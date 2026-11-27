@@ -28,6 +28,10 @@ fn land_a_hit(app: &mut App, hitlag: f32) {
 
 fn land_a(app: &mut App, hitlag: f32, source: crate::HitSource) {
     let victim = app.world_mut().spawn_empty().id();
+    land_on(app, victim, hitlag, source);
+}
+
+fn land_on(app: &mut App, victim: Entity, hitlag: f32, source: crate::HitSource) {
     app.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         damage: 7,
         victim,
@@ -38,6 +42,34 @@ fn land_a(app: &mut App, hitlag: f32, source: crate::HitSource) {
         source,
             attacker_move_instance: None,
     });
+}
+
+#[test]
+fn one_rooms_hold_does_not_extend_or_prevent_another_rooms_hold() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+
+    let mut app = app();
+    let [first, second] = [1, 2].map(|ordinal| {
+        let room = LiveRoomInstance::from_ordinal(ordinal);
+        let root = app.world_mut().spawn((RoomInstanceRoot, room, RoomPace::default())).id();
+        let victim = app.world_mut().spawn(InRoomInstance(room)).id();
+        (root, victim)
+    });
+    let hitlag = FeelTuning::default().hitlag_time;
+    let expiry = |app: &App, root| app.world().get::<RoomPace>(root).unwrap().held_until;
+
+    land_on(&mut app, first.1, hitlag, crate::HitSource::Melee);
+    app.update();
+    let first_expiry = expiry(&app, first.0);
+    assert!(first_expiry > 1);
+    assert_eq!(expiry(&app, second.0), 0);
+
+    advance(&mut app, 1);
+    land_on(&mut app, first.1, hitlag, crate::HitSource::Melee);
+    land_on(&mut app, second.1, hitlag, crate::HitSource::Melee);
+    app.update();
+    assert_eq!(expiry(&app, first.0), first_expiry);
+    assert_eq!(expiry(&app, second.0), first_expiry + 1);
 }
 
 fn now(app: &App) -> SimTick {
@@ -122,38 +154,31 @@ fn a_freeze_expires_against_a_tick_that_keeps_advancing() {
     );
 }
 
-/// ⭐ OVERLAPPING CONNECTS ARE `max`, WHICH NEEDS NO ORDERING RULE. A second hit
-/// mid-freeze extends the expiry to its own; it never sums, so a multi-hit move
-/// cannot stop the world for longer than its hardest connect.
 #[test]
-fn overlapping_connects_extend_rather_than_accumulate() {
+fn a_crowd_of_hits_cannot_accumulate_or_renew_a_freeze() {
     let mut app = app();
     let hitlag = FeelTuning::default().hitlag_time;
     let bound = (hitlag * TICKS_PER_SECOND).round() as u64;
 
+    for _ in 0..300 {
+        land_a_hit(&mut app, hitlag * 0.5);
+    }
     land_a_hit(&mut app, hitlag);
     app.update();
-    let first = app.world().resource::<ImpactHitstop>().until_tick;
-
-    // Five more connects on the same tick buy exactly the same expiry.
-    for _ in 0..5 {
+    let expiry = Some(now(&app).0 + bound);
+    assert_eq!(app.world().resource::<ImpactHitstop>().until_tick, expiry);
+    while app.world().resource::<ImpactHitstop>().is_freezing(now(&app)) {
         land_a_hit(&mut app, hitlag);
+        app.update();
+        assert_eq!(app.world().resource::<ImpactHitstop>().until_tick, expiry);
+        advance(&mut app, 1);
     }
-    app.update();
-    assert_eq!(
-        app.world().resource::<ImpactHitstop>().until_tick,
-        first,
-        "connects on one tick accumulated instead of combining with max"
-    );
-
-    // A connect LATER in the freeze extends it, and by its own length.
-    advance(&mut app, 2);
     land_a_hit(&mut app, hitlag);
     app.update();
     assert_eq!(
         app.world().resource::<ImpactHitstop>().until_tick,
         Some(now(&app).0 + bound),
-        "a connect during a freeze did not extend it to its own length"
+        "a connect after the freeze can start a new hold"
     );
 }
 

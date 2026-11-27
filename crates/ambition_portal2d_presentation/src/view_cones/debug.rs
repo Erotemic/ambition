@@ -460,7 +460,7 @@ fn portal_view_cone_debug_dump_text(
             Some((rig, cam, proj, cam_global)) => {
                 let _ = writeln!(out, "  rig.present: true");
                 let _ = writeln!(out, "  rig.blend: {:.3}", rig.blend);
-                let _ = writeln!(out, "  rig.parallax_layer: {}", rig.parallax_layer);
+                let _ = writeln!(out, "  rig.parallax_layer: {}", rig.parallax_layer());
                 let _ = writeln!(
                     out,
                     "  rig.rebuild.world_size: {}",

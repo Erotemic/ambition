@@ -14,7 +14,11 @@
 //   look.x >= 0.5 light: added to what is behind (`rgb * i`, alpha 0), with
 //                 the falloff of a lamp: a bright core and a long soft tail.
 
+#ifdef AMBITION_CARD_MESH
+#import bevy_pbr::forward_io::VertexOutput
+#else
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#endif
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif

@@ -144,7 +144,7 @@ const REFERENCE_PARRY_SECONDS: f32 = 0.18;
 /// [`super::ActorOverlaySet`] seam, for example the puppy-slug deep-dream
 /// material) use ~0.9, and the HazardColumn telegraph quad uses +1.0 of boss
 /// z. HUD layers are in the hundreds.
-const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
+pub(super) const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
 // Under the plane of an enclosure, so a pipe hides a flash with its body.
 const _: () = assert!(FLASH_OVERLAY_Z_BIAS < super::BODY_DEPTH_BAND);
 
@@ -166,7 +166,7 @@ pub fn add_hit_flash_material_plugin(app: &mut App) {
 ///
 /// Bindings mirror the puppy-slug deep-dream material, so they use the same
 /// WebGL2-friendly layout (vec4 uniforms, no struct UBOs).
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct HitFlashMaterial {
     /// Current atlas frame as a UV rect on the loaded spritesheet.
     /// `(min.x, min.y, max.x, max.y)` normalized.
@@ -187,6 +187,15 @@ pub struct HitFlashMaterial {
     pub tint: Vec4,
 }
 
+#[cfg(feature = "card_view")]
+impl super::card_view::CardMaterialSource for HitFlashMaterial {
+    fn draws_on_card(&self, body: Option<super::card_view::CardBodyRepresentation>) -> bool {
+        use super::card_view::CardBodyRepresentation::{RiggedFrame, Sprite};
+
+        matches!(body, Some(Sprite | RiggedFrame)) && self.control.x > 0.001
+    }
+}
+
 impl Material2d for HitFlashMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
@@ -202,8 +211,8 @@ impl Material2d for HitFlashMaterial {
 /// body (0 shows nothing). Published on the source so another view of the
 /// body draws the same cue without deciding it again (RV3).
 ///
-/// The gate's scanline light is published as its flat tint; only the 2D
-/// overlay's shader draws the scanlines.
+/// A direct rig uses this tint when its whole frame is not available.
+/// The flash material draws the gate's scanlines on a whole frame.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
 pub struct PresentedFlash {
     pub intensity: f32,

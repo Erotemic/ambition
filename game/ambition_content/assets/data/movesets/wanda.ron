@@ -197,10 +197,12 @@
                             repeat: None, landing_lag_s: Some(0.16), autocancel_after_s: None, sprite_spin_hz: None, equips: None, flow: None,
                         ),
                         (
+                            // The seal binds a standing foe to the floor (status `Bury`);
+                            // met in the air it is the launch.
                             id: "wanda_special_down", display_name: Some("Ground Seal"),
                             clip: (clip: "special_down", fallbacks: ["attack_side", "idle"]),
                             duration_s: 0.87,
-                            windows: [(start_s: 0.0, end_s: 0.26, tag: Startup, volumes: [], motion_scale: 1.0, sustain_effect: None), (start_s: 0.26, end_s: 0.44, tag: Active, volumes: [(shape: Rect(offset: (30.0, 23.0), half_extents: (23.0, 16.0)), damage: 8, knockback: 108.0, knockback_growth: Some(1.45), launch_dir: Some((0.75, -0.65)), reaction: None, on_hit: None, vfx: Some("slash_arc"), hit_sfx: Some("player.hit"))], motion_scale: 1.0, sustain_effect: None), (start_s: 0.44, end_s: 0.87, tag: Recovery, volumes: [], motion_scale: 0.45, sustain_effect: None)],
+                            windows: [(start_s: 0.0, end_s: 0.26, tag: Startup, volumes: [], motion_scale: 1.0, sustain_effect: None), (start_s: 0.26, end_s: 0.44, tag: Active, volumes: [(shape: Rect(offset: (30.0, 23.0), half_extents: (23.0, 16.0)), damage: 8, knockback: 108.0, knockback_growth: Some(1.45), launch_dir: Some((0.75, -0.65)), reaction: None, status: Some((kind: Bury, duration_s: 0.8)), on_hit: None, vfx: Some("slash_arc"), hit_sfx: Some("player.hit"))], motion_scale: 1.0, sustain_effect: None), (start_s: 0.44, end_s: 0.87, tag: Recovery, volumes: [], motion_scale: 0.45, sustain_effect: None)],
                             events: [],
                             gates: (grounded: None, recovery: r#None, forbidden_while_held: false, roots_steering: false, stops_at_ledge: false, recovery_route: None, costs: [], when_refused: None),
                             start_impulse: None, charge_mult: 1.0, move_charge: None, charge_gesture: Smash,

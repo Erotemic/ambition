@@ -30,12 +30,13 @@ use ambition_sprite_sheet::game_assets::{
     GameAssets, ParallaxTheme, RoomDressingPart, MOTE_CELL_PX, MOTE_VARIANTS,
 };
 
-use super::primitives::RoomVisual;
+use super::primitives::{AnimatedWorldSpriteTint, RoomVisual};
 
 pub use ambition_sprite_sheet::game_assets::MoteStyle;
 
 /// One mote. Each value is made one time, when the mote is.
 #[derive(Component, Clone, Copy, Debug)]
+#[require(AnimatedWorldSpriteTint)]
 pub struct AmbientMote {
     /// Where the mote is in the field at time 0, in parts of the field.
     pub home: Vec2,

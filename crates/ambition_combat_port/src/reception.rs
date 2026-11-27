@@ -45,6 +45,7 @@ pub struct HitReception {
     pub source: ReceptionSource,
     pub decision: ReceptionDecision,
     pub raw_damage: i32,
+    pub damage_types: Vec<String>,
     pub damage: i32,
     pub wallet_spent: i32,
     pub health_depleted: bool,
@@ -81,6 +82,7 @@ ambition_extension_sdk::port_record! {
         source: ReceptionSource,
         decision: ReceptionDecision,
         raw_damage: i32,
+        damage_types: Vec<String>,
         /// The resolver's damage amount, after defenses and modifiers.
         damage: i32,
         wallet_spent: i32,
@@ -111,7 +113,7 @@ ambition_extension_sdk::port_record! {
 /// have their own owners.
 pub struct HitReceptionsPort;
 impl Port for HitReceptionsPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.hit_receptions", 3);
+    const KEY: PortKey = PortKey::new("ambition.combat.hit_receptions", 4);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = HitReceptions;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
@@ -148,6 +150,7 @@ mod tests {
                 source: ReceptionSource::Projectile,
                 decision: ReceptionDecision::WalletShielded,
                 raw_damage: 10,
+                damage_types: vec!["example.electric".into()],
                 damage: 0,
                 wallet_spent: 7,
                 health_depleted: false,

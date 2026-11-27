@@ -816,6 +816,24 @@ shared value preparation are sufficient until source proves otherwise.
    card view shows the ladder at the same position before and after this
    replacement.
 
+   Morph balls, trapdoors, flylines, tethers, room motes, and limb wisps
+   use the same sprite path. The card rig reads the same visibility as
+   the 2D rig. A test checks that morphing hides the rig on the same frame
+   and that exiting morph shows it again. An Ultra fixture shows the
+   replacement sprites and effects in 2D, side-on 2.5D, and oblique 2.5D.
+
+   Worn gear fits use the published sheet target. The fit works for both
+   loose assets and library assets. The card view draws the back picture
+   behind the wearer and the front picture above its anchor part.
+   An Ultra fixture shows Scout's helmet on a rig drawn from parts and
+   Kagero's talismans on the Inugami drawn as one image.
+
+   Portal carry includes worn gear in the wearer's capture and includes the
+   gear's bounds when it sizes that capture. A held item has its own portal
+   cut. Its card uses the item's visibility. The item and its entry piece
+   use the same draw depth. An Ultra fixture shows a split helmet and held
+   items with independent cuts in all three views.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

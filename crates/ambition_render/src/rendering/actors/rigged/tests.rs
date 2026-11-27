@@ -11,6 +11,40 @@ use crate::rendering::actors::draw_held_frame;
 
 const RENDER: Vec2 = Vec2::new(103.0, 114.0);
 
+#[test]
+fn a_library_wearer_asks_for_the_track_of_its_authored_fit() {
+    use ambition_platformer2d_shared_tangle::worn_gear::{GearFit, WornGearEntry, WornGearManifest};
+    use ambition_sim_view::{WornGearFact, WornGearView};
+    use crate::rendering::worn_gear_visuals::sync_worn_gear_visuals;
+
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let target = "player_robot_v3";
+    let sheet = sheet_with(&sprites, target, None);
+    assert_ne!(sheet.spec.base_sheet_key(), target);
+    let mut app = App::new();
+    let body = app.world_mut().spawn(CharacterAnimator::new(&sheet)).id();
+    app.insert_resource(WornGearView(vec![WornGearFact {
+        body, feature: None, gear: "helmet".into(), room: None,
+    }]));
+    app.insert_resource(WornGearManifest(vec![WornGearEntry {
+        id: "helmet".into(),
+        anchor: Default::default(),
+        slot: "head".into(),
+        back: None,
+        front: Some("sprites/space_helmet_front.png".into()),
+        size: Vec2::splat(64.0),
+        socket: Vec2::new(0.5, 0.58),
+        fits: std::collections::BTreeMap::from([(target.to_owned(), GearFit {
+            track: "head".into(), scale: 1.0, offset: Vec2::ZERO, turn_degrees: 0.0,
+        })]),
+    }]));
+    app.add_systems(Update, sync_worn_gear_visuals);
+
+    app.update();
+    let request = app.world().get::<PartSetRequest>(body).expect("the helmet asks for its anchor");
+    assert_eq!(request.tracks_of("worn_gear:head"), Some(&["head".to_owned()][..]));
+}
+
 fn raider(sprite_content: &ambition_sprite_sheet::SpriteContent, rigged: bool) -> CharacterSpriteAsset {
     raider_with(&sprite_content, rigged.then(|| RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").expect("a published flipbook")))
 }
@@ -2478,6 +2512,40 @@ fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
     app.world_mut().entity_mut(root).insert(PresentedFlash::default());
     app.update();
     assert_eq!(cards(&mut app).len(), sampled, "no cue, no silhouette");
+}
+
+#[cfg(feature = "card_view")]
+#[test]
+fn a_morphed_body_hides_its_rigged_cards_and_can_show_them_again() {
+    use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
+    use ambition_sim_view::BodyPoseView;
+    use crate::rendering::body_visibility::sync_body_visibility;
+    use crate::rendering::card_view::{realize_card_bodies, CardBody, CardMeshes};
+
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app_direct(&sprites, raider(&sprites, true), Anchor::CENTER);
+    app.world_mut().entity_mut(root).insert((PlayerVisual, BodyPoseView::default()));
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<CardMeshes>()
+        .add_systems(Update, (
+            sync_body_visibility.before(RiggedDriveSet),
+            realize_card_bodies.after(RiggedDriveSet),
+        ));
+    settle(&mut app);
+    let card = app.world_mut().query_filtered::<Entity, With<CardBody>>()
+        .single(app.world()).expect("the visible body has a card root");
+    assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Inherited));
+
+    app.world_mut().get_mut::<BodyPoseView>(root).unwrap().morph_ball = true;
+    app.update();
+    let sample = app.world().get::<RiggedLocalSample>(owner(&app, root)).unwrap();
+    assert!(sample.parts().is_some());
+    assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Hidden));
+
+    app.world_mut().get_mut::<BodyPoseView>(root).unwrap().morph_ball = false;
+    app.update();
+    assert_eq!(app.world().get::<Visibility>(card), Some(&Visibility::Inherited));
 }
 
 #[cfg(feature = "card_view")]

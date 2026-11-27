@@ -33,6 +33,7 @@ pub(crate) const TRAIL_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_DUMM
 
 /// One wisp of one limb's trail.
 #[derive(Component)]
+#[require(super::primitives::AnimatedWorldSpriteTint)]
 pub struct LimbTrailWisp {
     pub body: Entity,
     pub index: usize,

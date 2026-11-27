@@ -589,6 +589,7 @@ fn ray(
         launch_dir: None,
         lifetime_s: life,
         look: "laser".into(),
+        damage_types: Vec::new(),
         jump: None,
     })
 }

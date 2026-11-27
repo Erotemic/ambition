@@ -130,6 +130,7 @@ fn a_room_observes_a_retired_victim_but_a_replacement_cannot_receive_its_hit() {
         },
         source: ambition_combat::HitSource::Projectile,
         raw_damage: 3,
+        damage_types: Default::default(),
         attacker_move_instance: None,
     });
     app.world_mut().despawn(original);
@@ -177,12 +178,17 @@ fn mechanically_equal_receptions_have_equal_gameplay_payloads_after_different_ho
             },
             source: ambition_combat::HitSource::Melee,
             raw_damage: 2,
+            damage_types: ambition_combat::damage_types::DamageTypes::from_names(
+                vec!["example.electric".into(), "example.fire".into()],
+            ).unwrap(),
             attacker_move_instance: None,
         };
         let mut bytes = Vec::new();
+        let reception = fact(&hit, body, Some(SessionScopeId(session)));
+        assert_eq!(reception.damage_types, ["example.electric", "example.fire"]);
         HitReceptionsPort::encode(
             &HitReceptions {
-                events: vec![fact(&hit, body, Some(SessionScopeId(session)))],
+                events: vec![reception],
                 truncated: false,
             },
             &mut bytes,

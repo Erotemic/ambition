@@ -9,7 +9,7 @@
 //!   material parts. A part can pass through an opening before the body's
 //!   centre crosses its plane. A host can also lend a shallow part of its
 //!   picture to a limb ([`crate::PortalHostReach`]).
-//! * Any other drawable (worn gear, a held item, a flash, a trail, a slash,
+//! * Any independent drawable (a held item, a flash, a trail, a slash,
 //!   dust, a spark, a bolt) goes through an opening when it reaches past the
 //!   entry plane, inside the opening, from the front: the rule a combat volume
 //!   is cut by. It moves through square on from its own centre, or reaches
@@ -19,8 +19,8 @@
 //!   from that point through the opening's ends, as its hits do
 //!   ([`ae::frame::thread::partition_reaching`]). No kind opts in, so a new
 //!   kind is carried when it is made.
-//! * A drawable that is part of another's picture ([`PortalDrawnWith`], and
-//!   each child) goes with that one.
+//! * A drawable that is part of another's picture (worn gear,
+//!   [`PortalDrawnWith`], and each child) goes with that picture.
 //!
 //! Each drawable family has its own root, depth and carry camera. The source stays on
 //! its world layers while the capture or its pieces are prepared. Once ready,
@@ -40,6 +40,8 @@
 //! drawn whole, under the floor, at the exit). So it reads each drawable's
 //! own `Transform` (a top-level drawable's is its place in the world) and its
 //! bounds as last computed.
+
+use std::collections::HashMap;
 
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::RenderLayers;
@@ -195,6 +197,7 @@ struct Carry {
     reach: Option<f32>,
     /// The root drawable that gives the family its order.
     drawable: Entity,
+    members: Vec<Entity>,
     /// Engine-space bounds of what it carries.
     min: Vec2,
     max: Vec2,
@@ -248,6 +251,18 @@ fn sprite_bounds(
     Some(Aabb { center: (-anchor.as_vec() * size).extend(0.0).into(), half_extents: (0.5 * size).extend(0.0).into() })
 }
 
+fn current_bounds(
+    sprite: Option<(&Sprite, &bevy::sprite::Anchor)>,
+    aabb: Option<&Aabb>,
+    images: &Assets<Image>,
+    atlases: Option<&Assets<TextureAtlasLayout>>,
+) -> Option<Aabb> {
+    // Bevy updates the Aabb after the carry. Use the current sprite size.
+    sprite
+        .and_then(|(sprite, anchor)| sprite_bounds(sprite, anchor, images, atlases))
+        .or_else(|| aabb.copied())
+}
+
 /// Is a drawable on these layers drawn by a world camera: the world layer,
 /// or a live room's band? A drawable on another layer (the impostor atlas,
 /// the parallax, a view's own layer) is not carried.
@@ -298,6 +313,22 @@ pub struct CarryFamilies<'w, 's> {
     drawn_with: Query<'w, 's, (Entity, &'static PortalDrawnWith)>,
     children: Query<'w, 's, &'static Children>,
     placed: Query<'w, 's, (&'static Transform, Option<&'static Aabb>, &'static Visibility), Without<PortalCarryCamera>>,
+    attachments: Query<
+        'w,
+        's,
+        (
+            &'static Transform,
+            &'static Visibility,
+            Option<&'static Aabb>,
+            Option<(&'static Sprite, &'static bevy::sprite::Anchor)>,
+        ),
+        (
+            With<PortalDrawnWith>,
+            Without<ChildOf>,
+            Without<PortalCarryCamera>,
+            Or<(With<Sprite>, With<Mesh2d>, With<Text2d>)>,
+        ),
+    >,
     layers: Query<'w, 's, &'static mut RenderLayers>,
     were_carried: Query<'w, 's, Entity, With<PortalCarried>>,
 }
@@ -439,6 +470,7 @@ pub fn carry_through_pairs(
                 budget,
                 reach,
                 drawable: visual,
+                members: Vec::new(),
                 min,
                 max,
                 z: at.translation.z,
@@ -461,12 +493,7 @@ pub fn carry_through_pairs(
             if all.is_empty() {
                 continue;
             }
-            // A sprite's bounds as it is now (its `Aabb` is computed after the
-            // carry: one frame old, and missing on the frame it is made).
-            let bounds = sprite
-                .and_then(|(sprite, anchor)| sprite_bounds(sprite, anchor, images, assets.atlases.as_deref()))
-                .or_else(|| aabb.copied());
-            let Some(aabb) = bounds else {
+            let Some(aabb) = current_bounds(sprite, aabb, images, assets.atlases.as_deref()) else {
                 continue;
             };
             let (min, max) = engine_bounds(&placement.frame, &aabb, at);
@@ -506,11 +533,45 @@ pub fn carry_through_pairs(
                 budget,
                 reach: None,
                 drawable,
+                members: Vec::new(),
                 min,
                 max,
                 z,
                 traced: Vec::new(),
             });
+        }
+    }
+
+    if !carries.is_empty() {
+        let mut attached_to = HashMap::<Entity, Vec<Entity>>::new();
+        for (entity, with) in &families.drawn_with {
+            attached_to.entry(with.0).or_default().push(entity);
+        }
+        for carry in &mut carries {
+            let mut pending = vec![carry.drawable];
+            while let Some(entity) = pending.pop() {
+                if carry.members.contains(&entity) {
+                    continue;
+                }
+                carry.members.push(entity);
+                if let Ok(children) = families.children.get(entity) {
+                    pending.extend(children.iter());
+                }
+                if let Some(attached) = attached_to.get(&entity) {
+                    pending.extend(attached.iter().copied());
+                }
+                // An attachment can extend past the body's picture. Include
+                // its bounds in the capture and use the body's cut.
+                if let Ok((at, shown, aabb, sprite)) = families.attachments.get(entity) {
+                    if *shown != Visibility::Hidden && on_the_world(families.layers.get(entity).ok()) {
+                        if let Some(aabb) = current_bounds(sprite, aabb, images, assets.atlases.as_deref()) {
+                            let (min, max) = engine_bounds(&carry.frame, &aabb, at);
+                            carry.min = carry.min.min(min);
+                            carry.max = carry.max.max(max);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -578,19 +639,6 @@ pub fn carry_through_pairs(
                     ortho.scaling_mode = ScalingMode::Fixed { width: span, height: span };
                 }
             } else { continue; }
-        }
-        // The members and their families.
-        let mut members: Vec<Entity> = Vec::new();
-        let mut pending = vec![carry.drawable];
-        while let Some(entity) = pending.pop() {
-            if members.contains(&entity) {
-                continue;
-            }
-            members.push(entity);
-            if let Ok(kids) = families.children.get(entity) {
-                pending.extend(kids.iter());
-            }
-            pending.extend(families.drawn_with.iter().filter(|(_, with)| with.0 == entity).map(|(e, _)| e));
         }
         // The pieces: the part of the camera's square that holds what is
         // carried, cut by the pairs it reaches. (The whole square reached
@@ -674,7 +722,7 @@ pub fn carry_through_pairs(
         // A quad made this frame may not be drawn on it: the members stay on
         // the world too, whole, for that frame.
         let handoff = pool.0.made() > fresh_quads_before;
-        for member in &members {
+        for member in &carry.members {
             let own = families.layers.get(*member).ok().cloned();
             let own = own.as_ref();
             // A part drawn into an impostor, a parallax panel: not the world's.

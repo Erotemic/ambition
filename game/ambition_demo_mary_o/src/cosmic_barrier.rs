@@ -325,6 +325,7 @@ mod tests {
     fn the_quad_holds_her_body_and_the_reach_of_the_barrier() {
         let page = Handle::<Image>::default();
         let part = |at: Vec2, size: Vec2| PlacedPart {
+            paint_index: 0,
             image: page.clone(),
             rect: Rect::new(10.0, 20.0, 10.0 + size.x, 20.0 + size.y),
             size,
@@ -357,6 +358,7 @@ mod tests {
         let page = Handle::<Image>::default();
         let other = Handle::<Image>::Uuid(bevy::asset::uuid::Uuid::from_u128(7), std::marker::PhantomData);
         let part = |image: &Handle<Image>, local: Transform| PlacedPart {
+            paint_index: 0,
             image: image.clone(),
             rect: Rect::new(0.0, 0.0, 8.0, 8.0),
             size: Vec2::splat(8.0),

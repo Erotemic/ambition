@@ -160,6 +160,7 @@ pub fn burn_tick_of(s: &mut Burn, used: &TechniqueUse, dt: f32) -> BurnTick {
         launch_dir: None,
         lifetime_s: RAY_LIFETIME_S,
         look: LOOK.into(),
+        damage_types: Vec::new(),
         jump: None,
     });
     out.row = Some(DrawnRow {

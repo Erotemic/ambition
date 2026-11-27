@@ -24,6 +24,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use ambition_characters::actor::GestureHand;
+use ambition_platformer2d_shared_tangle::lifecycle::{ExecutionScope, ExecutionScopes};
 use ambition_sim_view::{HeldItemView, HostileWieldedItemsView, ItemHolder};
 
 use super::actors::rigged::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest};
@@ -98,6 +99,7 @@ pub struct VisualRoots<'w, 's> {
     // it (an item with no posed hand, a string with no posed foot) is placed
     // against, not the player plane (a body seated in a cart is under it).
     placed: Query<'w, 's, &'static GlobalTransform>,
+    scopes: ExecutionScopes<'w, 's>,
 }
 
 impl VisualRoots<'_, '_> {
@@ -108,7 +110,12 @@ impl VisualRoots<'_, '_> {
     /// transition.
     pub fn of(&self, body: Entity, feature: Option<&str>) -> Entity {
         feature
-            .and_then(|feature| self.visuals.iter().find(|(_, visual)| visual.id == feature))
+            .and_then(|feature| {
+                let scope = self.scopes.of(body);
+                self.visuals.iter().find(|(root, visual)| {
+                    visual.id == feature && ExecutionScope::shared(scope, self.scopes.of(*root))
+                })
+            })
             .map_or(body, |(root, _)| root)
     }
 
@@ -245,8 +252,31 @@ mod tests {
         assert!(!run(&mut world), "then asleep");
     }
 
+    #[test]
+    fn a_repeated_feature_uses_the_visual_in_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        use bevy::ecs::system::RunSystemOnce;
+
+        let mut world = World::new();
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        world.spawn((RoomInstanceRoot, first));
+        world.spawn((RoomInstanceRoot, second));
+        let first_visual = world.spawn((InRoomInstance(first), FeatureVisual { id: "wearer".into() })).id();
+        let second_visual = world.spawn((InRoomInstance(second), FeatureVisual { id: "wearer".into() })).id();
+        let first_body = world.spawn(InRoomInstance(first)).id();
+        let second_body = world.spawn(InRoomInstance(second)).id();
+        let found = world.run_system_once(move |roots: VisualRoots| {
+            (roots.of(first_body, Some("wearer")), roots.of(second_body, Some("wearer")))
+        }).unwrap();
+        assert_eq!(found, (first_visual, second_visual));
+    }
+
     fn part(at: Vec2, turn: f32) -> PlacedPart {
         PlacedPart {
+            paint_index: 0,
             image: Handle::default(),
             rect: Rect::new(0.0, 0.0, 4.0, 4.0),
             size: Vec2::splat(4.0),

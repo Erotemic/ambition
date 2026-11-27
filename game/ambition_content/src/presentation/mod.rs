@@ -21,6 +21,7 @@ pub mod mockingbird_sky;
 pub mod room_look;
 mod lantern;
 mod portal_gun;
+mod shock;
 pub mod dialog;
 pub mod vanity_card_made_this_meme;
 
@@ -58,6 +59,7 @@ impl Plugin for AmbitionPresentationPlugin {
         room_look::install(app);
         lantern::install(app);
         portal_gun::install(app);
+        shock::install(app);
         // Idle barks fire on the pack's cadence (`boss_idle_bark`) while a
         // boss is in an attacking phase, so the scholar feels alive between
         // strikes. Ambition's bosses, so only in Ambition's rooms.

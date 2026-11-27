@@ -702,13 +702,28 @@ pass). The plan's own example is the witness
 The broad phases (`openings_near`, the capture box) stay world boxes,
 which is conservative.
 
+**Receipt (2026-11-27, the push is admitted).** The snag's push is now
+cast as the body's material box against its room's solids under the
+body's own portal admission (`snag::admitted_push`: `CollisionWorld`,
+`BodyGeometry::motion_for`), and it stops at the first solid. Leaving the
+host it is in is a separating start, which is admitted. So "contact
+correction cannot push the body through another obstacle" holds for the
+snag. Witness: `a_snag_push_does_not_carry_a_body_into_another_solid`.
+- A body half past an end would go back 6 px onto the host. A ceiling
+  3 px above its head stops it at y 283.
+- Control, no ceiling: the whole push, to y 280.
+- Control run with the admission removed: the ceiling case went to 280,
+  into the block, and failed.
+
+A numeric refusal of the cast keeps the unadmitted push, which was the
+snag's answer before. portal2d 147, runtime portal 24 and app portal 52
+pass.
+
 Still open in P3: the rim constraint inside the accepted motion
-operation. The snag is still a post-step position writer whose push is
-not admitted against other obstacles, so "contact correction cannot
-push the body through another obstacle" is not met. The approach
-classification (from the front, sliding from within, already past the
-end) and the slope no-worse rule move with it. Deleting the writer
-waits on that constraint.
+operation itself. The snag is still a second, post-step position writer,
+though its push is now admitted. The approach classification (from the
+front, sliding from within, already past the end) and the slope no-worse
+rule would move with it. Deleting the writer waits on that constraint.
 
 ### P4 — Conservative query planning and proven fast cases
 

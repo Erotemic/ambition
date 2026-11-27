@@ -238,3 +238,34 @@ fn a_turned_body_that_fits_the_opening_passes_and_an_oversized_one_does_not() {
     assert!(!fits_through(Outline::of(wide), &ap), "30 along a 24 opening does not fit");
     assert!(!in_line_with(Outline::of(wide), &ap));
 }
+
+/// P3: the snag's push is admitted against the room's solids. The kernel
+/// body half past an end would go back up 6 px onto the host; a ceiling
+/// 3 px above its head stops it there, at y 283, instead of the push
+/// carrying it 3 px into the block. Control: the same body with no ceiling
+/// goes the whole 6 px, to y 280.
+#[test]
+fn a_snag_push_does_not_carry_a_body_into_another_solid() {
+    let held_at = |ceiling: bool| {
+        let mut app = App::new();
+        app.add_systems(Update, crate::snag_straddlers);
+        let blocks = if ceiling {
+            vec![ae::Block::solid("ceiling", Vec2::new(0.0, 243.0), Vec2::new(60.0, 20.0))]
+        } else {
+            Vec::new()
+        };
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+            ae::RoomGeometry(ae::World::new("snag", Vec2::new(800.0, 600.0), Vec2::new(50.0, 50.0), blocks)));
+        app.world_mut().spawn(floor());
+        app.world_mut().spawn(exit());
+        let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), canonical_size: BODY * 2.0, facing: 1.0 };
+        let record = SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
+        let body = app.world_mut().spawn((kin, record)).id();
+        app.update();
+        app.world().get::<BodyKinematics>(body).unwrap().pos
+    };
+    let free = held_at(false);
+    assert!((free - Vec2::new(30.0, 280.0)).length() < 1e-3, "control: the whole push: {free:?}");
+    let stopped = held_at(true);
+    assert!((stopped - Vec2::new(30.0, 283.0)).length() < 1e-2, "stopped by the ceiling: {stopped:?}");
+}

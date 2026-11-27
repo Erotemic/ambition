@@ -217,6 +217,40 @@ fn clip(poly: &[Vec2], keep: impl Fn(Vec2) -> f32) -> Vec<Vec2> {
     out
 }
 
+/// As much of `push` as the body's material travels before it meets a solid
+/// of its room: a push out of the host may not carry the body through
+/// anything else. The host it leaves is not met (a separating start is
+/// admitted). The cut is the body's own portal admission, so a part through
+/// an opening is pushed where it is. With no solids for the room the push is
+/// whole; a cast the kernel refuses (a numeric fault) leaves the push as it
+/// was, the snag's answer before admission.
+fn admitted_push(
+    collision: &ambition_platformer2d_world::collision::CollisionWorld,
+    geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    entity: Entity,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    body: BodyKinematics,
+    push: Vec2,
+) -> Vec2 {
+    use ambition_platformer2d_core::frame::{material_cast::MaterialCast, thread::MaterialPrimitive};
+    let in_room = room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+    let Some(world) = collision.room(in_room.as_ref()).and_then(|room| room.solids()) else {
+        return push;
+    };
+    let (Ok(domain), Ok(to_world)) = (body.canonical_box(), body.material_map()) else {
+        return push;
+    };
+    let admission = geometry.and_then(|geometry| geometry.motion_for(entity, room));
+    let Ok(cells) = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world }, body.pos, push, 0.0..1.0)
+        .cells(admission) else {
+        return push;
+    };
+    match world.first_material_contact(&cells, |_, _, _| Ok(true)) {
+        Ok(Some(hit)) => push * hit.contact.toi as f32,
+        Ok(None) | Err(_) => push,
+    }
+}
+
 /// Velocity with what carried the body into `against` taken out, relative to
 /// the portal's own motion.
 fn stop_into(portal: &PlacedPortal, at: Vec2, vel: Vec2, against: Vec2) -> Vec2 {
@@ -252,6 +286,10 @@ pub fn snag_straddlers(
         Option<&ae::PoseOwnedExternally>,
     ), Without<ae::BodyInStorage>>,
     live: PortalRooms,
+    // The room's solids and its portal cut, so a push out of the host is
+    // stopped by whatever else it would carry the body into (P3).
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
@@ -288,6 +326,7 @@ pub fn snag_straddlers(
                 portal.opening_half_length(),
                 kin.vel
             );
+            let push = admitted_push(&collision, geometry.as_deref(), entity, live.of(entity), *kin, push);
             ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), push);
             kin.vel = stop_into(portal, kin.pos, kin.vel, against);
         }

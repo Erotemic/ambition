@@ -391,7 +391,32 @@ A quality change must:
 5. retire old residency according to policy;
 6. avoid simulation changes.
 
-Include FX sheets and character sheets in the same acceptance surface.
+Include prop, FX, and character sheets in the same acceptance surface. Prop
+demand currently skips sheets with resident handles. The per-target prop
+loader also loads the Full tier. In Eureka Gate Court, a live Ultra to
+Potato change replaced Scout's art and kept the Full gate ring atlas. Extend
+prop demand to request the new tier and use the existing prop rebind when its
+pages are ready.
+
+#### Adaptive quality
+
+Keep the saved profile as the user's request. An optional Auto mode can use
+the device default as its initial budget and adjust the effective budget from
+measured render time. Exclude loading, pause, and time spent waiting for the
+frame cap from the sample. Use the same `ResolvedVisualQuality` for manual
+and Auto requests. Show the requested mode and effective budget in the
+developer tools.
+
+Change inexpensive render work first, such as effect detail. Require sustained
+pressure before reducing asset tiers, and leave more time before increasing
+quality. Use the same replacement path for manual and automatic requests.
+Asset owners prepare the replacement, keep the current version drawable, and
+discard obsolete requests. Apply a camera stack's raster changes together.
+Keep window DPI and UI size independent of the adaptive render budget.
+
+First verify repeated Ultra–Potato changes in 2D and 2.5D with the pause menu
+open and after it closes. Record camera sample counts and peak texture memory
+during each change. Include a run on the GPU that reported the failure.
 
 ### A7 — explicit readiness semantics
 

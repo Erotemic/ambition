@@ -857,8 +857,11 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   count differed) and, when the counts matched, paired its segments with the
   wrong history. Each piece now carries its own history, the cut points at
   the same place along the same segment as the tick began
-  (`a_cut_changing_line_keeps_each_pieces_material_history`). The rider test
-  across the cut is still open.
+  (`a_cut_changing_line_keeps_each_pieces_material_history`). *Rider landed
+  2026-11-27:* a body standing on either piece beside the hole is carried by
+  its material place exactly as on the whole line
+  (`a_rider_beside_the_cut_keeps_its_material_place_on_both_sides`). S1 is
+  done.
 - **S2 — carry and swept bounds in the cut cell** use the shape motion
   (`shape_before`) on each side. Test: a rider on the stretching line
   crosses the portal and keeps its material point; the deforming-segment

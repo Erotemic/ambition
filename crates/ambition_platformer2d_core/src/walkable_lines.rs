@@ -545,6 +545,34 @@ mod tests {
         assert!(material_lines(&world, &body, DOWN, 1.0, 1.0, 0.0, None).unwrap().is_empty());
     }
 
+    /// SUP1 portal S1: a body standing on a stretching line beside the hole
+    /// a portal cuts in it is carried by its material place, on either side
+    /// of the cut, exactly as on the whole line. The line stretches from
+    /// `[0, 200]` to `[0, 400]` and the hole is at x 260..340.
+    #[test]
+    fn a_rider_beside_the_cut_keeps_its_material_place_on_both_sides() {
+        let mut whole = world_with(vec![Vec2::new(0.0, 200.0), Vec2::new(200.0, 200.0), Vec2::new(400.0, 200.0)]);
+        whole.chains[0].shape_before = vec![Vec2::new(0.0, 200.0), Vec2::new(100.0, 200.0), Vec2::new(200.0, 200.0)];
+        let hole = crate::frame::FaceRect { center: Vec2::new(300.0, 200.0), normal: Vec2::new(0.0, -1.0), half_along: 40.0, half_out: 30.0 };
+        let mut cut = whole.clone();
+        cut.chains = whole.chains[0].without(&hole).into();
+        assert_eq!(cut.chains.len(), 2);
+        let carry_at = |world: &World, x: f32| {
+            // Where it stands now: the material there began the tick further in.
+            let now = material_lines(world, &body_at(Vec2::new(x, 200.0)), DOWN, 1.0, 1.0, 1.0, None).unwrap();
+            assert_eq!(now.len(), 1, "one line under x {x}");
+            now[0].carry
+        };
+        // One rider on each piece, its feet clear of the hole. The second
+        // segment (now x 200..400) began the tick at x 100..200, so material
+        // there travelled between 100 and 200 px.
+        for x in [230.0, 370.0] {
+            let (whole, cut) = (carry_at(&whole, x), carry_at(&cut, x));
+            assert!((100.0..=200.0).contains(&whole.x) && whole.y == 0.0, "the whole line at x {x}: {whole:?}");
+            assert!((cut - whole).length() < 1e-3, "the cut piece at x {x} carries {cut:?}, the line {whole:?}");
+        }
+    }
+
     /// SUP1: the continuous sweep meets a stretching line when its end
     /// arrives. The line's end goes from x 20 to x 30 while its start stays;
     /// a body standing still at x 25..35 is reached half way through the

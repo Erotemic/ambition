@@ -419,9 +419,12 @@ section requires, the portal cases are NOT marked complete from these
 witnesses. They stay open under portal P2/M1/M2:
 
 - a cell cut by a portal or carried on a curve still reads the published
-  rigid fit;
-- a portal hosted on a stretching line still attaches by world arc
-  distance.
+  rigid fit (portal S2/S3);
+- *closed 2026-11-25:* a portal hosted on a stretching line attaches by its
+  material place (`PortalHost::Line { segment, fraction }`, witness
+  `a_portal_on_a_stretching_line_keeps_its_material_place`), and since
+  2026-11-27 a rider beside the hole it cuts keeps its material place on
+  either piece (portal S1).
 
 ### Separate authoring decision: the whole curved hump
 

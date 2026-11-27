@@ -409,6 +409,7 @@ impl Plugin for CardViewPlugin {
             Update,
             portal_windows::realize_portal_windows
                 .after(ambition_portal2d_presentation::sync_portal_view_cones)
+                .after(realize_card_bodies)
                 .run_if(card_outputs_enabled)
                 .after(ViewCameraSet),
         );

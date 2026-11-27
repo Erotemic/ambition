@@ -15,7 +15,8 @@ use crate::PortalWorldFrame;
 pub struct PortalClipMaterial {
     #[uniform(0)]
     pub uv_rect: Vec4,
-    /// Horizontal flip, vertical flip, silhouette and premultiplied alpha.
+    /// Horizontal flip, vertical flip, silhouette, and alpha mode.
+    /// Alpha mode 0 is straight, 1 is premultiplied, and 2 is opaque.
     #[uniform(1)]
     pub control: Vec4,
     #[uniform(2)]
@@ -28,6 +29,16 @@ pub struct PortalClipMaterial {
 impl PortalClipMaterial {
     pub fn new(uv_rect: Vec4, control: Vec4, tint: Vec4, color_texture: Handle<Image>) -> Self {
         Self { uv_rect, control, tint, color_texture }
+    }
+
+    /// Draw the RGB of a portal capture in the sorted pass.
+    pub fn window(color: Color, image: Handle<Image>) -> Self {
+        Self::new(
+            Vec4::new(0.0, 0.0, 1.0, 1.0),
+            Vec4::new(0.0, 0.0, 0.0, 2.0),
+            color.to_linear().to_vec4(),
+            image,
+        )
     }
 }
 

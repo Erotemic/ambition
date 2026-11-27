@@ -15,8 +15,7 @@
 // control.z = silhouette flag (>0.5 = paint tint.rgb masked by the sample's
 //             alpha and tint.a, the hit-flash overlay's look, instead of the
 //             sampled colour). A declared non-sprite drawable is what sets it.
-// control.w = premultiplied flag (>0.5: the texture is a capture whose colour
-//             is premultiplied by its alpha; it is divided out)
+// control.w = alpha mode: straight (0), premultiplied (1), opaque (2).
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> control: vec4<f32>;
 // Straight-alpha sprite tint (linear RGBA), multiplied into the sample.
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> tint: vec4<f32>;
@@ -40,6 +39,9 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     );
     let sample = textureSample(color_texture, color_sampler, atlas_uv);
 
+    if control.w > 1.5 {
+        return vec4<f32>(sample.rgb * tint.rgb, 1.0);
+    }
     if sample.a <= 0.01 {
         discard;
     }

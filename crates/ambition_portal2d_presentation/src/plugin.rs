@@ -112,10 +112,12 @@ impl Plugin for PortalPresentationPlugin {
                     .run_if(resource_exists::<Assets<crate::glow::PortalGlowMaterial>>),
             );
         }
+        if self.body_pieces || (cfg!(feature = "effect_view_cones") && self.view_cones) {
+            crate::clip_material::add_portal_clip_material_plugin(app);
+        }
         if self.body_pieces {
             // The carry. A host with no render stack draws nothing, and
             // carries nothing.
-            crate::clip_material::add_portal_clip_material_plugin(app);
             app.init_resource::<crate::PortalCarryAtlas>();
             app.init_resource::<crate::PortalCarrySelection>();
             app.init_resource::<crate::CarryQuadPool>();

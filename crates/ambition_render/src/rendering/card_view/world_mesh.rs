@@ -139,7 +139,7 @@ fn cards_are_visible_or_were(
 
 // The 2D and 3D material plugins each initialize their own asset storage.
 #[derive(Asset, TypePath, Clone)]
-struct CardMaterial<M: Material2d>(#[dependency] M);
+pub(super) struct CardMaterial<M: Material2d>(#[dependency] pub(super) M);
 
 impl<M: Material2d> AsBindGroup for CardMaterial<M> {
     type Data = M::Data;

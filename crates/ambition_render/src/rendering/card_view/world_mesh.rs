@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 #[cfg(feature = "portal_render")]
 use ambition_portal2d_presentation::PortalCarryOrder;
@@ -19,13 +20,15 @@ use bevy::render::renderer::RenderDevice;
 use bevy::render::texture::GpuImage;
 use bevy::render::{Render, RenderApp};
 use bevy::shader::ShaderRef;
-use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
+use bevy::sprite_render::{AlphaMode2d, ColorMaterial, Material2d, MeshMaterial2d};
 use bevy::transform::TransformSystems;
 
-use super::{CARD_BODY_STEP, TERRAIN_DEPTH, scenery_depth};
+use super::{CARD_BODY_STEP, EARTH_BEHIND_SKIN, TERRAIN_DEPTH, scenery_depth, sprite_material};
 use super::{CardBodyRepresentation, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
 use crate::folded_mesh::{AddedLightMaterial, FoldedMesh};
+use crate::rendering::chain_skin::ChainEarth;
 use crate::rendering::terrain_skin::TerrainSkinMesh;
+use crate::rendering::unauthored_volumes::UnauthoredVolumeVisual;
 
 #[derive(Component)]
 pub(super) struct CardWorldMesh;
@@ -47,9 +50,11 @@ pub(super) fn install(app: &mut App) {
     );
     app.add_systems(
         PostUpdate,
-        realize_folded_meshes
-            .in_set(CardWorldMeshSet)
-            .run_if(cards_are_visible),
+        (
+            realize_color_meshes.run_if(cards_are_visible_or_were),
+            realize_folded_meshes.run_if(cards_are_visible),
+        )
+            .in_set(CardWorldMeshSet),
     );
     if app.get_sub_app(RenderApp).is_some() {
         prepare_card_material_after_image::<StandardMaterial>(app);
@@ -290,6 +295,86 @@ fn effect_place(
     super::sprite_card_place(&place, scenery_depth(place.translation.z, front))
 }
 
+fn realize_color_meshes(
+    sources: Query<
+        (
+            Entity,
+            &Mesh2d,
+            &MeshMaterial2d<ColorMaterial>,
+            &Transform,
+            &GlobalTransform,
+            &InheritedVisibility,
+            Has<ChainEarth>,
+            Has<TerrainSkinMesh>,
+            Has<NoFrustumCulling>,
+        ),
+        (
+            Or<(With<ChainEarth>, With<TerrainSkinMesh>, With<UnauthoredVolumeVisual>)>,
+            Without<CardWorldMesh>,
+        ),
+    >,
+    colors: Option<Res<Assets<ColorMaterial>>>,
+    materials: Option<ResMut<Assets<StandardMaterial>>>,
+    mut by_material: Local<HashMap<AssetId<ColorMaterial>, Handle<StandardMaterial>>>,
+    mut used: Local<HashSet<AssetId<ColorMaterial>>>,
+    mut products: MeshProducts<StandardMaterial>,
+    settings: Option<Res<CardViewSettings>>,
+    rooms: LiveRooms,
+    depths: Res<CardRootDepths>,
+) {
+    if !cards_are_visible(settings) {
+        by_material.clear();
+        return;
+    }
+    let (Some(colors), Some(mut materials)) = (colors, materials) else {
+        return;
+    };
+    products.retained.reconcile(&mut products.commands, |entity| {
+        sources.get(*entity).is_ok_and(|(_, _, material, _, _, visible, ..)| {
+            visible.get() && colors.contains(material.0.id())
+        })
+    });
+    used.clear();
+    for (source, mesh, material, local, global, visible, earth, terrain, skip_culling) in &sources {
+        let Some(color) = colors.get(&material.0).filter(|_| visible.get()) else {
+            continue;
+        };
+        let id = material.0.id();
+        let alpha_mode = match color.alpha_mode {
+            AlphaMode2d::Opaque => AlphaMode::Opaque,
+            AlphaMode2d::Mask(cutoff) => AlphaMode::Mask(cutoff),
+            AlphaMode2d::Blend => AlphaMode::Blend,
+        };
+        let make = || StandardMaterial {
+            uv_transform: color.uv_transform,
+            alpha_mode,
+            ..sprite_material(color.texture.clone(), color.color)
+        };
+        let card = by_material.entry(id).or_insert_with(|| materials.add(make()));
+        if used.insert(id)
+            && materials.get(&*card).is_some_and(|material| {
+                material.base_color != color.color
+                    || material.base_color_texture != color.texture
+                    || material.uv_transform != color.uv_transform
+                    || material.alpha_mode != alpha_mode
+            })
+        {
+            if let Some(mut material) = materials.get_mut(&*card) {
+                *material = make();
+            }
+        }
+        let place = if terrain {
+            super::sprite_card_place(&global.compute_transform(), TERRAIN_DEPTH + local.translation.z)
+        } else if earth && local.translation.z < WORLD_Z_BLOCK {
+            super::sprite_card_place(&global.compute_transform(), TERRAIN_DEPTH - EARTH_BEHIND_SKIN)
+        } else {
+            effect_place(source, global, &rooms, &depths)
+        };
+        products.show(source, &mesh.0, card, place, skip_culling);
+    }
+    by_material.retain(|id, _| used.contains(id));
+}
+
 fn realize_shaded_meshes<M: CardMaterialSource>(
     sources: Query<
         (
@@ -435,7 +520,75 @@ fn realize_folded_meshes(
 mod tests {
     use super::*;
     use crate::rendering::hit_flash::{HitFlashMaterial, FLASH_OVERLAY_Z_BIAS};
-    use super::super::CardBodyDepth;
+    use super::super::{card_body_depth, CardBodyDepth};
+
+    #[test]
+    fn terrain_cards_draw_untextured_earth_and_keep_skin_layer_order() {
+        use ambition_platformer2d_core as ae;
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<ColorMaterial>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<CardRootDepths>()
+            .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
+            .add_systems(Update, (
+                crate::rendering::chain_skin::build_chain_earth_meshes, realize_color_meshes,
+            ).chain());
+        let world = app.world_mut();
+        let ground = ae::World::new("hill", ae::Vec2::new(80.0, 48.0), ae::Vec2::ZERO, Vec::new());
+        let hill = ChainEarth::under(&ground, &[ae::Vec2::new(0.0, 20.0), ae::Vec2::new(80.0, 28.0)], None);
+        let earth_z = WORLD_Z_BLOCK - 0.5;
+        let earth = world.spawn((
+            hill.clone(), Transform::from_xyz(0.0, 0.0, earth_z),
+            GlobalTransform::from_translation(Vec3::Z * earth_z), InheritedVisibility::VISIBLE,
+        )).id();
+        let near_z = ae::config::WORLD_Z_PLAYER + 0.3;
+        let near_track = world.spawn((
+            hill, Transform::from_xyz(0.0, 0.0, near_z),
+            GlobalTransform::from_translation(Vec3::Z * near_z), InheritedVisibility::VISIBLE,
+        )).id();
+        let mesh = world.resource_mut::<Assets<Mesh>>().add(Rectangle::new(32.0, 16.0));
+        let skin = world.resource_mut::<Assets<ColorMaterial>>().add(ColorMaterial {
+            texture: Some(Handle::default()),
+            ..default()
+        });
+        let terrain = |z: f32| (
+            Mesh2d(mesh.clone()),
+            MeshMaterial2d(skin.clone()),
+            Transform::from_xyz(0.0, 0.0, z),
+            GlobalTransform::from_translation(Vec3::new(40.0, -12.0, 7.0 + z)),
+            TerrainSkinMesh {
+                theme: ambition_sprite_sheet::game_assets::ParallaxTheme::new("cave"),
+                centre: Vec2::ZERO,
+            },
+        );
+        let trim = world.spawn((terrain(0.03), InheritedVisibility::VISIBLE)).id();
+        let fill = world.spawn((terrain(0.005), InheritedVisibility::VISIBLE)).id();
+        world.spawn((terrain(0.01), InheritedVisibility::HIDDEN));
+
+        let shown = |world: &mut World| {
+            world.query_filtered::<(&CardScope, &Mesh3d, &Transform), With<CardWorldMesh>>()
+                .iter(world)
+                .filter_map(|(scope, mesh, place)| match scope {
+                    CardScope::Source(source) => Some((*source, (mesh.0.clone(), place.translation))),
+                    CardScope::Camera(_) => None,
+                })
+                .collect::<HashMap<_, _>>()
+        };
+        app.update();
+        let drawn = shown(app.world_mut());
+        assert_eq!(drawn.len(), 4);
+        let earth_mesh = &app.world().get::<Mesh2d>(earth).unwrap().0;
+        assert_eq!(&drawn[&earth].0, earth_mesh);
+        assert_eq!(drawn[&earth].1, Vec3::Z * (TERRAIN_DEPTH - EARTH_BEHIND_SKIN));
+        assert_eq!(drawn[&fill], (mesh.clone(), Vec3::new(40.0, -12.0, TERRAIN_DEPTH + 0.005)));
+        assert_eq!(drawn[&trim], (mesh, Vec3::new(40.0, -12.0, TERRAIN_DEPTH + 0.03)));
+        assert!(drawn[&near_track].1.z > card_body_depth(false, 0));
+
+        app.world_mut().despawn(trim);
+        app.update();
+        assert!(!shown(app.world_mut()).contains_key(&trim));
+    }
 
     #[cfg(feature = "portal_render")]
     #[test]

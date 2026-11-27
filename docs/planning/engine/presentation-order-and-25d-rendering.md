@@ -646,18 +646,17 @@ shared value preparation are sufficient until source proves otherwise.
    The room's ground is what the 2D view draws for its tiles: the skin of
    its blocks (`TerrainSkinMesh`, a few textured meshes per room) and the
    earth under its lines (`ChainEarth`, a hill's fill). These are the same
-   mesh assets here, drawn as cards (`realize_card_terrain`). They sit on
-   the play plane just behind its bodies (`TERRAIN_DEPTH` −0.5, in front
-   of a cart's near panel), with the earth 0.1 behind the block skin and
-   the skin's layers in their 2D order. They use the 2D blend, since a
-   skin picture has clear parts. A seated body is recessed behind the play
+   mesh assets here, drawn as cards (`realize_color_meshes`). Block skins
+   draw at `TERRAIN_DEPTH` −0.5 in source layer order. Filled ground draws
+   0.1 behind them. Track earth draws in the source order of its lane.
+   The card material keeps the texture, vertex colors, and opacity of the
+   source mesh. A seated body is recessed behind the play
    plane and is behind them, as the depth policy places it. The 2D meshes
    carry no normals, and the unlit 3D pipeline draws them as they are.
-   Witness `a_rooms_terrain_skin_is_a_card_on_the_play_plane`: the same
-   mesh, layer order kept, none for a hidden mesh, and the card leaves with
-   its mesh. Render lib with `card_view`: 536 passed. The same
-   `intro_fell` capture now shows the shepherd, the sheep and Scout
-   standing on the turf, and the hill's earth rising behind them.
+   The terrain card test checks mesh identity, layer order, visibility,
+   and removal. An Ultra fixture shows untextured ground and the default
+   attack sweep in both renderers. The `intro_fell` capture shows the
+   shepherd, the sheep, and Scout on the turf, with the hill behind them.
 
    **Portals (2026-11-25, `portal_render`).** A portal is a line of light
    on its host surface. The 2D view draws it as the `PortalGlow` sprite,
@@ -761,8 +760,10 @@ shared value preparation are sufficient until source proves otherwise.
 
    The card view uses the hub skin and sprite-effect shaders through their
    3D fragment inputs. It also draws tiled blocks, doors, gate glyphs, blink
-   markers, slash sprites, and folded line meshes. Medium captures show the
-   hub floor, doors, switches, and an open gate in side-on view. Wolfenstein's
+   markers, slash sprites, the default attack sweep, and folded line meshes.
+   The sweep uses the same mesh and vertex opacity in both views.
+   Medium captures show the hub floor, doors, switches, and an open gate
+   in side-on view. Wolfenstein's
    throne-room lightning uses the same line mesh in both views.
    At Ultra, both outputs use the same animated tunnel material inside
    the gate membrane.

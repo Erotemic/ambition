@@ -956,11 +956,9 @@ separately.
   own eyes; control one observer; the second leaves and its rigs go),
   `a_portal_window_kept_to_one_view_is_drawn_by_that_views_camera_alone`
   (render), and the host's eye test (two views of one room: two eyes, in id
-  order). Limits: a window kept to one view is not in another window's
-  capture (recursion between windows of a shared room is off); the card view
-  draws no window yet (V5). Not photographed: `capture_scene` makes one view,
-  and no tool makes two views of one room; a single-view shot of the lab is
-  unchanged.
+  order). A Medium Portal Lab capture also checks a same-room split at one
+  simulation tick. Each view draws its own windows in 2D, side-on 2.5D, and
+  oblique 2.5D. Recursion between windows of a shared room stays off.
 - **V2 — rolled viewport clipping.** Test: under a rolled camera the
   window clips to the rolled viewport (a pixel test and a capture).
   *Done 2026-11-27.* The camera's sample (`PortalCameraContinuityHostView`)
@@ -1025,10 +1023,8 @@ separately.
   window (and hidden while it has no texture, so a V4-released target shows
   no stale picture); its test is in `card_view/portal_windows.rs`. A
   `--card-view` capture of `portal_lab` at the red mouth shows the far side
-  beside the pink line in both views. Seen there, not diagnosed: the robot
-  is missing from the card view's inset, both at the mouth and 60 px from
-  it (so not because the carry draws it in pieces), while the 2D view draws
-  it.
+  beside the pink line in both views. A later Medium capture shows Scout
+  straddling the floor opening in both views.
 
 ### M3 — Resolve contacts through the complete velocity witness
 

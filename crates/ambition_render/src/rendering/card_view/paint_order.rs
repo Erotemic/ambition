@@ -13,7 +13,7 @@ use bevy::render::view::ExtractedView;
 use bevy::render::{Extract, ExtractSchedule, Render, RenderApp, RenderSystems};
 
 use super::{
-    CardHeldArt, CardPart, CardScenery, CardSpriteBody, CardTerrain, CardViewCamera,
+    CardHeldArt, CardPart, CardScenery, CardSpriteBody, CardViewCamera,
     CAMERA_DISTANCE,
 };
 
@@ -53,7 +53,6 @@ fn extract_cards(
                 With<CardHeldArt>,
                 With<CardSpriteBody>,
                 With<CardScenery>,
-                With<CardTerrain>,
                 With<super::labels::CardLabel>,
                 With<super::world_mesh::CardWorldMesh>,
                 With<CardPaintDepth>,

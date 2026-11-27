@@ -58,7 +58,11 @@ pub struct MaryOCosmicAuraMaterial {
 }
 
 #[cfg(feature = "card_view")]
-impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOCosmicAuraMaterial {}
+impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOCosmicAuraMaterial {
+    fn paints_in_scene_order(&self) -> bool {
+        true
+    }
+}
 
 impl Material2d for MaryOCosmicAuraMaterial {
     fn fragment_shader() -> ShaderRef {

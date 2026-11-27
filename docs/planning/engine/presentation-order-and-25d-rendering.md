@@ -854,6 +854,10 @@ shared value preparation are sufficient until source proves otherwise.
    shaders use the card camera axis at the play plane. An Ultra fixture
    checks the five Mary-O materials with the published art.
 
+   The fire glow and cosmic aura keep their subject's position in depth.
+   Their paint order follows their source depth between the bodies of the
+   same room. A light can overlap another body without moving to its plane.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

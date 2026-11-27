@@ -52,7 +52,11 @@ pub struct MaryOFireGlowMaterial {
 }
 
 #[cfg(feature = "card_view")]
-impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOFireGlowMaterial {}
+impl ambition_platformer2d::render::rendering::card_view::CardMaterialSource for MaryOFireGlowMaterial {
+    fn paints_in_scene_order(&self) -> bool {
+        true
+    }
+}
 
 impl Material2d for MaryOFireGlowMaterial {
     fn fragment_shader() -> ShaderRef {

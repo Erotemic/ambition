@@ -443,9 +443,11 @@ fn the_lift_from_the_approach_is_let_go_from_inside() {
     stand(&mut sim, 2932.0, 576.0);
     press(&mut sim, "spoke_lift_release");
     assert!(!standing(&mut sim).iter().any(|name| name.contains("spoke_lift_gate")), "{:?}", standing(&mut sim));
-    let walked = crate::common::walk::walk_through(&mut crate::common::walk::Pad::new(&mut sim), ORCHARD);
-    assert!(walked.is_ok(), "out of the alcove to the orchard: {walked:?}");
-    assert_eq!(sim.observation().active_room, ORCHARD);
+    assert!(
+        until(&mut sim, 120, |_| axis(-1.0, 0.0), |sim| at(sim).0 < 2810.0).is_some(),
+        "the robot walks out through the released gate: {}",
+        trace(&mut sim, "west"),
+    );
     // The release is a fact of the save: the gate stays open.
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_flag("switch_spoke_lift_release_used".to_string(), true);

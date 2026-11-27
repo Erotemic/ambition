@@ -900,8 +900,10 @@ pub fn install(app: &mut App) {
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<RoomSkinMaterial>::default());
         #[cfg(feature = "card_view")]
-        ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkinMaterial>(app);
-        ambition_render::rendering::card_view::install_card_mesh_material::<RoomBlueprintMaterial>(app);
+        {
+            ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkinMaterial>(app);
+            ambition_render::rendering::card_view::install_card_mesh_material::<RoomBlueprintMaterial>(app);
+        }
         app.add_plugins(Material2dPlugin::<RoomSkyMaterial>::default());
         app.add_plugins(Material2dPlugin::<RoomFrontFieldMaterial>::default());
     }

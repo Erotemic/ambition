@@ -204,6 +204,9 @@ conscript starts on the wall. The spectral wolf starts on the road.
 - On the observation deck, hold Up at either ramp to reach the viewing
   walk. The step below the center also gives access. Neil and Wen meet
   visitors at the window on the floor.
+- In the habitation ring, hold Up at either stair to reach the grow deck.
+  The floor joins the service deck to the observation deck. The door
+  beside Gus's galley leads down to the gate dock.
 - **Under:** down the manhole in the quad's street into the steam plant (catwalks, boilers), east on its floor into the Collider, up its stair to the quad: a loop.
 - **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
 - **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.

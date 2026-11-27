@@ -1133,6 +1133,11 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.42, active_s: 0.24, recover_s: 0.45, damage: 2, reach_px: 58.0)),
         ),
+        // The Barrow Wight lifts its grave marker, brings it down, and pulls it off the floor.
+        "barrow_wight_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.64, active_s: 0.16, recover_s: 0.80, damage: 2, reach_px: 48.0)),
+        ),
         // The Barrow King winds up his claw across the first seven frames
         // of his attack row and sweeps on frames 7–10. He is armored once
         // committed, so a flurry of blows does not stop it.
@@ -6996,6 +7001,38 @@
             hall: ["I carried bags here for an infinite number of guests. Then one more arrived.", "Every time they moved the guests along one room, a little more of me stayed behind."],
         ),
         hall_dialogue_id: Some("hall_decomposing_specter"),
+        ),
+        // Burial guards in the passage to the Barrow King's chamber.
+        "barrow_wight": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Barrow Wight",
+            manifest: "sprites/barrow_wight_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "barrow_wight_slam",
+            locomotion: Some((run_speed: 82.0, move_style: WalkHeavy)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 380.0,
+                attack_range: 46.0,
+                patrol_effort: 0.25,
+                chase_effort: 0.75,
+                retreat_after_swing_s: 0.45,
+                attack_cooldown_s: 0.85,
+                shares_sightings: false,
+                tactics: (notice_s: 0.55, waits_its_turn: true),
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "undead", "hobford", "barrow", "armored"],
+            cues: (notice: Some("enemy.skeleton.alert"), tell: Some("enemy.decomposing_specter.tell"), swing: Some("enemy.skeleton.attack"), hit: Some("enemy.skeleton.hit")),
+            barks: (
+                on_hit: ["*old bronze rattles*"],
+                idle: ["*stone scrapes on stone*"],
+                provoked: ["Leave the king his rest."],
+            ),
         ),
         // The Barrow King (level 1, `intro_barrow`) rules the valley under
         // the moor, with a crown, a floor-lamp scepter and a spectral claw.

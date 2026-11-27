@@ -3254,6 +3254,9 @@ fn two_seats_open_navigate_and_close_their_own_menus_with_one_pause() {
         );
         assert!(app.world().get::<InventoryUiState>(first).unwrap().visible);
         assert!(app.world().get::<InventoryUiState>(second).unwrap().visible);
+        // The pause is voted in PostUpdate (`aggregate_menu_pause`) and taken
+        // by the next update's state transition.
+        tick(&mut app, [neutral; 2]);
         assert_eq!(
             *app.world().resource::<State<GameMode>>().get(),
             GameMode::Paused
@@ -3316,9 +3319,11 @@ fn two_seats_open_navigate_and_close_their_own_menus_with_one_pause() {
         tick(&mut app, [neutral; 2]);
         assert!(!app.world().get::<InventoryUiState>(first).unwrap().visible);
         assert!(app.world().get::<InventoryUiState>(second).unwrap().visible);
+        // The pause is unanimous: one seat that closes its menu resumes the
+        // game for both (`aggregate_menu_pause`), while the other's stays open.
         assert_eq!(
             *app.world().resource::<State<GameMode>>().get(),
-            GameMode::Paused
+            GameMode::Playing
         );
         tick(
             &mut app,

@@ -460,11 +460,13 @@ def main() -> int:
         )
     # The number of open questions falls as rulings land, so a fixed floor
     # fails a correct page. Compare the parse with a count made another way:
-    # each `## Q<digit>` heading must give one id.
+    # each `## Q<digit>` heading must give one id. A page with no open
+    # question is a correct page (2026-11-27), so zero is not by itself a
+    # parser failure; the independent heading count is the control.
     headings = sum(
         1 for l in question_lines if l.startswith("## Q") and l[4:5].isdigit()
     )
-    if not questions or len(questions) != headings:
+    if len(questions) != headings:
         raise SystemExit(
             f"⛔⛔ {len(questions)} `Q` ids parsed out of "
             f"`awaiting-maintainer-decision.md`, which has {headings} `## Q` "

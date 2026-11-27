@@ -12,6 +12,8 @@ Jon, 2026-10-30:
 ## Rules
 
 - **A region is a 2D cluster of rooms that touch on the flat map** and join by edge exits (side and vertical). Doors are for entering a building or a separate place; a region's inside is joined by its edges.
+- Give each visible passage door a destination. Use a side loading zone
+  where adjacent rooms share a walk.
 - **Loops, not corridors.** A room has more than one way in where it can. Every region has at least one loop.
 - **Shortcuts are opened from the far side.** A shortcut is a lock that is shut until found from beyond it. Example: a lever behind a cracked floor (`LockWall` gated by `world.switch_on <lever>`).
 - **Secrets are hidden on the map.** An edge exit whose zone id starts `secret_` joins the region, but the map shows the room behind it only once it is visited (`MapRoomNode::secret_exits`). Mark both sides `secret_`. A false wall is a gap in a wall solid at the floor; the room's art covers it.
@@ -199,17 +201,22 @@ conscript starts on the wall. The spectral wolf starts on the road.
   bay. Steps at either end give access to the arrivals board and the
   viewing gallery. Jump across the gap at the shaft to use both decks.
 - In the docking bay, the west gantry and the east ladder lead to the
-  walk under the hauler. The shuttle steps join the east ladder at the
-  service deck. The floor continues to the tether terminus.
+  walk under the hauler. The shaft at its east end goes up to the
+  observation deck. The floor continues to the tether terminus.
 - On the observation deck, hold Up at either ramp to reach the viewing
   walk. The step below the center also gives access. Neil and Wen meet
-  visitors at the window on the floor.
+  visitors at the window on the floor. Continue east to the tram spoke.
+  At the far end, climb above the express lift to enter the orchard.
 - In the habitation ring, hold Up at either stair to reach the grow deck.
-  The floor joins the service deck to the observation deck. The door
-  beside Gus's galley leads down to the gate dock.
+  The floor joins the service deck to the observation deck. The ladder
+  beside Gus's galley leads down to customs on the gate dock.
+- On the service deck, either ladder gives access to the maintenance
+  walks. Jump across the gap by the air filters. The hatch at the west
+  end opens directly into the damaged spur with the customs pass.
 - **Under:** down the manhole in the quad's street into the steam plant (catwalks, boilers), east on its floor into the Collider, up its stair to the quad: a loop.
 - **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
-- **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.
+- **Tests:** `the_eureka_tether.rs`, `the_orbital_station.rs`, and
+  `the_gnu_ton_handle.rs` in `game/ambition_app/tests/`.
 
 ## The math town (the seventh)
 

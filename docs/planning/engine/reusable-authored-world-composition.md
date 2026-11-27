@@ -211,14 +211,14 @@ instance alone.
 Still open:
 - ~~the door~~ (landed 2026-11-25, below: a door is its own occurrence);
 - ~~a lift has no object occurrence~~ (landed 2026-11-25, below);
-- the third copy in a second live instance of the same authored room. This
-  waits on a product rule, not the session's engineering: a room is live at
-  most once by design (OW1 cut 6e: a seat entering a held room joins it),
-  so no concurrent copy can exist. Filed as
-  [Q188](../awaiting-maintainer-decision.md#q188--can-one-authored-room-be-live-twice-at-once)
-  (2026-11-27); option (a) closes this item as not applicable. The per-room
-  binding is already witnessed across two different live rooms
-  (`a_lift_switch_sends_only_the_lift_in_its_own_live_room`).
+- ~~the third copy in a second live instance of the same authored room~~:
+  not applicable (Q188, ruled (a) 2026-11-27). In Ambition a seat entering
+  an authored room joins its live instance, so no concurrent copy exists.
+  The isolation and rollback witnesses stand: per-room binding across two
+  different live rooms (`a_lift_switch_sends_only_the_lift_in_its_own_live_room`)
+  and rollback through one child's retirement. Authored room identity and
+  live instance identity stay distinct; optional instancing waits for a
+  gameplay customer.
 
 **Progress (2026-11-25): a lift is an object of its own.**
 Each lift of a mechanism is now a row of the same construction batch as its

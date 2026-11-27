@@ -268,7 +268,7 @@ value as completion of that owner's contract.
    resolution. Keep capture and push coverage separate. Preserve CLIP3's
    time map and the current geometry sampling cut, and the existing pulse
    plan's memory ownership where an empty intermediate segment needs it.
-4. [World composition W1/W2](engine/reusable-authored-world-composition.md#implementation-slices)
+4. **Done 2026-11-27.** [World composition W1/W2](engine/reusable-authored-world-composition.md#implementation-slices)
    uses existing local references, then a different mechanism. General format
    work follows only if the operation is shared. (W1 landed 2026-11-22: the Bridge Warden is made with its binding to the
    posts' local keys; no result indexing or follow-up attach. W2's native
@@ -280,10 +280,10 @@ value as completion of that owner's contract.
    retires alone (schema 543). Door occurrences landed the same day: a
    scripted door stands in its own room's gate solids while shut, and a
    `ToggleDoor` switch of the same request opens it (schema 544). The
-   second-instance witness waits on a product rule: today one room is live
-   at most once, by design (a seat joins the live room another holds), so
-   no concurrent copy exists; filed as
-   [Q188](awaiting-maintainer-decision.md#q188--can-one-authored-room-be-live-twice-at-once). Rollback through one child's retirement is witnessed.) Producer-validity delegation
+   second-instance witness is not applicable (Q188, ruled (a) 2026-11-27):
+   in Ambition a seat entering an authored room joins its live instance.
+   Authored room identity and live instance identity stay distinct, so a
+   later game may instance a room; that waits for a gameplay customer. Rollback through one child's retirement is witnessed.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently
@@ -1234,8 +1234,11 @@ and letting go blinks behind it. The slow is a technique request
 ([loadout, open 1](game/ability-loadout.md#open)).
 
 **Next action:** the laser's own sound waits for an SFX bank republish.
-Then Precision Blink's quick press and double press (open 2; what the
-single press does is [Q179](awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)), and the
+Then Precision Blink's one press-hold-release (Q179, ruled 2026-11-27;
+[loadout, open 2](game/ability-loadout.md#open)): a minimum preparation
+before the short blink, tuned apart from the hold threshold, with
+preparation, aiming, interruption and release in rollback state and a
+visible preparation tried in play; no double tap. Then the
 stance placeholders through the same technique/equipment seam, not named
 engine branches. Dash II and Dash III were built on 2026-11-26 as dash styles
 lent by their rows (`EquipmentRow.lends`); see
@@ -2916,7 +2919,7 @@ is faster), fixed: it now stops in 82 px. A grounded move does not stop at a
 ledge (a jab let go 20 px before it slides off; the dash attack is carried
 off from 60 px).
 
-**Done 2026-11-19: the ledge stop.** A grounded move with `MoveGates::stops_at_ledge` holds its owner's middle on the floor's end ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)): the Smash posture's grounded moves and every authored rooted grounded move carry it; the jab let go 20 px out now stops 0.5 px short of the lip. Left: Q181 (a committed roll for Sanic) waits for Jon. Originally: measure, for
+**Done 2026-11-19: the ledge stop.** A grounded move with `MoveGates::stops_at_ledge` holds its owner's middle on the floor's end ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)): the Smash posture's grounded moves and every authored rooted grounded move carry it; the jab let go 20 px out now stops 0.5 px short of the lip. Q181 (a committed roll for Sanic) was ruled and built as SANIC-ROLL (2026-11-26). Originally: measure, for
 representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry
@@ -3699,9 +3702,11 @@ current flagship order.
 
 **State:** whiff memory, startup-as-first-live-hit, pure-counter valuation,
 stop-distance and coast-distance features are implemented. The 2026-10-13
-Sanic rung-5 run still left the stage under grounded attack momentum; measure
-and resolve that in GROUNDED-ATTACK-MOMENTUM (Q169), not by repeating a
-fixed-range or stale-view brain workaround.
+Sanic rung-5 run left the stage under grounded attack momentum. That is
+answered: a grounded move with `MoveGates::stops_at_ledge` holds at the
+floor's end (2026-11-19), and Sanic's roll is the committed roll of Q181
+(SANIC-ROLL, 2026-11-26). Re-run rung 5 before treating it as a brain
+defect, and do not add a fixed-range or stale-view brain workaround.
 
 **Remaining roads, remeasure before implementing:**
 

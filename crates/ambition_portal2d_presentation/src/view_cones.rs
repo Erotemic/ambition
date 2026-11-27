@@ -587,6 +587,14 @@ impl Default for PortalViewConeConfig {
 #[derive(Component)]
 pub struct PortalConeMesh;
 
+/// The window is drawn for this observer's camera alone (V1). Set on a
+/// window mesh while its room has the eyes of more than one observer: each
+/// view has its own window of a portal, made from its own eye. The host's
+/// renderer keeps it to that view (`PresentedForView`); this crate names no
+/// view type.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PortalWindowFor(pub Entity);
+
 /// Retire a view-cone rig: despawn every entity it is made of.
 ///
 /// A rig is two entities: the root and `rig.cone`. This is the one teardown
@@ -607,6 +615,12 @@ pub struct PortalViewRig {
     /// The live room of the portal. A channel is not an identity: two live
     /// rooms can each hold a portal of one channel.
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    /// The observer whose eye the window is made from (`PortalViewer::observer`):
+    /// a room has a rig for each portal and each observer that frames it.
+    observer: Option<Entity>,
+    /// The observer its window is kept to ([`PortalWindowFor`]), while its
+    /// room has the eyes of more than one observer.
+    drawn_for: Option<Entity>,
     channel: PortalChannel,
     parallax_layer: usize,
     parallax_anchor: Vec2,
@@ -638,6 +652,11 @@ impl PortalViewRig {
     /// Portal channel served by this capture rig.
     pub fn channel(&self) -> PortalChannel {
         self.channel
+    }
+
+    /// The observer whose eye this rig's window is made from.
+    pub fn observer(&self) -> Option<Entity> {
+        self.observer
     }
 
     /// The live room of the portal this rig serves.
@@ -1002,24 +1021,28 @@ pub fn sync_portal_view_cones(
     // The blend each window had, before this frame changes it: a window that
     // takes its viewer from its partner goes on from the partner's blend, and
     // a rig that is built again goes on from its own.
-    let before: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PortalChannel, f32)> =
-        rigs.iter().map(|(_, rig, ..)| (rig.room, rig.channel, rig.blend)).collect();
-    let blend_before = |room, channel: PortalChannel| {
-        before.iter().find(|(r, c, _)| *r == room && *c == channel).map_or(0.0, |(_, _, blend)| *blend)
+    type RigKey = (ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, Option<Entity>, PortalChannel);
+    let before: Vec<(RigKey, f32)> =
+        rigs.iter().map(|(_, rig, ..)| ((rig.room, rig.observer, rig.channel), rig.blend)).collect();
+    let blend_before = |key: RigKey| before.iter().find(|(k, _)| *k == key).map_or(0.0, |(_, blend)| *blend);
+    // The eye a rig's window is made from: its room's eye of its observer.
+    let eye_of = |room, observer: Option<Entity>| {
+        eyes.iter().find(|eye| eye.placement.room == room && eye.viewer.observer == observer)
     };
+    // A room with the eyes of several observers keeps each window to its own.
+    let shared_room = |room| eyes.iter().filter(|eye| eye.placement.room == room).count() > 1;
     let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
 
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
-    let mut served: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PortalChannel)> =
-        Vec::new();
+    let mut served: Vec<RigKey> = Vec::new();
     // Rigs are offered the capture budget in a fixed order, not the query's:
     // a window at the seam being crossed first, then the nearest to its eye,
     // then by channel slot.
     let mut order: Vec<(Entity, bool, f32, usize)> = rigs
         .iter()
         .map(|(entity, rig, ..)| {
-            let eye = eyes.iter().find(|eye| eye.placement.room == rig.room);
+            let eye = eye_of(rig.room, rig.observer);
             let portal = eye.and_then(|eye| eye.all.iter().find(|p| p.channel == rig.channel));
             let partner = eye.zip(portal).and_then(|(eye, p)| find_portal(&eye.all, p.channel.partner()));
             let (seam, distance) = match (eye, portal) {
@@ -1038,17 +1061,25 @@ pub fn sync_portal_view_cones(
         let Ok((entity, mut rig, mut cam_tf, mut proj, mut cam, mut target, mut layers)) = rigs.get_mut(entity) else {
             continue;
         };
-        let Some(eye) = eyes.iter().find(|eye| eye.placement.room == rig.room) else {
+        let Some(eye) = eye_of(rig.room, rig.observer) else {
             retire_rig(&mut commands, entity, &rig);
             continue;
         };
+        let drawn_for = rig.observer.filter(|_| shared_room(rig.room));
+        if drawn_for != rig.drawn_for {
+            match drawn_for {
+                Some(observer) => commands.entity(rig.cone).insert(PortalWindowFor(observer)),
+                None => commands.entity(rig.cone).remove::<PortalWindowFor>(),
+            };
+            rig.drawn_for = drawn_for;
+        }
         let RoomEye { placement: _, room_band, all, viewer, host_view, view, screen_scale } = eye;
         let (room_band, host_view, view, screen_scale) = (*room_band, *host_view, *view, *screen_scale);
         let viewer = Some(*viewer);
         let frame = eye.placement.frame;
         // A room with no size yet: leave its rigs as they are.
         if frame.size == Vec2::ZERO {
-            served.push((rig.room, rig.channel));
+            served.push((rig.room, rig.observer, rig.channel));
             continue;
         }
         let portal = all.iter().find(|p| p.channel == rig.channel).cloned();
@@ -1080,7 +1111,7 @@ pub fn sync_portal_view_cones(
             retire_rig(&mut commands, entity, &rig);
             continue;
         }
-        served.push((rig.room, rig.channel));
+        served.push((rig.room, rig.observer, rig.channel));
         layers.set_if_neq(capture_render_layers(
             effective.recursion_depth,
             rig.parallax_layer,
@@ -1103,7 +1134,7 @@ pub fn sync_portal_view_cones(
         // A window that takes its viewer from its partner goes on from the
         // partner's blend.
         let taken_over = if viewer.is_some_and(|viewer| takes_over(viewer, portal.channel, &partner)) {
-            blend_before(rig.room, rig.channel.partner())
+            blend_before((rig.room, rig.observer, rig.channel.partner()))
         } else {
             0.0
         };
@@ -1262,7 +1293,7 @@ pub fn sync_portal_view_cones(
         let Some(partner) = find_portal(all, portal.channel.partner()) else {
             continue;
         };
-        if served.contains(&(placement.room, portal.channel)) {
+        if served.contains(&(placement.room, viewer.and_then(|viewer| viewer.observer), portal.channel)) {
             continue;
         }
         let (enter, exit) = (portal.aperture(), partner.aperture());
@@ -1286,11 +1317,12 @@ pub fn sync_portal_view_cones(
         // A rig that is built again goes on from the blend it had. A window
         // that is new opens with the ease, from nothing or from its partner.
         let taken_over = if viewer.is_some_and(|viewer| takes_over(viewer, portal.channel, &partner)) {
-            blend_before(placement.room, portal.channel.partner())
+            blend_before((placement.room, viewer.and_then(|viewer| viewer.observer), portal.channel.partner()))
         } else {
             0.0
         };
-        let blend = eased_blend(blend_before(placement.room, portal.channel), &plan, taken_over, step);
+        let observer = viewer.and_then(|viewer| viewer.observer);
+        let blend = eased_blend(blend_before((placement.room, observer, portal.channel)), &plan, taken_over, step);
         let reach = view.size.length();
         let want = if plan.target > 0.0 && blend > 0.0 {
             WindowShape::of(
@@ -1373,6 +1405,10 @@ pub fn sync_portal_view_cones(
                 Name::new(format!("Portal view window ({})", portal.channel.name())),
             ))
             .id();
+        let drawn_for = observer.filter(|_| shared_room(placement.room));
+        if let Some(observer) = drawn_for {
+            commands.entity(cone_entity).insert(PortalWindowFor(observer));
+        }
         let (cam_tf, scaling) = match &render {
             Some(r) => (
                 Transform::from_translation(frame.to_render(r.capture.center, 0.0))
@@ -1423,6 +1459,8 @@ pub fn sync_portal_view_cones(
             cam_tf,
             PortalViewRig {
                 room: placement.room,
+                observer,
+                drawn_for,
                 channel: portal.channel,
                 parallax_layer: portal_capture_parallax_layer(portal.channel),
                 parallax_anchor: frame

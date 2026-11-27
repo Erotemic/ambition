@@ -3865,8 +3865,8 @@ owner's P4 section); exact cell dependencies remain. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools
-(V2, a window clipped to a rolled view, landed 2026-11-27; V4's ready images
-and admission order the same day).
+(V1, a window for each view of a room, and V2, a window clipped to a rolled
+view, landed 2026-11-27; V4's ready images and admission order the same day).
 
 The follow-up [SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale)
 supplies the selected consumer-unit law; [PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)

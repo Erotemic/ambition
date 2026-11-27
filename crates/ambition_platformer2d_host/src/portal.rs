@@ -87,7 +87,7 @@ mod host_adapter {
             };
             let mut occluders = Vec::new();
             world.0.for_each_solid_aabb(false, &mut |aabb| occluders.push(aabb));
-            // A second view of a room that has an eye is refused there.
+            // Each view of a room is an eye of it (`PortalViewers::publish`).
             let Ok(material) = kin.material.at(Vec2::ZERO) else { continue; };
             let forward = material.direction(Vec2::X) * kin.facing.signum();
             viewers.publish(PortalViewer {
@@ -1618,16 +1618,18 @@ mod tests {
             "(the room, the eye, the half, the view of the observer)"
         );
 
-        // Two views of ONE room: the room has the eye of the first view.
+        // Two views of ONE room: the room has the eye of each view (V1), in
+        // the order of the views' ids, not of their spawn.
+        let carl = (0, Vec2::new(300.0, 50.0), level);
         assert_eq!(
             eyes_of(&[(0, Some("alice")), (1, Some("carl"))]),
-            vec![(alice.0, alice.1, alice.2, Some(0))],
-            "a room has one eye"
+            vec![(alice.0, alice.1, alice.2, Some(0)), (carl.0, carl.1, carl.2, Some(1))],
+            "a room has the eye of each view"
         );
         assert_eq!(
             eyes_of(&[(0, Some("carl")), (1, Some("alice"))]),
-            vec![(0, Vec2::new(300.0, 50.0), level, Some(0))],
-            "the first view by id, not by spawn"
+            vec![(carl.0, carl.1, carl.2, Some(0)), (alice.0, alice.1, alice.2, Some(1))],
+            "the views in the order of their ids"
         );
     }
 

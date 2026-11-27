@@ -70,7 +70,7 @@ pub use view_cones::{
     PortalViewConeConfig, PortalViewConeDebugDumpRequest, PortalViewConeDebugRow,
     PortalViewConeMode, PortalViewConeRule, PortalViewCones, PortalViewConeSourceClipPolicy,
     PortalViewConeVisibilityMode,
-    PortalViewRig, PORTAL_WINDOW_RENDER_LAYER,
+    PortalViewRig, PortalWindowFor, PORTAL_WINDOW_RENDER_LAYER,
 };
 pub use viewpoints::{PortalViewer, PortalViewers};
 pub use visuals::{

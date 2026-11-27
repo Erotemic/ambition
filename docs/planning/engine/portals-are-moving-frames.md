@@ -889,6 +889,24 @@ separately.
 - **V1 — observer identity.** Each view (a seat, a multiview split, the
   card view) names its observer, and a window's capture is keyed by it.
   Test: two same-room views each see the portal window from their own eye.
+  *Done 2026-11-27.* A room has an eye for each observer that frames it
+  (`PortalViewers::publish`; before, the room's first view was its only eye
+  and a second view of the room saw the first view's windows). A rig is
+  keyed by room, observer and channel, and while its room has the eyes of
+  several observers its window carries `PortalWindowFor(observer)`, which the
+  renderer maps to that view's projection (`present_portal_windows_for_their_views`
+  → `PresentedForView`), so only that view's camera draws it; when the room
+  has one eye again the window returns to the layers it rested on. Witnesses:
+  `two_views_of_one_room_each_see_the_window_from_their_own_eye` (four rigs,
+  each window kept to its observer, the two purple windows made from their
+  own eyes; control one observer; the second leaves and its rigs go),
+  `a_portal_window_kept_to_one_view_is_drawn_by_that_views_camera_alone`
+  (render), and the host's eye test (two views of one room: two eyes, in id
+  order). Limits: a window kept to one view is not in another window's
+  capture (recursion between windows of a shared room is off); the card view
+  draws no window yet (V5). Not photographed: `capture_scene` makes one view,
+  and no tool makes two views of one room; a single-view shot of the lab is
+  unchanged.
 - **V2 — rolled viewport clipping.** Test: under a rolled camera the
   window clips to the rolled viewport (a pixel test and a capture).
   *Done 2026-11-27.* The camera's sample (`PortalCameraContinuityHostView`)

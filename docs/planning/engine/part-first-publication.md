@@ -1,8 +1,9 @@
 # Part-first publication: characters are published as parts, not frames
 
-**State:** SELECTED, the top queue row (Jon, 2026-11-18: "This has to be the
-highest priority in the queue to get everything on an efficient part based
-path"). Parent: [runtime rigged sprite animation](runtime-rigged-sprite-animation.md).
+**State:** DONE 2026-11-20 (selected by Jon 2026-11-18 as the top task:
+"This has to be the highest priority in the queue to get everything on an
+efficient part based path"). Every part-drawn character publishes
+page-less; the queue row is retired. Parent: [runtime rigged sprite animation](runtime-rigged-sprite-animation.md).
 Predecessor: [Mary-O drawn entirely from parts](mary-o-part-realization.md),
 whose P5c (keep the baked oracle) this plan replaces.
 

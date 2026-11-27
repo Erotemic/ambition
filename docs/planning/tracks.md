@@ -636,6 +636,56 @@ Before promoting a card:
   selection starts with the failed punish trace, not a production rollout.
   Owner: [fighter tactical intent](engine/fighter-tactical-intent.md#5b-first-gate-run-2026-10-31-not-passed).
 
+## Open planning pages outside the queue (triaged 2026-11-27)
+
+Of 106 planning pages that neither [`queue.md`](queue.md) nor this page
+links, most are references, contracts or finished plans that their owner
+pages link. These state open work that nothing selected. Each stays with
+its owner page; select it with the trigger named here.
+
+- ▢ **Android Smash startup burst.** Selective baked-page loading is built;
+  the cause of the full image-demand burst at Android Smash startup is
+  open. Trigger: Android Smash release work. Owner:
+  [Android Smash startup](engine/android-smash-startup-assets.md) and its
+  [profiling handoff](engine/android-smash-startup-handoff-2026-11-08.md).
+- ▢ **Provider-defined technique, end to end (A11c), and the A12b
+  remainder.** A real provider-defined technique through edit, profile
+  validation, headless test, review and session-boundary activation; then
+  pin a prepared revision on playback and stop deep-cloning `MoveSpec` at
+  move start. Trigger: the first authored technique a game ships through
+  that road. Owner: [authored technique admission](engine/authored-technique-admission.md).
+- ▢ **Actor resources: prepared handles and the main-game economy.** Named
+  resources live in a per-actor bank (Smash Limit, Ambition Mana); prepared
+  handles, plan identity and a main-game economy slice are open. Trigger: a
+  second Ambition resource customer. Owner:
+  [composable actor resources](engine/composable-actor-resources.md).
+- ▢ **Room transition latency and residency quality.** Measured transition
+  latency, residency quality and external peer verification are open; the
+  ordinary-travel rebase is not to be reimplemented. Trigger: a measured
+  transition hitch. Owner: [room transition loading](engine/room-transition-loading.md).
+- ▢ **Standing performance measurements.** Target-specific raster and
+  materialization cost, simulation throughput at a meaningful population,
+  and build/test iteration cost. Measurements, not rows; select one with a
+  concrete slow target. Owner: [performance and iteration](engine/performance-and-iteration.md).
+- ▢ **Shared test-support crate.** Behavioural tests copy lifecycle setup
+  that drifts from the real one; the dependency layering is undecided.
+  Trigger: the next test-setup drift that breaks a lane. Owner:
+  [test support triage](triage/ambition-test-support.md).
+- ▢ **Reactive characters and dialogue.** Desired behaviour is clear; the
+  model/provider and durable social-memory policy are unresolved, and the
+  current selection is the tactical OBS1–OBS3 work, not AI dialogue.
+  Trigger: a provider decision. Owner:
+  [reactive characters](game/reactive-characters-and-dialogue.md).
+- ▢ **Begun dimensions.** The automaton, business, central-hub, neural and
+  unfinished dimensions each have a first few rooms; the history dimension
+  has a proposed long-range roadmap. Content work after Hobford polish.
+  Owners: [automaton](game/automaton-dimension.md),
+  [business](game/business-dimension.md),
+  [central hub](game/central-hub-dimension.md),
+  [neural](game/neural-dimension.md),
+  [unfinished](game/unfinished-dimension.md),
+  [history roadmap](game/history-dimension-long-range-roadmap.md).
+
 ## Moved from the queue (2026-11-27)
 
 These rows left [`queue.md`](queue.md) in the 2026-11-27 cleanup: each waits on a selection or a customer, not on engineering. Their text is unchanged.

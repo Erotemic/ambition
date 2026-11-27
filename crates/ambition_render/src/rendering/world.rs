@@ -1340,7 +1340,7 @@ pub fn spawn_loading_zone(
     if let (LoadingZoneActivation::Door, Some(theme)) = (zone.activation, theme) {
         visual.insert(super::terrain_skin::ThemedDoor(theme));
     }
-    if matches!(zone.activation, LoadingZoneActivation::Door) {
+    if grounded && zone.shows_label() {
         let label = match one_way {
             Some((warning, _)) => format!("{} ({warning})", zone.name),
             None => zone.name.clone(),
@@ -1376,7 +1376,7 @@ pub fn spawn_loading_zone(
         // (`hide_portal_loading_zone_visuals`).
         commands.entity(sign).insert(crate::rendering::primitives::LoadingZoneVisual { id: zone.id.clone() });
     }
-    if !matches!(zone.activation, LoadingZoneActivation::Door) {
+    if !grounded && zone.shows_label() {
         spawn_world_label(
             commands,
             session_scope,
@@ -2985,6 +2985,7 @@ mod themed_brick_tests {
 
 #[cfg(test)]
 mod zone_presentation_tests {
+    use super::super::primitives::LoadingZoneVisual;
     use super::*;
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
     use ambition_platformer2d_world::rooms::LoadingZonePresentation;
@@ -3001,17 +3002,25 @@ mod zone_presentation_tests {
         };
         let hidden_room = LiveRoomInstance::ACTIVATION;
         let visible_room = hidden_room.next();
+        let scene_label_room = visible_room.next();
         spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(hidden_room)), &room, &zone, ZoneWay::BothWays, None, None);
         zone.presentation = LoadingZonePresentation::Default;
         spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
+        zone.presentation = LoadingZonePresentation::SceneLabel;
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(scene_label_room)), &room, &zone, ZoneWay::BothWays, None, None);
         zone.id = "secret_way".into();
         assert!(zone.is_secret());
         spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
         ecs.flush();
-        let visuals: Vec<_> = ecs.query::<(&crate::rendering::primitives::LoadingZoneVisual, &InRoomInstance)>().iter(&ecs).collect();
-        assert_eq!(visuals.len(), 1);
-        assert_eq!(visuals[0].0.id, "shared_door");
-        assert_eq!(visuals[0].1.0, visible_room);
-        assert_eq!(ecs.query::<&DoorNameplateSource>().iter(&ecs).count(), 1);
+        let mut visuals = ecs.query::<(&LoadingZoneVisual, &Sprite, &InRoomInstance, Option<&DoorNameplateSource>)>();
+        let mut label_by_room: Vec<_> = visuals
+            .iter(&ecs)
+            .map(|(visual, _, room, label)| {
+                assert_eq!(visual.id, "shared_door");
+                (room.0, label.is_some())
+            })
+            .collect();
+        label_by_room.sort_unstable();
+        assert_eq!(label_by_room, [(visible_room, true), (scene_label_room, false)]);
     }
 }

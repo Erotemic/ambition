@@ -2081,7 +2081,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (46.0, -2.0),
                                                 half_extents: (30.0, 12.0),
@@ -2110,7 +2110,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (46.0, -2.0),
                                                 half_extents: (30.0, 12.0),
@@ -2432,17 +2432,17 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
-                                                offset: (6.0, -46.0),
-                                                half_extents: (14.0, 34.0),
+                                                offset: (16.0, -30.0),
+                                                half_extents: (22.0, 44.0),
                                             ),
                                             damage: 1,
                                             knockback: 1.0,
                                             knockback_growth: Some(0.0),
                                             launch_dir: None,
                                             reaction: Some(Autolink((
-                                                anchor: (6.0, -60.0),
+                                                anchor: (10.0, -48.0),
                                                 carry: 0.0,
                                                 pull: 7.0,
                                                 max_speed: 900.0,
@@ -2461,17 +2461,17 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
-                                                offset: (6.0, -46.0),
-                                                half_extents: (14.0, 34.0),
+                                                offset: (16.0, -30.0),
+                                                half_extents: (22.0, 44.0),
                                             ),
                                             damage: 1,
                                             knockback: 1.0,
                                             knockback_growth: Some(0.0),
                                             launch_dir: None,
                                             reaction: Some(Autolink((
-                                                anchor: (6.0, -60.0),
+                                                anchor: (10.0, -48.0),
                                                 carry: 0.0,
                                                 pull: 7.0,
                                                 max_speed: 900.0,
@@ -2490,17 +2490,17 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
-                                                offset: (6.0, -46.0),
-                                                half_extents: (14.0, 34.0),
+                                                offset: (16.0, -30.0),
+                                                half_extents: (22.0, 44.0),
                                             ),
                                             damage: 1,
                                             knockback: 1.0,
                                             knockback_growth: Some(0.0),
                                             launch_dir: None,
                                             reaction: Some(Autolink((
-                                                anchor: (6.0, -60.0),
+                                                anchor: (10.0, -48.0),
                                                 carry: 0.0,
                                                 pull: 7.0,
                                                 max_speed: 900.0,
@@ -2520,8 +2520,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (6.0, -52.0),
-                                                half_extents: (18.0, 40.0),
+                                                offset: (14.0, -40.0),
+                                                half_extents: (24.0, 50.0),
                                             ),
                                             damage: 1,
                                             knockback: 130.0,
@@ -2798,7 +2798,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (26.0, 0.0),
                                                 half_extents: (22.0, 20.0),
@@ -2818,7 +2818,7 @@
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (-26.0, 0.0),
                                                 half_extents: (22.0, 20.0),
@@ -2847,7 +2847,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (26.0, 0.0),
                                                 half_extents: (22.0, 20.0),
@@ -2867,7 +2867,7 @@
                                             hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (-26.0, 0.0),
                                                 half_extents: (22.0, 20.0),
@@ -3405,7 +3405,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (40.0, -4.0),
                                                 half_extents: (34.0, 15.0),
@@ -3434,7 +3434,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (40.0, -4.0),
                                                 half_extents: (34.0, 15.0),
@@ -3463,7 +3463,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (40.0, -4.0),
                                                 half_extents: (34.0, 15.0),
@@ -3607,7 +3607,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (4.0, -50.0),
                                                 half_extents: (16.0, 40.0),
@@ -3636,7 +3636,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (4.0, -50.0),
                                                 half_extents: (16.0, 40.0),
@@ -3665,7 +3665,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (4.0, -50.0),
                                                 half_extents: (16.0, 40.0),
@@ -3796,7 +3796,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (40.0, 8.0),
                                                 half_extents: (30.0, 10.0),
@@ -3825,7 +3825,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (-40.0, 8.0),
                                                 half_extents: (30.0, 10.0),
@@ -4302,8 +4302,8 @@
                                     volumes: [
                                         (
                                             shape: Rect(
-                                                offset: (44.0, -44.0),
-                                                half_extents: (14.0, 14.0),
+                                                offset: (46.0, -10.0),
+                                                half_extents: (18.0, 24.0),
                                             ),
                                             damage: 2,
                                             knockback: 90.0,
@@ -4316,8 +4316,8 @@
                                         ),
                                         (
                                             shape: Rect(
-                                                offset: (26.0, -22.0),
-                                                half_extents: (20.0, 20.0),
+                                                offset: (24.0, -4.0),
+                                                half_extents: (20.0, 18.0),
                                             ),
                                             damage: 1,
                                             knockback: 50.0,
@@ -4897,7 +4897,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (52.0, -2.0),
                                                 half_extents: (30.0, 12.0),
@@ -4926,7 +4926,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (52.0, -2.0),
                                                 half_extents: (30.0, 12.0),
@@ -4955,7 +4955,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (52.0, -2.0),
                                                 half_extents: (30.0, 12.0),
@@ -4984,7 +4984,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (52.0, -2.0),
                                                 half_extents: (30.0, 12.0),
@@ -6204,7 +6204,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (8.0, -40.0),
                                                 half_extents: (20.0, 30.0),
@@ -6233,7 +6233,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
-                                            properties: (hitlag_scale: 0.4),
+                                            properties: (hitlag_scale: 0.2),
                                             shape: Rect(
                                                 offset: (8.0, -40.0),
                                                 half_extents: (20.0, 30.0),

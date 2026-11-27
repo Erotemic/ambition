@@ -940,7 +940,8 @@ pub fn apply_feature_hit_events(
                     }
                     // Now the feel field is authoritative. the attacker freezes for exactly
                     // as long as its victim, from the one hitlag law, scaled by the hit it
-                    // just landed.
+                    // just landed: its damage and its own `hitlag_scale`, as the victim's
+                    // reaction scales it (`hit_reaction`).
                     combat.hitstop_timer = combat.hitstop_timer.max(
                         ambition_platformer2d_core::hit_response::hitlag_duration(
                             event.damage,
@@ -948,7 +949,7 @@ pub fn apply_feature_hit_events(
                                 &feel,
                                 heavy_attacker,
                             ),
-                        ),
+                        ) * event.properties.hitlag_scale,
                     );
                     // Only the body-flash is wrong.
                     if !matches!(event.source, HitSource::Projectile) {

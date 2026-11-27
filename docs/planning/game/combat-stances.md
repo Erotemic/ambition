@@ -228,8 +228,8 @@ themselves on a hit.
     - The foe strikes back when provoked and would cut the string, so the
       robot is scripted-invulnerable in the witness.
 
-  Seen and not yet tuned (SP5): every holding pulse still holds the
-  attacker's own move clock for about 5 ticks, as a full hit does.
+  Seen then and fixed in SP5: every holding pulse held the attacker's own
+  move clock for about 4 ticks, as a full hit does.
 - **SP4:** the look. Rows for the flurry, the corkscrew and the crescent
   branches, republished, with captures.
   *Landed 2026-11-27.* Seven keyed v3 rows in `player_robot_v3_strikes.py`.
@@ -250,3 +250,26 @@ themselves on a hit.
     draw from their own rows.
 - **SP5:** a headless feel measurement against `dense_melee_pit`: hits per
   confirmed combo and juggle height, per stance.
+  *Landed 2026-11-27.* Measured with a temporary probe (deleted) in the
+  hub, against a `npc_puppy_slug` 40 px in front: a flat foe, 80 × 21 px,
+  whose centre sits 13 px below the robot's. Measured per string:
+  hits landed, ticks the robot's move clock stood still, and how far the
+  foe rose. Three defects, fixed:
+  - **The attacker froze for the unscaled hit.** On the actor road the
+    attacker's hitstop was `hitlag_duration(damage)` without the hit's
+    `hitlag_scale`. The victim's reaction applies that scale, and the
+    comment beside the code promised the same freeze for both bodies. So a
+    0.4 holding pulse stopped the striker for a full light hit. With the
+    scale applied (`damage/mod.rs`), the Lunge flurry's held move-clock
+    ticks went from 24 to 12 over the same string, and its four stabs land
+    4–5 ticks apart instead of 8–10. The holding pulses' scale is now 0.2.
+  - **The corkscrew missed a foe in front of it.** Its drill boxes were a
+    column over the robot's head (x −8..20, y −80..−12), so a grounded foe
+    at arm's length was never touched: 0 hits. The column now leans forward
+    and reaches the feet. Result: 4 hits, and the foe is carried up 65 px.
+  - **The Crescent rise missed a grounded foe.** It struck from 30 px up.
+    Lowered to the robot's lower body. Result: the string arc, rise, flurry
+    lands every step, 10 damage over 7 connects.
+
+  The Lunge flurry is thrust, two laps of two stabs, and the push-out:
+  6 connects and 6 damage from one press.

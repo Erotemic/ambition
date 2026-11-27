@@ -569,6 +569,19 @@ fn after_it_is_dead_a_fall_drops_you_to_the_shore() {
         let returned = (0..60 * 4).any(|_| sim.step(AgentAction::default()).active_room == shore);
         assert!(returned, "fall from {sky} to {shore}");
         assert!((576.0..736.0).contains(&sim.observation().player_pos.0), "arrive under the shore opening");
+        let reached_ledge = (0..60 * 4).any(|_| {
+            let observation = sim.step(AgentAction::default());
+            let feet_y = observation.player_pos.1 + observation.player_size.1 * 0.5;
+            observation.active_room == shore && observation.on_ground && (feet_y - 480.0).abs() < 2.0
+        });
+        assert!(reached_ledge, "land on the shore ledge: {:?}", sim.observation().player_pos);
+        let reached_floor = (0..60 * 4).any(|_| {
+            let x = sim.observation().player_pos.0;
+            let move_x = ((432.0 - x) / 24.0).clamp(-1.0, 1.0);
+            let observation = sim.step(AgentAction { move_x, ..Default::default() });
+            observation.active_room == shore && observation.on_ground && observation.player_pos.1 > 700.0
+        });
+        assert!(reached_floor, "land on the shore floor: {} {:?}", active_room(&mut sim), sim.observation().player_pos);
     }
 }
 

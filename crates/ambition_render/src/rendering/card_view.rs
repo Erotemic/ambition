@@ -109,6 +109,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms
 use ambition_sprite_sheet::character::rigged::PartDraw;
 
 use super::retained_entities::RetainedEntities;
+use super::supported_carry::{SlingSpan, SlingString};
 use super::actors::rigged::{
     part_color, root_shows, BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation,
     RiggedPresentationOf,
@@ -314,15 +315,17 @@ impl CardRootDepths {
         let depth = self.roots.get(&order.root)?;
         let offset = match layer {
             GearLayer::Back => -FLASH_STEP,
-            GearLayer::Front => {
-                let part = match (depth.representation, order.anchor_part) {
-                    (CardBodyRepresentation::RiggedParts, Some(index)) => index as f32 * CARD_PART_STEP,
-                    _ => depth.front_part,
-                };
-                part + FLASH_STEP * 0.5
-            }
+            GearLayer::Front => depth.part_offset(order.anchor_part).unwrap_or(depth.front_part) + FLASH_STEP * 0.5,
         };
         Some(depth.plane_z + offset * depth.order_scale)
+    }
+
+    fn sling_depths(&self, span: SlingSpan) -> Option<[f32; 2]> {
+        let depth = self.roots.get(&span.root)?;
+        let foot = depth.part_offset(span.foot_part).unwrap_or(0.0) - FLASH_STEP;
+        let foot_z = depth.plane_z + foot * depth.order_scale;
+        let load_z = span.load.and_then(|(root, z)| self.held_depth(root, z)).unwrap_or(foot_z);
+        Some([foot_z, load_z])
     }
 }
 
@@ -341,6 +344,15 @@ struct CardBodyDepth {
     order_scale: f32,
     front_part: f32,
     representation: CardBodyRepresentation,
+}
+
+impl CardBodyDepth {
+    fn part_offset(&self, part: Option<usize>) -> Option<f32> {
+        match (self.representation, part) {
+            (CardBodyRepresentation::RiggedParts, Some(index)) => Some(index as f32 * CARD_PART_STEP),
+            _ => None,
+        }
+    }
 }
 
 /// The card view: install it beside the 2D presentation.
@@ -1335,6 +1347,17 @@ fn sprite_card_place(place: &Transform, z: f32) -> Transform {
     place.with_translation(place.translation.truncate().extend(z))
 }
 
+fn sprite_span_place(place: &Transform, width: f32, [start, end]: [f32; 2]) -> Transform {
+    let mut span = sprite_card_place(place, (start + end) * 0.5);
+    let planar_length = width * place.scale.x;
+    if planar_length > 0.0 {
+        let rise = end - start;
+        span.rotation *= Quat::from_rotation_y(-rise.atan2(planar_length));
+        span.scale.x *= planar_length.hypot(rise) / planar_length;
+    }
+    span
+}
+
 /// Realize each body drawn from a sheet (no rigged presentation) as one card
 /// of the cell it draws, at its 2D place on the depth `realize_card_bodies`
 /// ranked it to.
@@ -1443,7 +1466,7 @@ pub(super) fn realize_card_scenery(
         (
             Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
             &InheritedVisibility, Option<&MovingPlatformVisual>, Has<AnimatedWorldSpriteTint>,
-            Option<&PresentationOf>, Option<&WornGearVisual>,
+            Option<&PresentationOf>, Option<&WornGearVisual>, Option<&SlingString>,
         ),
         (ScenerySource, Without<CardScenery>),
     >,
@@ -1467,7 +1490,7 @@ pub(super) fn realize_card_scenery(
         return;
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
-    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject, gear) in &scenery {
+    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject, gear, string) in &scenery {
         let gear_depth = gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer));
         let shown = visibility.get()
             && sprite.color.alpha() > 0.0
@@ -1484,6 +1507,8 @@ pub(super) fn realize_card_scenery(
         };
         let mut card_place = if let Some(platform) = platform {
             sprite_card_place(local, platform_depth(platform, platform_looks.as_deref()))
+        } else if let Some(span) = string.and_then(|string| depths.sling_depths(string.span)) {
+            sprite_span_place(&global.compute_transform(), frame.size.x, span)
         } else {
             let place = global.compute_transform();
             let z = place.translation.z;
@@ -1679,6 +1704,21 @@ mod tests {
         assert_eq!(flipped_uv, [uv[2], uv[3], uv[0], uv[1]]);
         let resized_page = TextureQuad { page: Vec2::splat(200.0), ..quad };
         assert!(quad.key() != resized_page.key());
+    }
+
+    #[test]
+    fn a_tilted_sling_card_keeps_its_endpoints_in_the_side_view() {
+        let place = Transform::from_xyz(-20.0, 100.0, 2.0)
+            .with_rotation(Quat::from_rotation_z(0.7))
+            .with_scale(Vec3::new(1.5, 1.0, 1.0));
+        let width = 18.0;
+        let depths = [-7.0, 36.0];
+        let sling = sprite_span_place(&place, width, depths);
+        for (local_x, expected_depth) in [(-width * 0.5, depths[0]), (width * 0.5, depths[1])] {
+            let point = Vec3::new(local_x, 0.0, 0.0);
+            let expected = place.transform_point(point).truncate().extend(expected_depth);
+            assert!(sling.transform_point(point).distance(expected) < 0.0001);
+        }
     }
 
     /// RV3: a held item is a card on its holder's card depth, its 2D offset

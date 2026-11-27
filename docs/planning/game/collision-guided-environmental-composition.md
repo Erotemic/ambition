@@ -402,6 +402,9 @@ For the barracks trapdoor, show both ends of the shaft with the lever
 open and closed. Use the same flag when the preview evaluates both ends.
 Show where a ladder overlaps a gate. A body can climb through blocks
 that overlap its ladder.
+At the Prototype Workshop, show the chest's base on the receiving deck
+and show where a body can stop to open it after the jump across the hoist
+opening.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

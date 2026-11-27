@@ -1128,6 +1128,7 @@
     // Eureka's quad, filled in.
     "quad_raised_walk": (),
     "quad_cafe": (),
+    "quad_campus_walks": (),
     "quad_lecture_hall": (),
     "quad_fountain": (),
     "quad_lab_front": (),

@@ -185,6 +185,10 @@ conscript starts on the wall. The spectral wolf starts on the road.
 - At the Gate Court, the founders' plinth, the bench, and the east steps
   give access to the raised walk. The street passes the gate dialer and
   Ottoline Hum. Both routes lead to the quad.
+- In the quad, the raised walk passes the Patent Office, café, and
+  fountain on the way to the lecture hall terrace. The café bench and
+  awning give access from the street. The manhole below the patent
+  balcony leads to the steam plant.
 - **Under:** down the manhole in the quad's street into the steam plant (catwalks, boilers), east on its floor into the Collider, up its stair to the quad: a loop.
 - **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
 - **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.

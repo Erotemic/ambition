@@ -403,6 +403,8 @@ firing line with the deck surfaces. Use the collision cells for the deck
 tops. The editor can move an authored top to a grid boundary.
 At Eureka's Gate Court, show where the street and raised walk meet the
 quad. Show the gate and dialer clearance beside the first step.
+In the quad, show the jumps between the raised walks and the drop to
+the manhole. Show the sign positions with the ladder and door frames.
 At Complaints, show the body width beside the forms crate and the east
 exit. Check that a body can climb the crate before it enters the exit.
 For the barracks trapdoor, show both ends of the shaft with the lever

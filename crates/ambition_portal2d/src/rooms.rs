@@ -87,6 +87,17 @@ impl PortalsByRoom {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    /// Take each room of `previous` that `keep` names and this table does
+    /// not hold: the rooms a publication did not cover.
+    pub fn keep_from(&mut self, previous: &Self, keep: impl Fn(PortalRoom) -> bool) {
+        for (room, list) in &previous.0 {
+            if keep(*room) && !self.0.iter().any(|(seen, _)| seen == room) {
+                self.0.push((*room, list.clone()));
+            }
+        }
+        self.0.sort_by_key(|(room, _)| *room);
+    }
 }
 
 /// The measured host depth of each portal, by live room: two rooms can each

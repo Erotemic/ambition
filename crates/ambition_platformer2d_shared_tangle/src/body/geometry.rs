@@ -136,12 +136,30 @@ impl BodyGeometry {
 
     /// Replace the current aperture restrictions.
     pub fn reset_apertures(&mut self, convention: MapConvention, budget: PieceBudget) {
+        self.reset_apertures_except(convention, budget, |_| false, |_| false);
+    }
+
+    /// Replace the aperture restrictions of the population a publication
+    /// covers, and keep the rest: each room `keep_room` names, and each body
+    /// `keep_body` names, with its budget, closed links and straddle.
+    ///
+    /// A room's replay hides the other rooms while it runs (portal T3): a
+    /// publisher then sees only the replayed room, and clearing everything
+    /// would erase the publication of rooms that did not run, which nothing
+    /// republishes before the next full tick.
+    pub fn reset_apertures_except(
+        &mut self,
+        convention: MapConvention,
+        budget: PieceBudget,
+        keep_room: impl Fn(Option<LiveRoomInstance>) -> bool,
+        keep_body: impl Fn(Entity) -> bool,
+    ) {
         self.convention = convention;
         self.default_budget = budget;
-        self.bodies.clear();
-        self.rooms.clear();
-        self.straddling.clear();
-        self.closed.clear();
+        self.bodies.retain(|(body, _)| keep_body(*body));
+        self.rooms.retain(|room| keep_room(room.room));
+        self.straddling.retain(|(body, _)| keep_body(*body));
+        self.closed.retain(|(body, _)| keep_body(*body));
     }
 
     /// How far the volumes of every room are cut, unless a room says
@@ -221,6 +239,11 @@ impl BodyGeometry {
     }
 
     pub fn clear_straddlers(&mut self) { self.straddling.clear(); }
+
+    /// Drop every straddle but those of the bodies `keep` names.
+    pub fn retain_straddlers(&mut self, keep: impl Fn(Entity) -> bool) {
+        self.straddling.retain(|(body, _)| keep(*body));
+    }
 
     /// Whether any body is through a pair.
     pub fn has_straddlers(&self) -> bool {

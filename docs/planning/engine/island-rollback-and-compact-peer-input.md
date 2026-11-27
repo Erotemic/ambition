@@ -60,6 +60,10 @@ foreign live publication and retire actual old occurrences explicitly. The
 first witness inspects an unchanged straddler in B immediately after rewinding
 A. This is independent of guest prediction and cross-island portals.
 
+**Landed 2026-11-27:** the portal publishers scope their replacement to the
+replayed room (`RoomReplay`) and keep each hidden room's and body's
+entries ([T3 receipt](portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population)).
+
 Keep the completed writer census and replay receipts below. Classification as
 Derived does not prove publication coverage after a partial run. A source-text
 census change alone cannot repair this behavior. T3 gives the owner fix and

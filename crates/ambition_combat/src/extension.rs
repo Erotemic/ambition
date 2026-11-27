@@ -277,6 +277,7 @@ struct AskedHeld {
     half_extent: ae::Vec2,
     shape: Option<ae::VolumeShape>,
     ray: Option<crate::strike::RayStrike>,
+    jump: Option<ambition_combat_port::ray::RayJump>,
     damage: i32,
     knockback: f32,
     launch_dir: Option<ambition_combat_port::LaunchDirection>,
@@ -417,6 +418,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
             half_extent: ae::Vec2::from(s.value.half_extent),
             shape: None,
             ray: None,
+            jump: None,
             damage: s.value.damage,
             knockback: s.value.knockback,
             launch_dir: None,
@@ -424,6 +426,10 @@ fn lower_held_damage_boxes<P: LowersIn>(
         })
         .collect();
     for s in rays {
+        if s.value.jump.is_some_and(|jump| !jump.is_valid()) {
+            warn!("extension entry {} requested invalid ray jump settings", s.entry);
+            continue;
+        }
         let (body, room) = bodies.get(s.scope).map_or((None, None), |(kin, room)| (Some(kin), room));
         let walls = collision.room(room).and_then(|room| room.solids());
         let Some((origin, ray, shape)) = ray_start(&s.value, s.scope, body, &landmarks).and_then(|(origin, width)| {
@@ -441,6 +447,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
             half_extent: shape_half(&shape),
             shape: Some(shape),
             ray: Some(ray),
+            jump: s.value.jump.filter(|jump| jump.chance > 0.0),
             damage: s.value.damage,
             knockback: s.value.knockback,
             launch_dir: s.value.launch_dir,
@@ -542,6 +549,12 @@ fn lower_held_damage_boxes<P: LowersIn>(
         }
         if let Some(ray) = &s.ray {
             born.insert(ray.clone());
+            if let Some(jump) = s.jump {
+                let follow_up = crate::hit_origin::RayJumpOnDamage { jump, width: ray.width, look: ray.look.clone() };
+                born.entry::<crate::HitOrigin>().and_modify(move |mut origin| {
+                    origin.ray_jump = Some(follow_up);
+                });
+            }
         }
         let entity = born.id();
         let record = HeldDamageBoxRecord {

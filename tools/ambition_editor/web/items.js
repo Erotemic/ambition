@@ -226,7 +226,8 @@
   function search(terms) {
     const hit = text => terms.every(t => text.toLowerCase().includes(t));
     const found = Object.values(items).filter(i => hit(i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")));
-    const characters = Object.entries(C.inventory?.identities || {}).filter(([key, a]) => hit(key + " " + a.display + " " + (a.catalog?.tags || []).join(" ")));
+    const characters = Object.entries(C.inventory?.identities || {}).filter(([key, a]) =>
+      hit([key, a.display, (a.catalog.tags || []).join(" "), JSON.stringify(a.catalog.cast || {})].join(" ")));
     const images = Object.values(C.assets || {}).filter(a => hit(a.id + " " + a.display + " " + (a.tags || []).join(" ")));
     app().innerHTML = `<h1>Search <small>${esc(terms.join(" "))}</small></h1>
       <section class="box"><h2>Characters (${characters.length})</h2>${characters.slice(0, 60).map(([key, a]) => `<a href="#character/${encodeURIComponent(key)}">${esc(a.display)}</a>`).join(" · ") || '<p class="empty">None.</p>'}</section>

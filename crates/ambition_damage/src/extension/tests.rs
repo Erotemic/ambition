@@ -117,6 +117,7 @@ fn a_room_observes_a_retired_victim_but_a_replacement_cannot_receive_its_hit() {
         ..receiver.clone()
     };
     app.world_mut().write_message(BodyHitResolved {
+            ray_jump: None,
             projectile: None,
         body: original,
         attacker: Some(attacker),
@@ -163,6 +164,7 @@ fn mechanically_equal_receptions_have_equal_gameplay_payloads_after_different_ho
             room: Some(LiveRoomInstance::ACTIVATION),
         };
         let hit = BodyHitResolved {
+            ray_jump: None,
             projectile: Some(HitIdentity { id: Some(SimId::placement("shot")), room: identity.room, session: identity.session }),
             body,
             attacker: Some(body),

@@ -315,6 +315,19 @@ def test_browser_catalog_defers_asset_files_and_serves_cacheable_gzip(built):
             thread.join()
 
 
+def test_the_character_roster_keeps_cast_metadata_from_the_prepared_catalog(tmp_path):
+    key = "game:guide"
+    cast = {"importance": "Secondary", "roles": {"story": ["ally", "mentor"], "settlement": ["keeper"]}}
+    actor = {"key": key, "catalog": {"display_name": "Guide", "cast": cast}, "units": [], "coverage": []}
+    catalog_page.write(tmp_path, {"inventory": {"identities": {key: actor}}})
+    index = (tmp_path / catalog_page.INDEX).read_text()
+    core = json.loads(index.removeprefix(catalog_page.PREFIX).rstrip().removesuffix(";"))
+    digest = core["chunks"]["characters"]
+    script = (tmp_path / catalog_page.CHUNKS / f"{digest}.js").read_text()
+    roster = json.loads(script.removeprefix('window.ArtCatalog.receive("characters",').removesuffix(");\n"))
+    assert roster["identities"][key]["catalog"]["cast"] == cast
+
+
 @pytest.mark.parametrize("shape", ["image", "images", "pages"])
 def test_each_shape_of_the_sheet_layout_names_its_pages(tmp_path, shape):
     head = {"image": "image: foo_spritesheet.png\n", "images": "images: [foo_spritesheet.png, foo_spritesheet.1.png]\n", "pages": "pages: 2\n"}[shape]

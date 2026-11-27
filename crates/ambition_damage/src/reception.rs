@@ -69,6 +69,7 @@ impl BodyHitReporter<'_, '_> {
             source: hit.source.clone(),
             raw_damage: hit.damage,
             attacker_move_instance: hit.attacker_move_instance,
+            ray_jump: hit.origin.as_ref().and_then(|origin| origin.ray_jump.clone()),
         });
     }
 

@@ -8,11 +8,12 @@
 |---|---|
 | [`extension`](src/extension.rs) | Script delivery of native reception decisions after damage resolution. |
 | [`healing`](src/healing.rs) | Health restoration requests and their application to bodies. |
+| [`ray_jump`](src/ray_jump.rs) | A ray can start a second strike after a body takes damage. |
 | [`reception`](src/reception.rs) | Native hit decisions with identity captured at the reception cut. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for health effects. |
 | [`wallet_shield`](src/wallet_shield.rs) | Where a wallet absorbs a hit. |
 
-_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

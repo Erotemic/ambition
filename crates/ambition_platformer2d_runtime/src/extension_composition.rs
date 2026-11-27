@@ -182,6 +182,13 @@ impl Plugin for ExtensionCompositionPlugin {
                 .in_set(GameplayGated)
                 .in_set(CombatSet::ContentFlavor),
         );
+        app.add_systems(
+            sim,
+            ambition_damage::ray_jump::spawn_ray_jumps
+                .in_set(GameplayGated)
+                .in_set(CombatSet::ContentFlavor)
+                .before(ExtensionSet::Phase(HIT_REACTION)),
+        );
 
         // `wielded_use` guarantees: the body's control frame, kinematics and
         // gravity frame are settled (the player phase), and a request is

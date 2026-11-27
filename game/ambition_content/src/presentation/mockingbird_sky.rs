@@ -341,7 +341,7 @@ pub struct SpaceSky;
 
 /// One part of a room's space, which [`pose_of`] places.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-#[require(ambition_render::rendering::WorldSprite)]
+#[require(ambition_render::rendering::AnimatedWorldSpriteTint)]
 pub enum SpacePart {
     /// The dark, with its dust and its soft lower edge.
     Dark,

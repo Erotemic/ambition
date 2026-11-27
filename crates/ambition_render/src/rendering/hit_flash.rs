@@ -166,7 +166,7 @@ pub fn add_hit_flash_material_plugin(app: &mut App) {
 ///
 /// Bindings mirror the puppy-slug deep-dream material, so they use the same
 /// WebGL2-friendly layout (vec4 uniforms, no struct UBOs).
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct HitFlashMaterial {
     /// Current atlas frame as a UV rect on the loaded spritesheet.
     /// `(min.x, min.y, max.x, max.y)` normalized.
@@ -187,6 +187,13 @@ pub struct HitFlashMaterial {
     pub tint: Vec4,
 }
 
+#[cfg(feature = "card_view")]
+impl super::card_view::CardMaterialSource for HitFlashMaterial {
+    fn draws_on_card(&self, body: Option<super::card_view::CardBodyRepresentation>) -> bool {
+        body == Some(super::card_view::CardBodyRepresentation::Sprite) && self.control.x > 0.001
+    }
+}
+
 impl Material2d for HitFlashMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
@@ -202,8 +209,8 @@ impl Material2d for HitFlashMaterial {
 /// body (0 shows nothing). Published on the source so another view of the
 /// body draws the same cue without deciding it again (RV3).
 ///
-/// The gate's scanline light is published as its flat tint; only the 2D
-/// overlay's shader draws the scanlines.
+/// Rigged cards use the flat tint. The shared flash material draws the
+/// gate's scanlines on sheet-drawn bodies.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
 pub struct PresentedFlash {
     pub intensity: f32,

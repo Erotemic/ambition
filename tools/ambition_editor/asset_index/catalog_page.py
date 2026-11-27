@@ -151,7 +151,7 @@ def write(out: Path, catalog: dict, *, prune=False):
                                                for status in [unit["status"], *unit["status"].get("tiers", {}).values()])
             for unit in actor_units)
         character_rows[key] = dict(_select(actor, "id key provider display units relations lineages preview added_at generated_at generated_at_evidence"),
-                                   catalog=_select(actor["catalog"], "tags manifest"),
+                                   catalog=_select(actor["catalog"], "tags manifest cast"),
                                    cover=cover, inventory_cover=inventory_cover, art_families=list(dict.fromkeys(families)),
                                    needs_art=needs_art,
                                    coverage_gaps=list(dict.fromkeys(c["action"] for c in actor["coverage"]

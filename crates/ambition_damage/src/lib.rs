@@ -191,8 +191,10 @@ pub struct BodyHitResolved {
     pub source: ambition_combat::HitSource,
     pub raw_damage: i32,
     pub attacker_move_instance: Option<u32>,
+    pub ray_jump: Option<ambition_combat::hit_origin::RayJumpOnDamage>,
 }
 
+pub mod ray_jump;
 pub mod reception;
 pub mod extension;
 

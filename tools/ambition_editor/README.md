@@ -58,10 +58,10 @@ pack, so another engine game is inspected the same way (`--profile`,
   catalog, as described below. A character a pack declares as a Smash fighter
   (a `smash_fighter` source naming it) is tagged `smash-fighter`.
   The Characters panel also has temporary boss entries from the content tool's
-  boss art bindings, references, and room placements. Select Role: Bosses to
-  see them. Entries that share art have links on their detail pages. A shared
-  image does not merge identities. Missing art remains visible; character action
-  coverage is not asserted for these entries. This bridge does not change
+  boss art bindings, references, and room placements. Select Boss in the
+  Encounter group of the Role filter to see them. Characters that share art
+  keep their own identities and link to each other. Entries with missing art
+  stay visible. Action coverage comes from character catalog rows. This bridge does not change
   gameplay. Remove it after the
   [character construction unification](../../docs/planning/engine/boss-character-unification.md).
   Set **Lineage items >** to a whole number to show entries with more than that
@@ -70,6 +70,8 @@ pack, so another engine game is inspected the same way (`--profile`,
   counts each commit/target pair once. A blank field shows all entries.
   Characters show the most recently added entries first by default.
   Use Sort by to change the order by name, date added, or art generation date.
+  Use Importance and Role to filter by the cast data in the character pack.
+  The cards and detail pages show the cast labels.
   Both date sorts offer newest and oldest first. Added dates use the first
   character key in available catalog Git history, across file renames. Boss
   profile dates use the same lookup in the boss profile sources.

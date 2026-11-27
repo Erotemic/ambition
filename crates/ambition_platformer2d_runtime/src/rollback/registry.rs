@@ -419,7 +419,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // `reel_speed`, `min_length`, `max_length`, `release_hop`. The fields are
 // listed in `axis_fields!`, which the codec-shape check does not read, so its
 // baseline did not move.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 552;
+// 552 -> 553: Save the selected target of a strike and the ray jump settings
+// of a deferred hit.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 553;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

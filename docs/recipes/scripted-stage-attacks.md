@@ -18,7 +18,7 @@ The Lightning inventory skill can use the same loop:
 AMBITION_EXTENSION_MODULES=game/ambition_content/rhai/lightning.rhai ./run_game.sh --reuse
 ```
 
-Equip Lightning from the inventory. Press the Projectile action for a three-bolt fan. Hold it to repeat. Each volley costs 9 mana. Release does not clear its cooldown.
+Equip Lightning from the inventory. Hold the Projectile action to send five rays from the hand in a cone. The script sets the mana cost per second and the time between pulses. When a ray does damage, it can jump once to the nearest new enemy in range with a clear path. Adjust `JUMP_CHANCE`, `JUMP_RANGE`, and `JUMP_DAMAGE` in the script.
 
 ## Contracts
 

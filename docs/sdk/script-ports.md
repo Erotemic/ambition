@@ -194,7 +194,7 @@ Port `ambition.feedback.camera_shake@1`, request: `this.requests.push(request("<
 
 ## `held_ray`
 
-Port `ambition.combat.held_ray@5`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.combat.held_ray@6`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
@@ -209,6 +209,7 @@ Port `ambition.combat.held_ray@5`, request: `this.requests.push(request("<alias>
 | `launch_dir` | one of: #{ world: [x, y] } \| #{ away: [x, y] }: x points away from the source or () | `()` |  |
 | `lifetime_s` | number | required |  |
 | `look` | text | required |  |
+| `jump` | { chance: number, range: number, damage: integer (i32) } or () | `()` | Settings for one jump after a body takes damage. The jump stops at solid walls. |
 
 ## `lightning`
 

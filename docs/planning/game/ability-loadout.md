@@ -57,7 +57,8 @@ item's index moved. Alice now sends Bob a Spare Battery for his survey lamp
 in place of the note. Exclusive groups: `projectile` (Fireball,
 Eye Laser, Lightning), `stance` (Sword, Axe, Whip), `blink` (Precision,
 Contextual), `burst` (Dash, Dash II, Dash III). Grapple and Mark / Recall are
-held gauntlets. Grapple moved from slot 10 to slot 13 (the Javelin's) on
+held gauntlets; the grapple's swing, pull, whip and Smash recovery are in
+[grapple](grapple.md). Grapple moved from slot 10 to slot 13 (the Javelin's) on
 2026-11-26 so the dashes share row 2; saves name items by `dialog_id`, so no
 save moved with it.
 
@@ -240,11 +241,15 @@ tests (bounce, one-way landing, strike rules).
    level 2 adds a controlled blink; level 3 adds a time-slow control. Also:
    a quick press does "the intuitive thing", and two quick presses give the
    directional blink.
-   A quick press already is the directional blink (along the stick, or
-   forward), so "the intuitive thing" is a new single-press behaviour the
-   notes do not define: filed as
-   [Q179](../awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)
-   with a recommended default.
+   **Ruled 2026-11-27 (Q179): no double tap.** One continuous
+   press-hold-release. The press begins preparation; a release before the
+   precision threshold (`blink_hold_threshold`, today 0.1 s) asks for the
+   standard short blink, which is today's directional blink (along the
+   stick, or forward); holding past the threshold aims, and the release
+   executes the aimed blink. Open: the short blink gets a minimum
+   preparation time, tuned apart from the threshold; preparation, aiming,
+   interruption and release are rollback state; the preparation is visible;
+   tune both times in play.
 3. **Tiers (the fact done 2026-11-14).** The level is the bag's count of the
    ability: an item's `levels` (in `items.ron`) are the rows worn at levels
    2 and up, each in the `wears` row's exclusive slot, and `stack` holds the

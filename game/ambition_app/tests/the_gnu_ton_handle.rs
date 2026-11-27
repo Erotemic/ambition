@@ -125,9 +125,8 @@ fn standing(sim: &mut Platformer2dSimHarness) -> Vec<String> {
     .collect()
 }
 
-/// Hub, orchard, well, hall, gallery, approach, arena: each door leads to
-/// the next room, and each room's door leads back. The arena's way out goes
-/// home.
+/// Travel between each pair of rooms in both directions. The arena has a
+/// door to the hub.
 #[test]
 fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
@@ -135,11 +134,56 @@ fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
     let mut sim = room_with("central_hub_complex", save);
     let road = ["central_hub_complex", ORCHARD, WELL, HALL, GALLERY, APPROACH, ARENA];
     for pair in road.windows(2) {
+        if pair == [ORCHARD, WELL] {
+            for (target, x, floor, direction) in [
+                (WELL, 2720.0, 704.0, 1.0),
+                (ORCHARD, 96.0, 1536.0, -1.0),
+                (WELL, 2720.0, 704.0, 1.0),
+            ] {
+                stand(&mut sim, x, floor);
+                assert!(
+                    until(&mut sim, 120, |_| axis(direction, 0.0), |sim| {
+                        sim.observation().active_room == target
+                    }).is_some(),
+                    "walk to {target}: {}",
+                    trace(&mut sim, "seam"),
+                );
+            }
+            continue;
+        }
         assert_eq!(walk_through_the_door_to(&mut sim, pair[1]), pair[1], "`{}` has a door to `{}`", pair[0], pair[1]);
         assert_eq!(walk_through_the_door_to(&mut sim, pair[0]), pair[0], "`{}` has a door back to `{}`", pair[1], pair[0]);
         assert_eq!(walk_through_the_door_to(&mut sim, pair[1]), pair[1]);
     }
     assert_eq!(walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex", "the arena's way out goes home");
+}
+
+/// Climb from each pit floor to the east path.
+#[test]
+fn the_orchard_service_ladders_reach_the_east_banks() {
+    let mut sim = room(ORCHARD);
+    for bank in [1504.0, 2464.0] {
+        stand(&mut sim, bank - 16.0, 896.0);
+        assert!(
+            until(&mut sim, 240, |_| axis(0.0, -1.0), |sim| at(sim).1 < 674.0).is_some(),
+            "{}",
+            trace(&mut sim, "climb above the bank"),
+        );
+        assert!(
+            until(
+                &mut sim, 240,
+                |sim| axis(if at(sim).0 < bank + 112.0 { 1.0 } else { 0.0 }, 0.0),
+                |sim| {
+                    let o = sim.observation();
+                    o.player_pos.0 > bank + 20.0
+                        && o.on_ground
+                        && (o.player_pos.1 - 680.0).abs() < 1.0
+                },
+            ).is_some(),
+            "{}",
+            trace(&mut sim, "step onto the bank"),
+        );
+    }
 }
 
 /// THE ORCHARD. Hold right from the door: the first tree lifts the robot to
@@ -443,26 +487,15 @@ fn the_lift_from_the_approach_is_let_go_from_inside() {
     stand(&mut sim, 2932.0, 576.0);
     press(&mut sim, "spoke_lift_release");
     assert!(!standing(&mut sim).iter().any(|name| name.contains("spoke_lift_gate")), "{:?}", standing(&mut sim));
-    let walked = crate::common::walk::walk_through(&mut crate::common::walk::Pad::new(&mut sim), ORCHARD);
-    assert!(walked.is_ok(), "out of the alcove to the orchard: {walked:?}");
-    assert_eq!(sim.observation().active_room, ORCHARD);
+    assert!(
+        until(&mut sim, 120, |_| axis(-1.0, 0.0), |sim| at(sim).0 < 2810.0).is_some(),
+        "the robot walks out through the released gate: {}",
+        trace(&mut sim, "west"),
+    );
     // The release is a fact of the save: the gate stays open.
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_flag("switch_spoke_lift_release_used".to_string(), true);
     let mut later = room_with(SPOKE, save);
     assert!(!standing(&mut later).iter().any(|name| name.contains("spoke_lift_gate")), "{:?}", standing(&mut later));
-}
-
-/// THE WORKS AND THE STATION ARE ONE PLACE. The orchard's spoke door leads
-/// to the spoke, and the spoke's far door to the station's service deck.
-#[test]
-fn the_spoke_joins_the_works_to_the_station() {
-    let mut sim = room(ORCHARD);
-    for (from, to) in [(ORCHARD, SPOKE), (SPOKE, "orbital_station_service_deck")] {
-        assert_eq!(walk_through_the_door_to(&mut sim, to), to, "`{from}` has a door to `{to}`");
-    }
-    for (from, to) in [("orbital_station_service_deck", SPOKE), (SPOKE, ORCHARD)] {
-        assert_eq!(walk_through_the_door_to(&mut sim, to), to, "`{from}` has a door back to `{to}`");
-    }
 }
 

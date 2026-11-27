@@ -224,10 +224,18 @@ pub(super) fn isolate_cards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_sim_view::camera_snapshot::{ResolvedCameraFrame, ResolvedCameraSnapshot};
     use crate::rendering::camera::PresentedViewFrame;
-    use crate::rendering::card_view::{retire_card_outputs, CardMeshes, CardViewMode};
+    use crate::rendering::card_view::{
+        card_outputs_enabled,
+        drawings::{realize_card_drawings, CardDrawing},
+        retire_card_outputs, CardMeshes, CardViewMode,
+    };
+    use crate::rendering::retained_drawings::DrawingScope;
+    use crate::rendering::view_isolation::{isolate_live_rooms, isolate_per_view_projections};
     use bevy::camera::Viewport;
+    use bevy::gizmos::{retained::Gizmo, GizmoAsset};
     use bevy::prelude::{App, Assets, Image, IntoScheduleConfigs, PostUpdate, UVec2, Vec2};
 
     #[test]
@@ -298,9 +306,17 @@ mod tests {
         app.insert_resource(CardViewSettings::gameplay())
             .init_resource::<CardMeshes>()
             .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<GizmoAsset>>()
             .add_systems(
                 PostUpdate,
-                (retire_card_outputs, route_card_outputs, isolate_cards).chain(),
+                (
+                    retire_card_outputs,
+                    route_card_outputs,
+                    isolate_per_view_projections,
+                    isolate_live_rooms,
+                    realize_card_drawings.run_if(card_outputs_enabled),
+                    isolate_cards,
+                ).chain(),
             );
         let world = app.world_mut();
         let image = world.resource_mut::<Assets<Image>>().add(Image::default());
@@ -311,8 +327,16 @@ mod tests {
         let mut frames = Vec::new();
         let mut outputs = Vec::new();
         for (index, room) in rooms.into_iter().enumerate() {
-            let view = world.spawn((LocalView, LocalViewId(index as u8))).id();
-            let mask = RenderLayers::none().with(256 + index);
+            world.spawn((RoomInstanceRoot, room));
+            let view = world.spawn((
+                LocalView,
+                LocalViewId(index as u8),
+                ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
+                    room,
+                    snapshot: Default::default(),
+                    follow_world: Default::default(),
+                })),
+            )).id();
             let origin = UVec2::new(index as u32 * 600, 0);
             let plane = world
                 .spawn((
@@ -328,7 +352,6 @@ mod tests {
                         ..Default::default()
                     },
                     PresentsView(view),
-                    mask.clone(),
                 ))
                 .id();
             if index == 1 {
@@ -342,10 +365,17 @@ mod tests {
                     RenderLayers::none(),
                 ))
                 .id();
-            let source = world.spawn(mask).id();
+            let source = world.spawn(InRoomInstance(room)).id();
             let model = world
                 .spawn((CardScope::Source(source), RenderLayers::none()))
                 .id();
+            let lines = world.resource_mut::<Assets<GizmoAsset>>().add(GizmoAsset::new());
+            let gizmo = Gizmo { handle: lines, ..Default::default() };
+            let drawing = if index == 0 {
+                world.spawn((DrawingScope::Room(room), InRoomInstance(room), gizmo))
+            } else {
+                world.spawn((DrawingScope::View(view), ambition_sim_view::PresentedForView(view), gizmo))
+            }.id();
             frames.push((
                 view,
                 PresentedViewFrame {
@@ -355,11 +385,19 @@ mod tests {
                     orthographic_scale: 1.0,
                 },
             ));
-            outputs.push((plane, card, model, origin));
+            outputs.push((plane, card, model, origin, drawing));
         }
         world.insert_resource(PresentedViewFrames::of_views(frames));
         world.run_schedule(PostUpdate);
-        for (index, &(plane, card, model, origin)) in outputs.iter().enumerate() {
+        let drawings = |world: &mut bevy::prelude::World| {
+            world.query_filtered::<(Entity, &CardScope), With<CardDrawing>>().iter(world)
+                .map(|(entity, scope)| match *scope {
+                    CardScope::Source(source) => (source, entity),
+                    CardScope::Camera(_) => unreachable!(),
+                }).collect::<std::collections::BTreeMap<_, _>>()
+        };
+        let retained = drawings(world);
+        for (index, &(plane, card, model, origin, drawing)) in outputs.iter().enumerate() {
             assert!(!world.get::<Camera>(plane).unwrap().is_active);
             assert!(world.get::<AppearanceSampleCamera>(plane).is_some());
             let camera = world.get::<Camera>(card).unwrap();
@@ -374,15 +412,24 @@ mod tests {
             let layers = world.get::<RenderLayers>(model).unwrap();
             assert!(layers.intersects(world.get::<RenderLayers>(card).unwrap()));
             assert!(!layers.intersects(world.get::<RenderLayers>(outputs[1 - index].1).unwrap()));
+            let product = retained[&drawing];
+            let layers = world.get::<RenderLayers>(product).unwrap();
+            assert!(layers.intersects(world.get::<RenderLayers>(card).unwrap()));
+            assert!(!layers.intersects(world.get::<RenderLayers>(outputs[1 - index].1).unwrap()));
+            assert_eq!(world.get::<Gizmo>(product).unwrap().handle, world.get::<Gizmo>(drawing).unwrap().handle);
         }
+        world.run_schedule(PostUpdate);
+        assert_eq!(drawings(world), retained);
 
         world.resource_mut::<CardViewSettings>().mode = CardViewMode::Plane;
         world.run_schedule(PostUpdate);
-        for (plane, card, model, _) in outputs {
+        for (plane, card, model, _, drawing) in outputs {
             assert!(world.get::<Camera>(plane).unwrap().is_active);
             assert!(world.get::<AppearanceSampleCamera>(plane).is_none());
             assert!(world.get::<Camera>(card).is_none());
             assert!(world.get::<CardScope>(model).is_none());
+            assert!(world.get::<Gizmo>(drawing).is_some());
         }
+        assert!(drawings(world).is_empty());
     }
 }

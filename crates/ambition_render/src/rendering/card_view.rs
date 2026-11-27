@@ -82,6 +82,7 @@
 //! The card view also uses the 2D view's portal capture texture. A body
 //! split across an opening still needs its own presentation.
 
+mod drawings;
 mod gameplay;
 mod labels;
 mod paint_order;
@@ -448,7 +449,7 @@ impl Plugin for CardViewPlugin {
         );
         app.add_systems(
             PostUpdate,
-            realize_card_scenery
+            (realize_card_scenery, drawings::realize_card_drawings)
                 .in_set(world_mesh::CardWorldMeshSet)
                 .run_if(card_outputs_enabled),
         );

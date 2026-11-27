@@ -858,6 +858,10 @@ shared value preparation are sufficient until source proves otherwise.
    Their paint order follows their source depth between the bodies of the
    same room. A light can overlap another body without moving to its plane.
 
+   Both renderers draw emitted trails and retained debug lines from the same
+   line buffers. Each card camera draws the lines for its room and local
+   view. Switching to 2D removes the card draws and keeps the line buffers.
+
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
    The blueprint overlay, portal glow, and shield lattice use the same

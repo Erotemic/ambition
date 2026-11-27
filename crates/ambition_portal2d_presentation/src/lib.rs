@@ -233,6 +233,49 @@ pub(crate) fn one_live_room(app: &mut App, size: Vec2) {
     );
 }
 
+/// When in a tick bodies are drawn, as a time of the tick their newest poses
+/// ended (V3): `1` is that tick's end. A host that draws bodies a phase ahead
+/// of their newest pose (the default extrapolation) sets `1 + phase`; one
+/// that draws them between their last two (`interpolate_poses`) sets
+/// `phase`. Every portal visual draws a moving opening at this time, so a
+/// body and the opening it straddles are drawn at one sample. With no host
+/// to say, the tick's end.
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct PortalPresentedTime(pub f32);
+
+impl Default for PortalPresentedTime {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+/// `portal` as drawn at tick time `time` ([`PortalPresentedTime`], clamped to
+/// a tick either side of the end): its host's travel this tick, carried back
+/// into the tick before `1` and on past it after, as a body's own tick of
+/// travel is. A portal its host did not move this tick is where it is.
+pub fn presented_portal(portal: &PlacedPortal, time: f32) -> PlacedPortal {
+    let ahead = time.clamp(0.0, 2.0) - 1.0;
+    if ahead == 0.0 || (portal.step.displacement == Vec2::ZERO && portal.step.turn == 0.0) {
+        return portal.clone();
+    }
+    let turn = Mat2::from_angle(portal.step.turn * ahead);
+    let pivot = portal.pivot + portal.step.displacement * ahead;
+    let mut drawn = portal.clone();
+    drawn.pos = pivot + turn * (portal.pos - portal.pivot);
+    drawn.normal = (turn * portal.normal).normalize_or(portal.normal);
+    drawn.pivot = pivot;
+    drawn
+}
+
+/// Each portal of `portals` as drawn at the presented time.
+pub(crate) fn presented_portals<'a>(
+    portals: impl IntoIterator<Item = (Entity, &'a PlacedPortal)>,
+    time: Option<&PortalPresentedTime>,
+) -> Vec<(Entity, PlacedPortal)> {
+    let time = time.copied().unwrap_or_default().0;
+    portals.into_iter().map(|(entity, portal)| (entity, presented_portal(portal, time))).collect()
+}
+
 /// A live room and its render frame: where one portal visual is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PortalPlacement {
@@ -346,5 +389,36 @@ mod band_tests {
     fn the_frame_and_the_exit_slice_stay_under_the_cast() {
         assert!(crate::PORTAL_EXIT_COPY_TOP <= ambition_platformer2d_core::config::WORLD_Z_DUMMY);
         assert!(crate::PORTAL_FRAME_Z < crate::PORTAL_EXIT_COPY_Z);
+    }
+}
+
+#[cfg(test)]
+mod presented_time_tests {
+    use super::*;
+
+    /// Within the tick, a moving portal is drawn where its host's step puts
+    /// it at that time (the step the bodies were admitted against); past
+    /// the end it goes on at the same travel; a portal its host did not move
+    /// is where it is at every time.
+    #[test]
+    fn a_moving_portal_is_drawn_at_its_steps_sample_of_the_presented_time() {
+        let channel = PortalChannel::Authored(PortalChannelColor::Purple);
+        let mut portal = PlacedPortal::fixed(channel, Vec2::new(300.0, 200.0), Vec2::new(0.6, -0.8), 46.0).unwrap();
+        let (shift, turn) = (Vec2::new(24.0, -6.0), 0.3_f32);
+        portal.pivot = Vec2::new(280.0, 210.0);
+        portal.step = ae::frame::ApertureStep::ending_at(portal.frame(), shift, turn);
+        for time in [0.0_f32, 0.25, 0.5, 1.0] {
+            let drawn = presented_portal(&portal, time);
+            let sampled = portal.step.sample(portal.aperture(), f64::from(time)).unwrap();
+            assert!(drawn.pos.abs_diff_eq(sampled.frame.origin, 1e-3), "t={time}: {} vs {}", drawn.pos, sampled.frame.origin);
+            assert!(drawn.normal.abs_diff_eq(sampled.frame.normal, 1e-5), "t={time}");
+        }
+        let ahead = presented_portal(&portal, 1.5);
+        let behind = presented_portal(&portal, 0.5);
+        assert!((ahead.pivot - portal.pivot).abs_diff_eq(portal.pivot - behind.pivot, 1e-4), "half a tick on, as half a tick back");
+        assert!((ahead.normal.angle_to(portal.normal) + 0.15).abs() < 1e-5);
+
+        let still = PlacedPortal::fixed(channel, Vec2::new(300.0, 200.0), Vec2::X, 46.0).unwrap();
+        assert_eq!(presented_portal(&still, 1.7).pos, still.pos);
     }
 }

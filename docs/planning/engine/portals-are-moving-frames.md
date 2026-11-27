@@ -924,6 +924,24 @@ separately.
 - **V3 — ordered crossing samples.** A body straddling a moving aperture
   is drawn in both charts at the sample its step used. Test: the two
   halves meet at the aperture on the frame of a fast crossing.
+  *Done 2026-11-27.* Bodies are drawn off the tick's end (`PresentedPose`:
+  a phase ahead by default, a phase into the last tick when the game
+  interpolates), but every portal visual drew a moving opening at the
+  tick's end, so a body riding a moving opening was cut, and its far half
+  placed, by a plane up to a tick away from where it was drawn. The host
+  now says when bodies are drawn (`PortalPresentedTime`, from
+  `PresentationPhase`: `1 + phase`, or `phase` when interpolating), and the
+  rim, glow, label, window and carry draw each opening at that time by its
+  host's step (`presented_portal`: inside the tick it is the step's own
+  sample; past the end it goes on at the same travel). The carry names the
+  carried link by the links the body stepped through and cuts by the same
+  link drawn at that time. A portal its host did not move is unchanged.
+  Witnesses: `a_moving_portal_is_drawn_at_its_steps_sample_of_the_presented_time`
+  and `a_body_straddling_a_moving_opening_is_cut_where_the_opening_is_drawn`
+  (a pair carried 8 px a tick along the entry's normal, the body drawn half
+  a tick ahead: the cut picture is the tick-end picture moved 4 px; control,
+  the opening left at the tick's end, cuts elsewhere). A film of the lab's
+  moving openings (c132/c133) draws each glow on its host.
 - **V4 — demand and ready images.** A window draws only an admitted ready
   image, from the existing pools. Test: a new portal's first frame draws
   no stale image.

@@ -949,6 +949,7 @@ pub fn sync_portal_view_cones(
     mut assets: ConeRigAssets,
     time: Res<Time>,
     portals: Query<(Entity, &PlacedPortal)>,
+    presented_time: Option<Res<crate::PortalPresentedTime>>,
     cone_materials: Query<&MeshMaterial2d<ColorMaterial>, With<PortalConeMesh>>,
     mut rigs: Query<(
         Entity,
@@ -990,7 +991,9 @@ pub fn sync_portal_view_cones(
     // A window is what an eye sees through a portal of its own live room, so
     // each live room that has an eye has its rigs, in that room's frame, and
     // a live room with no eye has none.
-    let by_room = frames.portals_by_room(portals.iter());
+    // Each window at the time bodies are drawn (`PortalPresentedTime`).
+    let presented = crate::presented_portals(portals.iter(), presented_time.as_deref());
+    let by_room = frames.portals_by_room(presented.iter().map(|(entity, portal)| (*entity, portal)));
     let effective = effective_portal_capture_budget(&config, &quality);
     let mut eyes: Vec<RoomEye> = Vec::new();
     for viewer in viewers.iter().flat_map(|viewers| viewers.iter()) {

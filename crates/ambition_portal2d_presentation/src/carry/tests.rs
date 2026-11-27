@@ -558,3 +558,59 @@ fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget() {
     }
     assert_eq!((near,far), (1,1));
 }
+
+/// A body straddling a moving opening is cut where the opening is drawn at
+/// the time the body is drawn (V3). The pair rides a host 8 px a tick along
+/// the entry's normal; the body is drawn half a tick ahead of its newest pose
+/// (`PortalPresentedTime(1.5)`, as the default extrapolation draws it), 4 px
+/// on. Body and opening are drawn at one sample, so the cut picture is the
+/// tick-end picture moved 4 px: both halves, and where they meet.
+///
+/// The control is the opening left at the tick's end under the body drawn 4
+/// px on: the cut is 4 px further into the body, and the picture is not the
+/// tick-end picture moved.
+#[test]
+fn a_body_straddling_a_moving_opening_is_cut_where_the_opening_is_drawn() {
+    let entry = authored_entry();
+    let shift = Vec2::new(-8.0, 0.0);
+    let drawn = |time: f32, ahead: Vec2| -> Outcome {
+        let mut app = test_app();
+        for (channel, x, normal) in [(entry, 500.0, Vec2::NEG_X), (entry.partner(), 532.0, Vec2::X)] {
+            let mut portal = PlacedPortal::fixed(channel, Vec2::new(x, 300.0), normal, 100.0).unwrap();
+            portal.pivot = portal.pos;
+            portal.step = ae::frame::ApertureStep::ending_at(portal.frame(), shift, 0.0);
+            app.world_mut().spawn(portal);
+        }
+        app.insert_resource(crate::PortalPresentedTime(time));
+        app.update();
+        let visual = spawn_body(&mut app, PieceBudget::SINGLE_HOP, 300.0, entry);
+        app.world_mut().entity_mut(visual).insert(Aabb {
+            center: Vec3::ZERO.into(),
+            half_extents: Vec3::new(24.0, 24.0, 0.0).into(),
+        });
+        app.world_mut().get_mut::<Transform>(visual).unwrap().translation =
+            PortalWorldFrame { size: WORLD }.to_render(Vec2::new(498.0, 300.0) + ahead, 20.0);
+        app.update();
+        app.update();
+        outcome(&mut app, visual)
+    };
+    let at_end = drawn(1.0, Vec2::ZERO);
+    assert_eq!(at_end.pieces.len(), 2, "premise: the body is in two pieces: {at_end:?}");
+    let moved = |outcome: &Outcome, by: Vec3| -> Vec<(Vec3, Vec<[f32; 3]>)> {
+        outcome.pieces.iter().map(|piece| (piece.at + by, piece.positions.clone())).collect()
+    };
+    let close = |a: &[(Vec3, Vec<[f32; 3]>)], b: &[(Vec3, Vec<[f32; 3]>)]| {
+        a.len() == b.len()
+            && a.iter().zip(b).all(|((at_a, pa), (at_b, pb))| {
+                at_a.abs_diff_eq(*at_b, 1e-3)
+                    && pa.len() == pb.len()
+                    && pa.iter().zip(pb).all(|(p, q)| Vec3::from(*p).abs_diff_eq(Vec3::from(*q), 1e-3))
+            })
+    };
+    let half_tick = Vec3::new(shift.x * 0.5, 0.0, 0.0);
+    let expected = moved(&at_end, half_tick);
+    let ahead = drawn(1.5, shift * 0.5);
+    assert!(close(&moved(&ahead, Vec3::ZERO), &expected), "the tick-end picture moved: {ahead:?} vs {at_end:?}");
+    let stale = drawn(1.0, shift * 0.5);
+    assert!(!close(&moved(&stale, Vec3::ZERO), &expected), "control: the opening at the tick's end cuts elsewhere");
+}

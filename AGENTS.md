@@ -2,6 +2,14 @@
 
 This is the repository operating guide for coding agents. Keep it short, session-agnostic, and focused on routing. Put durable project knowledge in `docs/`, engineering memory in `dev/`, and generated navigation aids in `.agent/`.
 
+> **LEVEL AUTHORS — USE EDGE EXITS AND PLATFORMS.** Join adjacent rooms
+> with side loading zones (`EdgeExit`). Use jumpable platforms or steps
+> for elevation changes. Reserve ladders for rare, deliberate uses and
+> loading-zone `Door` for thresholds such as overworld entrances into
+> dungeons or buildings. Read the
+> [level connection rules](docs/concepts/level-connections.md) before you
+> lay out rooms.
+
 ## Core Values
 
 * Avoid player-centrism. Value the principle of relativity.

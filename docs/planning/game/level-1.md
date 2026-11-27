@@ -292,16 +292,18 @@ barrow opens off the moor. The road continues to the cairnfield and its two
 burial mounds. The entrances open the same dungeon chart from the Fantasy
 Dimension map. The chart shows the passages between known rooms.
 
-The Votive Mound also connects to the family graves. The Bronze Ward Key
-rests on a shelf above the offerings. Rubble hides a separate offering.
-A service passage connects the Watch Mound to the Tally Vault and makes a
-return loop. The Watch Mound has a cache above its fallen lintel.
+The family graves lead east to the Votive Mound. The Bronze Ward Key rests
+on a shelf above the offerings. Rubble hides a separate offering. A shaft
+with stone ledges leads from the family graves to the Tally Vault. The Watch
+Mound connects to the west end of the Tally Vault by a service passage.
+The Watch Mound has a cache above its fallen lintel.
 
 Two seals protect the way through the Tally Vault. The Bronze Ward Key
-opens the first. A side passage descends to the Wheelworks. One wheel
+opens the first. A second shaft leads down to the Wheelworks. One wheel
 moves the counterweight between the high and low passages. The other
-opens the sluice grille. The Reliquary guard protects the Crown Key,
-which opens the second seal in the Tally Vault.
+opens the sluice grille. The Wheelworks leads east to the Reliquary.
+The Reliquary guard protects the Crown Key, which opens the second seal
+on the way east from the Tally Vault to the Royal Tomb.
 
 The family graves and the guards predate the gate. Discarded appliances
 and cables appear in the Tally Vault. One toaster moves on its own. The

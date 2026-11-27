@@ -21,6 +21,11 @@ last_verified: 2026-10-02
 
 # LLM spatial authoring discipline
 
+> [!IMPORTANT]
+> **Lay out paths before you place loading zones.** Use the
+> [level connection rules](level-connections.md) to join adjacent rooms at
+> their edges. Use jumpable platforms for climbs.
+
 > **Scope.** This page is binding for any LLM doing spatial/layout
 > work in this repository — placing entities in LDtk, adding gates,
 > dropping walls, choosing spawn positions, picking platform widths,

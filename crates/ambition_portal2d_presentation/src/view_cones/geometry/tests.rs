@@ -49,6 +49,34 @@ fn a_turned_capture_maps_its_own_corners_to_the_texture_corners() {
     assert!(close(frame.uv(corner(-1.0, 1.0)), [0.0, 1.0]));
 }
 
+#[test]
+fn a_window_samples_the_exit_half_after_rotating_and_cropping() {
+    let mut render = ConeRender {
+        positions: Vec::new(),
+        indices: Vec::new(),
+        centroid: Vec3::ZERO,
+        entry_poly_world: Vec::new(),
+        capture: CaptureCameraFrame {
+            center: Vec2::new(460.0, 260.0),
+            axis: Vec2::from_angle(0.36),
+            size: Vec2::splat(240.0),
+            shown: Vec2::splat(240.0),
+        },
+        // A small window on a larger capture target.
+        mapped_source_vertices: vec![Vec2::new(455.0, 250.0), Vec2::new(475.0, 270.0)],
+        uvs: vec![[0.0, 0.0]; 2],
+    };
+    let opening = Vec2::new(460.0, 260.0);
+    let full = UVec2::splat(256);
+    let size = render.crop_capture(full, UVec2::ZERO);
+    assert!(size.cmplt(full).all());
+    let plane = render.capture.visible_half(opening, Vec2::X).0;
+    let at = |point| plane.dot(Vec2::from_array(render.capture.uv(point)).extend(1.0));
+    assert!(at(opening).abs() < 1e-4);
+    assert!(at(opening + Vec2::X) > 0.9);
+    assert!(at(opening - Vec2::X) < -0.9);
+}
+
 /// The UVs cover the unit square's bounds, rotated per the view map — pinned
 /// for a 90° pair (the entry near edge maps onto the exit face → u = 1).
 #[test]

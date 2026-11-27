@@ -1,4 +1,4 @@
-use ambition_portal2d_presentation::{PortalClipMaterial, PortalConeMesh};
+use ambition_portal2d_presentation::{PortalClipMaterial, PortalConeMesh, PortalWindowSample};
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers};
 use bevy::prelude::{
     Assets, ColorMaterial, Commands, Component, DetectChangesMut, Entity, Local, Mesh2d,
@@ -19,7 +19,7 @@ pub(super) struct CardWindow;
 pub(super) fn realize_portal_windows(
     mut commands: Commands,
     windows: Query<
-        (Entity, &Mesh2d, &MeshMaterial2d<ColorMaterial>, &Transform, &Visibility),
+        (Entity, &Mesh2d, &MeshMaterial2d<ColorMaterial>, &Transform, &Visibility, &PortalWindowSample),
         With<PortalConeMesh>,
     >,
     mut cards: Query<
@@ -39,7 +39,7 @@ pub(super) fn realize_portal_windows(
     rooms: LiveRooms,
 ) {
     products.reconcile(&mut commands, |source| windows.contains(*source));
-    for (source, mesh, material, transform, visible) in &windows {
+    for (source, mesh, material, transform, visible, sample) in &windows {
         let product = products
             .get(&source)
             .and_then(|product| cards.get_mut(*product).ok());
@@ -51,7 +51,9 @@ pub(super) fn realize_portal_windows(
         };
         // A closed cone keeps an empty mesh. Keep its pipeline in use so the
         // first open frame can use it.
-        let picture = PortalClipMaterial::window(material.color, material.texture.clone().unwrap_or_default());
+        let picture = PortalClipMaterial::window(
+            material.color, material.texture.clone().unwrap_or_default(), sample.0,
+        );
         // The window stays at the seam. Its picture replaces the scene under
         // the wedge after the bodies and their portal pieces draw.
         let depth = depths.scenery(transform.translation.z, rooms.of(source)).on_play_plane();

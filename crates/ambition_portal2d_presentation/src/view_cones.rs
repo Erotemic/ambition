@@ -581,7 +581,13 @@ impl Default for PortalViewConeConfig {
 /// Marks a window mesh entity (the `Mesh2d` set into a portal's surface),
 /// disjoint from the capture-camera entity that carries [`PortalViewRig`].
 #[derive(Component)]
+#[require(PortalWindowSample)]
 pub struct PortalConeMesh;
+
+/// The visible half of the capture in texture coordinates.
+/// A texel is visible where the dot product of `(u, v, 1)` and this plane is positive.
+#[derive(Component, Clone, Copy, Default, PartialEq)]
+pub struct PortalWindowSample(pub Vec3);
 
 /// The window is drawn for this observer's camera alone (V1). Set on a
 /// window mesh while its room has the eyes of more than one observer: each
@@ -966,7 +972,7 @@ pub fn sync_portal_view_cones(
         &mut RenderTarget,
         &mut RenderLayers,
     )>,
-    mut cones: Query<&mut Transform, (With<PortalConeMesh>, Without<PortalViewRig>)>,
+    mut cones: Query<(&mut Transform, &mut PortalWindowSample), (With<PortalConeMesh>, Without<PortalViewRig>)>,
     screen_density: GameplayScreenDensity,
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
@@ -1286,8 +1292,9 @@ pub fn sync_portal_view_cones(
                 let anchor = mapped_view.map_or(uncropped_center, |view| view.center);
                 rig.parallax_anchor = frame.to_render(anchor, 0.0).truncate();
                 rig.parallax_visible_view = mapped_view.map(|view| view.size);
-                if let Ok(mut ctf) = cones.get_mut(rig.cone) {
+                if let Ok((mut ctf, mut sample)) = cones.get_mut(rig.cone) {
                     ctf.translation = r.centroid;
+                    sample.set_if_neq(r.capture.visible_half(exit.frame.origin, exit.frame.normal));
                 }
             }
             None => {
@@ -1440,6 +1447,9 @@ pub fn sync_portal_view_cones(
                 // ([`shut_window_mesh`]), never a hidden entity.
                 Visibility::Inherited,
                 PortalConeMesh,
+                render.as_ref().map_or(PortalWindowSample::default(), |r| {
+                    r.capture.visible_half(exit.frame.origin, exit.frame.normal)
+                }),
                 portal_window_render_layers(portal.channel),
                 // The window is of this live room: only a camera that frames
                 // the room draws it while two rooms are live.

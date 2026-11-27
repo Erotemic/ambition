@@ -19,8 +19,45 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> control: vec4<f32>;
 // Straight-alpha sprite tint (linear RGBA), multiplied into the sample.
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> tint: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var<uniform> sample_plane: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(6) var color_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(7) var color_sampler: sampler;
+
+// Only use texels from the visible side of the exit. The capture also
+// contains the rim and room behind the edge of an emerging body.
+fn window_sample(uv: vec2<f32>, ordinary: vec3<f32>) -> vec3<f32> {
+    let normal = sample_plane.xy;
+    if all(normal == vec2<f32>(0.0)) {
+        return ordinary;
+    }
+    let size = vec2<f32>(textureDimensions(color_texture));
+    let step = normal / size;
+    let distance = dot(uv, normal) + sample_plane.z;
+    if distance >= dot(abs(step), vec2<f32>(1.0)) {
+        return ordinary;
+    }
+    let pixel = uv * size - vec2<f32>(0.5);
+    let base = vec2<i32>(floor(pixel));
+    let frac = fract(pixel);
+    let limit = vec2<i32>(size) - vec2<i32>(1);
+    var sum = vec3<f32>(0.0);
+    var total = 0.0;
+    for (var i = 0; i < 4; i += 1) {
+        let offset = vec2<i32>(i % 2, i / 2);
+        let tap = clamp(base + offset, vec2<i32>(0), limit);
+        let center = (vec2<f32>(tap) + vec2<f32>(0.5)) / size;
+        if dot(center, normal) + sample_plane.z >= 0.0 {
+            let factors = mix(vec2<f32>(1.0) - frac, frac, vec2<f32>(offset));
+            let weight = factors.x * factors.y;
+            sum += weight * textureLoad(color_texture, tap, 0).rgb;
+            total += weight;
+        }
+    }
+    if total > 0.0 {
+        return sum / total;
+    }
+    return ordinary;
+}
 
 fn shade(mesh: VertexOutput) -> vec4<f32> {
     // Sample BEFORE any position-dependent discard: implicit-derivative
@@ -40,7 +77,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let sample = textureSample(color_texture, color_sampler, atlas_uv);
 
     if control.w > 1.5 {
-        return vec4<f32>(sample.rgb * tint.rgb, 1.0);
+        return vec4<f32>(window_sample(atlas_uv, sample.rgb) * tint.rgb, 1.0);
     }
     if sample.a <= 0.01 {
         discard;

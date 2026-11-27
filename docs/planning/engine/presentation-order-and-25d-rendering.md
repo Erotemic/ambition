@@ -916,8 +916,9 @@ shared value preparation are sufficient until source proves otherwise.
 
    Portal windows, rims, and exit pieces project from the same play plane
    in 2.5D. The draw order of each stays in its own layer. An Ultra capture
-   checks the projection with both tilt and roll. A thin line can still
-   appear where a tilted window meets a clipped body.
+   checks the projection with both tilt and roll. At the exit boundary,
+   the card window filters only texels on the visible side. This removes
+   a thin line of glow that could show through a clipped body.
 
    Text cards use Bevy's layout for the current frame. The brief portal
    input-direction cue appears in both views and clears on release.

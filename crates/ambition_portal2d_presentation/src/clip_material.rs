@@ -21,6 +21,8 @@ pub struct PortalClipMaterial {
     pub control: Vec4,
     #[uniform(2)]
     pub tint: Vec4,
+    #[uniform(3)]
+    pub sample_plane: Vec4,
     #[texture(6)]
     #[sampler(7)]
     pub color_texture: Handle<Image>,
@@ -28,17 +30,19 @@ pub struct PortalClipMaterial {
 
 impl PortalClipMaterial {
     pub fn new(uv_rect: Vec4, control: Vec4, tint: Vec4, color_texture: Handle<Image>) -> Self {
-        Self { uv_rect, control, tint, color_texture }
+        Self { uv_rect, control, tint, sample_plane: Vec4::ZERO, color_texture }
     }
 
     /// Draw the RGB of a portal capture in the sorted pass.
-    pub fn window(color: Color, image: Handle<Image>) -> Self {
-        Self::new(
+    pub fn window(color: Color, image: Handle<Image>, sample_plane: Vec3) -> Self {
+        let mut material = Self::new(
             Vec4::new(0.0, 0.0, 1.0, 1.0),
             Vec4::new(0.0, 0.0, 0.0, 2.0),
             color.to_linear().to_vec4(),
             image,
-        )
+        );
+        material.sample_plane = sample_plane.extend(0.0);
+        material
     }
 }
 

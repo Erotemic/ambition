@@ -10,13 +10,17 @@ that the character can pick up and use as a weapon."
 
 ## What it is
 
-Seven rooms round one hall. The front door of the narthex opens on the top
+Seven rooms around one hall. The front door of the narthex opens at the top
 of the Pilgrims' Way, up from Brothlehem, the village of the dimension
 ([noodle-dimension.md](noodle-dimension.md)); a door in the central hub ("to
-the Noodly Temple") also leads in. The dimension's ring (ALDENTE) is in the
-village. The rooms are written by
-`game/ambition_map_assets/ambition_content/generators/noodly_temple/make_specs.py`. Change the
-script and run it with `--apply`; do not change the rooms in the map.
+the Noodly Temple") also leads in. Walk along one floor through the narthex,
+nave, and scullery. Each upper wing has a keyed route from the nave. The
+dimension's ring (ALDENTE) is in the village.
+
+`game/ambition_map_assets/ambition_content/generators/noodly_temple/make_specs.py`
+sets the room layout and passages. The LDtk world also has fixtures and
+routes that the full generator replaces. For changes to the layout, keep
+the room positions and passage dimensions the same in both sources.
 
 | Room | Behind | What it asks | What it gives |
 | --- | --- | --- | --- |

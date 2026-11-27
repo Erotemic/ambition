@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::common::{base, fixed_60hz_room_options, walk_through_the_door_to};
+use crate::common::{base, fixed_60hz_room_options};
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::BodyHealth;
@@ -69,10 +69,9 @@ fn press(sim: &mut Platformer2dSimHarness, id: &str) {
     }
 }
 
-/// Each room of the temple has a door to the nave and back, the nave has a
-/// door to the narthex and back, and the narthex to the central hub.
+/// Each temple wing connects to the nave. The narthex connects the nave to the hub.
 #[test]
-fn the_temple_is_a_hall_with_a_door_to_each_room_and_back() {
+fn the_temple_connects_each_wing_to_the_nave() {
     let manifest = ambition_content::worlds::world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
     let rooms = project.to_room_set(&manifest, &ambition_app::composed_ldtk_vocabulary()).expect("the world composes");
@@ -87,8 +86,32 @@ fn the_temple_is_a_hall_with_a_door_to_each_room_and_back() {
     }
     for (a, b) in pairs {
         let (from, to) = (index(a), index(b));
-        assert!(rooms.neighboring_room_indices_of(from).contains(&to), "`{a}` has no door to `{b}`");
-        assert!(rooms.neighboring_room_indices_of(to).contains(&from), "`{b}` has no door back to `{a}`");
+        assert!(rooms.neighboring_room_indices_of(from).contains(&to), "`{a}` has no route to `{b}`");
+        assert!(rooms.neighboring_room_indices_of(to).contains(&from), "`{b}` has no route back to `{a}`");
+    }
+}
+
+#[test]
+fn the_main_floor_connects_in_both_directions_with_movement_only() {
+    let mut sim = room("noodly_nave");
+    for (move_x, target) in [
+        (-1.0, "noodly_narthex"),
+        (1.0, "noodly_nave"),
+        (1.0, "noodly_scullery"),
+        (-1.0, "noodly_nave"),
+    ] {
+        for _ in 0..600 {
+            sim.step(AgentAction { move_x, ..base() });
+            if sim.observation().active_room == target {
+                break;
+            }
+        }
+        assert_eq!(sim.observation().active_room, target);
+        // Move clear of the opening before changing direction.
+        for _ in 0..24 {
+            sim.step(AgentAction { move_x, ..base() });
+        }
+        assert_eq!(sim.observation().active_room, target);
     }
 }
 
@@ -128,7 +151,13 @@ fn a_key_that_is_taken_opens_its_doors_and_no_other() {
     }
     assert!(flag(&mut sim, "noodly_key_marinara"), "a body on the key takes it");
 
-    assert_eq!(walk_through_the_door_to(&mut sim, "noodly_nave"), "noodly_nave");
+    use crate::common::walk::{walk_through, Pad};
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    // Put the test body by the exit. The fight still holds the pantry grille shut.
+    let exit = crate::common::zone_to(&mut sim, "noodly_nave").aabb;
+    sim.teleport_player((exit.right() + 96.0, exit.bottom() - 24.0));
+    walk_through(&mut Pad::new(&mut sim), "noodly_nave").expect("walk back to the nave");
+    assert_eq!(sim.observation().active_room, "noodly_nave");
     for _ in 0..10 {
         sim.step(base());
     }

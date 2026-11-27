@@ -3867,7 +3867,9 @@ curve-carried cast 2026-11-27, with a round body in a cut cell; a line on
 an aperture's plane still reads the rigid fit). Host admission landed the same
 day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 and its shared projectile source leg 2026-11-27 (receipts in the
-owner's P4 section); exact cell dependencies remain. P3 removes
+owner's P4 section), and an unreachable moving portal is witnessed not to
+change a straight query's cells 2026-11-27; exact cell dependencies (a
+reuse cache keyed by what each cell reads) wait on a production work count. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools

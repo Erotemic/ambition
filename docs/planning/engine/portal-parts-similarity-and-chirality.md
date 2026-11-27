@@ -722,6 +722,25 @@ cast). An unusable box or map refuses the leg once, before commit. Tests:
 `ambition_projectile_combat` 32 passed; runtime projectile tests with
 portals 66 passed. No time was measured.
 
+**Receipt (2026-11-27, an unreachable moving portal).** One acceptance
+clause is now witnessed: adding a moving portal outside the conservatively
+reachable query geometry does not push a local straight query into the
+curved solver. `a_turning_pair_out_of_reach_leaves_a_straight_query_affine`
+(`frame/material_cast/tests.rs`) sets a body straddling a static pair, then
+adds a pair turning 0.6 rad whose opening is 60 px away and out of reach.
+Every cell is unchanged: same paths, maps, cut planes and intervals, none
+curve-carried, and the same contact time against a wall on the far side.
+The S3 witnesses are the positive control: a reachable turning pair does
+give a curve-carried cell. Core lib 975 pass.
+
+Still open in P4: compiling exact cell dependencies, meaning a prepared
+cell keyed by the links and clocks it actually reads, so a source, clock
+or topology change invalidates only the cells that depend on it. Today
+cells are rebuilt per query, so nothing can be stale; this is a reuse
+optimization. Its trigger is a production work count that shows repeated
+preparation of unchanged cells. No such count has been taken, and no speedup
+is claimed.
+
 **Delete:** endpoint-only visited exclusion, duplicate world/recipient source
 cell construction, repeated immutable/root preparation and irrelevant
 all-link pose evaluation at the migrated consumers.

@@ -1569,3 +1569,44 @@ fn a_round_body_reads_a_deforming_line_in_and_out_of_a_cut() {
         .unwrap().expect("a contact");
     assert!((hit.toi - exact.time).abs() < 1e-6, "the shape motion, not the fit: {} against {}", hit.toi, exact.time);
 }
+
+/// P4: a moving pair outside the cast's conservative reach changes nothing.
+/// Beside a static pair the body straddles, a turning pair 60 px away (its
+/// opening spans y 20..100; the body sweeps y -4..4) leaves every cell
+/// exactly as it was: no curve-carried cell, no extra cell, the same maps and
+/// cuts, and the same contact. So a local straight query is not pushed into
+/// the curved solver by a moving portal it cannot reach.
+#[test]
+fn a_turning_pair_out_of_reach_leaves_a_straight_query_affine() {
+    use crate::frame::ApertureStep;
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(-2.0, 0.0), Vec2::splat(4.0)));
+    let near = through();
+    let far_enter = PortalAperture { frame: PortalFrame::fixed(Vec2::new(0.0, 60.0), -Vec2::X), half_length: 40.0 };
+    let far_exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(-80.0, 60.0), Vec2::X), half_length: 40.0 };
+    let mut both = near.to_vec();
+    both.extend(PortalLink::both_ways_with_steps(2, [
+        (far_enter, ApertureStep::fixed(far_enter.frame.origin, far_enter.frame.normal)),
+        (far_exit, ApertureStep::ending_at(far_exit.frame, Vec2::ZERO, 0.6)),
+    ]));
+    let wall = box_at(Vec2::new(103.5, 0.0), Vec2::new(0.5, 10.0));
+    let read = |links: &[PortalLink]| {
+        let admission = MotionAdmission { span: Default::default(), links, first: None,
+            budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation };
+        let cells = MaterialCast::new(MaterialPrimitive::world(&body), body.center(), Vec2::new(6.0, 0.0), 0.0..1.0)
+            .cells(Some(admission)).unwrap();
+        let shape: Vec<_> = cells.parts().iter()
+            .map(|p| (p.path.clone(), p.curve.is_some(), p.planes.len(), format!("{:?}", p.map), p.time.clone()))
+            .collect();
+        let contact = cells.parts().iter()
+            .filter_map(|part| cells.against(part, &wall, Vec2::ZERO).unwrap())
+            .map(|hit| hit.toi)
+            .fold(f64::INFINITY, f64::min);
+        (shape, contact)
+    };
+    let (alone, alone_contact) = read(&near);
+    let (beside, beside_contact) = read(&both);
+    assert!(alone.iter().all(|(_, curve, ..)| !curve), "premise: the static pair's cells are affine");
+    assert!(alone_contact.is_finite(), "premise: the body meets the wall");
+    assert_eq!(beside, alone, "an unreachable turning pair changed the cells");
+    assert_eq!(beside_contact, alone_contact, "an unreachable turning pair changed the contact");
+}

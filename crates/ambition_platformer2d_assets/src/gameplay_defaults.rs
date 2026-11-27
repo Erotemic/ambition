@@ -14,6 +14,10 @@ pub struct Platformer2dGameplayDefaults {
     /// does not state keeps `FeelTuning::default()`.
     #[serde(default)]
     pub feel: ambition_combat::feel::FeelTuning,
+    /// How this game's moving surfaces and bodies meet a pinch (crushing,
+    /// `ae::crush`). `None`: the engine's default, which changes nothing.
+    #[serde(default)]
+    pub crush: Option<ae::crush::CrushPolicy>,
 }
 
 impl Platformer2dGameplayDefaults {

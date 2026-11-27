@@ -31,6 +31,10 @@ impl Plugin for PlayerSchedulePlugin {
                 crate::obstructions::recover_squashed_bodies).chain()
             .in_set(GameplayGated)
             .in_set(PlayerSimulationSet::PostPossession));
+        // The game's one-way rule on each room's world, before bodies step.
+        app.add_systems(sim, crate::obstructions::apply_one_way_rule
+            .in_set(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
+            .after(crate::sim_clock::world_time::SimDtMirrored));
         // The time of day the clock head turns (still without a `DayCycle`).
         app.init_resource::<ambition_time::DayClock>();
         app.register_required_components_with::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(

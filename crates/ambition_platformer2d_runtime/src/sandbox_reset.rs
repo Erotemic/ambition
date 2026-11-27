@@ -742,6 +742,7 @@ mod tests {
             climbable_regions: Vec::new(),
             chains: (Vec::new()).into(),
             edges: Default::default(),
+            one_way_yields: true,
         };
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(
             ae::Vec2::new(400.0, 400.0),
@@ -799,6 +800,7 @@ mod subjectless_replay_tests {
             climbable_regions: Vec::new(),
             chains: (Vec::new()).into(),
             edges: Default::default(),
+            one_way_yields: true,
         };
         ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             room_id,

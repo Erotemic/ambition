@@ -354,6 +354,7 @@ fn partial_wall_cling_overlap_does_not_teleport_upward() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     // Reproduce the exact pre-OOB state from the trace.
@@ -409,6 +410,7 @@ fn descending_onto_top_corner_of_tall_block_lands_normally() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.pos = Vec2::new(391.0, 200.0 - 23.0 - 0.5);
@@ -572,6 +574,7 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.canonical_size = Vec2::new(30.0, 48.0);
@@ -623,6 +626,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.canonical_size = Vec2::new(30.0, 48.0);
@@ -771,6 +775,7 @@ fn sideways_gravity_blink_wall_is_ground_support() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.vel = Vec2::ZERO;
@@ -824,6 +829,7 @@ fn one_way_platform_works_under_sideways_gravity() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.vel = Vec2::ZERO;
@@ -941,6 +947,7 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     let start = Vec2::new(650.0, 650.0); // deep inside the 700x700 slab
 
@@ -1058,6 +1065,7 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
 
     // Gravity magnitude zeroed so the ONLY motion in the frame is penetration
@@ -1176,6 +1184,7 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     };
     // Gravity magnitude zeroed for the same reason as the fixture above: the
     // only motion in the frame is penetration repair.
@@ -1319,6 +1328,7 @@ fn a_blink_wall_stops_a_body_that_cannot_blink() {
             climbable_regions: Vec::new(),
             chains: (Vec::new()).into(),
             edges: Default::default(),
+            one_way_yields: true,
         };
         let mut scratch = scratch_with(AbilitySet::default(), world.spawn);
         scratch.kinematics.vel = Vec2::ZERO;
@@ -1432,6 +1442,7 @@ fn a_one_way_does_not_block_a_body_walking_sideways_into_it() {
             climbable_regions: Vec::new(),
             chains: (Vec::new()).into(),
             edges: Default::default(),
+            one_way_yields: true,
         };
         let mut scratch = scratch_with(AbilitySet::default(), world.spawn);
         scratch.kinematics.vel = Vec2::ZERO;

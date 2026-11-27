@@ -4,8 +4,10 @@
 The design below follows from the ruling; the numerical model and the
 deterministic fallback were decided the same day (below). C0–C3 and C5 landed
 2026-11-26, with C4's pinch report, compression and failure responses (receipts
-under [Stages](#stages)); C4's `one_way_yields` input and app witnesses,
-and C6, are open. Work: queue CRUSH.
+under [Stages](#stages)). C4's `one_way_yields` input and per-body names, and
+C6's policy and squash presentation, landed 2026-11-27; C4's two app-level
+witnesses (death through the ordinary path, a rewound response) are open.
+Work: queue CRUSH.
 
 ## The ruling
 
@@ -386,10 +388,21 @@ the body recovers at its rate as far as it has room. Witnesses:
 `a_pinched_body_takes_damage_per_pixel_up_to_its_cap`,
 `a_displaced_body_is_ejected_to_the_nearest_free_place_or_held`,
 `a_compressible_body_flattens_to_its_limit_and_recovers_when_released`.
-`max_force` is removed (the model has no force). **Still open in C4:** a
-game setting `one_way_yields` false (the step has no policy input yet, so
-every game yields today), the policy's per-body names (a body key the
-policy can name), and the app-level witnesses (a rigid body dies at zero
+`max_force` is removed (the model has no force).
+
+*C4 receipt, policy input (2026-11-27).* **One-ways.** The step reads
+`World::one_way_yields` (on by default); the runtime copies the game's
+`CrushPolicy::game.one_way_yields` onto every live room's world at the
+head of the tick (`apply_one_way_rule`, written only where it differs). A
+game that turns it off has its one-way pinches reported like any other,
+for the body's response. Witnesses: core
+`a_one_way_that_does_not_yield_reports_its_pinch` (the lift and the
+ceiling claim the body) beside C0's
+`a_one_way_that_raises_a_body_into_a_ceiling_drops_it_through`; runtime
+`the_game_one_way_rule_reaches_the_room`. **Body names.** The policy names
+a body by the catalog character it wears (`CharacterForm`), between its own
+resistance and the game's: `the_policy_names_a_body_by_the_character_it_wears`.
+**Still open in C4:** the app-level witnesses (a rigid body dies at zero
 health through the death path; a rewind replays a response).
 
 **C5 — portal hosts.** `refresh_hosted_portal_frames` becomes a
@@ -421,6 +434,22 @@ is not read. The unstoppable host crushing or damaging the body is C4's.
 and characters: the train (unstoppable), lifts (yielding), Scout
 (rigid, damage), soft creatures (compressible, survivable flattened
 pose). Presentation for the squashed state.
+
+*C6 receipt (2026-11-27).* Ambition's policy is the `crush` section of
+`assets/ambition/platformer_defaults.ron` (the game's defaults, installed by
+the app as the `CrushPolicy` resource): movers keep their schedule (the
+train, crushers); a lift that states no authority yields
+(`GameCrushPolicy::lift_authority`, read after a platform's own authority and
+its name: `a_lift_takes_the_games_rule_for_lifts`); Scout
+(`player_robot_v3`) is rigid and takes a point a pixel, at most 4 a tick; the
+puppy slugs and both sheep squash flat, survive it and plump back up.
+`the_crush_policy_names_real_characters` refuses a name the catalog does not
+have (it caught one). **Presentation:** `ambition_sim_view::squash_view`
+publishes each squashed body's size over its rest size, and
+`ambition_render::rendering::squash_visuals` draws the body that flat along
+the squash and wider across it (the square root), by the body for a player
+and by its feature id for an actor; a rigged body's parts are children of its
+root, so they flatten with it.
 
 ## Independence from portal work
 

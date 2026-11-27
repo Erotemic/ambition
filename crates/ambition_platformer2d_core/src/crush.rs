@@ -73,6 +73,24 @@ impl BodyResistance {
 #[derive(bevy_ecs::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct OwnResistance(pub BodyResistance);
 
+/// A body squashed by a pinch (crushing C4): its size at rest, which it
+/// recovers toward once the pressure lifts. The squash itself is the body's
+/// canonical size: the material is a similarity, the same scale on every
+/// axis, so a squash along one axis cannot be a material scale.
+#[derive(bevy_ecs::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub struct Squash {
+    pub rest: crate::Vec2,
+    pub recover_per_s: f32,
+}
+
+impl Squash {
+    /// How far the body is squashed on each axis: its size over its rest
+    /// size (1 at rest).
+    pub fn ratio(&self, canonical_size: crate::Vec2) -> crate::Vec2 {
+        (canonical_size / self.rest.max(crate::Vec2::splat(f32::EPSILON))).min(crate::Vec2::ONE)
+    }
+}
+
 /// The game's rule, under every surface and body that says nothing.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GameCrushPolicy {
@@ -81,12 +99,17 @@ pub struct GameCrushPolicy {
     /// A one-way support that pinches a body lets go of it (Mary-O), rather
     /// than crushing it.
     pub one_way_yields: bool,
+    /// The authority of a lift (a platform that waits for its rider) that
+    /// states none of its own and is not named: a passenger car with a safety
+    /// stop yields where a train does not. `None`: the game's default.
+    #[serde(default)]
+    pub lift_authority: Option<SurfaceAuthority>,
 }
 
 impl Default for GameCrushPolicy {
     fn default() -> Self {
         Self { default_authority: SurfaceAuthority::Unstoppable, default_resistance: BodyResistance::RIGID,
-            one_way_yields: true }
+            one_way_yields: true, lift_authority: None }
     }
 }
 
@@ -133,6 +156,15 @@ impl CrushPolicy {
         own.or_else(|| self.surfaces.get(surface).copied()).unwrap_or(self.game.default_authority)
     }
 
+    /// The authority of a moving platform: its own, the one the policy
+    /// names it with, the game's rule for lifts when it is one, or the
+    /// game's default.
+    pub fn platform_authority(&self, surface: &str, own: Option<SurfaceAuthority>, is_lift: bool) -> SurfaceAuthority {
+        own.or_else(|| self.surfaces.get(surface).copied())
+            .or_else(|| self.game.lift_authority.filter(|_| is_lift))
+            .unwrap_or(self.game.default_authority)
+    }
+
     /// The resistance of a body: its own, the one the policy names it with,
     /// or the game's.
     pub fn resistance(&self, body: &str, own: Option<BodyResistance>) -> BodyResistance {
@@ -155,6 +187,7 @@ impl CrushPolicy {
             return Err(CrushPolicyError::UnknownBody(name.clone()));
         }
         let authorities = std::iter::once(("game default", &self.game.default_authority))
+            .chain(self.game.lift_authority.as_ref().map(|authority| ("lifts", authority)))
             .chain(self.surfaces.iter().map(|(name, authority)| (name.as_str(), authority)));
         for (name, authority) in authorities {
             authority.validate().map_err(|what| CrushPolicyError::Invalid { what: format!("{what} of `{name}`") })?;
@@ -230,6 +263,20 @@ mod tests {
         assert_eq!(policy.authority("anything", None), SurfaceAuthority::Unstoppable);
         assert_eq!(policy.resistance("anyone", None), BodyResistance::RIGID);
         assert!(policy.game.one_way_yields);
+    }
+
+    /// A lift that says nothing takes the game's rule for lifts; any other
+    /// platform, and a lift with its own authority or a name in the policy,
+    /// does not.
+    #[test]
+    fn a_lift_takes_the_games_rule_for_lifts() {
+        let mut policy = policy();
+        policy.game.lift_authority = Some(SurfaceAuthority::Yielding);
+        assert_eq!(policy.platform_authority("car", None, true), SurfaceAuthority::Yielding);
+        assert_eq!(policy.platform_authority("car", None, false), SurfaceAuthority::Limited { max_overconstraint_px: 4.0 });
+        assert_eq!(policy.platform_authority("car", Some(SurfaceAuthority::Unstoppable), true), SurfaceAuthority::Unstoppable);
+        policy.surfaces.insert("car".into(), SurfaceAuthority::Unstoppable);
+        assert_eq!(policy.platform_authority("car", None, true), SurfaceAuthority::Unstoppable);
     }
 
     /// Most specific first: a surface's own authority over the one the policy

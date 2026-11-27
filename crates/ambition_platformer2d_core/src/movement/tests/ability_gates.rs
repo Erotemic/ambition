@@ -1124,6 +1124,7 @@ fn a_body_teeters_only_on_the_brink_it_is_facing() {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
         water_regions: Vec::new(),
     };
     let mut tuning = super::TEST_TUNING;

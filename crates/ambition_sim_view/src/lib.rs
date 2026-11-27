@@ -5,6 +5,8 @@
 //! these views through the same one-way boundary.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+/// Squashed bodies, for presentation (crushing C6).
+pub mod squash_view;
 pub mod affordances;
 mod anim_index;
 mod attack_vfx_view;
@@ -119,6 +121,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<ActorAnimIndex>();
         app.init_resource::<ShieldRingsView>();
         app.init_resource::<LaunchedBodiesView>();
+        app.init_resource::<squash_view::SquashedViews>();
         app.init_resource::<GuardBreaksView>();
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
@@ -171,6 +174,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 rebuild_attack_vfx_views.run_if(bevy::prelude::resource_exists::<
                     ambition_characters::actor::character_catalog::CharacterCatalog>),
                 rebuild_combat_strikes_view,
+                squash_view::rebuild_squashed_views,
             )
                 .in_set(FrameViewSync),
         );

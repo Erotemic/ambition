@@ -110,6 +110,37 @@ fn a_one_way_that_raises_a_body_into_a_ceiling_drops_it_through() {
     assert!(dropped >= held, "{held} then {dropped}");
 }
 
+/// C4: a game whose one-ways do not yield (`World::one_way_yields` false)
+/// sees the same lift's pinch reported, with the lift and the ceiling as its
+/// claimants, for the body's crush response to answer.
+#[test]
+fn a_one_way_that_does_not_yield_reports_its_pinch() {
+    let ceiling = Block::solid("ceiling", Vec2::new(0.0, 160.0), Vec2::new(1600.0, 40.0));
+    let lift = Block::one_way("lift", Vec2::new(300.0, 300.0), Vec2::new(200.0, 16.0));
+    let probe = body_at(Vec2::ZERO);
+    let half = probe.kinematics.aabb().half_size().y;
+    let stand = Vec2::new(400.0, 300.0 - half);
+    let mut world = World::new("lift", Vec2::new(1600.0, 900.0), stand, vec![ceiling, lift]).with_one_way_yields(false);
+    let mut body = body_at(stand);
+    for _ in 0..3 { step_scratch(&world, &mut body, InputState::default()); }
+    assert!(body.ground.on_ground, "it stands on the lift: {:?}", body.kinematics);
+    world.blocks[1].velocity = Vec2::new(0.0, -4.0);
+    let mut pinched = None;
+    for tick in 0..60 {
+        advance(&mut world);
+        let events = step_scratch(&world, &mut body, InputState::default());
+        if let Some(conflict) = events.constraint_conflicts.first() {
+            pinched = Some((tick, conflict.clone()));
+            break;
+        }
+    }
+    let (_, conflict) = pinched.expect("the lift's pinch is reported");
+    assert_eq!(conflict.axis, Axis::Y);
+    let sources = [&conflict.min_source, &conflict.max_source];
+    assert!(sources.iter().any(|source| named(*source, "lift", world.blocks.iter())), "{conflict:?}");
+    assert!(sources.iter().any(|source| named(*source, "ceiling", world.blocks.iter())), "{conflict:?}");
+}
+
 /// C0: a body that walks into a still wall is stopped by it and reports no
 /// conflict: nothing closes on it, so there is nothing to crush.
 #[test]

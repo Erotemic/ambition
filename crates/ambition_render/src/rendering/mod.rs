@@ -140,6 +140,7 @@ pub mod knockout;
 pub mod launch_trail;
 pub mod locomotion_dust;
 pub mod dash_afterimage;
+pub mod squash_visuals;
 pub mod mark_beacon;
 pub mod morph_ball;
 pub mod body_visibility;
@@ -783,6 +784,12 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 passage_visuals::apply_passage_looks
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
+                    .before(actors::rigged::RiggedDriveSet),
+                // A squashed body is drawn flat (crushing C6), on the scale
+                // the body was placed at, before the part driver reads it.
+                squash_visuals::present_squashed_bodies
+                    .after(actors::sync_visuals)
+                    .after(passage_visuals::apply_passage_looks)
                     .before(actors::rigged::RiggedDriveSet),
                 // Do not pin this after room spawning or dressing. This set
                 // runs before RoomTransitionCoverSet, while the room visuals

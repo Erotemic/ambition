@@ -97,4 +97,26 @@
             drop_lag: 0.18,
         ),
     ),
+    // Crushing (crushing-and-obstruction-response.md, C6). Trains and
+    // crushers keep their schedule (the default); a lift is a passenger car
+    // with a safety stop and halts on a body in its way. Scout is rigid and
+    // takes damage by the pixel of a pinch, a point a pixel and at most 4 a
+    // tick, so a press that will not stop kills while a brush stings. Soft
+    // creatures squash flat, survive it, and plump back up when released.
+    crush: Some((
+        game: (
+            default_authority: Unstoppable,
+            default_resistance: (failure: Rigid),
+            one_way_yields: true,
+            lift_authority: Some(Yielding),
+        ),
+        bodies: {
+            "player_robot_v3": (failure: Damage(per_px: 1.0, per_tick_cap: 4.0)),
+            "npc_puppy_slug": (compress: Some((axes: Crush, min_scale: 0.3, recover_per_s: 1.5, survivable: true)), failure: Damage(per_px: 0.5, per_tick_cap: 2.0)),
+            "npc_puppy_slug_variant2": (compress: Some((axes: Crush, min_scale: 0.3, recover_per_s: 1.5, survivable: true)), failure: Damage(per_px: 0.5, per_tick_cap: 2.0)),
+            "npc_puppy_slug_velvet": (compress: Some((axes: Crush, min_scale: 0.3, recover_per_s: 1.5, survivable: true)), failure: Damage(per_px: 0.5, per_tick_cap: 2.0)),
+            "npc_sheep_cloud": (compress: Some((axes: Crush, min_scale: 0.25, recover_per_s: 2.0, survivable: true)), failure: Rigid),
+            "npc_fell_sheep": (compress: Some((axes: Vertical, min_scale: 0.5, recover_per_s: 2.0, survivable: true)), failure: Damage(per_px: 0.5, per_tick_cap: 2.0)),
+        },
+    )),
 )

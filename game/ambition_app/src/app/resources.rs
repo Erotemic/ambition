@@ -107,6 +107,10 @@ fn insert_host_resources(
     sandbox_data: ambition_platformer2d::assets::gameplay_defaults::Platformer2dGameplayDefaults,
 ) {
     let feel: FeelTuning = sandbox_data.feel;
+    // The game's crush policy, when it states one.
+    if let Some(crush) = sandbox_data.crush.clone() {
+        app.insert_resource(crush);
+    }
     // The host ceiling permits each game's authored grants.
     let editable_abilities = EditableAbilitySet::default();
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);

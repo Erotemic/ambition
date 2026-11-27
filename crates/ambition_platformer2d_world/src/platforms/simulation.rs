@@ -74,7 +74,7 @@ fn advance_moving_platforms(
         // Only a platform that may stall reads the others; a room of
         // unstoppable ones (the default) advances as before, building nothing.
         let any_may_stall = platforms.0.iter()
-            .any(|platform| policy.authority(&platform.name, platform.authority).allowance_px().is_some());
+            .any(|platform| policy.platform_authority(&platform.name, platform.authority, platform.is_lift()).allowance_px().is_some());
         let others: Vec<(ae::GeoId, ae::Aabb, bool)> = if !any_may_stall { Vec::new() } else {
             platforms.0.iter()
                 .map(|platform| { let block = platform.as_collision_block(); (block.id, block.aabb, platform.one_way) })
@@ -94,7 +94,7 @@ fn advance_moving_platforms(
                 platform.set_ridden(ridden);
             }
             let step = dt * freeze.scale_in(room);
-            let authority = policy.authority(&platform.name, platform.authority);
+            let authority = policy.platform_authority(&platform.name, platform.authority, platform.is_lift());
             let Some(allowance) = authority.allowance_px() else {
                 platform.update(step);
                 continue;

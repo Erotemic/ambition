@@ -245,6 +245,7 @@ fn guard_and_down_drops_through_a_soft_platform_but_spot_dodges_on_solid_ground(
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
         water_regions: Vec::new(),
     };
     // +y in LOCAL axes is TOWARD-FEET, so this is DOWN — and it is past

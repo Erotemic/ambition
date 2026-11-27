@@ -171,6 +171,8 @@ pub fn world_pieces(world: &ae::World) -> Vec<GeometryObservation> {
         // How far past the room a body may go, in each body's own gravity
         // frame: not a shape the room has.
         edges: _,
+        // The game's rule for a one-way that pinches a body: not a shape.
+        one_way_yields: _,
     } = world;
     let mut out: Vec<GeometryObservation> = blocks.iter().map(|block| observed(block, ObservedState::Active)).collect();
     out.extend(chains.iter().map(line));

@@ -53,6 +53,7 @@ fn open_world() -> ae::World {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     }
 }
 

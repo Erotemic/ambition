@@ -39,6 +39,7 @@ pub(super) fn room(hazard: Option<Aabb>) -> World {
         climbable_regions: Vec::new(),
         chains: (Vec::new()).into(),
         edges: Default::default(),
+        one_way_yields: true,
     }
 }
 

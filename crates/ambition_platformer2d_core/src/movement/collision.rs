@@ -337,12 +337,13 @@ fn opposed_after_repair(
         .max_by(|(_, x), (_, y)| x.displacement.abs().total_cmp(&y.displacement.abs())) else { return Ok(None) };
     let opposed = bound + hit.displacement;
     let (first, first_hit) = &hits[at];
-    // A one-way support yields (the crush policy's `one_way_yields`, every
-    // game's rule today): it lets go of a body it pinches, which then falls
-    // through it, rather than crushing it.
+    // A one-way support yields when the game says so (the crush policy's
+    // `one_way_yields`, set on the world): it lets go of a body it pinches,
+    // which then falls through it. Otherwise the pinch is reported, as any
+    // other is, for the body's crush response.
     let one_way = |collider: &crate::world::MaterialCollider<'_>| matches!(collider,
         crate::world::MaterialCollider::Block(block) if block.kind == BlockKind::OneWay);
-    if one_way(first) || one_way(&other) { return Ok(None); }
+    if world.one_way_yields && (one_way(first) || one_way(&other)) { return Ok(None); }
     let motion = |collider: &crate::world::MaterialCollider<'_>, contact| collider.step_in_root(contact, admission)
         .map(|step| axis_component(step, axis));
     let first_motion = motion(first, &first_hit.contact)?;

@@ -1077,9 +1077,13 @@ each pinched body squashes if it can and then answers by its failure
 response (damage, destroy, the fallback's ejection, or rigid by default),
 and recovers once released.
 
-**Next action:** `one_way_yields` as a game input to the step, and the
-app-level witnesses (death at zero health, a rewind replaying a response);
-then C6 content.
+On 2026-11-27 `one_way_yields` became the game's input to the step (on
+each room's world), the policy names bodies by their catalog character,
+and C6 landed: Ambition's policy (lifts yield, Scout takes damage, soft
+creatures squash and survive) and the squashed body drawn flat.
+
+**Next action:** the app-level witnesses (death at zero health through the
+ordinary path, a rewind replaying a response).
 
 **Acceptance:** the stage tests in the owner page, stage by stage: C3 a
 yielding or limited mover stalls with riders carried by the accepted

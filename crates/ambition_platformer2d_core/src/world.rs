@@ -1319,6 +1319,16 @@ pub struct World {
     /// declares it gone. See [`WorldEdgeMargins`].
     #[serde(default)]
     pub edges: WorldEdgeMargins,
+    /// A one-way support that pinches a body lets go of it (the body falls
+    /// through), rather than reporting the pinch for the body's crush
+    /// response: the crush policy's `one_way_yields`, which the game sets on
+    /// every room it builds. On unless a game says otherwise.
+    #[serde(default = "one_way_yields_by_default")]
+    pub one_way_yields: bool,
+}
+
+fn one_way_yields_by_default() -> bool {
+    true
 }
 
 /// HOW FAR PAST THE WORLD A BODY MAY GET BEFORE THE WORLD IS DONE WITH IT, per
@@ -1652,7 +1662,14 @@ impl World {
             climbable_regions: Vec::new(),
             chains: (Vec::new()).into(),
             edges: WorldEdgeMargins::default(),
+            one_way_yields: true,
         }
+    }
+
+    /// Builder-style setter for [`Self::one_way_yields`].
+    pub fn with_one_way_yields(mut self, yields: bool) -> Self {
+        self.one_way_yields = yields;
+        self
     }
 
     /// The fall margin a world gets when nobody authors one. Kept on `World`

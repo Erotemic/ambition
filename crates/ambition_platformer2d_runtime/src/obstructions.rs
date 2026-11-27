@@ -34,14 +34,21 @@ pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d
     registrar.rollback_component_clone::<Squash>("ambition_platformer2d_runtime", "crush.squash");
 }
 
-/// A body squashed by a pinch (crushing C4): its size at rest, which it
-/// recovers toward once the pressure lifts. The squash itself is the body's
-/// canonical size: the material is a similarity, the same scale on every
-/// axis, so a squash along one axis cannot be a material scale.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct Squash {
-    pub rest: ambition_platformer2d_core::Vec2,
-    pub recover_per_s: f32,
+pub use ambition_platformer2d_core::crush::Squash;
+
+/// The game's one-way rule (`CrushPolicy::game.one_way_yields`) on every
+/// live room's world, where the step reads it. Written only to a room whose
+/// world disagrees, so an unchanged policy changes no geometry.
+pub(crate) fn apply_one_way_rule(
+    policy: Option<Res<ambition_platformer2d_core::crush::CrushPolicy>>,
+    mut rooms: Query<&mut ambition_platformer2d_core::RoomGeometry>,
+) {
+    let yields = policy.as_deref().map_or(true, |policy| policy.game.one_way_yields);
+    for mut room in &mut rooms {
+        if room.0.one_way_yields != yields {
+            room.0.one_way_yields = yields;
+        }
+    }
 }
 
 /// Collect the conflicts every body's step reported into this tick's list.
@@ -69,7 +76,8 @@ pub(crate) fn publish_tick_obstructions(
 }
 
 /// Crushing C4: each pinched body answers its deepest obstruction this tick
-/// by its resistance (the body's own, else the game's): `Damage` deals
+/// by its resistance (the body's own, else the one the policy names its
+/// character with, else the game's): `Damage` deals
 /// `per_px` per pixel of overconstraint up to `per_tick_cap` through the
 /// ordinary hit path; `Destroy` deals a lethal hit there; `Displace` is
 /// ejected by the deterministic fallback ([`eject_across`]); `Rigid`, the
@@ -82,7 +90,7 @@ pub(crate) fn respond_to_obstructions(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut bodies: Query<(&mut ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::crush::OwnResistance>,
-        Option<&mut Squash>)>,
+        Option<&mut Squash>, Option<&ambition_characters::actor::CharacterForm>)>,
     mut hits: MessageWriter<ambition_combat::events::HitEvent>,
     mut commands: Commands,
 ) {
@@ -99,8 +107,9 @@ pub(crate) fn respond_to_obstructions(
         let deepest = published.of(row.body)
             .max_by(|a, b| a.overconstraint.total_cmp(&b.overconstraint))
             .expect("the row's own obstruction");
-        let Ok((mut kin, own, squash)) = bodies.get_mut(row.body) else { continue };
-        let resistance = policy.resistance("", own.map(|own| own.0));
+        let Ok((mut kin, own, squash, form)) = bodies.get_mut(row.body) else { continue };
+        // The policy names a body by the catalog character it wears.
+        let resistance = policy.resistance(form.map_or("", |form| form.id()), own.map(|own| own.0));
         let mut over = deepest.overconstraint;
         let room_of = live.of(row.body);
         let hit = |kin: &ambition_platformer2d_core::BodyKinematics, damage: i32| ambition_combat::events::HitEvent {
@@ -306,6 +315,46 @@ mod tests {
         app.update();
         assert_eq!(hits(&mut app), vec![3], "capped per tick");
         assert_eq!(*app.world().get::<ambition_platformer2d_core::BodyKinematics>(rigid).unwrap(), before, "a rigid body is held");
+    }
+
+    /// C4: the policy names a body by the catalog character it wears; a
+    /// body's own resistance still outranks it, and a character the policy
+    /// does not name takes the game's (rigid) default.
+    #[test]
+    fn the_policy_names_a_body_by_the_character_it_wears() {
+        use ambition_platformer2d_core::crush::{BodyResistance, CrushPolicy, FailureResponse};
+        let mut app = respond_app(Vec::new());
+        let soft = BodyResistance { compress: None, failure: FailureResponse::Damage { per_px: 1.0, per_tick_cap: 10.0 } };
+        app.insert_resource(CrushPolicy { bodies: [("slime".to_string(), soft)].into(), ..Default::default() });
+        let slime = body(&mut app, None);
+        let armoured = body(&mut app, Some(BodyResistance::RIGID));
+        let knight = body(&mut app, None);
+        for (entity, character) in [(slime, "slime"), (armoured, "slime"), (knight, "knight")] {
+            app.world_mut().entity_mut(entity).insert(ambition_characters::actor::CharacterForm::new(character));
+        }
+        app.world_mut().resource_mut::<TickObstructions>().0 = [slime, armoured, knight].into_iter()
+            .map(|body| BodyObstruction { body, obstruction: obstruction(4.0) }).collect();
+        app.update();
+        let struck: Vec<_> = app.world_mut().resource_mut::<Messages<ambition_combat::events::HitEvent>>().drain()
+            .map(|hit| (hit.target, hit.damage)).collect();
+        assert_eq!(struck, vec![(ambition_combat::events::HitTarget::Body(slime), 4)],
+            "only the slime by name; its own rigid resistance spares the second");
+    }
+
+    /// C4: the game's one-way rule reaches every live room's world, where the
+    /// step reads it.
+    #[test]
+    fn the_game_one_way_rule_reaches_the_room() {
+        use ambition_platformer2d_core::crush::{CrushPolicy, GameCrushPolicy};
+        let mut app = respond_app(Vec::new());
+        app.add_systems(Update, apply_one_way_rule);
+        let yields = |app: &mut App| app.world_mut().query::<&ambition_platformer2d_core::RoomGeometry>()
+            .single(app.world()).unwrap().0.one_way_yields;
+        app.update();
+        assert!(yields(&mut app), "no policy: one-ways yield");
+        app.insert_resource(CrushPolicy { game: GameCrushPolicy { one_way_yields: false, ..Default::default() }, ..Default::default() });
+        app.update();
+        assert!(!yields(&mut app), "the game's rule is on the room");
     }
 
     /// C4's fallback: a displaceable body pinched with a wall on its left is

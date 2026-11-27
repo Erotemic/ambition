@@ -113,6 +113,10 @@ struct SceneCaptureConfig {
     /// The primary player dies on each of these sim ticks, through the
     /// ordinary death report (`--player-dies TICK`), to film its death.
     player_dies: Vec<u64>,
+    /// Squash the primary player to this fraction of its height from a sim
+    /// tick on, and hold it there (`--squash F[@TICK]`), so the squashed look
+    /// of a pinched body (crushing C6) is photographed with no press.
+    squash: Option<(f32, u64)>,
     /// Hold the primary player's wallet at this many coins every tick
     /// (`--purse N`), so a death has coins for its fee to take.
     purse: Option<i32>,
@@ -1119,6 +1123,31 @@ fn place_player_at(
     }
 }
 
+/// `--squash`: the primary player squashed to a fraction of its height and
+/// held there (a `Squash` that does not recover), as a pinch leaves it.
+fn squash_the_player(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut commands: Commands,
+    mut player: Query<(Entity, &mut ae::BodyKinematics, Option<&ae::crush::Squash>),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>,
+) {
+    let Some((fraction, from)) = config.squash else { return };
+    if tick.get() < from { return; }
+    let Ok((body, mut kin, squash)) = player.single_mut() else { return };
+    let rest = squash.map_or(kin.canonical_size, |squash| squash.rest);
+    let height = rest.y * fraction;
+    if (kin.canonical_size.y - height).abs() > 1.0e-3 {
+        // Keep the feet where they stand.
+        kin.pos.y += (kin.canonical_size.y - height) * kin.material.scale() * 0.5;
+        kin.canonical_size.y = height;
+    }
+    if squash.is_none() {
+        commands.entity(body).insert(ae::crush::Squash { rest, recover_per_s: 0.0 });
+        eprintln!("capture_scene: the player is squashed to {fraction} of its height on tick {}", tick.get());
+    }
+}
+
 /// `--player-dies` and `--purse`: the primary player's death on its ticks,
 /// and its wallet held.
 fn kill_and_pay_the_player(
@@ -1534,7 +1563,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, hold_player_flash, place_player_beside, place_player_at, kill_and_pay_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
+        (hold_boss_health, blow_on_bosses, hold_player_flash, place_player_beside, place_player_at, kill_and_pay_the_player, squash_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
     );
     if !app.world().resource::<SceneCaptureConfig>().gate_dials.is_empty() {
         app.add_systems(sim, dial_gates.before(ambition_platformer2d::session::rooms::gate_network::run_gate_network));
@@ -1806,6 +1835,7 @@ impl SceneCaptureConfig {
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
         let mut player_dies: Vec<u64> = Vec::new();
+        let mut squash: Option<(f32, u64)> = None;
         let mut purse: Option<i32> = None;
         let mut player_climbs = false;
         let mut seam: Option<SeamCheck> = None;
@@ -2108,6 +2138,15 @@ impl SceneCaptureConfig {
                     let tick = args.get(i + 1).and_then(|v| v.parse::<u64>().ok())
                         .ok_or_else(|| "--player-dies requires TICK".to_string())?;
                     player_dies.push(tick);
+                    2
+                }
+                "--squash" => {
+                    let spec = args.get(i + 1).ok_or_else(|| "--squash requires F[@TICK]".to_string())?;
+                    let (fraction, tick) = spec.split_once('@').map_or((spec.as_str(), "1"), |(f, t)| (f, t));
+                    let fraction = fraction.parse::<f32>().ok().filter(|f| *f > 0.0 && *f <= 1.0)
+                        .ok_or_else(|| "--squash requires a fraction in (0, 1]".to_string())?;
+                    let tick = tick.parse::<u64>().map_err(|_| "--squash TICK must be a sim tick".to_string())?;
+                    squash = Some((fraction, tick));
                     2
                 }
                 "--purse" => {
@@ -2451,6 +2490,7 @@ impl SceneCaptureConfig {
                 wears: Vec::new(),
                 player_at: Vec::new(),
                 player_dies: Vec::new(),
+                squash: None,
                 purse: None,
                 player_climbs: false,
                 seam: None,
@@ -2558,6 +2598,7 @@ impl SceneCaptureConfig {
             wears,
             player_at,
             player_dies,
+            squash,
             purse,
             player_climbs,
             seam,

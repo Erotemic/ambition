@@ -247,9 +247,13 @@ pub fn sync_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spri
         // Absent only on a bare fixture body, which stands under the default.
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         Option<&ae::BodyForms>,
+        // A squash owns the box until it has recovered to rest: a pinch shrank
+        // it, and the pose writing its own height back would undo the pinch on
+        // the next tick.
+        bevy::prelude::Has<ae::crush::Squash>,
     )>,
 ) {
-    for (posed, pinned, mut kin, mut render_size, body_mode, frame, forms) in &mut bodies {
+    for (posed, pinned, mut kin, mut render_size, body_mode, frame, forms, squashed) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&sprite_content, &posed.target, anim, posed.world_per_pixel) else {
             continue;
@@ -271,7 +275,7 @@ pub fn sync_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spri
         // that the +gravity face stays planted; the direction has to be the
         // body's, not the default's.
         let gravity_dir = frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-        if kin.canonical_size != posed_collision {
+        if !squashed && kin.canonical_size != posed_collision {
             // Feet-anchored, through the engine's one feet-planted resize op: hold the +gravity
             // face and move the centre by half the change, so a withdraw/emerge never drives the
             // body through the ground it is standing on.

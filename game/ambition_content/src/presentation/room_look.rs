@@ -241,7 +241,7 @@ impl Material2d for RoomSkyMaterial {
 /// one mesh of a skin: it shows the skin where the room is in the skin's
 /// state, and adds what the front does to the stone near it. Its shader
 /// (`room_skin.wgsl`) draws no art.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct RoomSkinMaterial {
     /// `x, y` = the room size; `z` = 1 for the corrupted skin, 0 for the
     /// clean one.
@@ -893,6 +893,8 @@ pub fn install(app: &mut App) {
     }
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<RoomSkinMaterial>::default());
+        #[cfg(feature = "card_view")]
+        ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkinMaterial>(app);
         app.add_plugins(Material2dPlugin::<RoomSkyMaterial>::default());
         app.add_plugins(Material2dPlugin::<RoomFrontFieldMaterial>::default());
     }

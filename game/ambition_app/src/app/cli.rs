@@ -229,7 +229,7 @@ pub fn run_visible() {
 #[cfg(all(not(target_arch = "wasm32"), feature = "card_view"))]
 fn install_card_view(app: &mut App, start_in_card_view: bool) {
     use ambition_platformer2d::render::rendering::card_view::{CardViewMode, CardViewPlugin, CardViewSettings};
-    let mode = if start_in_card_view { CardViewMode::Gameplay } else { CardViewMode::Plane };
+    let mode = if start_in_card_view { CardViewMode::SideOn } else { CardViewMode::Plane };
     app.insert_resource(CardViewSettings::for_game(mode));
     app.add_plugins(CardViewPlugin);
     app.add_systems(PreUpdate, card_view_shortcuts.after(bevy::input::InputSystems));
@@ -240,15 +240,17 @@ fn card_view_shortcuts(
     keys: Res<ButtonInput<KeyCode>>,
     mut settings: ResMut<ambition_platformer2d::render::rendering::card_view::CardViewSettings>,
 ) {
-    if !keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
-        || keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
-    {
+    if keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]) {
         return;
     }
+    let control = keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    if !shift && keys.just_pressed(KeyCode::F5) {
+    if control != shift && keys.just_pressed(KeyCode::F5) {
         settings.mode = settings.mode.next();
         info!("Gameplay renderer: {:?}", settings.mode);
+    }
+    if !control {
+        return;
     }
     let direction = i32::from(keys.just_pressed(KeyCode::BracketRight))
         - i32::from(keys.just_pressed(KeyCode::BracketLeft));

@@ -271,7 +271,7 @@ Options and mode aliases:
   validate-only,
   --validate-only         Validate LDtk and exit.
   --features LIST         Add extra comma-separated cargo features.
-  --card-view             Start Ambition with the 2.5D gameplay view.
+  --card-view             Start Ambition with the side-on 2.5D view.
   --no-default-features   Pass --no-default-features to cargo.
   -j, --jobs N            Pass cargo --jobs N.
   --jobs=N                Pass cargo --jobs N.

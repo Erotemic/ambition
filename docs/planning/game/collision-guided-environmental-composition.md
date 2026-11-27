@@ -415,6 +415,14 @@ lid under the chest. Show which paths the floor guards can reach from
 their start positions.
 For route tests, load the room once. Restore the same start state for
 each set of inputs so the guards and doors start in the same state.
+In the ossuary, show the light from a visitor on each plinth. Check that
+the text and the altar edge are visible at the room's light level.
+On Searchlight Ridge, show the joint between the two rock sheets. Use
+room coordinates on both sides and let the rock sheets overlap. Show
+the end of each beam so an author can see where it fades into the sky.
+On Gallows Hill, use the points of the `SurfaceChain` to draw the
+terrace and place its piers. Show where a body can join the terrace
+with Up and where the footpath continues below it.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

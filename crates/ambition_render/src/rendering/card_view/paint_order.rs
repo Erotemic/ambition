@@ -47,6 +47,7 @@ fn extract_cards(
                 With<CardScenery>,
                 With<CardTerrain>,
                 With<CardPortal>,
+                With<super::world_mesh::CardWorldMesh>,
             )>,
         >,
     >,

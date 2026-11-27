@@ -1218,6 +1218,88 @@ fn a_tilting_segment_meets_a_body_corner_between_its_ends() {
     assert!((hit.time - 0.5).abs() < 1e-6, "{}", hit.time);
 }
 
+/// SUP1 S2: in a cut cell, a segment whose ends move together answers what
+/// the translation cast of the same cell answers: the kept piece, cut by
+/// fixed and moving planes.
+#[test]
+fn a_clipped_deforming_cast_with_equal_end_motion_is_the_cut_translation_cast() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(2.0, 1.0)));
+    let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
+    let mut number = || { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed >> 11) as f64 / (1u64 << 53) as f64 };
+    let (mut compared, mut cut_away) = (0, 0);
+    for case in 0..600 {
+        let mut point = || DVec2::new(number() * 20.0 - 10.0, number() * 20.0 - 10.0);
+        let (a, b, motion) = (point(), point(), point());
+        let planes: Vec<translation::MovingPlane> = (0..1 + case % 2).map(|_| {
+            let angle = number() * std::f64::consts::TAU;
+            translation::MovingPlane {
+                plane: MaterialPlane { inward: DVec2::new(angle.cos(), angle.sin()), offset: number() * 8.0 - 4.0 },
+                rate: if case % 3 == 0 { number() * 8.0 - 4.0 } else { 0.0 },
+            }
+        }).collect();
+        // A piece that already touches the body is the overlap policy's
+        // question, which the two casts answer by their own rules.
+        let mut start = vec![a, b];
+        for plane in &planes { start = clip(&start, plane.plane); }
+        if start.len() >= 2 && primitive_cast(&body, DVec2::ZERO, &start).is_some() { continue; }
+        let translated = translation::cast(&body, DVec2::ZERO, &[a, b], motion, planes.iter().copied(),
+            InitialOverlap::AllowSeparation).unwrap();
+        let whole = deforming_segment_cast(&body, [a, b], [motion, motion], InitialOverlap::AllowSeparation).unwrap();
+        let clipped = clipped_deforming_segment_cast(&body, [a, b], [motion, motion], &planes, InitialOverlap::AllowSeparation).unwrap();
+        match (translated, clipped) {
+            (None, None) => if whole.is_some() { cut_away += 1 },
+            (Some(t), Some(c)) => {
+                compared += 1;
+                assert!((t.time - c.time).abs() < 1e-7, "time {} against {} for {a:?} {b:?} {motion:?} {planes:?}", t.time, c.time);
+            }
+            (t, c) => panic!("translation {:?} against clipped {:?} for {a:?} {b:?} {motion:?} {planes:?}",
+                t.map(|h| h.time), c.map(|h| h.time)),
+        }
+    }
+    assert!(compared > 20 && cut_away > 5, "the sample must contain kept and cut-away contacts: {compared}, {cut_away}");
+}
+
+/// SUP1 S2: a stretching segment's end reaches the body only where the cell
+/// keeps it, and a cut that opens toward a still segment reaches the body
+/// when its cut point does.
+#[test]
+fn a_cut_cell_sees_a_stretching_segment_only_where_it_keeps_it() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(30.0, 5.0), Vec2::splat(5.0)));
+    let ends = [DVec2::new(-20.0, 5.0), DVec2::new(20.0, 5.0)];
+    let stretch = [DVec2::ZERO, DVec2::new(10.0, 0.0)];
+    let plane = |inward: DVec2, offset: f64, rate: f64| translation::MovingPlane { plane: MaterialPlane { inward, offset }, rate };
+    let kept = clipped_deforming_segment_cast(&body, ends, stretch, &[plane(DVec2::X, 0.0, 0.0)], InitialOverlap::AllowSeparation)
+        .unwrap().expect("the kept end reaches the body");
+    assert!((kept.time - 0.5).abs() < 1e-9, "{}", kept.time);
+    assert!(clipped_deforming_segment_cast(&body, ends, stretch, &[plane(-DVec2::X, 0.0, 0.0)], InitialOverlap::AllowSeparation)
+        .unwrap().is_none(), "the end that stretches is cut away");
+    // The cell keeps x <= -10 + 60 t: its cut runs along a still segment
+    // through the body and reaches the body's face at x = 25 when t = 7/12.
+    let opening = [plane(-DVec2::X, 10.0, -60.0)];
+    let through = [DVec2::new(-20.0, 5.0), DVec2::new(40.0, 5.0)];
+    let hit = clipped_deforming_segment_cast(&body, through, [DVec2::ZERO; 2], &opening, InitialOverlap::AllowSeparation)
+        .unwrap().expect("the cut reaches the body");
+    assert!((hit.time - 7.0 / 12.0).abs() < 1e-9, "{}", hit.time);
+    assert!((hit.point - DVec2::new(25.0, 5.0)).length() < 1e-9, "{:?}", hit.point);
+    assert!(hit.normal.x > 0.999, "the segment is on the body's left: {:?}", hit.normal);
+}
+
+/// SUP1 S2: a root cell a portal cuts reads a stretching line by its own
+/// shape motion, not the rigid fit: the stretching end reaches the body half
+/// way through the tick, where the fit (the mean move) arrives at its end.
+#[test]
+fn a_cut_root_cell_reads_a_stretching_line_by_its_shape_motion() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(30.0, 5.0), Vec2::splat(5.0)));
+    let mut cells = MaterialCast::new(MaterialPrimitive::world(&body), Vec2::new(30.0, 5.0), Vec2::ZERO, 0.0..1.0)
+        .cells(None).unwrap();
+    whole_cell_mut(&mut cells).planes.push(translation::MovingPlane { plane: MaterialPlane { inward: DVec2::X, offset: 0.0 }, rate: 0.0 });
+    let from = [Vec2::new(-20.0, 5.0), Vec2::new(20.0, 5.0)];
+    let to = [Vec2::new(-20.0, 5.0), Vec2::new(30.0, 5.0)];
+    let fit = (Vec2::new(5.0, 0.0), 0.0, Vec2::ZERO);
+    let hit = cells.against_deforming_where(&cells.parts()[0], from, to, fit, |_| true).unwrap().expect("a contact");
+    assert!((hit.toi - 0.5).abs() < 1e-6, "the shape motion, not the fit: {}", hit.toi);
+}
+
 #[test]
 fn a_moving_exit_carries_its_drift_into_the_contact_frame() {
     let aperture = |x, normal| PortalAperture { frame: PortalFrame::fixed(Vec2::new(x, 0.0), normal), half_length: 10.0 };

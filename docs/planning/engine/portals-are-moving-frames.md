@@ -866,6 +866,19 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   (`shape_before`) on each side. Test: a rider on the stretching line
   crosses the portal and keeps its material point; the deforming-segment
   cast finds the same contact time on either side.
+  *Cast landed 2026-11-27:* a cell a portal cuts, and a cell beyond one,
+  reads a deforming segment by its shape motion, clipped to the piece the
+  cell's (moving) planes keep (`clipped_deforming_segment_cast`): an end or
+  a body corner where the cell keeps it, a cut point reaching a face, and
+  the piece appearing over the body (an end crossing a plane, or the segment
+  passing the corner where two planes meet). With equal end motion it
+  answers the cut translation cast
+  (`a_clipped_deforming_cast_with_equal_end_motion_is_the_cut_translation_cast`,
+  600 random cut cells, also run at 6000); a cut root cell meets a stretching
+  end half way through the tick where the rigid fit arrived at its end
+  (`a_cut_root_cell_reads_a_stretching_line_by_its_shape_motion`). Still on
+  the rigid fit: a curve-carried cell (S3), a line on a portal's plane, and
+  a round body in a cut cell.
 - **S3 — a curve-carried cell** (a curved support on a moving host)
   through a portal. Test: the GNU hump's material place survives a crossing.
 

@@ -586,12 +586,12 @@ impl MaterialCastCells<'_> {
     /// is a point cast with that end's own motion, and a body corner reaching
     /// the segment between its ends is a quadratic in time.
     ///
-    /// A cell cut by a portal or carried on a curve, a cell beyond a portal,
-    /// and a line on a portal's plane (which the rigid path splits into the
-    /// pieces each cell sees) are not admitted here; they read the rigid fit
-    /// `fit` names, as every reader did before the shape was published. An
-    /// uncut root cell under a portal scene sees any other line whole, as
-    /// with no portal, and is admitted.
+    /// A cell cut by a portal, and a cell beyond one, sees the part of the
+    /// segment its planes keep ([`clipped_deforming_segment_cast`]). A cell
+    /// carried on a curve, a line on a portal's plane (which the rigid path
+    /// splits into the pieces each cell sees), and a round body in a cut
+    /// cell are not admitted here; they read the rigid fit `fit` names, as
+    /// every reader did before the shape was published.
     pub(crate) fn against_deforming_where(
         &self, part: &MaterialCell, from: [Vec2; 2], to: [Vec2; 2],
         fit: (Vec2, f32, Vec2), mut accepts: impl FnMut(&MaterialCastHit) -> bool,
@@ -599,8 +599,10 @@ impl MaterialCastCells<'_> {
         if from.iter().chain(&to).any(|point| !point.is_finite()) {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
-        let split = self.scene.as_ref().is_some_and(|scene| !part.path.is_empty() || scene.may_split_line([&from, &to]));
-        if part.curve.is_some() || split || !part.planes.is_empty() {
+        let on_a_plane = self.scene.as_ref().is_some_and(|scene| scene.may_split_line([&from, &to]));
+        let unbounded_beyond = !part.path.is_empty() && part.planes.is_empty();
+        let round_in_a_cut = matches!(self.material.domain, CombatVolume::Circle { .. }) && !part.planes.is_empty();
+        if part.curve.is_some() || on_a_plane || unbounded_beyond || round_in_a_cut {
             let (displacement, turn, pivot) = fit;
             return self.against_rigid_where(part, &to, displacement, turn, pivot, accepts);
         }
@@ -621,7 +623,8 @@ impl MaterialCastCells<'_> {
         };
         let (a, motion_a) = end(from[0], to[0]);
         let (b, motion_b) = end(from[1], to[1]);
-        let contact = deforming_segment_cast(self.material.domain, [a, b], [motion_a, motion_b], self.initial_overlap)
+        let planes: Vec<_> = part.planes.iter().map(|plane| plane.during(interval.clone())).collect();
+        let contact = clipped_deforming_segment_cast(self.material.domain, [a, b], [motion_a, motion_b], &planes, self.initial_overlap)
             .map_err(|fault| numeric_at(part, fault))?;
         let Some(contact) = contact else { return Ok(None); };
         let time = interval.start + duration * contact.time;
@@ -941,6 +944,164 @@ fn deforming_segment_cast(
                     take(CastHit { time, normal, point: p });
                 }
             }
+        }
+    }
+    Ok(best)
+}
+
+/// [`deforming_segment_cast`] of the piece of the segment a cell keeps: the
+/// points on the inner side of every one of its `planes`, each moving with
+/// its offset rate over the unit interval. A polygon body only (the caller
+/// gives a round one the rigid fit).
+///
+/// The kept piece's ends are the segment's own ends or where a plane cuts
+/// it. A contact is the first of: an end reaching the body while it is
+/// kept; a body corner reached by the segment where the corner is kept; a
+/// cut point (the segment and a plane meeting, a quadratic against each body
+/// face) reaching a face; and the piece appearing over the body, when an end
+/// crosses a plane into the cell while the body is there.
+fn clipped_deforming_segment_cast(
+    body: &CombatVolume, ends: [DVec2; 2], motion: [DVec2; 2], planes: &[translation::MovingPlane],
+    initial_overlap: InitialOverlap,
+) -> Result<Option<CastHit>, NumericFault> {
+    if planes.is_empty() { return deforming_segment_cast(body, ends, motion, initial_overlap); }
+    if ends.iter().chain(&motion).any(|v| !v.is_finite())
+        || planes.iter().any(|plane| !plane.plane.inward.is_finite() || !plane.plane.offset.is_finite() || !plane.rate.is_finite()) {
+        return Err(NumericFault::NonFinite);
+    }
+    let Some(polygon) = body.polygon() else { return Err(NumericFault::InvalidFrame) };
+    let polygon: Vec<DVec2> = polygon.iter().map(|p| p.as_dvec2()).collect();
+    let centre = polygon.iter().copied().sum::<DVec2>() / polygon.len() as f64;
+    let at = |time: f64| [ends[0] + motion[0] * time, ends[1] + motion[1] * time];
+    let side = |plane: &translation::MovingPlane, point: DVec2, time: f64| {
+        point.dot(plane.plane.inward) - (plane.plane.offset + plane.rate * time)
+    };
+    let slack = |plane: &translation::MovingPlane, point: DVec2| plane.plane.error_at(point) * 64.0 + 1.0e-9;
+    let kept = |point: DVec2, time: f64| planes.iter().all(|plane| side(plane, point, time) >= -slack(plane, point));
+    // The kept piece at `time`, as its two ends.
+    let piece = |time: f64| -> Option<[DVec2; 2]> {
+        let [a, b] = at(time);
+        let (mut lo, mut hi) = (0.0_f64, 1.0_f64);
+        for plane in planes {
+            let (sa, sb) = (side(plane, a, time), side(plane, b, time));
+            if sa < 0.0 && sb < 0.0 { return None; }
+            if sa < 0.0 { lo = lo.max(sa / (sa - sb)); } else if sb < 0.0 { hi = hi.min(sa / (sa - sb)); }
+        }
+        (lo <= hi).then(|| [a + (b - a) * lo, a + (b - a) * hi])
+    };
+    let travel_at = |point: DVec2, [a, b]: [DVec2; 2]| {
+        let edge = b - a;
+        let u = if edge.length_squared() > 0.0 { ((point - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+        motion[0] * (1.0 - u) + motion[1] * u
+    };
+    if let Some(start) = piece(0.0) {
+        if let Some(hit) = primitive_cast(body, DVec2::ZERO, &start) {
+            let into = (-travel_at(hit.point, at(0.0))).dot(hit.normal) <= 0.0;
+            return Ok((initial_overlap == InitialOverlap::Report || into).then_some(hit));
+        }
+    }
+    let mut best: Option<CastHit> = None;
+    let mut take = |hit: CastHit| {
+        if (0.0..=1.0).contains(&hit.time) && hit.normal != DVec2::ZERO && best.is_none_or(|best| hit.time < best.time) {
+            best = Some(hit);
+        }
+    };
+    // An end reaches the body where the cell keeps it.
+    for (end, motion) in ends.iter().zip(&motion) {
+        if let Some(mut hit) = primitive_cast(body, -*motion, &[*end]) {
+            hit.point += *motion * hit.time;
+            if kept(hit.point, hit.time) { take(hit); }
+        }
+    }
+    // A corner reaches the segment between its ends, where the cell keeps it.
+    let (edge, edge_rate) = (ends[1] - ends[0], motion[1] - motion[0]);
+    for &p in &polygon {
+        let (r, r_rate) = (p - ends[0], -motion[0]);
+        let c0 = edge.perp_dot(r);
+        let c1 = edge_rate.perp_dot(r) + edge.perp_dot(r_rate);
+        let c2 = edge_rate.perp_dot(r_rate);
+        for time in quadratic_roots(c2, c1, c0) {
+            if !(0.0..=1.0).contains(&time) || !kept(p, time) { continue; }
+            let [a, b] = at(time);
+            let segment = b - a;
+            if segment.length_squared() == 0.0 { continue; }
+            let u = (p - a).dot(segment) / segment.length_squared();
+            if !(0.0..=1.0).contains(&u) { continue; }
+            let mut normal = DVec2::new(-segment.y, segment.x).normalize();
+            if normal.dot(centre - p) < 0.0 { normal = -normal; }
+            if (-travel_at(p, [a, b])).dot(normal) >= 0.0 { continue; }
+            take(CastHit { time, normal, point: p });
+        }
+    }
+    // A cut point reaches a face: on the plane, on the segment, and on the
+    // face's line. With the segment `a + u w`, the cut is u = N / D, and the
+    // face `n . x = d` meets it where (n.a - d) D + N (n.w) = 0.
+    for plane in planes {
+        let inward = plane.plane.inward;
+        let (d0, d1) = (inward.dot(edge), inward.dot(edge_rate));
+        let (n0, n1) = (plane.plane.offset - inward.dot(ends[0]), plane.rate - inward.dot(motion[0]));
+        let cut = |time: f64| -> Option<DVec2> {
+            let d = d0 + d1 * time;
+            if d.abs() <= f64::EPSILON * (d0.abs() + d1.abs()).max(1.0) { return None; }
+            let u = (n0 + n1 * time) / d;
+            (-1.0e-12..=1.0 + 1.0e-12).contains(&u).then(|| {
+                let [a, b] = at(time);
+                a + (b - a) * u
+            })
+        };
+        for (q0, q1) in edges(&polygon) {
+            let face = q1 - q0;
+            if face.length_squared() == 0.0 { continue; }
+            let mut outward = DVec2::new(-face.y, face.x).normalize();
+            if outward.dot(centre - q0) > 0.0 { outward = -outward; }
+            let d = outward.dot(q0);
+            let (a0, a1) = (outward.dot(ends[0]) - d, outward.dot(motion[0]));
+            let (w0, w1) = (outward.dot(edge), outward.dot(edge_rate));
+            let c2 = a1 * d1 + n1 * w1;
+            let c1 = a0 * d1 + a1 * d0 + n0 * w1 + n1 * w0;
+            let c0 = a0 * d0 + n0 * w0;
+            for time in quadratic_roots(c2, c1, c0) {
+                if !(0.0..=1.0).contains(&time) { continue; }
+                let Some(point) = cut(time) else { continue };
+                let along = (point - q0).dot(face) / face.length_squared();
+                if !(-1.0e-9..=1.0 + 1.0e-9).contains(&along) || !kept(point, time) { continue; }
+                // It comes into the face.
+                let h = 1.0e-6;
+                let (Some(before), Some(after)) = (cut(time - h), cut(time + h)) else { continue };
+                if (after - before).dot(outward) >= 0.0 { continue; }
+                take(CastHit { time, normal: -outward, point });
+            }
+        }
+    }
+    // The piece appears over the body: an end crosses a plane into the cell,
+    // or the segment passes the corner where two planes meet.
+    let mut appears = |time: f64| {
+        if !(0.0..=1.0).contains(&time) { return; }
+        let shown = piece(time).or_else(|| piece((time + 1.0e-9).min(1.0)));
+        if let Some(hit) = shown.and_then(|shown| primitive_cast(body, DVec2::ZERO, &shown)) {
+            take(CastHit { time, ..hit });
+        }
+    };
+    for (end, end_motion) in ends.iter().zip(&motion) {
+        for plane in planes {
+            let (s0, s1) = (side(plane, *end, 0.0), plane.plane.inward.dot(*end_motion) - plane.rate);
+            if s0 < 0.0 && s1 > 0.0 { appears(-s0 / s1); }
+        }
+    }
+    for (j, first) in planes.iter().enumerate() {
+        for second in &planes[j + 1..] {
+            // Where the two planes' lines meet, moving with their offsets.
+            let (n, m) = (first.plane.inward, second.plane.inward);
+            let det = n.perp_dot(m);
+            if det.abs() <= f64::EPSILON * n.length() * m.length() { continue; }
+            let solve = |p: f64, q: f64| DVec2::new(p * m.y - q * n.y, q * n.x - p * m.x) / det;
+            let (v0, v1) = (solve(first.plane.offset, second.plane.offset), solve(first.rate, second.rate));
+            // On the segment's line: cross(w, v - a) = 0.
+            let (r0, r1) = (v0 - ends[0], v1 - motion[0]);
+            let c0 = edge.perp_dot(r0);
+            let c1 = edge_rate.perp_dot(r0) + edge.perp_dot(r1);
+            let c2 = edge_rate.perp_dot(r1);
+            for time in quadratic_roots(c2, c1, c0) { appears(time); }
         }
     }
     Ok(best)

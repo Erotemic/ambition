@@ -3855,8 +3855,9 @@ the rest of the tick's change of velocity in the exit's chart. M2d landed
 the same day: transit moves no root (a settled item's carry crosses in its
 owner), the old completed-endpoint road is deleted, and the crossing reads
 the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
-P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26;
-the rider across the cut and S2/S3 remain). Host admission landed the same
+P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26,
+the rider beside the cut and S2's clipped deforming cast 2026-11-27; S3, a
+curve-carried cell, remains). Host admission landed the same
 day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 (receipt in the owner's P4 section); its shared projectile source
 leg remains. P3 removes

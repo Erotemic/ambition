@@ -3866,8 +3866,9 @@ static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools
 (V1, a window for each view of a room, V2, a window clipped to a rolled
-view, and V3, a moving opening drawn when its bodies are, landed 2026-11-27;
-V4's ready images and admission order the same day).
+view, V3, a moving opening drawn when its bodies are, and the rest of V4
+landed 2026-11-27; V5, the card view's window, was already in place: P5/P6's
+V list is done).
 
 The follow-up [SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale)
 supplies the selected consumer-unit law; [PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)

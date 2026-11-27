@@ -965,6 +965,16 @@ separately.
   visible paired endpoint, so its blend and shape go on. V4 is done.
 - **V5 — the card view's far-side window**, the remaining card-view item
   ([presentation order](presentation-order-and-25d-rendering.md)).
+  *Done (found 2026-11-27, landed with the card view's launch,
+  57735294e).* `realize_portal_windows` puts each window's capture mesh and
+  texture on the play plane at `PORTAL_DEPTH`, kept in step with the 2D
+  window (and hidden while it has no texture, so a V4-released target shows
+  no stale picture); its test is in `card_view/portal_windows.rs`. A
+  `--card-view` capture of `portal_lab` at the red mouth shows the far side
+  beside the pink line in both views. Seen there, not diagnosed: the robot
+  is missing from the card view's inset, both at the mouth and 60 px from
+  it (so not because the carry draws it in pieces), while the 2D view draws
+  it.
 
 ### M3 — Resolve contacts through the complete velocity witness
 

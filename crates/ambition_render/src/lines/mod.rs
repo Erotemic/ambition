@@ -89,8 +89,7 @@ enum Source {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Shape {
-    /// From one end to the other. `band`: a ray's width, which a jagged look
-    /// keeps within, so the drawn line is where the ray hurts.
+    /// The two ends set the length. The ray width in `band` sets the laser width.
     Line { from: LightningEnd, to: LightningEnd, band: Option<f32>, source: PartSource },
     Aura { owner: Entity, center: ae::Vec2, half: ae::Vec2 },
 }
@@ -372,13 +371,8 @@ fn lay_out_lines(
             v.since_path = 0.0;
             v.strands = match (v.look, v.shape) {
                 (LineLook::Laser(_), _) => strands::straight(ax.length()),
-                (LineLook::Lightning(look), Shape::Line { band, .. }) => {
-                    let length = ax.length().max(1.0);
-                    // A ray's bolt strays no farther than its band: the
-                    // line drawn is where it hurts (the halving levels sum to
-                    // under 2.25 times the first).
-                    let jag = band.map_or(look.jag, |band| look.jag.min(band * 0.5 / (2.25 * length)));
-                    strands::bolt(&mut v.rng, length, jag, detail.forks(&look))
+                (LineLook::Lightning(look), Shape::Line { .. }) => {
+                    strands::bolt(&mut v.rng, ax.length(), look.jag, detail.forks(&look))
                 }
                 (LineLook::Lightning(look), Shape::Aura { .. }) if detail.rich => {
                     strands::aura(&mut v.rng, look.jag, detail.forks(&look).max(1))

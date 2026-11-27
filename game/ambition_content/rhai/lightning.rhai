@@ -121,6 +121,7 @@ fn zap() {
         this.requests.push(request("held_ray", #{
             slot: arc, generation: c.generation, from: hand, toward: dir,
             reach: reach, width: global::ARC_WIDTH, damage: global::DAMAGE,
+            damage_types: ["ambition.electric"],
             knockback: global::KNOCKBACK, lifetime_s: global::ARC_LIFETIME_S, look: "force",
             jump: #{ chance: global::JUMP_CHANCE, range: global::JUMP_RANGE, damage: global::JUMP_DAMAGE },
         }));

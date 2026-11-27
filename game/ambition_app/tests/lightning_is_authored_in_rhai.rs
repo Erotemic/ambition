@@ -154,6 +154,7 @@ impl Drop for ScriptFile {
 fn lightning_can_jump_to_one_enemy_outside_the_cone() {
     use ambition_platformer2d::{
         combat::components::FeatureId,
+        damage::BodyHitResolved,
         entity_catalog::placements::CharacterBrain,
     };
 
@@ -186,12 +187,23 @@ fn lightning_can_jump_to_one_enemy_outside_the_cone() {
             bodies.map(|body| sim.world().get::<BodyHealth>(body).unwrap().current())
         };
         let before = health(&sim);
+        let mut typed = [false; 3];
+        let mut receipts = sim.world().resource::<Messages<BodyHitResolved>>().get_cursor_current();
         for tick in 0..9 {
             sim.step(held(tick == 0));
+            for hit in receipts.read(sim.world().resource::<Messages<BodyHitResolved>>()) {
+                if hit.attacker == Some(player) && hit.resolution.damage_applied() > 0 {
+                    if let Some(index) = bodies.iter().position(|body| *body == hit.body) {
+                        typed[index] |= hit.damage_types.contains("ambition.electric");
+                    }
+                }
+            }
         }
         sim.rollback_health().unwrap();
         let after = health(&sim);
-        std::array::from_fn::<_, 3, _>(|index| before[index] - after[index])
+        let damage = std::array::from_fn::<_, 3, _>(|index| before[index] - after[index]);
+        assert_eq!(typed, damage.map(|amount| amount > 0));
+        damage
     };
     let off = cast(0.0, false);
     assert!(off[0] > 0);

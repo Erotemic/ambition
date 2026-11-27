@@ -113,6 +113,11 @@ pub fn spawn_ray_jumps(
         };
         // Only the primary strike carries jump settings.
         strike.insert((arc, HitboxTarget(target)));
+        let damage_types = hit.damage_types.clone();
+        strike.entry::<ambition_combat::HitOrigin>().and_modify(move |mut origin| {
+            origin.damage_types = damage_types;
+            origin.ray_jump = None;
+        });
         reached.insert((hit.observed_at, attacker, target));
     }
 }
@@ -222,6 +227,9 @@ mod tests {
             resolution: crate::BodyHitResolution::Blocked,
             source: HitSource::Melee,
             raw_damage: 1,
+            damage_types: ambition_combat::damage_types::DamageTypes::from_names(
+                vec!["example.fire".into(), "example.electric".into()],
+            ).unwrap(),
             attacker_move_instance: None,
             ray_jump: Some(RayJumpOnDamage {
                 jump: ambition_combat_port::ray::RayJump {
@@ -250,5 +258,6 @@ mod tests {
         assert_eq!(selected.0, target);
         assert_eq!(ray.length, 30.0);
         assert!(origin.ray_jump.is_none());
+        assert_eq!(origin.damage_types.names().collect::<Vec<_>>(), ["example.electric", "example.fire"]);
     }
 }

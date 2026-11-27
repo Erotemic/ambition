@@ -102,6 +102,7 @@ impl DamageBoxOrigins<'_, '_> {
                         },
                     ),
                     projectile: None,
+                    damage_types: Default::default(),
                     ray_jump: None,
                 }),
             owner,

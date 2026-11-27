@@ -504,6 +504,7 @@ mod damage_tests {
 
     fn announce(app: &mut App, body: Entity, resolution: BodyHitResolution, raw: i32) {
         app.world_mut().write_message(BodyHitResolved {
+            damage_types: Default::default(),
             ray_jump: None,
             projectile: None,
             body,

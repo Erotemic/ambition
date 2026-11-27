@@ -68,6 +68,7 @@ impl BodyHitReporter<'_, '_> {
             resolution,
             source: hit.source.clone(),
             raw_damage: hit.damage,
+            damage_types: hit.origin.as_ref().map_or_else(Default::default, |origin| origin.damage_types.clone()),
             attacker_move_instance: hit.attacker_move_instance,
             ray_jump: hit.origin.as_ref().and_then(|origin| origin.ray_jump.clone()),
         });

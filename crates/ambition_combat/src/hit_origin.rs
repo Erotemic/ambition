@@ -1,6 +1,6 @@
 //! Capture combat source identity before deferred reception or retirement.
 
-use crate::HitEvent;
+use crate::{damage_types::DamageTypes, HitEvent};
 use ambition_platformer2d_core::snapshot as wire;
 use ambition_platformer2d_shared_tangle::{
     lifecycle::{LiveRoomInstance, LiveRooms, SessionScopeId, SessionScopedEntity},
@@ -16,11 +16,12 @@ pub struct HitIdentity {
     pub room: Option<LiveRoomInstance>,
 }
 
-/// Credit and optional shot identity at native hit publication.
+/// Source identity and damage data captured at hit publication.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct HitOrigin {
     pub attacker: Option<HitIdentity>,
     pub projectile: Option<HitIdentity>,
+    pub damage_types: DamageTypes,
     pub ray_jump: Option<RayJumpOnDamage>,
 }
 
@@ -50,6 +51,7 @@ impl HitOrigin {
                 session,
                 room,
             }),
+            damage_types: Default::default(),
             ray_jump: None,
         }
     }
@@ -67,6 +69,12 @@ impl HitOrigin {
                 }
             }
         }
+        let types = self.damage_types.names();
+        wire::put_u32(out, types.len() as u32);
+        for name in types {
+            wire::put_str(out, name);
+        }
+        wire::put_bool(out, self.ray_jump.is_some());
         if let Some(ray) = &self.ray_jump {
             wire::put_u32(out, ray.jump.chance.to_bits());
             wire::put_u32(out, ray.jump.range.to_bits());
@@ -107,6 +115,7 @@ impl HitWriter<'_, '_> {
                         })
                 }),
                 projectile: None,
+                damage_types: Default::default(),
                 ray_jump: None,
             });
         }

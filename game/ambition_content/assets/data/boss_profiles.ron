@@ -701,15 +701,16 @@
     //
     // He stands on the shoulders of Full Stack (`npc_full_stack`), the
     // giant amp-stack robot, as GNU-ton stands on his giant: the robot is a
-    // mount and the stage, and he is the body that takes the hits. The bar is
-    // his resolve, not his life: at its end he goes down and retires
-    // (his character's `death_traits`: the body stays; the green room's scene). His moves are the
+    // mount and the stage. The bossofthegame takes the hits.
+    // A defeat on the main stage starts his departure scene. His moves are the
     // `bossofthegame` module of `ambition_content_modules`.
     // ============================================================
     "bossofthegame": (
         id: "bossofthegame",
         character: "npc_bossofthegame",
-        title: Some("Until the Day He Retires"),
+        title: Some("Until the day he dies… or retires"),
+        title_reveal: Some((lead: "Until the day he dies…", seconds_after_wake: 1.7)),
+        retreat_scene: Some("boss_leaves_the_stage"),
         bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
         reward_ability: None,
         signature_gauntlet: None,

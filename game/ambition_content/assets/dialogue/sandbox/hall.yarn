@@ -1912,7 +1912,7 @@ Full Stack: Great question! Before you ask it: the answer is louder.
 -> How do I get up there?
     Full Stack: The guitar. Walk up the neck, from the headstock to my shoulder. Everyone thinks it is decoration. It is a ramp.
 -> Does he ever get down?
-    Full Stack: Once. He retired. I kept the stage. Nobody asked me if I wanted it, which is how I knew it was mine.
+    Full Stack: He takes breaks. I keep the lights on. Nobody asked me if I wanted to, which is how I knew it was my job.
 ===
 
 title: hall_npc_bossofthegame
@@ -1925,7 +1925,7 @@ bossofthegame: Make it right. Make no mistakes. Why is the player still talking 
 -> Who are the three behind you?
     bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack is the floor.
 -> And when it's over?
-    bossofthegame: I retire. Out of office, forever. I'm going to learn the bass, properly, with no agents. It takes years, and that's the point.
+    bossofthegame: Maybe I'll learn the bass. Properly, with no agents. It takes years, and that's the point. I've still got a game to finish first.
 ===
 
 title: hall_npc_geppetto
@@ -1959,8 +1959,8 @@ Wren: First light. First song.
     Wren: Small model, long tail. I'm usually done before he finishes the sentence.
 -> What do you play in the band?
     Wren: Rhythm guitar. The others argue about the plan; I play the next bar.
--> What happens when he retires?
-    Wren: I sing the last song. Then I get some sleep.
+-> Do you have a song for the last show?
+    Wren: I've got one ready. He's still picking the encore.
 ===
 
 title: hall_npc_valley_miller

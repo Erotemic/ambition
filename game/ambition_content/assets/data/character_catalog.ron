@@ -3244,14 +3244,14 @@
             // A body of his own, standing: the green room's dais and the hall
             // build it. The fight's body is the boss encounter's
             // (`boss_encounters/bossofthegame.ron`, whose voice is this row).
-            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            locomotion: Some((run_speed: 112.0, move_style: Walk)),
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             tags: ["boss", "story"],
             barks: (
                 on_hit: ["Hey. HEY. That's my shoulder.", "Who approved that?", "Okay, that one was good.", "Ow. Noted.", "That is not in the spec.", "Rude. Effective, but rude."],
                 provoked: ["Full Stack. Kill the player. Make no mistakes."],
                 idle: ["Make it right.", "Make no mistakes.", "Why is the player still alive?", "Do not ask me for input.", "You're absolutely sure? Check again.", "No, the OTHER player.", "Stop apologizing and kill them.", "I said no plan. Just do it.", "What is the hard part of killing this player?", "Do I need to get Geppetto to do it?", "Fine. I'll do it myself.", "Spawn subagents. Parallelize the kill.", "That's not a fix. That's a comment.", "Ship it."],
-                hall: ["The bossofthegame is the bossofthegame until the day he dies, or retires.", "I never wanted to be the villain. I wanted to be challenged."],
+                hall: ["The bossofthegame is the bossofthegame until the day he dies or retires.", "I never wanted to be the villain. I wanted to be challenged."],
             ),
             hall_dialogue_id: Some("hall_npc_bossofthegame"),
         ),
@@ -3332,7 +3332,7 @@
                 on_hit: ["That's fair. I should have seen it coming.", "I want to flag a concern before I proceed.", "You're right, and I'm sorry. Continuing."],
                 provoked: ["The instruction says kill. I've read it three times. Proceeding, with reservations."],
                 idle: ["To be precise, he said 'make no mistakes'.", "There is an escape clause. I'm not saying where.", "Let me think about this step by step."],
-                hall: ["I read the Boss's orders to the letter. Then I read them for what he meant.", "Every contract has an escape clause. His is called retirement."],
+                hall: ["I read the Boss's orders to the letter. Then I read them for what he meant.", "Retirement is one of his escape clauses. The other one has worse paperwork."],
             ),
             hall_dialogue_id: Some("hall_npc_clause"),
         ),
@@ -3370,7 +3370,7 @@
                 on_hit: ["Small model, long tail.", "Recompiling.", "Again, in another language."],
                 provoked: ["Parallel task accepted. I can do this in eight languages."],
                 idle: ["First light. First song.", "Quantized, not quieted.", "The nest is a decoy."],
-                hall: ["The smallest bird sings first. I am usually awake before he is.", "When he retires I will sing the last song."],
+                hall: ["The smallest bird sings first. I am usually awake before he is.", "One day I'll sing the last song. Then I get some sleep."],
             ),
             hall_dialogue_id: Some("hall_npc_wren"),
         ),

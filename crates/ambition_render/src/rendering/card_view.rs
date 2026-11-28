@@ -1594,6 +1594,12 @@ fn scenery_depth(z: f32, front: f32) -> f32 {
     }
 }
 
+fn source_room(source: Entity, rooms: &LiveRooms, parents: &Query<&ChildOf>) -> Option<LiveRoomInstance> {
+    rooms.stamped(source)
+        .or_else(|| parents.iter_ancestors(source).find_map(|parent| rooms.stamped(parent)))
+        .or_else(|| rooms.of(source))
+}
+
 fn platform_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>) -> f32 {
     if platform.front {
         -NEAR_PANEL_GAP
@@ -1670,9 +1676,7 @@ pub(super) fn realize_card_scenery(
             let z = place.translation.z;
             let depth = gear_depth.or_else(|| depths.effect_depth(subject, z)).unwrap_or_else(|| {
                 let room = if z >= ambition_platformer2d_core::config::WORLD_Z_PLAYER {
-                    rooms.stamped(entity)
-                        .or_else(|| parents.iter_ancestors(entity).find_map(|parent| rooms.stamped(parent)))
-                        .or_else(|| rooms.of(entity))
+                    source_room(entity, &rooms, &parents)
                 } else {
                     None
                 };

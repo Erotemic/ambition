@@ -106,6 +106,7 @@ pub struct ActorNameplateVisual {
 /// Marker on outline child text entities, so style systems can change only
 /// the shadow pass.
 #[derive(Component, Clone, Copy, Debug)]
+#[require(super::primitives::WorldText)]
 pub struct ActorNameplateOutlineVisual;
 
 /// System set for nameplates, so other code can order against it.

@@ -759,6 +759,9 @@ shared value preparation are sufficient until source proves otherwise.
    Scout, Dennis, and the pause cube. It shows both renderers in the
    comparison mode. Switching the output kept one workshop session
    active and kept it paused while the cube was open.
+   Text cards use each span's color. Control signs show the input glyph
+   when its image is ready. Nameplate outlines draw behind the text in
+   the same room and view.
 
    A card uses the existing portal capture mesh and texture for the far-side
    window. It stays at the seam and uses the source pane order and opaque

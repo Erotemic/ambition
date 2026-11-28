@@ -43,7 +43,7 @@ use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ActivePlayerGlow, ActorGlow, CastsLight, GlowLayer, GlowLook,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    PlayerVisual, PresentationOf, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    LiveRoomInstance, LiveRooms, PlayerVisual, PresentationOf, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
 /// How far behind its body a [`GlowLayer::Behind`] glow is: less than the
@@ -174,9 +174,10 @@ pub fn glow_placement(
 fn passage_alpha(
     direct: Option<&ambition_sim_view::PassageLookView>,
     visual: Option<&super::primitives::FeatureVisual>,
+    room: Option<LiveRoomInstance>,
     frames: Option<&ambition_sim_view::ActorAnimIndex>,
 ) -> f32 {
-    direct.copied().or_else(|| visual.and_then(|visual| frames?.get(&visual.id)?.passage_look))
+    direct.copied().or_else(|| visual.and_then(|visual| frames?.get_in(&visual.id, room)?.passage_look))
         .map_or(1.0, |look| look.alpha.clamp(0.0, 1.0))
 }
 
@@ -323,6 +324,7 @@ pub fn sync_actor_glows(
     picture: Option<Res<ActorGlowPicture>>,
     tick: Option<Res<ambition_time::SimTick>>,
     frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
+    rooms: LiveRooms,
     quality: Option<Res<ResolvedVisualQuality>>,
     mut materials: Option<ResMut<Assets<ActorGlowMaterial>>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
@@ -380,7 +382,7 @@ pub fn sync_actor_glows(
         if *visibility != wanted {
             *visibility = wanted;
         }
-        let alpha = passage_alpha(passage, feature, frames.as_deref());
+        let alpha = passage_alpha(passage, feature, rooms.of(visual.0), frames.as_deref());
         let light = glow_light(glow, diameter, tick, alpha);
         if cast != Some(&light) {
             commands.entity(entity).try_insert(light);
@@ -425,7 +427,7 @@ pub fn sync_actor_glows(
             continue;
         };
         let scope = session_owner.map_or(SessionSpawnScope::UNSCOPED, |owner| SessionSpawnScope::scoped(owner.0));
-        let alpha = passage_alpha(passage, feature, frames.as_deref());
+        let alpha = passage_alpha(passage, feature, rooms.of(body), frames.as_deref());
         // Set each frame above: the glow is a separate root and does not
         // inherit its body's visibility.
         let shown = glow_visibility(body_visibility.is_some_and(|shown| matches!(*shown, Visibility::Hidden)));

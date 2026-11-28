@@ -1025,11 +1025,7 @@ pub fn rebuild_boss_render_index(
     index.rows.end_rebuild();
 }
 
-/// One labeled actor's nameplate facts for this frame, resolved sim-side
-/// (E4 slices 5+16): the display label, the anchor geometry, and whether
-/// this is the body the local player is DRIVING (the controlled subject's
-/// own plate is suppressed). Door plates stay render-side (they are static
-/// presentation entities); this index carries the ACTOR half.
+/// The display label, bounds, and drive state of one actor.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NameplateFact {
     pub label: String,
@@ -1040,34 +1036,37 @@ pub struct NameplateFact {
     pub driven: bool,
     /// The live room of the body (`LiveRooms::of`). A view shows only the
     /// plates of the room it frames.
-    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    pub room: Option<LiveRoomInstance>,
 }
 
-/// Per-frame nameplate rows for every eligible (alive, visible) labeled
-/// actor, keyed by [`FeatureId`]. Mark-and-sweep like the sibling indexes so
-/// surviving ids re-use their `String` allocations.
+impl LiveRoomRow for NameplateFact {
+    fn room(&self) -> Option<LiveRoomInstance> {
+        self.room
+    }
+}
+
+/// Nameplate rows for visible, living actors in each live room.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct NameplateIndex {
-    rows: bevy::platform::collections::HashMap<String, (NameplateFact, u64)>,
-    generation: u64,
+    rows: LiveRoomRows<NameplateFact>,
 }
 
 impl NameplateIndex {
+    /// Read the sole occurrence of this ID.
     pub fn get(&self, id: &str) -> Option<&NameplateFact> {
-        self.rows.get(id).map(|(fact, _)| fact)
+        self.rows.get(id)
+    }
+
+    pub fn get_in(&self, id: &str, room: Option<LiveRoomInstance>) -> Option<&NameplateFact> {
+        self.rows.get_in(id, room)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &NameplateFact)> {
-        // AMBITION_REVIEW(determinism): hash-order iteration is safe here.
-        // `SimView` is DERIVED state — rebuilt from the sim every tick, structurally
-        // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
-        // §Excluded). Every consumer of this iterator is presentation. No sim state
-        // reads it, so its order can never enter a trajectory.
-        self.rows.iter().map(|(id, (fact, _))| (id.as_str(), fact))
+        self.rows.iter()
     }
 
     pub fn contains(&self, id: &str) -> bool {
-        self.rows.contains_key(id)
+        self.rows.contains(id)
     }
 
     pub fn len(&self) -> usize {
@@ -1079,12 +1078,11 @@ impl NameplateIndex {
     }
 
     fn begin_rebuild(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
+        self.rows.begin_rebuild();
     }
 
     fn end_rebuild(&mut self) {
-        let gen = self.generation;
-        self.rows.retain(|_, (_, g)| *g == gen);
+        self.rows.end_rebuild();
     }
 
     fn upsert(
@@ -1094,37 +1092,28 @@ impl NameplateIndex {
         center: ae::Vec2,
         size: ae::Vec2,
         driven: bool,
-        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        room: Option<LiveRoomInstance>,
     ) {
-        let gen = self.generation;
-        if let Some(slot) = self.rows.get_mut(id) {
-            let f = &slot.0;
-            if f.label == label && f.center == center && f.size == size && f.driven == driven && f.room == room {
-                slot.1 = gen;
-                return;
-            }
-            slot.0 = NameplateFact {
-                label: label.to_string(),
+        self.rows.refresh(
+            id,
+            room,
+            |fact, _| {
+                if fact.label != label {
+                    fact.label.clear();
+                    fact.label.push_str(label);
+                }
+                fact.center = center;
+                fact.size = size;
+                fact.driven = driven;
+                true
+            },
+            || NameplateFact {
+                label: label.to_owned(),
                 center,
                 size,
                 driven,
                 room,
-            };
-            slot.1 = gen;
-            return;
-        }
-        self.rows.insert(
-            id.to_string(),
-            (
-                NameplateFact {
-                    label: label.to_string(),
-                    center,
-                    size,
-                    driven,
-                    room,
-                },
-                gen,
-            ),
+            },
         );
     }
 }
@@ -1194,14 +1183,15 @@ pub fn rebuild_nameplate_index(
         }) {
             continue;
         }
+        let room = live.of(entity);
         let (center, size, visible) = views
-            .get(feature_id.as_str())
+            .get_in(feature_id.as_str(), room)
             .map(|view| (view.pos, view.size, view.visible))
             .unwrap_or_else(|| (aabb.center, aabb.size(), true));
         if !visible {
             continue;
         }
-        index.upsert(feature_id.as_str(), identity.name(), center, size, driven, live.of(entity));
+        index.upsert(feature_id.as_str(), identity.name(), center, size, driven, room);
     }
     index.end_rebuild();
 }
@@ -1561,6 +1551,56 @@ mod view_index_tests {
             Some(ae::Vec2::new(30.0, 40.0)),
         );
     }
+
+    #[test]
+    fn two_actors_with_one_placement_id_keep_their_own_nameplates() {
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+        use bevy::prelude::{App, Update};
+
+        let mut app = App::new();
+        let east = LiveRoomInstance::ACTIVATION;
+        let west = east.next();
+        let visible = |room, x| FeatureView {
+            room: Some(room),
+            pos: ae::Vec2::new(x, 100.0),
+            size: ae::Vec2::new(24.0, 48.0),
+            kind: FeatureVisualKind::Actor,
+            ..view(true)
+        };
+        let rows = |east_visible| FeatureViewIndex::from_rows([
+            ("guard".to_owned(), FeatureView { visible: east_visible, ..visible(east, 180.0) }),
+            ("guard".to_owned(), visible(west, 260.0)),
+        ]);
+        app.init_resource::<NameplateIndex>()
+            .insert_resource(rows(true))
+            .add_systems(Update, rebuild_nameplate_index);
+        for (room, name) in [(east, "East guard"), (west, "West guard")] {
+            app.world_mut().spawn((
+                FeatureSimEntity,
+                FeatureId::new("guard"),
+                ActorIdentity::new("guard", name),
+                CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::splat(20.0)),
+                InRoomInstance(room),
+            ));
+        }
+
+        app.update();
+        let index = app.world().resource::<NameplateIndex>();
+        assert_eq!(index.len(), 2);
+        for (room, expected_label, x) in [(east, "East guard", 180.0), (west, "West guard", 260.0)] {
+            let fact = index.get_in("guard", Some(room)).unwrap();
+            assert_eq!(fact.label, expected_label);
+            assert_eq!(fact.center.x, x);
+            assert_eq!(fact.size.y, 48.0);
+        }
+
+        app.insert_resource(rows(false));
+        app.update();
+        let index = app.world().resource::<NameplateIndex>();
+        assert_eq!(index.len(), 1);
+        let fact = index.get("guard").unwrap();
+        assert_eq!((fact.room, fact.label.as_str()), (Some(west), "West guard"));
+    }
 }
 
 #[cfg(test)]
@@ -1609,7 +1649,7 @@ mod driven_nameplate_tests {
         app.update();
 
         let index = app.world().resource::<NameplateIndex>();
-        let driven_of = |id: &str| index.rows.get(id).map(|(fact, _)| fact.driven);
+        let driven_of = |id: &str| index.get(id).map(|fact| fact.driven);
         assert_eq!(
             (driven_of("a"), driven_of("b"), driven_of("c")),
             (Some(true), Some(true), Some(false)),
@@ -1651,7 +1691,7 @@ mod nameplate_generation_tests {
 
     fn has_label(app: &mut App) -> bool {
         app.update();
-        app.world().resource::<NameplateIndex>().rows.contains_key("body")
+        app.world().resource::<NameplateIndex>().contains("body")
     }
 
     #[test]

@@ -1,10 +1,10 @@
 //! The actor and boss animation views.
 //! Actor pose clocks advance each tick. Clip requests use the final pose for the frame.
 
-use std::sync::Arc;
+use bevy::ecs::entity::EntityHashMap;
+use bevy::prelude::{Entity, Query, Res, ResMut, Resource, Time, With};
 
-use bevy::platform::collections::HashMap;
-use bevy::prelude::{Query, Res, ResMut, Resource, Time, With};
+use crate::live_room_rows::{LiveRoomRow, LiveRoomRows};
 
 use ambition_boss_encounter::anim::boss_anim_state_for;
 use ambition_characters::actor::ai::ActorStatus;
@@ -13,6 +13,7 @@ use ambition_combat::components::{ActorIdentity, FeatureId};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
 /// Required body components for the actor pose and appearance indexes.
@@ -33,6 +34,7 @@ pub type ActorSpriteBody = (
 /// Movement and action facts used to select an actor's pose.
 #[derive(bevy::ecs::query::QueryData)]
 pub(crate) struct ActorPoseData {
+    pub body: Entity,
     pub feature_id: &'static FeatureId,
     pub kin: &'static BodyKinematics,
     pub health: &'static ambition_characters::actor::BodyHealth,
@@ -77,7 +79,7 @@ pub(crate) struct ActorPoseData {
 
 #[derive(bevy::ecs::query::QueryData)]
 pub(crate) struct ActorClipData {
-    feature_id: &'static FeatureId,
+    body: Entity,
     kin: &'static BodyKinematics,
     combat: &'static ambition_characters::actor::BodyCombat,
     motion_facts: &'static ae::BodyMotionFacts,
@@ -98,6 +100,7 @@ pub(crate) struct ActorClipData {
 /// position (for localized-gravity facing) and facing sign.
 #[derive(Clone, Debug)]
 pub struct ActorAnimFrame {
+    pub room: Option<LiveRoomInstance>,
     pub anim: CharacterAnim,
     pub opacity: f32,
     pub conversation_held: bool,
@@ -356,46 +359,67 @@ pub fn engaged_clip(
 /// shipped fighter sheets; a sheet without it falls through the chain.
 pub const SMASH_CHARGE_CLIP: &str = "smash_charge";
 
-// The per-actor identity accessors (`ecs_actor_name`, `ecs_actor_is_sandbag`,
-// `ecs_enemy_sprite_override`, `ecs_actor_render_size`) are GONE: those static
-// facts are now materialized once into `ActorRenderIndex` (see
-// `rebuild_actor_render_index`), which the renderer reads by id — so
-// presentation no longer live-queries the actor clusters to bind a sprite. The
-// per-frame ANIM frame below stays a live read until slice B materializes it.
-
-/// Actor animation data for the frame, indexed by feature ID.
+/// Retain pose clocks by body. Publish frames by live room and feature ID.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ActorAnimIndex {
     rows: Vec<ActorAnimRow>,
-    slots: HashMap<Arc<str>, usize>,
+    bodies: EntityHashMap<usize>,
+    placements: LiveRoomRows<ActorAnimSlot>,
     generation: u64,
+    placements_changed: bool,
 }
 
 #[derive(Clone, Debug)]
 struct ActorAnimRow {
-    id: Arc<str>,
+    body: Entity,
+    id: String,
     frame: ActorAnimFrame,
     seen: u64,
     passage_clip: Option<&'static [&'static str]>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct ActorAnimSlot {
+    index: usize,
+    room: Option<LiveRoomInstance>,
+}
+
+impl LiveRoomRow for ActorAnimSlot {
+    fn room(&self) -> Option<LiveRoomInstance> {
+        self.room
+    }
+}
+
 impl ActorAnimIndex {
+    /// Read the sole occurrence of this ID.
     pub fn get(&self, id: &str) -> Option<&ActorAnimFrame> {
-        self.slots.get(id).map(|&slot| &self.rows[slot].frame)
+        self.placements.get(id).map(|slot| &self.rows[slot.index].frame)
+    }
+
+    pub fn get_in(&self, id: &str, room: Option<LiveRoomInstance>) -> Option<&ActorAnimFrame> {
+        self.placements.get_in(id, room).map(|slot| &self.rows[slot.index].frame)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &ActorAnimFrame)> {
-        self.rows.iter().map(|row| (row.id.as_ref(), &row.frame))
+        self.rows.iter().map(|row| (row.id.as_str(), &row.frame))
     }
 
     /// Build an index from a list of actor poses.
     pub fn from_rows(entries: impl IntoIterator<Item = (String, ActorAnimFrame)>) -> Self {
         let mut index = Self::default();
         for (id, frame) in entries {
-            if let Some(&slot) = index.slots.get(id.as_str()) {
-                index.rows[slot].frame = frame;
+            let room = frame.room;
+            if let Some(slot) = index.placements.get_in(&id, room) {
+                index.rows[slot.index].frame = frame;
             } else {
-                index.insert(&id, frame);
+                index.placements.insert(&id, ActorAnimSlot { index: index.rows.len(), room });
+                index.rows.push(ActorAnimRow {
+                    body: Entity::PLACEHOLDER,
+                    id,
+                    frame,
+                    seen: index.generation,
+                    passage_clip: None,
+                });
             }
         }
         index
@@ -411,12 +435,12 @@ impl ActorAnimIndex {
 
     pub(crate) fn apply_passage(
         &mut self,
-        id: &str,
+        body: Entity,
         anim: CharacterAnim,
         clip: &'static [&'static str],
         look: crate::PassageLookView,
     ) {
-        if let Some(&slot) = self.slots.get(id) {
+        if let Some(&slot) = self.bodies.get(&body) {
             let row = &mut self.rows[slot];
             row.frame.anim = anim;
             row.frame.passage_look = Some(look);
@@ -428,56 +452,81 @@ impl ActorAnimIndex {
         self.generation = self.generation.wrapping_add(1);
     }
 
-    fn insert(&mut self, id: &str, frame: ActorAnimFrame) -> &mut ActorAnimRow {
-        let id: Arc<str> = Arc::from(id);
-        let slot = self.rows.len();
-        self.slots.insert(Arc::clone(&id), slot);
-        self.rows.push(ActorAnimRow {
-            id,
-            frame,
-            seen: self.generation,
-            passage_clip: None,
-        });
-        &mut self.rows[slot]
-    }
-
     fn end_rebuild(&mut self) {
         let len = self.rows.len();
         self.rows.retain(|row| row.seen == self.generation);
         if len != self.rows.len() {
-            self.slots.clear();
-            self.slots.extend(self.rows.iter().enumerate().map(|(slot, row)| (Arc::clone(&row.id), slot)));
+            self.bodies.clear();
+            self.bodies.extend(self.rows.iter().enumerate().map(|(slot, row)| (row.body, slot)));
+            self.placements_changed = true;
+        }
+        self.refresh_placements();
+    }
+
+    fn refresh_placements(&mut self) {
+        if std::mem::take(&mut self.placements_changed) {
+            self.placements.begin_rebuild();
+            for (index, row) in self.rows.iter().enumerate() {
+                self.placements.insert(&row.id, ActorAnimSlot { index, room: row.frame.room });
+            }
+            self.placements.end_rebuild();
         }
     }
 
-    fn slot_at(&self, position: usize, id: &str) -> Option<usize> {
-        if self.rows.get(position).is_some_and(|row| row.id.as_ref() == id) {
+    fn slot_at(&self, position: usize, body: Entity) -> Option<usize> {
+        if self.rows.get(position).is_some_and(|row| row.body == body) {
             Some(position)
         } else {
-            self.slots.get(id).copied()
+            self.bodies.get(&body).copied()
         }
     }
 
-    fn publish_at(&mut self, position: usize, id: &str) -> (&mut ActorAnimFrame, bool) {
-        if let Some(slot) = self.slot_at(position, id) {
+    fn publish_at(
+        &mut self,
+        position: usize,
+        body: Entity,
+        id: &str,
+        room: Option<LiveRoomInstance>,
+    ) -> (&mut ActorAnimFrame, bool) {
+        if let Some(slot) = self.slot_at(position, body) {
             let row = &mut self.rows[slot];
             row.seen = self.generation;
             row.passage_clip = None;
+            if row.id != id {
+                row.id.clear();
+                row.id.push_str(id);
+                self.placements_changed = true;
+            }
+            if row.frame.room != room {
+                row.frame.room = room;
+                self.placements_changed = true;
+            }
             return (&mut row.frame, false);
         }
-        (&mut self.insert(id, ActorAnimFrame {
-            anim: CharacterAnim::Idle,
-            opacity: 1.0,
-            conversation_held: false,
-            pos: ae::Vec2::ZERO,
-            facing: 1.0,
-            gravity_dir: ae::DEFAULT_GRAVITY_DIR,
-            clip: None,
-            move_charge: None,
-            passage_look: None,
-            stop: crate::StopClock::default(),
-            turn: crate::TurnClock::default(),
-        }).frame, true)
+        let slot = self.rows.len();
+        self.bodies.insert(body, slot);
+        self.placements_changed = true;
+        self.rows.push(ActorAnimRow {
+            body,
+            id: id.to_owned(),
+            seen: self.generation,
+            passage_clip: None,
+            frame: ActorAnimFrame {
+                room,
+                anim: CharacterAnim::Idle,
+                opacity: 1.0,
+                conversation_held: false,
+                pos: ae::Vec2::ZERO,
+                facing: 1.0,
+                gravity_dir: ae::DEFAULT_GRAVITY_DIR,
+                clip: None,
+                move_charge: None,
+                passage_look: None,
+                stop: crate::StopClock::default(),
+                turn: crate::TurnClock::default(),
+            },
+        });
+        (&mut self.rows[slot].frame, true)
     }
 }
 
@@ -485,6 +534,7 @@ impl ActorAnimIndex {
 pub(crate) fn advance_actor_anim_poses(
     mut index: ResMut<ActorAnimIndex>,
     actors: Query<ActorPoseData, ActorSpriteBody>,
+    rooms: LiveRooms,
     time: Option<Res<Time>>,
 ) {
     let dt = time.as_deref().map_or(0.0, Time::delta_secs);
@@ -493,7 +543,7 @@ pub(crate) fn advance_actor_anim_poses(
         let free = free_pose(a.playback, a.anim_override);
         let anim = a.anim_override.map_or_else(|| pick_actor_pose(&a), |pose| pose.0);
         let anim = crate::pose_view::seated(anim, a.riding);
-        let (frame, added) = index.publish_at(position, a.feature_id.as_str());
+        let (frame, added) = index.publish_at(position, a.body, a.feature_id.as_str(), rooms.of(a.body));
         let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
         if !added {
             frame.stop = frame.stop.next(Some(frame.anim), anim, free, dt);
@@ -554,12 +604,16 @@ fn free_pose(
 /// Publish the clip and drawing data for the pose at the end of the frame.
 pub(crate) fn rebuild_actor_anim_index(
     mut index: ResMut<ActorAnimIndex>,
-    actors: Query<ActorClipData, (ActorSpriteBody, With<ActorConfig>)>,
+    actors: Query<ActorClipData, (ActorSpriteBody, With<ActorConfig>, With<FeatureId>)>,
+    rooms: LiveRooms,
 ) {
     for (position, a) in actors.iter().enumerate() {
-        let Some(slot) = index.slot_at(position, a.feature_id.as_str()) else { continue; };
+        let Some(slot) = index.slot_at(position, a.body) else { continue; };
+        let room = rooms.of(a.body);
+        index.placements_changed |= index.rows[slot].frame.room != room;
         let row = &mut index.rows[slot];
         let frame = &mut row.frame;
+        frame.room = room;
         let charge = a.playback.and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
         frame.conversation_held = a.control_holds.is_some_and(|holds| {
             holds.holds(ambition_characters::control::ControlHold::Conversation)
@@ -617,6 +671,7 @@ pub(crate) fn rebuild_actor_anim_index(
             .or_else(|| aim_over_legs(a.anim.is_some_and(|f| f.aim_anim_active) && free, anim));
         frame.clip = ClipRequest::with_pin(clip, a.pinned, crate::pose_view::crouched(anim), Some(anim));
     }
+    index.refresh_placements();
 }
 
 #[cfg(test)]
@@ -652,6 +707,8 @@ mod tests {
 
     #[test]
     fn a_stop_between_rendered_frames_uses_its_tick_clock() {
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+
         let mut app = App::new();
         let mut time = Time::<()>::default();
         time.advance_by(std::time::Duration::from_millis(20));
@@ -689,6 +746,16 @@ mod tests {
         let frame = world.resource::<ActorAnimIndex>().get("walker").unwrap();
         assert_eq!(frame.facing, -1.0);
         assert_eq!(frame.clip.as_ref().unwrap().clip, "turnaround");
+
+        let room = LiveRoomInstance::ACTIVATION.next();
+        world.entity_mut(actor).insert(InRoomInstance(room));
+        world.run_schedule(FixedUpdate);
+        world.run_schedule(Update);
+        let index = world.resource::<ActorAnimIndex>();
+        assert!(index.get_in("walker", None).is_none());
+        let frame = index.get_in("walker", Some(room)).unwrap();
+        assert_eq!(frame.clip.as_ref().unwrap().clip, "turnaround");
+        assert_eq!(frame.turn.secs, 0.02);
     }
 }
 

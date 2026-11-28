@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, InRoomInstance, LiveRoomInstance, LiveRooms, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_world::rooms::RoomNameplatePolicy;
 use ambition_sim_view::NameplateIndex;
@@ -163,6 +163,12 @@ struct NameplateCandidate<'a> {
     opacity: f32,
 }
 
+struct ViewNameplates<'a> {
+    room: LiveRoomInstance,
+    world: &'a ae::World,
+    wanted: HashMap<&'a str, NameplateCandidate<'a>>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct ResolvedNameplateRankPolicy {
     full_opacity_count: usize,
@@ -201,8 +207,7 @@ impl ActorNameplateSettings {
 /// of a room want different plates and opacities. So plates are keyed by
 /// view. A one-view game builds the same plates as before.
 ///
-/// Only the plate is duplicated, not its source. The `NameplateIndex` row and
-/// the `DoorNameplateSource` stay singular; each view gets a projection.
+/// Each view projects the sources in the live room it frames.
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
@@ -211,7 +216,7 @@ pub fn sync_actor_nameplates(
     geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    live: LiveRooms,
     settings: Res<ActorNameplateSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
     room_specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
@@ -226,18 +231,15 @@ pub fn sync_actor_nameplates(
         ),
         With<ambition_sim_view::LocalView>,
     >,
-    // Sim-built nameplate read model: label, geometry, liveness, and
-    // controlled-body facts per actor id. Doors are render-side sources.
     nameplate_index: Option<Res<NameplateIndex>>,
     ui_fonts: Option<Res<UiFonts>>,
-    mut nameplate_queries: ParamSet<(
-        Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
-        Query<(
-            Entity,
-            &ActorNameplateVisual,
-            &ambition_sim_view::PresentedForView,
-            &mut WorldLabel,
-        )>,
+    doors: Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
+    mut plates: Query<(
+        Entity,
+        &ActorNameplateVisual,
+        &ambition_sim_view::PresentedForView,
+        &InRoomInstance,
+        &mut WorldLabel,
     )>,
 ) {
     let Some(session_scope) =
@@ -246,8 +248,7 @@ pub fn sync_actor_nameplates(
         return;
     };
     if !settings.enabled {
-        let mut nameplates = nameplate_queries.p1();
-        for (_, _, _, mut label) in nameplates.iter_mut() {
+        for (_, _, _, _, mut label) in &mut plates {
             if label.owner_opacity != 0.0 {
                 label.owner_opacity = 0.0;
             }
@@ -255,45 +256,28 @@ pub fn sync_actor_nameplates(
         return;
     }
 
-    // Every id with a source this frame, across all views. It separates
-    // "owner went away" (despawn) from "this view ranked it out" (hide).
-    // Snapshot doors once: every view needs them, and the `ParamSet` lends
-    // one query at a time. A hidden or unlabelled door shows no plate, and is
-    // still a source (its plate is hidden, not taken down).
-    let doors: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource, bool)> = {
-        let door_sources = nameplate_queries.p0();
-        door_sources
-            .iter()
-            .map(|(entity, source, visibility)| {
-                let shown = !visibility.is_some_and(|visibility| *visibility == Visibility::Hidden)
-                    && !source.label.trim().is_empty();
-                (live.of(entity), source.clone(), shown)
-            })
-            .collect()
-    };
-    let mut source_ids: HashSet<&str> = HashSet::new();
+    let doors: Vec<_> = doors.iter().map(|(entity, source, visibility)| {
+        let shown = !visibility.is_some_and(|visibility| *visibility == Visibility::Hidden)
+            && !source.label.trim().is_empty();
+        (live.of(entity), source, shown)
+    }).collect();
+    // Keep hidden plates only while their sources stay in the room.
+    let mut source_ids = HashSet::new();
     if let Some(index) = nameplate_index.as_deref() {
-        source_ids.extend(index.iter().map(|(id, _)| id));
+        source_ids.extend(index.iter().map(|(id, fact)| (fact.room, id)));
     }
-    source_ids.extend(doors.iter().map(|(_, source, _)| source.id.as_str()));
+    source_ids.extend(doors.iter().map(|(room, source, _)| (*room, source.id.as_str())));
 
-    // What each view wants on screen, ranked against its own focus.
-    let mut wanted: HashMap<Entity, HashMap<&str, NameplateCandidate>> = HashMap::new();
-    // The live room each view frames: its resolved frame's room, or the sole
-    // live room before a frame is resolved.
-    let mut view_rooms: HashMap<Entity, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> =
-        HashMap::new();
+    let mut wanted: HashMap<Entity, ViewNameplates> = HashMap::new();
     for (view_entity, view_state, resolved) in &views {
-        let Some(view_room) = resolved
+        let Some((view_room, world)) = resolved
             .and_then(|resolved| resolved.frame())
             .map(|frame| frame.room)
             .or_else(|| live.sole())
+            .and_then(|room| Some((room, &geometry.in_room(room)?.0)))
         else {
-            // A view in no live room shows no plates.
-            wanted.insert(view_entity, HashMap::new());
             continue;
         };
-        view_rooms.insert(view_entity, view_room);
         let rank_policy = settings.resolve_rank_policy(room_specs.as_ref().and_then(|specs| {
             let definition = specs.definition_in(view_room)?;
             Some(&specs.rooms().spec(definition).metadata.nameplate_policy)
@@ -312,78 +296,65 @@ pub fn sync_actor_nameplates(
         });
         apply_rank_opacity(rank_policy, &mut candidates);
 
-        wanted.insert(
-            view_entity,
-            candidates
+        wanted.insert(view_entity, ViewNameplates {
+            room: view_room,
+            world,
+            wanted: candidates
                 .into_iter()
                 .take(rank_policy.fade_out_count)
                 .map(|candidate| (candidate.owner_id, candidate))
                 .collect(),
-        );
+        });
     }
 
     // This system publishes each plate's wanted anchor and opacity. The shared
     // placement pass (`label_layout`) owns transform, visibility, and colour,
     // because plates are ranked against signage and door plates too (AC12).
     let mut existing_visible: HashSet<(Entity, &str)> = HashSet::new();
-    {
-        let mut nameplates = nameplate_queries.p1();
-        for (entity, plate, key, mut label) in &mut nameplates {
-            let (Some(view_wanted), Some(world)) = (
-                wanted.get(&key.0),
-                view_rooms.get(&key.0).and_then(|room| geometry.in_room(*room)),
-            ) else {
-                commands.entity(entity).despawn();
+    for (entity, plate, key, stamp, mut label) in &mut plates {
+        let Some(view) = wanted.get(&key.0).filter(|view| view.room == stamp.0) else {
+            commands.entity(entity).try_despawn();
+            continue;
+        };
+        if let Some(candidate) = view.wanted.get(plate.owner_id.as_str()) {
+            if plate.label != candidate.label {
+                // Rebuild the text and its outline together.
+                commands.entity(entity).try_despawn();
                 continue;
-            };
-            if let Some(candidate) = view_wanted.get(plate.owner_id.as_str()) {
-                if plate.label != candidate.label {
-                    // Name changes are rare. Rebuild the small text subtree so
-                    // the root and outline children stay identical without
-                    // relying on Text2d internals.
-                    commands.entity(entity).despawn();
-                    continue;
-                }
-                existing_visible.insert((key.0, candidate.owner_id));
-                // Written only on a change: a still plate's label is not
-                // marked changed each frame.
-                let anchor = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
-                if label.family != candidate.family
-                    || label.anchor != anchor
-                    || label.owner_opacity != candidate.opacity
-                    || label.text_color != settings.text_color
-                    || label.outline_color != Some(settings.outline_color)
-                {
-                    label.family = candidate.family;
-                    label.anchor = anchor;
-                    label.owner_opacity = candidate.opacity;
-                    label.text_color = settings.text_color;
-                    label.outline_color = Some(settings.outline_color);
-                }
-            } else if source_ids.contains(plate.owner_id.as_str()) {
-                label.owner_opacity = 0.0;
-            } else {
-                commands.entity(entity).despawn();
             }
+            existing_visible.insert((key.0, candidate.owner_id));
+            let anchor = world_to_bevy(view.world, candidate.anchor_world, settings.z);
+            if label.family != candidate.family
+                || label.anchor != anchor
+                || label.owner_opacity != candidate.opacity
+                || label.text_color != settings.text_color
+                || label.outline_color != Some(settings.outline_color)
+            {
+                label.family = candidate.family;
+                label.anchor = anchor;
+                label.owner_opacity = candidate.opacity;
+                label.text_color = settings.text_color;
+                label.outline_color = Some(settings.outline_color);
+            }
+        } else if source_ids.contains(&(Some(stamp.0), plate.owner_id.as_str())) {
+            if label.owner_opacity != 0.0 {
+                label.owner_opacity = 0.0;
+            }
+        } else {
+            commands.entity(entity).try_despawn();
         }
     }
 
     let font = nameplate_font(ui_fonts.as_deref(), settings.font_size);
-    for (view_entity, view_wanted) in &wanted {
-        let Some((room, world)) = view_rooms
-            .get(view_entity)
-            .and_then(|room| Some((*room, geometry.in_room(*room)?)))
-        else {
-            continue;
-        };
-        for candidate in view_wanted.values() {
+    for (view_entity, view) in &wanted {
+        for candidate in view.wanted.values() {
             if existing_visible.contains(&(*view_entity, candidate.owner_id)) {
                 continue;
             }
             spawn_actor_nameplate(
                 &mut commands,
-                session_scope.in_room(Some(room)),
-                &world.0,
+                session_scope.in_room(Some(view.room)),
+                view.world,
                 &settings,
                 &font,
                 candidate,
@@ -397,7 +368,7 @@ fn collect_actor_candidates<'a>(
     settings: &ActorNameplateSettings,
     rank_policy: ResolvedNameplateRankPolicy,
     index: &'a NameplateIndex,
-    view_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    view_room: LiveRoomInstance,
     focus_world: ae::Vec2,
     candidates: &mut Vec<NameplateCandidate<'a>>,
 ) {
@@ -427,9 +398,9 @@ fn collect_actor_candidates<'a>(
 
 fn collect_door_candidates<'a>(
     settings: &ActorNameplateSettings,
-    view_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    view_room: LiveRoomInstance,
     focus_world: ae::Vec2,
-    doors: &'a [(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource, bool)],
+    doors: &[(Option<LiveRoomInstance>, &'a DoorNameplateSource, bool)],
     candidates: &mut Vec<NameplateCandidate<'a>>,
 ) {
     for (room, source, shown) in doors {
@@ -714,6 +685,60 @@ mod tests {
                     },
                 ))
                 .id()
+        }
+
+        #[test]
+        fn a_view_replaces_its_plate_when_it_frames_another_live_room() {
+            use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance, LiveRoomInstance};
+            use ambition_sim_view::camera_snapshot::{ResolvedCameraFrame, ResolvedCameraSnapshot};
+
+            let mut world = World::new();
+            world.init_resource::<ActorNameplateSettings>();
+            let east = LiveRoomInstance::ACTIVATION;
+            let west = east.next();
+            let [east_root, _] = [east, west].map(|id| spawn_live_room(&mut world, id, room()));
+            let [_, west_door] = [(east, NEAR_FIRST), (west, NEAR_SECOND)].map(|(room, center)| {
+                world.spawn((
+                    InRoomInstance(room),
+                    DoorNameplateSource::new("door", "Door", ae::Aabb::new(center, ae::Vec2::splat(20.0))),
+                )).id()
+            });
+            let frame = |room| ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
+                room,
+                snapshot: Default::default(),
+                follow_world: Default::default(),
+            }));
+            let first = spawn_view(&mut world, 0, NEAR_FIRST);
+            let second = spawn_view(&mut world, 1, NEAR_SECOND);
+            world.entity_mut(first).insert(frame(east));
+            world.entity_mut(second).insert(frame(west));
+            let plates = |world: &mut World| {
+                world.query_filtered::<(Entity, &PresentedForView, &InRoomInstance, &WorldLabel), With<ActorNameplateVisual>>()
+                    .iter(world)
+                    .map(|(entity, view, stamp, label)| (view.0, (entity, stamp.0, label.anchor)))
+                    .collect::<HashMap<_, _>>()
+            };
+            world.run_system_once(sync_actor_nameplates).unwrap();
+            let before = plates(&mut world);
+            assert_eq!(before[&first].1, east);
+            assert_eq!(before[&second].1, west);
+            assert_ne!(before[&first].2, before[&second].2);
+
+            world.entity_mut(first).insert(frame(west));
+            world.run_system_once(sync_actor_nameplates).unwrap();
+            let moved = plates(&mut world);
+            assert_eq!(moved[&first].1, west);
+            assert_eq!(moved[&first].2, before[&second].2);
+            assert_eq!(moved[&second], before[&second]);
+            assert!(world.get_entity(before[&first].0).is_err());
+
+            world.despawn(east_root);
+            world.run_system_once(sync_actor_nameplates).unwrap();
+            assert_eq!(plates(&mut world), moved);
+
+            world.despawn(west_door);
+            world.run_system_once(sync_actor_nameplates).unwrap();
+            assert!(plates(&mut world).is_empty());
         }
 
         /// Run the sync and read back, per view in spawn order, the opacity each

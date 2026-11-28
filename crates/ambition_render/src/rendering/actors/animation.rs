@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::rendering::primitives::{FeatureVisual, PlayerVisual, PropVisual};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use ambition_sprite_sheet::character::CharacterAnimator;
 
 /// How a stance compaction (crouch, crawl, slide, morph) squashes the drawn
@@ -334,8 +335,10 @@ pub fn start_bark_poses(
 /// `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
     presentation_time: ambition_time::PresentationTime,
+    rooms: LiveRooms,
     mut query: Query<
         (
+            Entity,
             &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
@@ -358,7 +361,7 @@ pub fn animate_characters(
 ) {
     // ADR 0011: per-entity proper time on the presentation clock. No SP entity
     // carries `ProperTimeScale` yet, so every actor ticks at the world rate.
-    for (visual, mut sprite, mut animator, scale, anchor, bark) in &mut query {
+    for (entity, visual, mut sprite, mut animator, scale, anchor, bark) in &mut query {
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::dilated(scale.0, scale.1));
         let barking = bark.is_some_and(|mut pose| {
             pose.0 -= dt;
@@ -366,7 +369,7 @@ pub fn animate_characters(
         });
         // Enemies and NPCs resolve through the same picker as the player, from
         // their `Body*` clusters.
-        let Some(frame) = anim_index.get(&visual.id) else {
+        let Some(frame) = anim_index.get_in(&visual.id, rooms.of(entity)) else {
             continue;
         };
         // Hit feedback is the white-silhouette overlay in `rendering::hit_flash`;
@@ -403,9 +406,11 @@ fn generic_feature_anim_owns(kind: FeatureVisualKind) -> bool {
 /// are excluded, so each animator is ticked by one system only.
 pub fn animate_feature_sprites(
     presentation_time: ambition_time::PresentationTime,
+    rooms: LiveRooms,
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     mut query: Query<
         (
+            Entity,
             &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
@@ -421,8 +426,8 @@ pub fn animate_feature_sprites(
         ),
     >,
 ) {
-    for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
-        let Some(view) = feature_views.get(&visual.id) else {
+    for (entity, visual, mut sprite, mut animator, scale, anchor) in &mut query {
+        let Some(view) = feature_views.get_in(&visual.id, rooms.of(entity)) else {
             continue;
         };
         // `animate_characters` owns actors. Ticking them here too advances Idle

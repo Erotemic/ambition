@@ -20,16 +20,6 @@ use crate::rendering::{PlayerVisualSchedulePlugin, PresentationVisualAnimationPl
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PlatformerPresentationSetupSet;
 
-pub(crate) struct SharedMeshFragmentPlugin;
-
-impl Plugin for SharedMeshFragmentPlugin {
-    fn build(&self, app: &mut App) {
-        if app.get_sub_app(bevy::render::RenderApp).is_some() {
-            bevy::shader::load_shader_library!(app, "shared_mesh_fragment.wgsl");
-        }
-    }
-}
-
 /// Per-session room presentation, independent of the provider. Each live room
 /// gets its static visuals and its parallax, stamped with that room
 /// (`present_live_room_visuals`, `present_live_room_parallax`).
@@ -40,9 +30,7 @@ pub struct SessionRoomVisualsPlugin;
 
 impl Plugin for SessionRoomVisualsPlugin {
     fn build(&self, app: &mut App) {
-        if !app.is_plugin_added::<SharedMeshFragmentPlugin>() {
-            app.add_plugins(SharedMeshFragmentPlugin);
-        }
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         // Room visuals include world labels, so this composition also installs their layout pass.
         // `WorldLabelLayoutPlugin` is idempotent.
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);

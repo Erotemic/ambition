@@ -159,9 +159,11 @@ pub fn add_hit_flash_material_plugin(app: &mut App) {
     >();
     // Android draws no flash, so its material's per-type systems are not paid.
     #[cfg(not(target_os = "android"))]
-    bevy::asset::embedded_asset!(app, "hit_flash.wgsl");
-    #[cfg(not(target_os = "android"))]
-    app.add_plugins(bevy::sprite_render::Material2dPlugin::<HitFlashMaterial>::default());
+    {
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
+        bevy::asset::embedded_asset!(app, "hit_flash.wgsl");
+        app.add_plugins(bevy::sprite_render::Material2dPlugin::<HitFlashMaterial>::default());
+    }
 }
 
 /// Material2d backing the white-silhouette overlay.

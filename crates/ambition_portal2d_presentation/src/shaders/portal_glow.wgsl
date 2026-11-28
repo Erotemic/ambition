@@ -7,13 +7,7 @@
 //
 // `phase.x` opens it from its middle (a portal that was added), and `phase.y`
 // breaks it up and closes it (a portal that was removed). All lengths are px.
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::globals
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -49,7 +43,7 @@ fn ease_out_back(x: f32) -> f32 {
     return 1.0 + (c + 1.0) * y * y * y + c * y * y;
 }
 
-fn shade(in: VertexOutput) -> vec4<f32> {
+fn shade(in: MeshFragment) -> vec4<f32> {
     let t = globals.time;
     let seed = shape.w;
     let p = vec2<f32>((in.uv.x - 0.5) * shape.y, (0.5 - in.uv.y) * shape.z);
@@ -127,7 +121,7 @@ fn shade(in: VertexOutput) -> vec4<f32> {
 // the shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh
 // shaders write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

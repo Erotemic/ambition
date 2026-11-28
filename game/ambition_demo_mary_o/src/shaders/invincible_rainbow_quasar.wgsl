@@ -1,8 +1,4 @@
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #import ambition_render::frame_in_sprite
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
@@ -65,7 +61,7 @@ fn silhouette_edge(local_uv: vec2<f32>, alpha: f32) -> f32 {
     return clamp(alpha - neighbour_min, 0.0, 1.0);
 }
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let time = control.x;
     let strength = clamp(control.z, 0.0, 1.0);
     let seed = control.w * 19.73;
@@ -131,7 +127,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 // shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh shaders
 // write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

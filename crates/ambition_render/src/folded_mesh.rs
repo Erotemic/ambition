@@ -177,6 +177,7 @@ impl Plugin for FoldedMeshPlugin {
         }
         #[cfg(not(target_os = "android"))]
         let added = {
+            ambition_sprite_fx::install_mesh_fragment_shader(app);
             bevy::asset::embedded_asset!(app, "folded_mesh.wgsl");
             app.add_plugins(Material2dPlugin::<AddedLightMaterial>::default());
             app.world_mut()

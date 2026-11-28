@@ -1,11 +1,26 @@
-#define_import_path ambition_render::shared_mesh_fragment
+#define_import_path ambition_sprite_fx::mesh_fragment
 
 #import bevy_render::view::View
 #import bevy_render::globals::Globals
 
-// Both Bevy mesh vertex stages put the world position at location 0.
+// These inputs match the Bevy mesh vertex outputs. Only the color location
+// differs. The 3D vertex stage supplies UVs when the mesh has that attribute.
 struct MeshFragment {
+    @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
+#ifdef AMBITION_CARD_MESH
+#ifdef VERTEX_UVS_A
+    @location(2) uv: vec2<f32>,
+#endif
+#ifdef VERTEX_COLORS
+    @location(5) color: vec4<f32>,
+#endif
+#else
+    @location(2) uv: vec2<f32>,
+#ifdef VERTEX_COLORS
+    @location(4) color: vec4<f32>,
+#endif
+#endif
 }
 
 @group(0) @binding(0) var<uniform> view: View;

@@ -1,10 +1,6 @@
 // The mesh contains the complete clipped material region.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -59,7 +55,7 @@ fn window_sample(uv: vec2<f32>, ordinary: vec3<f32>) -> vec3<f32> {
     return ordinary;
 }
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     // Sample BEFORE any position-dependent discard: implicit-derivative
     // texture sampling requires uniform control flow.
     var local_uv = mesh.uv;
@@ -104,7 +100,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 // shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh shaders
 // write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

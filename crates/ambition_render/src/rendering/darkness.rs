@@ -134,6 +134,7 @@ impl Plugin for DarknessPlugin {
         if app.get_sub_app(bevy::render::RenderApp).is_none() || cfg!(target_os = "android") {
             return;
         }
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         bevy::asset::embedded_asset!(app, "darkness.wgsl");
         if !app.is_plugin_added::<LampsPlugin>() {
             app.add_plugins(LampsPlugin);

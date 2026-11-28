@@ -85,6 +85,7 @@ impl Plugin for BubbleShieldFxPlugin {
         if app.get_sub_app(bevy::render::RenderApp).is_none() {
             return;
         }
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         embedded_asset!(app, "shaders/bubble_shield_fx.wgsl");
         app.add_plugins(Material2dPlugin::<BubbleShieldFxMaterial>::default());
         let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() else {

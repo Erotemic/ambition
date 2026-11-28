@@ -2,11 +2,7 @@
 // scaled by `strength`. The material's blend adds them to what is under
 // them. It draws no shape: the shape is the mesh.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -14,7 +10,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> strength: vec4<f32>;
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
     var color = mesh.color * strength;
 #else

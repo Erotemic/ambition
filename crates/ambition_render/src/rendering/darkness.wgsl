@@ -4,11 +4,7 @@
 // the veil takes the lamp's colour, so a lantern's pool has a warm rim. The
 // same sum the CPU light map makes per texel (`darkness::light_map`).
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #import ambition_render::lamps::{Lamps, MAX_LAMPS, LIGHT_CORE, light_of}
 #import bevy_render::color_operations::srgb_to_linear
 #ifdef SRGB_OUTPUT
@@ -23,7 +19,7 @@ const RIM_WARMTH: f32 = 0.3;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var reach: texture_2d<f32>;
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let p = mesh.world_position.xy;
     var dark = 1.0;
     var lit = 0.0;

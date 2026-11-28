@@ -1009,6 +1009,15 @@ shared value preparation are sufficient until source proves otherwise.
    Central Hub captures at tick 160 show the corrupted sky behind the
    developer wing in both renderers. Captures also show the Tech-Bros
    Basement blueprint and the Mary-O starlight shimmer in both renderers.
+   Shared mesh effects get their fragment inputs from
+   `ambition_sprite_fx::mesh_fragment`. The library uses the Bevy render
+   view and clock types. It selects the correct vertex color and clock
+   binding locations for each renderer. The sprite-effect GPU test draws
+   a silhouette in a composition that has only the 2D render features.
+   The default desktop build draws the Tech-Bros Basement blueprint at
+   Medium. Medium Portal Lab captures show the clip and glow in 2D,
+   side-on, and oblique views. A rendered vertex color check gives the
+   same result in 2D and side-on 2.5D.
 
    `capture_scene --renderer` fills the image with the selected renderer.
    Each camera uses the same presented frame. The card view keeps each

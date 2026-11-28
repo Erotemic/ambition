@@ -8,7 +8,7 @@
 // the air of the room is corrupted, each at the place the parallax system
 // puts the same layer of the clean one, so a tower of one state is on the
 // same tower of the other. Then it adds the fog between the sky and the play.
-#import ambition_render::shared_mesh_fragment::{MeshFragment, view, globals, camera_on_play_plane}
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, view, globals, camera_on_play_plane}
 #import ambition_content::room_look::{value_noise, look_air_state}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb

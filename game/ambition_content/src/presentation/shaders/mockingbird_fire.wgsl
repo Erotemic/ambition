@@ -6,11 +6,7 @@
 // takes a glow and a bright windward edge. The sky blows to the left, so the flames
 // rise and trail left, whichever way the body faces. Red fire and cold fire
 // are one field with two colour ramps.
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -64,7 +60,7 @@ fn body(s: vec2<f32>) -> f32 {
     return textureSampleLevel(body_texture, body_sampler, uv, 0.0).a;
 }
 
-fn shade(in: VertexOutput) -> vec4<f32> {
+fn shade(in: MeshFragment) -> vec4<f32> {
     let height = control.x;
     let cold = clamp(control.z, 0.0, 1.0);
     let t = control.w;
@@ -128,7 +124,7 @@ fn shade(in: VertexOutput) -> vec4<f32> {
 // the shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh
 // shaders write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

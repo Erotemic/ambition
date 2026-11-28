@@ -5,13 +5,7 @@
 // their shape: a bright line next to her, a band about the line, and a soft
 // band about that. It draws nothing on her. A pulse goes up the barrier.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::globals
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -69,7 +63,7 @@ fn near_body(p: vec2<f32>, reach: f32) -> f32 {
     return step(0.5, most);
 }
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let t = globals.time;
     let cell = max(barrier.control.y, 1.0);
     let raw = barrier.quad.xy + vec2<f32>(mesh.uv.x, 1.0 - mesh.uv.y) * barrier.quad.zw;
@@ -106,7 +100,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 }
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

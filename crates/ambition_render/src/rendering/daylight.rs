@@ -243,6 +243,7 @@ impl Plugin for DaylightPlugin {
         if app.get_sub_app(bevy::render::RenderApp).is_none() || cfg!(target_os = "android") {
             return;
         }
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         bevy::asset::embedded_asset!(app, "daylight.wgsl");
         bevy::asset::embedded_asset!(app, "lamp_glow.wgsl");
         if !app.is_plugin_added::<LampsPlugin>() {

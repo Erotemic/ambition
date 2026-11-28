@@ -6,7 +6,7 @@
 // shape come and go, and gives it its colour. All work is in engine world
 // coordinates (y down). Colours are display values, converted at the end.
 
-#import ambition_render::shared_mesh_fragment::{MeshFragment, globals, camera_on_play_plane}
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals, camera_on_play_plane}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif

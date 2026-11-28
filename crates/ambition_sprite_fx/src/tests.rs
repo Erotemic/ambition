@@ -1,5 +1,69 @@
 use super::*;
 
+#[test]
+#[ignore = "requires a GPU render adapter"]
+fn a_sprite_effect_draws_in_a_2d_render_app() {
+    use bevy::app::ScheduleRunnerPlugin;
+    use bevy::asset::RenderAssetUsages;
+    use bevy::camera::{ClearColorConfig, RenderTarget};
+    use bevy::render::gpu_readback::{Readback, ReadbackComplete};
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
+    use bevy::render::view::Msaa;
+    use bevy::window::{ExitCondition, WindowPlugin};
+    use std::time::Duration;
+
+    #[derive(Resource)]
+    struct Canvas(Handle<Image>);
+
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: None,
+        exit_condition: ExitCondition::DontExit,
+        ..default()
+    }))
+    .add_plugins((SpriteFxPlugin, ScheduleRunnerPlugin::run_loop(Duration::from_millis(8))))
+    .add_systems(Startup, |mut commands: Commands, mut images: ResMut<Assets<Image>>| {
+        let format = TextureFormat::Rgba8UnormSrgb;
+        let mut canvas = Image::new_target_texture(64, 64, format, None);
+        canvas.texture_descriptor.usage |= TextureUsages::COPY_SRC;
+        let target = images.add(canvas);
+        let red = images.add(Image::new_fill(
+            Extent3d { width: 64, height: 64, depth_or_array_layers: 1 },
+            TextureDimension::D2,
+            &[255, 0, 0, 255],
+            format,
+            RenderAssetUsages::default(),
+        ));
+        commands.spawn((
+            Camera2d,
+            Camera { clear_color: ClearColorConfig::Custom(Color::BLACK), ..default() },
+            RenderTarget::Image(target.clone().into()),
+            Msaa::Off,
+        ));
+        commands.spawn((
+            Sprite::from_image(red),
+            SpriteEffect::Silhouette(Color::srgb(0.0, 1.0, 0.0)),
+        ));
+        commands.insert_resource(Canvas(target));
+    })
+    .add_systems(Update, |mut commands: Commands, canvas: Res<Canvas>, mut frames: Local<u32>| {
+        *frames += 1;
+        if *frames == 120 {
+            commands.spawn(Readback::texture(canvas.0.clone())).observe(
+                |image: On<ReadbackComplete>, mut commands: Commands| {
+                    assert_eq!(image.data.len(), 64 * 64 * 4);
+                    assert!(image.data.chunks_exact(4).all(|pixel| pixel == [0, 255, 0, 255]));
+                    commands.write_message(AppExit::Success);
+                },
+            );
+        }
+        if *frames == 240 {
+            commands.write_message(AppExit::from_code(1));
+        }
+    });
+    assert_eq!(app.run(), AppExit::Success);
+}
+
 /// The free path is free, and only the free path is.
 ///
 /// An effect the sprite pipeline can express must not cost a material. One it

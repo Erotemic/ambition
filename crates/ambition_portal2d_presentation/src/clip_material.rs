@@ -237,6 +237,7 @@ pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
     if app.is_plugin_added::<Material2dPlugin<PortalClipMaterial>>() {
         return;
     }
+    ambition_sprite_fx::install_mesh_fragment_shader(app);
     embedded_asset!(app, "shaders/portal_clip.wgsl");
     app.add_plugins(Material2dPlugin::<PortalClipMaterial>::default());
     app.add_systems(Startup, warm_the_clip_material);

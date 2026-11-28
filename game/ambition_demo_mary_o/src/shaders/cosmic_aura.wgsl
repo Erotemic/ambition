@@ -6,13 +6,7 @@
 // green is when each one is bright). The picture is read in world space, so
 // the stars stay in the air and she goes through them.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::globals
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -26,7 +20,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var star_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var star_sampler: sampler;
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let t = globals.time;
     let w = mesh.world_position.xy;
     // 0 at the middle of the quad, 1 at its edge.
@@ -48,7 +42,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 }
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

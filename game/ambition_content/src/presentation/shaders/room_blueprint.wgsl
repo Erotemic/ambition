@@ -5,7 +5,7 @@
 // goes up through it. All work is in engine world coordinates (y down).
 // Colours are written as display values and converted once, at the end.
 
-#import ambition_render::shared_mesh_fragment::{MeshFragment, globals, camera_on_play_plane}
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals, camera_on_play_plane}
 #import ambition_content::room_look::{rand_cell, value_noise, towers, arcade, sky_line_distance, pmod}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb

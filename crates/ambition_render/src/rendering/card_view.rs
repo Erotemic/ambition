@@ -441,9 +441,7 @@ pub struct CardViewPlugin;
 
 impl Plugin for CardViewPlugin {
     fn build(&self, app: &mut App) {
-        if !app.is_plugin_added::<crate::platformer_presentation::SharedMeshFragmentPlugin>() {
-            app.add_plugins(crate::platformer_presentation::SharedMeshFragmentPlugin);
-        }
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         app.init_resource::<CardViewSettings>();
         app.init_resource::<CardMeshes>();
         app.init_resource::<CardRootDepths>();

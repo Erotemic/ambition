@@ -276,8 +276,18 @@ fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
             .collect::<Vec<_>>(),
         vec![
             ("alice_survey_line", "bob_field_survey_received"),
+            ("barrow_bronze_seal", "inventory.holds barrowwardkey"),
+            ("barrow_crown_seal", "inventory.holds barrowcrownkey"),
+            ("fantasy_high_trail_gate", "fantasy_high_trail_open"),
             ("hobford_barrier", "world.flag_set hobford_barrier_lifted"),
             ("intro_yard_gate", "world.flag_set intro_creator_fragment_seen"),
+            ("reliquary_screen", "encounter.cleared intro_barrow_reliquary_watch"),
+            ("royal_treasury_grille", "boss.cleared intro_barrow_king_vigil"),
+            ("wheel_lower_gate", "world.switch_on barrow_counterweight"),
+            ("wheel_sluice_bolt", "world.switch_on barrow_sluice"),
+            ("wheel_sluice_recess", "world.switch_on barrow_counterweight"),
+            ("wheel_upper_gate", "not world.switch_on barrow_counterweight"),
+            ("wheel_weight_bolt", "not world.switch_on barrow_counterweight"),
         ],
         "the level says which fact opens each gated wall, and losing it there is \
          silent"

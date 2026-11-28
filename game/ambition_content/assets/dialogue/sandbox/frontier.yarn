@@ -215,7 +215,7 @@ title: frontier_brakeman
 ---
 <<present_speaker "npc_frontier_brakeman">>
 Hollis: Where did you come from? Never mind. That isn't our engine up front.
-Hollis: Something coupled on at the head of the train in the night, and the crew got off at the water stop, and it didn't.
+Hollis: Something coupled on at the head of the train in the night. The engine crew jumped off at the water stop. The train just kept going.
 Hollis: Keep off the couplings. If you fall between the cars, you're under the train.
 -> ‹go›
 ===
@@ -244,7 +244,7 @@ title: frontier_crane_driver
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_crane_driver_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_crane_driver_met" true>>
-    Magda: I tip the slag pots from up there. Forty a shift.
+    Magda: I tip the slag pots from up there. Forty a shift, if the crane doesn't stick. It sticks worse in the cold.
     Magda: You're standing where the ladle swings, by the way.
     -> ‹go›
 <<else>>
@@ -259,7 +259,7 @@ title: frontier_laundress
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_laundress_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_laundress_met" true>>
-    Ida: Mind the lines. That's the whole night shift's shirts.
+    Ida: Mind the lines. That's the whole night shift's shirts. The bundles with a red thread are for the smelter crew.
     -> Why live under the works?
         Ida: The wind can't get in, the rent's low, and the soot's free.
     -> ‹go›

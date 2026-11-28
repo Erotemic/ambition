@@ -12,9 +12,9 @@ title: automaton_busy_beaver
         Busy Beaver: The chest on top is for whoever gets there first. I keep not getting there. I keep adding a step.
     -> Aren't you in Math Town?
         Busy Beaver: Oh, the gate cradle! Did they ever get the replacement bracket?
-        Busy Beaver: Here I've got five states and a tape. I'm trying to write as many ones as I can and still halt.
+        Busy Beaver: Here I've got five states and a tape. I'm trying to run for as many steps as I can and still halt.
     -> When will you stop?
-        Busy Beaver: For five states, somebody proved it: 47,176,870 steps. They took the long way round to prove it.
+        Busy Beaver: For five states, the record is 47,176,870 steps. Turns out proving that nobody could halt later was a much longer job.
         Busy Beaver: For six, nobody knows. I like those odds.
     -> ‹go›
 <<else>>
@@ -37,7 +37,7 @@ title: automaton_moore
         Neighbour Moore: The block. Four cells, each with three live neighbours. It hasn't changed since the first generation.
         Neighbour Moore: I moved in beside it after a glider went straight through my old neighbourhood.
     -> How do I get across?
-        Neighbour Moore: Ride a glider. Five cells that keep rebuilding themselves one step over.
+        Neighbour Moore: Ride a glider. Five cells that keep changing shape and then returning to the same shape a little farther along.
         Neighbour Moore: Every four generations it's moved one cell on the diagonal. Stand on it and you move too.
         Neighbour Moore: And keep clear of the spaceships. The next one should pass in a moment. Wait here until it's gone.
     -> ‹go›
@@ -62,7 +62,7 @@ title: automaton_head
         The Head: Ten rules, and it runs for 47,176,870 steps, and leaves 4,098 ones on the tape. Then the rule for E on a zero says: halt.
     -> How do you know it stops?
         The Head: The five-state running-time record was proved in 2024. They had to rule out every machine that might halt later.
-        The Head: Every machine of five states that ever stops has stopped by then. I'm the one that took the longest.
+        The Head: Every machine of five states under these rules, starting on a blank tape, that ever stops has stopped by then. I'm the one that took the longest.
     -> ‹go›
 <<else>>
     <<stop>>

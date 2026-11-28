@@ -995,15 +995,18 @@ mod tests {
         );
     }
 
-    /// A burst with debris turned off builds no floor colliders. The control:
-    /// with debris on, the same burst builds the room's one floor.
+    /// A fracture builds floor colliders only when it can spawn rigid pieces.
     #[cfg(feature = "physics_debris")]
     #[test]
-    fn a_burst_with_debris_off_builds_no_floor() {
+    fn a_dust_only_fracture_builds_no_floor() {
         use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
-        let floors = |enabled: bool| {
+        use ambition_persistence::settings::{ResolvedVisualQuality, VisualQualityBudget};
+        use ambition_vfx::vfx::{BreakMotion, Fracture};
+
+        let floors = |enabled: bool, profile: VisualQualityProfile| {
             let mut app = App::new();
             app.insert_resource(PhysicsSandboxSettings { debris_enabled: enabled, ..Default::default() });
+            app.insert_resource(ResolvedVisualQuality { profile, budget: VisualQualityBudget::for_profile(profile) });
             app.add_message::<DebrisBurstMessage>().add_message::<VfxInRoom>();
             app.add_systems(Update, physics_spawn_debris_messages);
             let room = LiveRoomInstance::ACTIVATION;
@@ -1017,13 +1020,23 @@ mod tests {
                     vec![ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(1000.0, 100.0))],
                 )),
             ));
-            app.world_mut().write_message(DebrisBurstMessage { room: Some(room), pos: ae::Vec2::new(100.0, 100.0), cue: PhysicsDebrisCue::Impact });
+            app.world_mut().write_message(VfxInRoom {
+                room: Some(room),
+                vfx: VfxMessage::Fracture(Fracture {
+                    look: None,
+                    bounds: ae::Aabb::new(ae::Vec2::splat(100.0), ae::Vec2::splat(20.0)),
+                    motion: BreakMotion::Script,
+                    seed: 1,
+                    tick: 1,
+                }),
+            });
             app.update();
             let world = app.world_mut();
             world.query_filtered::<(), With<PhysicsRoomFloor>>().iter(world).count()
         };
-        assert_eq!(floors(true), 1, "control: with debris on the burst builds the room's floor");
-        assert_eq!(floors(false), 0, "with debris off a burst built floor colliders");
+        assert_eq!(floors(true, VisualQualityProfile::High), 1);
+        assert_eq!(floors(false, VisualQualityProfile::High), 0);
+        assert_eq!(floors(true, VisualQualityProfile::Potato), 0);
     }
 
     /// Avian pauses when the only debris left is retired: hidden, disabled,

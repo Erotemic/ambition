@@ -265,6 +265,7 @@ fn install_physics_debris(app: &mut App) {
                     .or_else(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d::vfx::vfx::VfxInRoom>),
             )
             .after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
+            .after(ambition_platformer2d::game_assets::PropSheetDemandSet)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }

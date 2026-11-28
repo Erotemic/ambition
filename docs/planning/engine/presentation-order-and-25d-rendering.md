@@ -855,10 +855,11 @@ shared value preparation are sufficient until source proves otherwise.
    use the same draw depth. An Ultra fixture shows a split helmet and held
    items with independent cuts in all three views.
 
-   Both views use the same additive material for folded lights on devices
-   that support it. Blended folded meshes, such as electric shock, use the
-   color-mesh path. An Ultra fixture checks light strength, vertex colors,
-   and the world sprite that shows a body's countdown.
+   Both views read the same prepared planar mesh for lightning, shock,
+   and attack marks. 2D binds it when an active camera uses its layers,
+   including an offscreen capture. Switching the binding keeps the mesh.
+   An Ultra fixture checks additive light and blended colors in 2D,
+   side-on 2.5D, and oblique 2.5D.
 
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.

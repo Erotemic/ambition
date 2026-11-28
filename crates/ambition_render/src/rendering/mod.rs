@@ -933,8 +933,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             (
                 launch_trail::emit_launch_trails.run_if(launch_trail::a_body_is_launched),
                 locomotion_dust::emit_locomotion_dust,
-                dash_afterimage::leave_dash_afterimages,
-                dash_afterimage::fade_dash_afterimages,
+                (
+                    dash_afterimage::fade_dash_afterimages,
+                    dash_afterimage::leave_dash_afterimages.after(actors::rigged::RiggedDriveSet),
+                ).chain(),
                 knockout::emit_knockout_beat
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::vfx::KnockoutBeatRequested>),
                 body_cues::emit_smash_charge_cues,

@@ -1346,9 +1346,8 @@ impl GuardAt {
     }
 }
 
-/// `--guard`: add each configured guard to the shield read model, each
-/// sim tick, after the simulation's own guards. Presentation only: no body
-/// holds these, and no rule reads them. Each is the size of the robot.
+/// Add the `--guard` fixtures to the shield view each frame. The fixtures
+/// have the size of Scout's shield.
 fn draw_guards(
     config: Res<SceneCaptureConfig>,
     tick: Res<ambition_platformer2d::time::SimTick>,
@@ -1671,10 +1670,13 @@ fn install_room_capture(app: &mut App) {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
     }
     if !app.world().resource::<SceneCaptureConfig>().guards.is_empty() {
-        // In the schedule that rebuilds the view, after the rebuild: an edge
-        // from `Update` to a sim system orders nothing, so a frame with no sim
-        // tick appended the guards again onto the last tick's list.
-        app.add_systems(sim, draw_guards.after(ambition_platformer2d::sim_view::rebuild_shield_views));
+        // Add the test guards after the view rebuild and before it is drawn.
+        app.add_systems(
+            Update,
+            draw_guards
+                .after(ambition_platformer2d::sim_view::rebuild_shield_views)
+                .before(ambition_platformer2d::render::rendering::bubble_shield::sync_bubble_shield_visual),
+        );
     }
     if app.world().resource::<SceneCaptureConfig>().seam.is_some() {
         app.add_systems(

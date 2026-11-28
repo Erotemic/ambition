@@ -1642,6 +1642,7 @@ pub mod presentation {
     /// [`with_presentation_profiles`](ambition_platformer2d_provider::PlatformerExperienceAuthoring::with_presentation_profiles).
     pub use ambition_platformer2d_shared_tangle::gameplay_presentation;
     pub use ambition_platformer2d_shared_tangle::gameplay_presentation::profiles;
+    pub use ambition_platformer2d_shared_tangle::gameplay_presentation::ActorEntrance;
 
     /// The DECLARED-HUD seam: a game declares its readout slots with
     /// [`with_hud`](ambition_platformer2d_provider::PlatformerExperienceAuthoring::with_hud)

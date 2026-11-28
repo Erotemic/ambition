@@ -1365,6 +1365,25 @@ a Smash match start waits for entry music. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
+**Ridge vine red (found 2026-11-27, inherited; fixed 2026-11-27):**
+`the_tar_pits::a_vine_climbs_from_the_ridge_road_to_the_canopy`. The ridge
+data was not the cause: the room from when the vine was added (map
+`874cbc2`) failed the same way. A probe of the body passed: pressed at the
+apex, the double jump rises 145 px from under the one-way ledge (112 px up)
+and lands on it. A trace of the key walker showed the defect.
+- `follow_leg` pressed the air jump at the apex and moved to `SecondAir` on
+  the same frame.
+- The key walker must let a held jump key up to make an edge, so the press
+  reached the body two frames later.
+- Meanwhile the still-falling body, below the landing, met the early-miss
+  check, and the leg failed with its air jump unspent.
+
+A brain writes its control frame directly and saw no delay. The follower
+now has `LegPhase::AirJump`: pressed and not yet lifted. It keeps the press
+and judges the second arc only once the body rises. The phase is checksum
+state only (`SnapshotCursor` writes `phase as u8`), so no codec layout
+changed. The vine test passes (lands at frame 139, where it failed at 137).
+
 **Trailhead arch red (found 2026-11-20, inherited; fixed 2026-11-20):** `the_gate_network::the_jungles_arches_chain_along_the_trail`. The press measured the door from its centre point, and the arch is 146 px tall. Its centre stood 49 px above a traveller in the opening, so Ranger Brandvold won the press from 33 px away. He had rallied to a kiwi's fight at the arch (x 921, not his authored 744), and the arch never fired. A door is now measured from its long axis (`ambition_platformer2d_world::rooms::door_distance`). One function serves the press, the prompt, the reach observer and the door's own transition (`rooms/systems.rs`). That transition had its own centre-point copy, and changing only the other three made both sides refuse the press. The arch witness passes. Of the gate/route/door/interact/talk app_it filters, 68 pass, and the only other red is the one below.
 
 **Autoplay LEGAL red (found 2026-11-20, inherited; fixed 2026-11-20):** `a_route_over_rooms::autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail`. The arch was not its cause. Probed at each room change: the return reached `primeval_trailhead` with the outbound wormhole (hub → `primeval_trailhead_gate`) still open, with 3.7 s of its 30 s idle timeout left. Autoplay walked home through it, arriving by a Gate passage at `hub_public_gate_zone`, and so never dialed LEGAL. The arch chain (JL-2, 2026-11-18) made the trip that short. The behaviour is right and the test's premise was stale. It now asserts the meaning: GENESIS dialed, and home through the hub's gate, by a LEGAL dial or by a wormhole still open. Passes (271 s).

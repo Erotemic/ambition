@@ -991,9 +991,12 @@ shared value preparation are sufficient until source proves otherwise.
    Gallus's finish shows the bars and color drain in both views.
 
    Mary-O's fire glow, cosmic aura, barrier, quasar, and room shimmer use
-   the same materials in both views. The shimmer, room sky, and blueprint
-   shaders use the card camera axis at the play plane. An Ultra fixture
-   checks the five Mary-O materials with the published art.
+   one prepared quad with shared geometry and bounds. A 2D camera binds
+   the mesh when it needs the surface. The shimmer, room sky, and
+   blueprint shaders use the card camera axis at the play plane. Medium
+   gameplay captures check the quasar pickup, a spark, and the cosmic
+   form. The capture report lists the prepared meshes and their 2D
+   bindings.
 
    The fire glow and cosmic aura keep their subject's position in depth.
    Their paint order follows their source depth between the bodies of the

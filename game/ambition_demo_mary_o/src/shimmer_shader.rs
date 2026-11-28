@@ -27,12 +27,13 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::config::world_to_bevy;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
+use ambition_platformer2d::render::rendering::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad};
 use ambition_platformer2d::platformer::lifecycle::{
     ActiveSessionScope, InRoomInstance, SessionScopeSet, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -165,10 +166,6 @@ impl Material2d for MaryOShimmerMaterial {
 #[derive(Resource, Default)]
 struct ShimmerInstalled;
 
-/// The unit quad each shimmer scales.
-#[derive(Resource)]
-struct ShimmerQuad(Handle<Mesh>);
-
 /// Marks the quad of a shimmer. It is stamped with its room, so it leaves
 /// with the room.
 #[derive(Component)]
@@ -199,14 +196,14 @@ pub fn install(app: &mut App) {
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOShimmerMaterial>::default());
+        install_planar_mesh_2d::<MaryOShimmerMaterial>(app);
         #[cfg(feature = "card_view")]
         ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOShimmerMaterial>(app);
     }
     // The quad is made now and not with the first room: Bevy does not try
     // again to draw a quad whose mesh came late.
-    if let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() {
-        let quad = meshes.add(Rectangle::new(1.0, 1.0));
-        app.insert_resource(ShimmerQuad(quad));
+    if app.world().contains_resource::<Assets<Mesh>>() {
+        app.init_resource::<PlanarUnitQuad>();
     }
     app.add_systems(
         Update,
@@ -214,7 +211,7 @@ pub fn install(app: &mut App) {
             present_shimmers
                 // With the room's own visuals.
                 .in_set(SessionScopeSet::Presentation)
-                .run_if(resource_exists::<ShimmerQuad>)
+                .run_if(resource_exists::<PlanarUnitQuad>)
                 .run_if(resource_exists::<Assets<MaryOShimmerMaterial>>)
                 .run_if(shimmer_is_in_budget),
             retire_shimmers_out_of_budget.run_if(not(shimmer_is_in_budget)),
@@ -257,7 +254,7 @@ fn present_shimmers(
     mut commands: Commands,
     rooms: LiveRoomSpecs,
     presented: Query<&InRoomInstance, With<PresentedShimmer>>,
-    quad: Res<ShimmerQuad>,
+    quad: Res<PlanarUnitQuad>,
     mut materials: ResMut<Assets<MaryOShimmerMaterial>>,
     asset_server: Res<AssetServer>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -290,8 +287,7 @@ fn present_shimmers(
         commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),
             (
-                Mesh2d(quad.0.clone()),
-                MeshMaterial2d(material),
+                quad.prepare(material),
                 Transform::from_translation(world_to_bevy(world, ae::Vec2::new(size.x * 0.5, size.y * 0.5), SHIMMER_Z))
                     .with_scale(Vec3::new(size.x + SHIMMER_PAD * 2.0, size.y + SHIMMER_PAD * 2.0, 1.0)),
                 Name::new(format!("mary-o shimmer: {}", theme.key())),

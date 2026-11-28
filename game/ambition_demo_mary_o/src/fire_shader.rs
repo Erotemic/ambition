@@ -23,10 +23,11 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
+use ambition_platformer2d::render::rendering::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad};
 use ambition_platformer2d::render::rendering::projectile_visuals::{ProjectileVisual, VisualProjectile};
 use ambition_platformer2d::render::rendering::{EntityArt, FeatureVisual};
 use ambition_platformer2d::sim_view::ProjectileView;
@@ -71,15 +72,6 @@ impl Material2d for MaryOFireGlowMaterial {
 #[derive(Resource, Default)]
 struct FireGlowInstalled;
 
-/// The unit quad each glow scales, and the one material all glows share. The
-/// shader reads the flame picture in world space, so one material gives each
-/// fire its own flicker.
-#[derive(Resource)]
-struct FireGlowAssets {
-    quad: Handle<Mesh>,
-    material: Option<Handle<MaryOFireGlowMaterial>>,
-}
-
 /// On the visual of a fire that has its glow.
 #[derive(Component)]
 struct HasFireGlow;
@@ -113,20 +105,20 @@ pub fn install(app: &mut App) {
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOFireGlowMaterial>::default());
+        install_planar_mesh_2d::<MaryOFireGlowMaterial>(app);
         #[cfg(feature = "card_view")]
         ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOFireGlowMaterial>(app);
     }
     // The quad is made now and not with the first fire: Bevy does not try
     // again to draw a quad whose mesh came late.
-    if let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() {
-        let quad = meshes.add(Rectangle::new(1.0, 1.0));
-        app.insert_resource(FireGlowAssets { quad, material: None });
+    if app.world().contains_resource::<Assets<Mesh>>() {
+        app.init_resource::<PlanarUnitQuad>();
     }
     app.add_systems(
         Update,
         (
             give_each_fire_its_glow
-                .run_if(resource_exists::<FireGlowAssets>)
+                .run_if(resource_exists::<PlanarUnitQuad>)
                 .run_if(resource_exists::<Assets<MaryOFireGlowMaterial>>)
                 .run_if(glow_is_in_budget),
             retire_glows_out_of_budget.run_if(not(glow_is_in_budget)),
@@ -164,7 +156,8 @@ fn is_fire_look(visual_id: &str) -> bool {
 #[allow(clippy::type_complexity)]
 fn give_each_fire_its_glow(
     mut commands: Commands,
-    mut assets: ResMut<FireGlowAssets>,
+    quad: Res<PlanarUnitQuad>,
+    mut shared_material: Local<Option<Handle<MaryOFireGlowMaterial>>>,
     mut materials: ResMut<Assets<MaryOFireGlowMaterial>>,
     asset_server: Res<AssetServer>,
     orbs: Query<(Entity, &EntityArt, &Sprite), (With<FeatureVisual>, Without<HasFireGlow>)>,
@@ -182,8 +175,7 @@ fn give_each_fire_its_glow(
                 .map(|(entity, _, sprite)| (entity, sprite)),
         );
     for (fire, sprite) in fires {
-        let material = assets
-            .material
+        let material = shared_material
             .get_or_insert_with(|| {
                 materials.add(MaryOFireGlowMaterial {
                     // Display colours: orange at the rim, pale gold at the middle.
@@ -196,8 +188,7 @@ fn give_each_fire_its_glow(
         let size = sprite.custom_size.map_or(DEFAULT_FIRE_SIZE, |size| size.max_element());
         commands.entity(fire).try_insert(HasFireGlow).with_children(|children| {
             children.spawn((
-                Mesh2d(assets.quad.clone()),
-                MeshMaterial2d(material),
+                quad.prepare(material),
                 Transform::from_xyz(0.0, 0.0, GLOW_Z).with_scale(Vec3::new(size * GLOW_SCALE, size * GLOW_SCALE, 1.0)),
                 ambition_platformer2d::platformer::lifecycle::PresentationOf(fire),
                 Name::new("mary-o fire glow"),

@@ -27,13 +27,16 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
     sprite::Anchor,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::platformer::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
+use ambition_platformer2d::render::rendering::planar_mesh::{
+    install_planar_mesh_2d, PlanarUnitQuad, PreparedPlanarMesh,
 };
 use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual, RoomVisual};
 use ambition_platformer2d::sprite_sheet::character::rigged::FrameInSprite;
@@ -101,8 +104,12 @@ pub fn install(app: &mut App) {
     // precondition of `content_asset!`, and it is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOQuasarMaterial>::default());
+        install_planar_mesh_2d::<MaryOQuasarMaterial>(app);
         #[cfg(feature = "card_view")]
         ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOQuasarMaterial>(app);
+    }
+    if app.world().contains_resource::<Assets<Mesh>>() {
+        app.init_resource::<PlanarUnitQuad>();
     }
     app.init_resource::<MaryOQuasarShaderSettings>();
     app.register_type::<MaryOQuasarShaderSettings>();
@@ -126,20 +133,9 @@ pub fn install(app: &mut App) {
             .chain()
             .in_set(ActorOverlaySet)
             .in_set(crate::MaryOPresentationSet)
-            // The render-world asset collections `attach_quasar_overlays` writes
-            // into. Absent = this app does not draw, so there is nothing for an
-            // overlay to be drawn on.
-            .run_if(resource_exists::<Assets<Mesh>>)
+            .run_if(resource_exists::<PlanarUnitQuad>)
             .run_if(resource_exists::<Assets<Image>>)
             .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
-            // the MATERIAL collection too, and leaving it out was a real
-            // panic. `Material2dPlugin` is what creates
-            // `Assets<MaryOQuasarMaterial>`, and gating that plugin on a render
-            // app made the collection genuinely absent in headless
-            // compositions — where `attach_quasar_overlays` then failed
-            // parameter validation in the shipped-composition resource sweep.
-            // The doc above says this condition names *"exactly the collections
-            // the systems take"*; it named three of the four.
             .run_if(resource_exists::<Assets<MaryOQuasarMaterial>>),
     );
 }
@@ -212,7 +208,7 @@ struct MaryOQuasarOverlay {
 /// "waiting", and the report below is about a quasar that is dark.
 fn attach_quasar_overlays(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    quad: Res<PlanarUnitQuad>,
     mut materials: ResMut<Assets<MaryOQuasarMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
@@ -288,15 +284,13 @@ fn attach_quasar_overlays(
             color_texture: sprite.image.clone(),
             frame_rect: frame_rect(frame),
         });
-        let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
         let session_scope = SessionSpawnScope::new(session_owner.map(|owner| owner.0));
         let overlay = commands
             .spawn_session_scoped(
                 session_scope,
                 (
-                    Mesh2d(mesh),
-                    MeshMaterial2d(material),
+                    quad.prepare(material),
                     overlay_transform,
                     Visibility::Hidden,
                     MaryOQuasarOverlay {
@@ -393,7 +387,7 @@ fn sync_quasar_overlays(
     mut overlays: Query<(
         &mut Transform,
         &mut Visibility,
-        &MeshMaterial2d<MaryOQuasarMaterial>,
+        &PreparedPlanarMesh<MaryOQuasarMaterial>,
         &MaryOQuasarOverlay,
     )>,
     mut materials: ResMut<Assets<MaryOQuasarMaterial>>,
@@ -470,7 +464,7 @@ fn sync_quasar_overlays(
         };
 
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
-        if let Some(mut material) = materials.get_mut(&material_handle.0) {
+        if let Some(mut material) = materials.get_mut(&material_handle.material) {
             material.uv_rect = uv_rect;
             material.control = Vec4::new(
                 *elapsed,

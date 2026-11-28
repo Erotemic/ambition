@@ -153,6 +153,7 @@ fn an_actor_that_wears_another_character_of_its_size_is_bound_to_that_art() {
         ambition_sim_view::ActorRenderIndex::from_rows([(
             ACTOR_ID.to_string(),
             ambition_sim_view::ActorRenderView {
+                room: None,
                 sprite_character_id: Some(character.to_string()),
                 name: ACTOR_NAME.to_string(),
                 is_sandbag: false,
@@ -223,6 +224,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
+            room: None,
             sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
@@ -396,6 +398,7 @@ fn a_body_binds_again_to_a_new_realization_at_the_same_tier() {
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
+            room: None,
             sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
@@ -504,6 +507,7 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
+            room: None,
             sprite_character_id: Some("catalog_identity".to_string()),
             // Not a registered sheet: a binder that preferred the label would
             // draw the placeholder.
@@ -555,6 +559,7 @@ fn an_actor_without_a_character_id_does_not_bind_by_its_display_name() {
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
+            room: None,
             sprite_character_id: None,
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
@@ -989,6 +994,7 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
             ..a_feature_view()
         };
         let actor_view = |render_size| ambition_sim_view::ActorRenderView {
+            room: None,
             sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
@@ -1163,6 +1169,56 @@ fn the_refresh_waits_for_a_settled_pose() {
     );
 }
 
+#[test]
+fn both_live_rooms_bind_art_for_the_same_placement_id() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use ambition_sim_view::{ActorRenderIndex, ActorRenderView, FeatureView, FeatureViewIndex, PoseGeometry};
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let mut app = asset_app();
+    let mut assets = GameAssets::default();
+    let characters = [ACTOR_CHARACTER, "probe_other_character"];
+    let images = characters.map(|character| {
+        let art = a_pending_realization(&mut app, TextureResolutionScale::Half);
+        the_image_lands(&mut app, &art);
+        let image = art.texture.id();
+        assets.characters.publish(&sprite_content, character, art);
+        image
+    });
+    app.insert_resource(assets)
+        .init_resource::<ambition_sim_view::BossRenderIndex>()
+        .add_systems(Update, super::upgrade_actor_sprites);
+
+    let first = LiveRoomInstance::ACTIVATION;
+    let rooms = [first, first.next()];
+    let features = rooms.map(|room| {
+        (ACTOR_ID.to_owned(), FeatureView { room: Some(room), ..a_feature_view() })
+    });
+    let actors = rooms.into_iter().zip(characters).map(|(room, character)| {
+        (ACTOR_ID.to_owned(), ActorRenderView {
+            room: Some(room),
+            sprite_character_id: Some(character.to_owned()),
+            name: ACTOR_NAME.to_owned(),
+            is_sandbag: false,
+            render_size: None,
+            dream_seed: None,
+            geometry: PoseGeometry::Settled,
+        })
+    });
+    app.insert_resource(FeatureViewIndex::from_rows(features));
+    app.insert_resource(ActorRenderIndex::from_rows(actors));
+    let bodies = rooms.map(|room| {
+        app.world_mut()
+            .spawn((FeatureVisual { id: ACTOR_ID.to_owned() }, InRoomInstance(room)))
+            .id()
+    });
+
+    app.update();
+    for (body, image) in bodies.into_iter().zip(images) {
+        assert_eq!(app.world().get::<Sprite>(body).map(|sprite| sprite.image.id()), Some(image));
+    }
+}
+
 /// An actor whose own art is declared but not resident is not drawn with the
 /// sheet its display name resolves. The actor binding keys on kind and
 /// collision size, which the arriving art does not change, so a substitute
@@ -1188,6 +1244,7 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
+            room: None,
             sprite_character_id: Some(OWN_ART.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
@@ -1250,6 +1307,7 @@ fn an_actor_is_not_bound_its_art_from_a_body_whose_geometry_is_pending() {
         ambition_sim_view::ActorRenderIndex::from_rows([(
             ACTOR_ID.to_string(),
             ambition_sim_view::ActorRenderView {
+                room: None,
                 sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
                 name: ACTOR_NAME.to_string(),
                 is_sandbag: false,

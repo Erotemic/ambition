@@ -908,6 +908,10 @@ shared value preparation are sufficient until source proves otherwise.
    wounds, and hazard column. Hazard columns use the frame's room and
    geometry table, so they can draw before the boss art is available.
 
+   Actor art binding also uses the live room of each occurrence. The
+   sprite bind test gives the same placement ID different character art
+   in two live rooms and checks the texture on each sprite.
+
    Ground shadows use the shared presented body position. Each shadow uses
    the floor and art of its live room. A test checks the sprite and card
    positions for two actors with the same ID in different live rooms.

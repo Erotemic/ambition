@@ -344,7 +344,7 @@ pub fn sync_health_overlays(
                     let label = boss_render.get_in(id, Some(key.1)).map_or(id, |boss| boss.name.as_str());
                     (label, frame.aabb, Color::srgba(1.00, 0.32, 0.92, 0.96))
                 } else if view.fighting {
-                    let label = actor_render.get(id).map_or(id, |actor| actor.name.as_str());
+                    let label = actor_render.get_in(id, Some(key.1)).map_or(id, |actor| actor.name.as_str());
                     let color = if view.training_dummy {
                         Color::srgba(1.00, 0.66, 0.24, 0.96)
                     } else {

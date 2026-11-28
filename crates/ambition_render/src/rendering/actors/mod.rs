@@ -12,6 +12,7 @@ use super::primitives::{
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
@@ -750,6 +751,7 @@ pub fn upgrade_actor_sprites(
     // Readiness, not residency — see `texture_is_ready`.
     asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
+    rooms: LiveRooms,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(
         Entity,
@@ -774,7 +776,8 @@ pub fn upgrade_actor_sprites(
         return;
     };
     for (entity, visual, bound, bound_quality, bound_art) in &features {
-        let Some(view) = feature_views.get(&visual.id) else {
+        let room = rooms.of(entity);
+        let Some(view) = feature_views.get_in(&visual.id, room) else {
             continue;
         };
         if !matches!(view.kind, FeatureVisualKind::Actor) {
@@ -787,12 +790,12 @@ pub fn upgrade_actor_sprites(
         // half needs the realization, so it is checked below.
         let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
         // Identity decides which upgrader owns a body, not system order.
-        if !actor_sprite_path_owns(&visual.id, view.room, &boss_render) {
+        if !actor_sprite_path_owns(&visual.id, room, &boss_render) {
             continue;
         }
         // Absent: the read-model has not seen this actor yet. Skip a frame; the
         // next rebuild fills it in.
-        let Some(actor) = actor_render.get(&visual.id) else {
+        let Some(actor) = actor_render.get_in(&visual.id, room) else {
             continue;
         };
         // Do not bind from a body that is not whole yet (the same rule as

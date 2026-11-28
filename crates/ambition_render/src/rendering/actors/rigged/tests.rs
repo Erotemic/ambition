@@ -2685,25 +2685,54 @@ fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
         let mut cards = world.query::<(Entity, &CardBody, &Transform)>();
         let (entity, body, place) = cards.iter(world).find(|(_, body, _)| body.owner == owner).unwrap();
         assert!(body.parts.len() > 1);
-        let last_paint = body.parts.iter()
-            .map(|part| world.get::<CardPaintDepth>(*part).unwrap().0)
-            .max_by(f32::total_cmp).unwrap();
-        (entity, place.translation, last_paint)
+        let paint = |part: &Entity| world.get::<CardPaintDepth>(*part).unwrap().0;
+        let last = body.parts.iter().map(paint).max_by(f32::total_cmp).unwrap();
+        let first = body.parts.iter().map(paint).min_by(f32::total_cmp).unwrap();
+        (entity, place.translation, last, first)
     };
     let far = placement(&mut app, far);
-    let rider = placement(&mut app, rider);
+    let rider_card = placement(&mut app, rider);
     let before = placement(&mut app, near);
     let deck = placement(&mut app, deck);
     let free_depth = app.world_mut().query_filtered::<&Transform, With<CardSpriteBody>>()
         .single(app.world()).unwrap().translation.z;
-    assert!(far.2 < rider.1.z && rider.2 < before.1.z && before.2 < free_depth);
-    assert!(far.1.z < rider.1.z && rider.1.z < before.1.z && before.1.z < free_depth);
+    assert!(far.2 < rider_card.1.z && rider_card.2 < before.1.z && before.2 < free_depth);
+    assert!(far.1.z < rider_card.1.z && rider_card.1.z < before.1.z && before.1.z < free_depth);
     assert!(deck.2 < free_depth, "all parts of the deck are behind the free actor");
 
     app.world_mut().get_mut::<Transform>(near).unwrap().translation.x += 30.0;
     app.update();
     let moved = placement(&mut app, near);
-    assert_eq!(moved, (before.0, before.1 + Vec3::X * 30.0, before.2));
+    assert_eq!(moved, (before.0, before.1 + Vec3::X * 30.0, before.2, before.3));
+
+    app.add_systems(
+        Update,
+        follow_limb_twins.after(animate).after(seat_bodies_in_vessels).before(bind_rigged_presentations),
+    );
+    let mut commands = app.world_mut().commands();
+    let limb = LimbTwin::spawn(&mut commands, rider, "hand_left");
+    let over = LimbTwin::spawn_over(&mut commands, rider);
+    for twin in [limb, over] {
+        // Use a full frame for each twin to test the paint range.
+        commands.entity(twin).insert((Visibility::Inherited, RiggedTrackMask::without(Vec::new())));
+    }
+    app.world_mut().flush();
+    settle(&mut app);
+
+    let rider_card = placement(&mut app, rider);
+    let limb_card = placement(&mut app, limb);
+    let over_card = placement(&mut app, over);
+    assert_eq!(limb_card.1, rider_card.1);
+    assert_eq!(over_card.1, rider_card.1);
+    assert!(far.2 < rider_card.3);
+    assert!(rider_card.2 < limb_card.3 && limb_card.2 < over_card.3);
+    assert!(over_card.2 < moved.3);
+
+    app.world_mut().entity_mut(rider).remove::<BodyPoseView>();
+    app.update();
+    assert!(app.world().get::<SeatedInVessel>(rider).is_none());
+    assert_eq!(placement(&mut app, limb).1.z, free_depth);
+    assert_eq!(placement(&mut app, over).1.z, free_depth);
 }
 
 #[cfg(feature = "card_view")]

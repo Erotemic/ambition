@@ -194,6 +194,9 @@ When a portal cuts a panel, rider, or item, the piece at the entry keeps
 its source slot and physical depth. The piece through the portal uses the
 exit layer. An Ultra fixture checks the overlap while a rider, the cart,
 and a held item cross a paired opening.
+When a rider's limb enters a portal, the local pieces keep the rider's
+seat. The card view draws the limb and the body parts above it on the
+same plane, in that order and behind the near panel.
 
 ## One shared sample, two concrete Bevy renderers
 

@@ -112,8 +112,8 @@ use ambition_sprite_sheet::character::rigged::PartDraw;
 use super::retained_entities::RetainedEntities;
 use super::supported_carry::{SlingSpan, SlingString};
 use super::actors::rigged::{
-    part_color, root_shows, BakedFrame, RiggedLocalSample, RiggedPresentation,
-    RiggedPresentationOf,
+    part_color, root_shows, BakedFrame, LimbTwin, RiggedLocalSample, RiggedPresentation,
+    RiggedPresentationOf, RiggedPresentedBy,
 };
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
@@ -1023,6 +1023,7 @@ pub(super) struct CardBodyScratch {
     rigged_roots: EntityHashSet,
     ranked: Vec<RankedBody>,
     placements: HashMap<Entity, CardBodyDepth>,
+    seated_fragments: Vec<SeatedFragment>,
     shown: Vec<PartCardDraw>,
 }
 
@@ -1032,6 +1033,25 @@ struct RankedBody {
     source: Entity,
     owner: Entity,
     seat: Option<usize>,
+}
+
+struct SeatedFragment {
+    host: Entity,
+    seat: usize,
+    over: bool,
+    owner: Entity,
+    source: Entity,
+    source_z: f32,
+    span: f32,
+}
+
+fn seated_body_depth(seat: usize) -> CardDepth {
+    CardDepth::new(-VESSEL_DEPTH * 0.5, body_paint_z(true, seat))
+}
+
+fn rig_paint_span(sample: &RiggedLocalSample) -> f32 {
+    let parts = sample.parts().map_or(0, <[PartDraw]>::len) as f32 * CARD_PART_STEP;
+    CARD_BODY_STEP.max(parts + HELD_ART_REACH)
 }
 
 /// Realize every sampled rigged body as cards.
@@ -1047,6 +1067,8 @@ pub(super) fn realize_card_bodies(
         ),
         (Without<CardBody>, Without<CardPart>),
     >,
+    twins: Query<&LimbTwin>,
+    seats: Query<(&SeatedInVessel, &RiggedPresentedBy)>,
     mut bodies: Query<(Entity, &mut CardBody, &mut Transform, &mut Visibility), Without<CardPart>>,
     mut cards: CardQuery,
     images: Option<Res<Assets<Image>>>,
@@ -1073,13 +1095,14 @@ pub(super) fn realize_card_bodies(
     };
     let layer = RenderLayers::layer(CARD_VIEW_LAYER);
 
-    let CardBodyScratch { by_owner, rigged_roots, ranked, placements, shown } = &mut *scratch;
+    let CardBodyScratch { by_owner, rigged_roots, ranked, placements, seated_fragments, shown } = &mut *scratch;
     by_owner.reconcile(&mut commands, |owner| owners.contains(*owner));
 
     // Rank the drawn bodies on each depth by their logical order.
     rigged_roots.clear();
     ranked.clear();
     placements.clear();
+    seated_fragments.clear();
     for (owner, of, _, sample) in &owners {
         rigged_roots.insert(of.0);
         let drawable = (sample.parts().is_some() && sample.feet.is_some()) || sample.baked.is_some();
@@ -1091,6 +1114,20 @@ pub(super) fn realize_card_bodies(
         };
         if !root_shows(visibility) {
             continue;
+        }
+        if let Ok(twin) = twins.get(of.0) {
+            if let Ok((seat, host)) = seats.get(twin.of) {
+                seated_fragments.push(SeatedFragment {
+                    host: host.owner(),
+                    seat: seat.slot,
+                    over: twin.is_over(),
+                    owner,
+                    source: of.0,
+                    source_z: root.translation.z,
+                    span: rig_paint_span(sample),
+                });
+                continue;
+            }
         }
         if let Some(platform) = platform {
             let part_count = sample.parts().map_or(1, <[PartDraw]>::len).max(1);
@@ -1139,7 +1176,7 @@ pub(super) fn realize_card_bodies(
         let mut rank = 0;
         for &RankedBody { room, source_z, owner, seat, .. } in row {
             let (depth, order_scale) = if let Some(seat) = seat {
-                (CardDepth::new(-VESSEL_DEPTH * 0.5, body_paint_z(true, seat)), 1.0)
+                (seated_body_depth(seat), 1.0)
             } else {
                 let paint = body_paint_z(false, rank) * scale;
                 rank += 1;
@@ -1155,6 +1192,27 @@ pub(super) fn realize_card_bodies(
                 depth,
                 source_z,
                 order_scale,
+                front_part: 0.0,
+                representation: CardBodyRepresentation::Sprite,
+            });
+        }
+    }
+    // Put the host, the limb pictures, and the parts above them in one seat.
+    // Give each fragment part of the seat's paint range.
+    seated_fragments.sort_unstable_by_key(|fragment| (fragment.host, fragment.over, fragment.source));
+    for row in seated_fragments.chunk_by(|a, b| a.host == b.host) {
+        let step = CARD_BODY_STEP / (row.len() + 1) as f32;
+        let base = seated_body_depth(row[0].seat);
+        if let Some(host_depth) = placements.get_mut(&row[0].host) {
+            if let Ok((_, _, _, sample)) = owners.get(row[0].host) {
+                host_depth.order_scale = step / rig_paint_span(sample);
+            }
+        }
+        for (index, fragment) in row.iter().enumerate() {
+            placements.insert(fragment.owner, CardBodyDepth {
+                depth: CardDepth::new(base.plane, base.paint.0 + (index + 1) as f32 * step),
+                source_z: fragment.source_z,
+                order_scale: step / fragment.span,
                 front_part: 0.0,
                 representation: CardBodyRepresentation::Sprite,
             });

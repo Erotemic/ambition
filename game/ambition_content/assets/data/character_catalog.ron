@@ -1562,6 +1562,11 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.32, active_s: 0.12, recover_s: 0.36, damage: 1, reach_px: 28.0, step_px: 0.0, rush_px: 62.0)),
         ),
+        // The plague rat braces before a heavy, committed bite.
+        "plague_rat_bite": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.56, active_s: 0.16, recover_s: 0.64, damage: 2, reach_px: 42.0, step_px: 0.0, rush_px: 78.0)),
+        ),
         // The cockatrice spreads its wings before a fast snap.
         "cockatrice_snap": (
             move_style: Walk,
@@ -17286,6 +17291,33 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "fantasy", "monster", "rat", "rodent", "quadruped"],
+            cast: (importance: Background, roles: {"encounter": ["mob"]}),
+        ),
+        // The plague rat is a heavy dungeon predator, distinct from the giant rat.
+        "plague_rat": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Plague Rat",
+            manifest: "sprites/plague_rat_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(50.0),
+            composition: None,
+            default_action_set: "plague_rat_bite",
+            locomotion: Some((run_speed: 175.0, move_style: Walk)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 340.0,
+                attack_range: 70.0,
+                patrol_effort: 0.45,
+                chase_effort: 0.90,
+                retreat_after_swing_s: 0.25,
+                attack_cooldown_s: 0.8,
+                shares_sightings: true,
+                tactics: (notice_s: 0.45, waits_its_turn: true, footsies: Some((hold_px: 80.0, wait_s: 0.45)), flinch_back_s: 0.25),
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "fantasy", "monster", "rat", "rodent", "quadruped", "plague"],
             cast: (importance: Background, roles: {"encounter": ["mob"]}),
         ),
         // A ground monster with a long neck, bat wings, and a snake tail.

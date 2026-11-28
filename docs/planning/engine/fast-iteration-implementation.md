@@ -522,10 +522,14 @@ refuses an importing module. Reason for wasmi: deterministic by construction
 shipped target. A new instance per call is what stops a guest static from
 carrying state across a rewind.
 
-**Open:** the trusted native shared-library prototype (versioned C entry table,
-fixed-width wire values, caller-owned buffers, generation pinning before
-unload) and the M1 comparison against it. The per-call glue cost (instance
-reuse with a restored image; a lighter input encoding).
+**Native arm measured (2026-11-28):** the sentry behind a trusted C entry
+table (versioned, fixed-width lengths, caller-owned buffers) is byte-equal
+to the linked module and costs about 15 ns per call more; wasmi costs about
+115 times as much. wasmi and Rhai stay the loaded roads
+([M1 results](extension-iteration-evidence.md#m1-results-the-native-shared-library-arm-2026-11-28-release-agent-machine)).
+
+**Open:** the per-call glue cost (instance reuse with a restored image; a
+lighter input encoding), now the largest loaded-road cost measured.
 
 **Acceptance:** raw observations and a justified deployment choice. An
 unsupported platform is reported, not simulated. **Poison:** mutate a guest

@@ -1847,11 +1847,12 @@ session's world through its provider's declared reader; Mary-O's world and
 Sanic's three acts reload in their running sessions. See the
 [fast iteration](engine/fast-iteration-implementation.md) receipt.
 
-**Next action:** I6's native-ABI comparison (M1): raw observations of a
-trusted native shared-library backend beside wasmi on the same fixture, and
-a justified deployment choice. I7's cancellation was measured with no
-defect (2026-11-28); I5's `Checkpoint` eligibility waits for a module that
-declares it.
+**Next action:** wasmi's per-call cost, the largest loaded-road cost M1
+measured (about 89 µs per sentry call against 0.8 µs native, 2026-11-28):
+instance reuse from a restored image, or a lighter input encoding, keeping
+the fresh-state guarantee. I6's native arm is measured and not shipped; I7's
+cancellation was measured with no defect; I5's `Checkpoint` eligibility
+waits for a module that declares it.
 
 **Acceptance:** a foreign-audio collision plus a rules edit leaves the old
 pack and all affected products selected, with one refusal and no published

@@ -120,7 +120,43 @@ customer exists, with the same contract and hidden-state tests.
 - A fresh instance per call is kept: it is what stops a guest static from
   carrying state across a rewind.
 - Open: the per-call glue cost (instance reuse with a restored image; a lighter
-  input encoding) and the native shared-library arm.
+  input encoding).
+
+### M1 results: the native shared-library arm (2026-11-28, release, agent machine)
+
+The bake-off (`fixtures/scripting_bakeoff`, `cargo run --release --bin
+bakeoff`) runs one stream of 2000 sentry ticks through each backend. Two
+arms were added: `native_sentry`, the game's sentry built as a `cdylib`
+behind a trusted C entry table, and the game's own wasmi backend loading
+the game's module file (`scripts/regen/build_extension_modules.sh`). The
+entry table is versioned (`amb_native_abi`), takes fixed-width lengths,
+writes into a caller-owned buffer, and turns a panic into a fault value. It
+carries the `ambition-ext-3` wire bytes unchanged. The host keeps the
+library loaded as long as the backend, which pins the code a call runs.
+
+| Arm | Outputs byte-equal to the native reference | Cost per invocation (3 runs) |
+| --- | --- | --- |
+| native, linked (the reference) | — | 755–777 ns |
+| native shared library | 2000 of 2000 | 770–789 ns |
+| wasm (wasmi, instance per call) | 2000 of 2000 | 88.4–90.9 µs |
+| engine Rhai backend | 2000 of 2000 | ≈10.6 µs |
+
+- The shared library's transport costs about 15 ns per call over the linked
+  module: two buffer copies and an indirect call.
+- wasmi costs about 115 times the native call here. Instantiation grew with
+  the module file (935 kB, every content module) from the 30 µs measured
+  above; the instance per call is that cost.
+- A cold `cdylib` build took 26 s and a rebuild under 1 s; the wasm module
+  file builds in about 11 s.
+
+**Deployment choice: keep wasmi and Rhai as the loaded roads; do not ship
+the native arm.** A native library has no sandbox, no fuel, no
+fresh-instance guarantee (a static survives a rewind) and no float
+determinism across platforms, and it cannot load on the browser target.
+Its per-call cost matters only where the loaded call dominates a tick, and
+the idle policies above keep the game's loaded overhead within noise. If a
+desktop development build ever needs it, the entry table here is the
+prototype; generation pinning before unload is then the remaining work.
 
 ## M2 - state, snapshots and scaling
 

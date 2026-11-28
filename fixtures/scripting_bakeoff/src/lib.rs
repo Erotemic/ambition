@@ -60,6 +60,9 @@ fn value_to_json(value: &Value) -> J {
         Value::Opt(None) => J::Null,
         Value::Opt(Some(v)) => value_to_json(v),
         Value::Seq(items) => J::Array(items.iter().map(value_to_json).collect()),
+        Value::Ref(id) | Value::Text(id) => json!(id),
+        // The bake-off's scripts hold scalars, lists and options only.
+        Value::Record(_) | Value::Object(_) => panic!("the bake-off passes no nested record or object to a script"),
     }
 }
 
@@ -86,6 +89,9 @@ fn json_to_value(kind: &FieldKind, j: &J, what: &str) -> Result<Value, String> {
                 .map(|j| json_to_value(elem, j, what))
                 .collect::<Result<_, _>>()?,
         ),
+        FieldKind::Ref(_) => Value::Ref(j.as_str().ok_or_else(|| format!("{what}: expected an identity, got {j}"))?.to_string()),
+        FieldKind::Text { .. } => Value::Text(j.as_str().ok_or_else(|| format!("{what}: expected text, got {j}"))?.to_string()),
+        other => return Err(format!("{what}: the bake-off takes no {other:?} field from a script")),
     })
 }
 

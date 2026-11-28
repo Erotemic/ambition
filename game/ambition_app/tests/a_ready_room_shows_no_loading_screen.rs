@@ -57,9 +57,7 @@ struct Crossing {
     prefetch_hit: bool,
     /// Frames the loading foreground was visible.
     foreground_frames: usize,
-    /// Frames the foreground was visible while the readiness gate had already
-    /// settled and the transition had committed: a screen kept up with no work
-    /// behind it.
+    /// Frames the foreground was visible after the destination committed.
     foreground_frames_after_ready: usize,
     frames: usize,
 }
@@ -117,8 +115,7 @@ fn cross(app: &mut bevy::prelude::App, target: &str) -> Crossing {
     panic!("the crossing to `{target}` did not end in 1200 frames: {crossing:?}");
 }
 
-#[test]
-fn a_prepared_neighbour_is_entered_with_no_loading_screen() {
+fn prepared_neighbour() -> (bevy::prelude::App, String) {
     let mut app = gameplay_after_startup(FAST);
     let source = live_room(&app);
     let target = neighbours_of(&app, &source).into_iter().next().expect("the start room has a neighbour");
@@ -128,6 +125,12 @@ fn a_prepared_neighbour_is_entered_with_no_loading_screen() {
     for _ in 0..360 {
         step(&mut app);
     }
+    (app, target)
+}
+
+#[test]
+fn a_prepared_neighbour_is_entered_with_no_loading_screen() {
+    let (mut app, target) = prepared_neighbour();
     let crossing = cross(&mut app, &target);
     // ⛔ Premise: the destination was prepared ahead, or this measures the
     // other arm.
@@ -136,6 +139,41 @@ fn a_prepared_neighbour_is_entered_with_no_loading_screen() {
         crossing.foreground_frames, 0,
         "a loading screen appeared for `{target}`, which was prepared before the door: {crossing:?}"
     );
+}
+
+#[test]
+fn a_slow_first_draw_can_reveal_loading_after_commit() {
+    use ambition_platformer2d::render::rendering::presentation_settling::{
+        PresentationSettling, PresentationSettlingSet,
+    };
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase;
+    use ambition_platformer2d::world_flow::RoomTransitionCoverSet;
+    use bevy::prelude::*;
+
+    let (mut app, target) = prepared_neighbour();
+    app.add_systems(
+        Update,
+        (|mut waited: Local<std::time::Duration>,
+          time: Res<Time<Real>>,
+          transitions: Res<RoomTransitionLoadState>,
+          mut settling: ResMut<PresentationSettling>| {
+            if let Some(active) = transitions
+                .presentations()
+                .find(|active| active.phase == RoomTransitionLoadPhase::Committed)
+            {
+                *waited += time.delta();
+                if *waited < std::time::Duration::from_secs(1) {
+                    settling.hold_in(active.arrived_in, "fixture waits to draw");
+                }
+            }
+        })
+        .after(PresentationSettlingSet)
+        .before(RoomTransitionCoverSet),
+    );
+    let crossing = cross(&mut app, &target);
+    assert!(crossing.prefetch_hit, "{crossing:?}");
+    assert!(crossing.foreground_frames_after_ready > 0, "{crossing:?}");
+    assert_eq!(crossing.foreground_frames_after_ready, crossing.foreground_frames);
 }
 
 #[test]

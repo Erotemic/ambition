@@ -8,8 +8,8 @@
 //!   room commit may begin;
 //! - the generic loading foreground remains in hidden grace for fast loads and
 //!   reveals honest barrier evidence only when preparation takes long enough;
-//! - the cover remains for one complete target frame after commit, then the
-//!   transaction is retired and gameplay resumes.
+//! - after commit, the cover and loading foreground stay until the target
+//!   frame is ready or the presentation deadline expires.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::time::Duration;
@@ -192,10 +192,8 @@ struct RoomTransitionPresentationState {
 struct TransitionPresentation {
     cover_opaque_at: Option<u64>,
     commit_observed_at: Option<u64>,
-    visible_before_commit: bool,
-    foreground_finished: bool,
     visible_elapsed: Duration,
-    reveal_reported: bool,
+    foreground_revealed: bool,
 }
 
 fn a_cover_is_owed(
@@ -336,10 +334,10 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 .after(RoomTransitionCoverSet)
                 .before(LoadPresentationSet::Finalize),
         );
-    let first_room_cover = super::first_room_cover::cover_first_room.after(PresentationSettlingSet);
-    #[cfg(feature = "audio")]
-    let first_room_cover = first_room_cover.after(crate::audio::music::MusicGoalPublication);
-    app.add_systems(Update, first_room_cover);
+    app.add_systems(
+        Update,
+        super::first_room_cover::cover_first_room.after(PresentationSettlingSet),
+    );
     #[cfg(feature = "audio")]
     app.init_resource::<super::music_preparation::RoomMusicPreparation>()
         .add_systems(Update, super::music_preparation::prepare_room_music
@@ -440,9 +438,9 @@ fn drive_room_transition_presentation(
         let entry = runtime.entries.get_mut(&sequence).unwrap();
         let visible = presentations.get(&owner).is_some_and(|entry| entry.model.visible);
         if visible {
-            entry.visible_elapsed = entry.visible_elapsed.saturating_add(Duration::from_secs_f32(time.delta_secs()));
-            if !entry.reveal_reported {
-                entry.reveal_reported = true;
+            entry.visible_elapsed = entry.visible_elapsed.saturating_add(time.delta());
+            if !entry.foreground_revealed {
+                entry.foreground_revealed = true;
                 bevy::log::info!(target: "crate::room_transition::performance", "{}",
                     loading_screen_reason(sequence, active_snapshot.target_room_id(), active_snapshot.phase,
                         if active_snapshot.phase == RoomTransitionLoadPhase::Committed { &[] } else { contributed.pending() }));
@@ -461,19 +459,8 @@ fn drive_room_transition_presentation(
             entry.commit_observed_at = None;
             continue;
         }
-        let observed = match entry.commit_observed_at {
-            Some(observed) => observed,
-            None => {
-                entry.commit_observed_at = Some(update_serial);
-                entry.visible_before_commit = visible;
-                if !visible {
-                    presentation.write(LoadPresentationCommand::Finish { owner: owner.clone() });
-                    entry.foreground_finished = true;
-                }
-                update_serial
-            }
-        };
         // The destination must have one complete presentation frame under its cover.
+        let observed = *entry.commit_observed_at.get_or_insert(update_serial);
         if update_serial <= observed { continue; }
         let targets = cover_rooms(
             active_snapshot.arrived_in,
@@ -507,9 +494,7 @@ fn drive_room_transition_presentation(
         }
 
 
-        if !entry.foreground_finished {
-            presentation.write(LoadPresentationCommand::Finish { owner });
-        }
+        presentation.write(LoadPresentationCommand::Finish { owner });
         for (_, mut cover, _) in &mut covers {
             if cover.sequence == sequence { cover.lift(); }
         }
@@ -539,7 +524,7 @@ fn drive_room_transition_presentation(
                     .map(|committed| now.saturating_sub(committed)),
                 covered: active_snapshot.cover_required,
                 prefetch_hit: active_snapshot.prefetch_hit,
-                loading_foreground_visible: entry.visible_before_commit,
+                loading_foreground_visible: entry.foreground_revealed,
                 loading_foreground_visible_duration: entry.visible_elapsed,
             },
             &config,

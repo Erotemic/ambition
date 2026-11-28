@@ -278,8 +278,6 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
     );
     let reveal = reveal_direct_startup_room
         .after(ambition_platformer2d::render::rendering::presentation_settling::PresentationSettlingSet);
-    #[cfg(feature = "audio")]
-    let reveal = reveal.after(ambition_platformer2d::audio::music::MusicGoalPublication);
     app.add_systems(Update, reveal);
     #[cfg(not(feature = "audio"))]
     app.add_systems(
@@ -543,7 +541,6 @@ fn reveal_direct_startup_room(
     tick: Option<Res<ambition_platformer2d::time::SimTick>>,
     time: Res<Time<Real>>,
     roots: Query<Entity, With<DirectStartupLoadingRoot>>,
-    #[cfg(feature = "audio")] music: ambition_platformer2d::audio::music::playback::EntranceMusic,
 ) {
     let (Some(opened_tick), Some(opened_at)) = (state.opened_at_tick, state.opened_at) else {
         return;
@@ -554,12 +551,8 @@ fn reveal_direct_startup_room(
     state.update_serial = state.update_serial.saturating_add(1);
     let ticked = tick.is_none_or(|tick| tick.get() > opened_tick);
     let settled = settling.as_deref().is_none_or(|settling| settling.is_empty());
-    #[cfg(feature = "audio")]
-    let pending_music = music.pending();
-    #[cfg(not(feature = "audio"))]
-    let pending_music: Option<&str> = None;
     let update = state.update_serial;
-    let presented = state.presented.observe(update, ticked && settled && pending_music.is_none());
+    let presented = state.presented.observe(update, ticked && settled);
     let waited = time.elapsed().saturating_sub(opened_at);
     if !presented {
         if waited < PRESENTATION_DEADLINE {
@@ -567,7 +560,7 @@ fn reveal_direct_startup_room(
         }
         bevy::log::warn!(
             target: "ambition_app::startup_cover",
-            "startup cover revealed after {:.0} ms (ticked={ticked}, pending music={pending_music:?}): {:?}",
+            "startup cover revealed after {:.0} ms (ticked={ticked}): {:?}",
             waited.as_secs_f64() * 1000.0,
             settling.as_deref().map(|settling| settling.pending()).unwrap_or_default(),
         );

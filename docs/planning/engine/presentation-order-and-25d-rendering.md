@@ -1140,8 +1140,22 @@ shared value preparation are sufficient until source proves otherwise.
    GNU in 2D and side-on 2.5D.
 
    The card mode still uses 2D world preparation and composition. Shared
-   placement and appearance products for all families, more portal effects,
-   and a performance comparison are open.
+   placement and appearance products for all families and more portal
+   effects are open.
+
+   The [matched frame timing recipe](../../../scripts/measure/README.md#matched-2d-and-25d-frame-timing)
+   records the same tick range for each output. An offscreen dev build on
+   llvmpipe ran two 180-frame intervals per mode at 960×600 and Medium.
+   Each scene ended with the same bodies and one logical view in all modes.
+
+   | Scene | 2D p50 / p95 (ms) | Side-on 2.5D p50 / p95 (ms) | Inset p50 / p95 (ms) |
+   | --- | ---: | ---: | ---: |
+   | Workshop | 24.6 / 29.7 | 27.6 / 33.7 | 27.9 / 32.9 |
+   | Hall of Characters | 47.9 / 52.9 | 55.3 / 61.0 | 55.5 / 62.5 |
+
+   These times include shared 2D preparation. The Hall census recorded 881
+   resident images and 834 MB of decoded data in each mode. The camera
+   census counts both gameplay output types. Hardware measurements are open.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

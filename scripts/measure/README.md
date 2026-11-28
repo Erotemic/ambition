@@ -9,6 +9,30 @@ Commands that inspect the live content library need an existing publication.
 capture. It uses no physical audio device. See the
 [native music capture recipe](../../docs/recipes/generated-music-workflow.md#native-software-capture-on-linux).
 
+## Matched 2D and 2.5D frame timing
+
+Build `capture_scene` once. Run each view with the same room, target size,
+quality, and tick range. Use one process at a time.
+
+```bash
+cargo build -p ambition_app_tools --features game --bin capture_scene
+export AMBITION_QUALITY_PROFILE=medium
+target/debug/capture_scene hall_of_characters player /tmp/hall-2d.png 960x600 \
+  --renderer plane --measure-from 180 --at-tick 360 --art-snapshot
+target/debug/capture_scene hall_of_characters player /tmp/hall-side-on.png 960x600 \
+  --renderer side-on --measure-from 180 --at-tick 360 --art-snapshot
+target/debug/capture_scene hall_of_characters player /tmp/hall-inset.png 960x600 \
+  --card-view --measure-from 180 --at-tick 360 --art-snapshot
+```
+
+Each `*.frame-ms.json` file has 180 wall time samples. Each sample measures
+the time between the same point in two consecutive app frames. The capture
+uses one simulation tick per frame and ends the timing before image readback.
+Each timing run installs the same renderer plugins as the switchable desktop app.
+Check the adapter in the log and the active outputs in `*.art.json`.
+Use `AMBITION_PROFILE_CENSUS=1` in another run to inspect cameras, assets,
+and render passes. Report wall time from the runs without census logging.
+
 ## Unattended Smash profiling on Android
 
 Use the Android CLI to start the profiling match. The installed APK keeps its

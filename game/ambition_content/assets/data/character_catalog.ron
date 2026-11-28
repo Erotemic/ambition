@@ -1552,6 +1552,11 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.65, active_s: 0.2, recover_s: 0.7, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 90.0)),
         ),
+        // The giant spider lifts its front legs, rushes forward and bites.
+        "giant_spider_bite": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.48, active_s: 0.14, recover_s: 0.46, damage: 1, reach_px: 42.0, step_px: 0.0, rush_px: 72.0)),
+        ),
         // The cockatrice spreads its wings before a fast snap.
         "cockatrice_snap": (
             move_style: Walk,
@@ -17223,6 +17228,33 @@
             max_health: Some(3),
             tags: ["enemy", "animal", "quadruped", "fantasy", "mountain"],
             barks: (idle: ["*it scrapes a hoof against the stone*"], provoked: ["*a sharp snort*"], on_hit: ["Maa!"]),
+        ),
+        // A large hunting spider. It rears, bites and moves back.
+        "giant_spider": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Giant Spider",
+            manifest: "sprites/giant_spider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(45.0),
+            composition: None,
+            default_action_set: "giant_spider_bite",
+            locomotion: Some((run_speed: 155.0, move_style: Walk)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 340.0,
+                attack_range: 42.0,
+                patrol_effort: 0.35,
+                chase_effort: 0.95,
+                retreat_after_swing_s: 0.45,
+                attack_cooldown_s: 0.85,
+                shares_sightings: false,
+                tactics: (notice_s: 0.45, waits_its_turn: true, footsies: Some((hold_px: 80.0, wait_s: 0.45)), flinch_back_s: 0.25),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "fantasy", "monster", "spider", "arachnid"],
+            cast: (importance: Background, roles: {"encounter": ["mob"]}),
         ),
         // A ground monster with a long neck, bat wings, and a snake tail.
         "cockatrice": (

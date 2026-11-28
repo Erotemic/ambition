@@ -2,6 +2,8 @@ use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::{visibility::RenderLayers, CameraProjection, RenderTarget};
 use bevy::ecs::system::SystemParam;
+#[cfg(feature = "card_view")]
+use bevy::math::Affine3A;
 use bevy::prelude::Mat2;
 use bevy::prelude::{
     Camera, Camera2d, Component, Entity, GlobalTransform, Has, OrthographicProjection, Projection,
@@ -61,6 +63,10 @@ impl PlayPlane {
 pub(in crate::rendering) struct OutputFootprint {
     plane: PlayPlane,
     pub logical_size: Vec2,
+    #[cfg(feature = "card_view")]
+    view_from_world: Affine3A,
+    #[cfg(feature = "card_view")]
+    area: Rect,
     #[cfg(feature = "portal_render")]
     pixels: UVec2,
 }
@@ -84,6 +90,22 @@ impl OutputFootprint {
         let visible = self.plane.bounds(Vec2::X);
         let outside_plane = bounds.min.cmpgt(visible.max).any() || bounds.max.cmplt(visible.min).any();
         (at.is_finite() && (outside_screen || outside_plane)).then_some(at)
+    }
+
+    /// Test a flat local rectangle in the output's own projection.
+    #[cfg(feature = "card_view")]
+    pub fn sees_quad(&self, place: &Transform, bounds: Rect) -> bool {
+        let center = self.view_from_world.transform_point3(
+            place.transform_point(bounds.center().extend(0.0)),
+        ).truncate();
+        let half = bounds.half_size() * place.scale.truncate();
+        let right = self.view_from_world.transform_vector3(place.rotation * (Vec3::X * half.x));
+        let up = self.view_from_world.transform_vector3(place.rotation * (Vec3::Y * half.y));
+        let reach = right.truncate().abs() + up.truncate().abs();
+        // Include the samples at the edge of the viewport.
+        let pad = self.area.size() / self.logical_size;
+        !(center - reach).cmpgt(self.area.max + pad).any()
+            && !(center + reach).cmplt(self.area.min - pad).any()
     }
 
     /// Get the pixel density along two axes in the play plane.
@@ -181,6 +203,24 @@ impl GameplayOutputs<'_, '_> {
         )
     }
 
+    /// Get all card footprints when each card view has a measured output.
+    #[cfg(feature = "card_view")]
+    pub(in crate::rendering) fn card_footprints(&self) -> Option<Vec<OutputFootprint>> {
+        let settings = self.cards.as_deref()?;
+        let views = self.views.iter().filter(|(_, id)| {
+            settings.mode != CardViewMode::Inset || **id == LocalViewId::FIRST
+        });
+        let mut coverage = self.coverage().filter_map(|output| {
+            Some((output.observer, output.cards?))
+        }).collect::<Vec<_>>();
+        if coverage.is_empty() || views.into_iter().any(|(view, _)| {
+            !coverage.iter().any(|(observer, _)| *observer == view)
+        }) {
+            return None;
+        }
+        Some(coverage.drain(..).map(|(_, footprint)| footprint).collect())
+    }
+
     /// The world rectangle covered by all outputs of each observer.
     pub(in crate::rendering) fn view_bounds(&self) -> std::collections::BTreeMap<Entity, (&PresentedViewFrame, Rect)> {
         let mut views = std::collections::BTreeMap::<Entity, (&PresentedViewFrame, Rect)>::new();
@@ -211,6 +251,12 @@ fn footprint(
     Some(OutputFootprint {
         plane,
         logical_size: viewport,
+        #[cfg(feature = "card_view")]
+        view_from_world: Affine3A::from_scale_rotation_translation(
+            place.scale, place.rotation, place.translation,
+        ).inverse(),
+        #[cfg(feature = "card_view")]
+        area: projection.area,
         #[cfg(feature = "portal_render")]
         pixels,
     })
@@ -239,7 +285,7 @@ fn card_footprint(
 mod tests {
     use super::{card_footprint, footprint, CardViewMode, CardViewSettings, PresentedViewFrame};
     use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
-    use bevy::prelude::{OrthographicProjection, Quat, Rect, Transform, UVec2, Vec2};
+    use bevy::prelude::{OrthographicProjection, Quat, Rect, Transform, UVec2, Vec2, Vec3};
 
     #[test]
     fn a_body_can_miss_the_corner_of_a_rolled_view() {
@@ -252,6 +298,23 @@ mod tests {
         let body = |x| Rect::from_center_size(Vec2::X * x, Vec2::splat(10.0));
         assert!(view.offscreen_center(body(76.0)).is_some());
         assert!(view.offscreen_center(body(75.0)).is_none());
+    }
+
+    #[test]
+    fn an_oblique_output_sees_a_quad_at_its_own_depth() {
+        let view = footprint(
+            OrthographicProjection::default_3d(),
+            UVec2::splat(100),
+            1.0,
+            Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_4)),
+        ).unwrap();
+        let bounds = Rect::from_corners(Vec2::ZERO, Vec2::new(20.0, 10.0));
+        let outside = Transform::from_xyz(110.0, 0.0, 0.0);
+        assert!(!view.sees_quad(&outside, bounds));
+        assert!(view.sees_quad(&outside.with_translation(Vec3::new(110.0, 0.0, 100.0)), bounds));
+        let reflected = Transform::from_xyz(85.0, 0.0, 0.0)
+            .with_scale(Vec3::new(-1.0, 1.0, 1.0));
+        assert!(view.sees_quad(&reflected, bounds));
     }
 
     #[test]

@@ -35,6 +35,11 @@ use ambition_platformer2d_shared_tangle::camera_layers::{
 };
 use ambition_sim_view::{LocalView, LocalViewId, PresentedForView, PresentsView};
 
+#[cfg(feature = "card_view")]
+type GameplayCamera = Or<(With<MainCamera>, With<crate::rendering::card_view::CardViewCamera>)>;
+#[cfg(not(feature = "card_view"))]
+type GameplayCamera = With<MainCamera>;
+
 /// What a camera is for, as far as the composition says.
 ///
 /// Roles come from the markers the spawner sets, not from geometry. A camera
@@ -267,9 +272,9 @@ fn publish_view_diagnostics(
         &Camera,
         Option<&RenderTarget>,
         Option<&PresentsView>,
-        Has<MainCamera>,
         Has<FrontHudCamera>,
     )>,
+    gameplay_cameras: Query<(), GameplayCamera>,
     #[cfg(feature = "portal_render")] portal_rigs: Query<
         (),
         With<ambition_portal2d_presentation::PortalViewRig>,
@@ -278,7 +283,7 @@ fn publish_view_diagnostics(
     let mut total = 0usize;
     let mut world_rendering = 0usize;
     let mut offscreen = 0usize;
-    for (entity, camera, target, presents, is_main, is_hud) in &cameras {
+    for (entity, camera, target, presents, is_hud) in &cameras {
         total += 1;
         if !camera.is_active {
             // An inactive camera still costs its extract but not a pass, and these
@@ -289,14 +294,11 @@ fn publish_view_diagnostics(
         #[cfg(feature = "portal_render")]
         let is_portal_rig = portal_rigs.get(entity).is_ok();
         #[cfg(not(feature = "portal_render"))]
-        let is_portal_rig = {
-            let _ = entity;
-            false
-        };
+        let is_portal_rig = false;
         let role = classify_camera(
             is_portal_rig,
             is_hud,
-            is_main,
+            gameplay_cameras.contains(entity),
             presents.is_some(),
             draws_offscreen,
         );
@@ -325,9 +327,9 @@ pub fn report_view_census(
         Option<&Name>,
         Option<&RenderLayers>,
         Option<&PresentsView>,
-        Has<MainCamera>,
         Has<FrontHudCamera>,
     )>,
+    gameplay_cameras: Query<(), GameplayCamera>,
     #[cfg(feature = "portal_render")] portal_rigs: Query<
         (),
         With<ambition_portal2d_presentation::PortalViewRig>,
@@ -344,7 +346,7 @@ pub fn report_view_census(
     let mut world_rendering = 0usize;
     let mut offscreen = 0usize;
 
-    for (entity, camera, target, name, layers, presents, is_main, is_hud) in &cameras {
+    for (entity, camera, target, name, layers, presents, is_hud) in &cameras {
         total += 1;
         // An inactive camera still costs its extract; it does not cost a pass.
         // Both facts are on the row so a reader can tell which population a
@@ -360,7 +362,7 @@ pub fn report_view_census(
         let role = classify_camera(
             is_portal_rig,
             is_hud,
-            is_main,
+            gameplay_cameras.contains(entity),
             presents.is_some(),
             draws_offscreen,
         );
@@ -902,5 +904,25 @@ mod tests {
         assert!(!CameraRole::Hud.renders_world());
         assert!(!CameraRole::Offscreen.renders_world());
         assert!(!CameraRole::Other.renders_world());
+    }
+
+    #[cfg(feature = "card_view")]
+    #[test]
+    fn the_world_draw_count_follows_both_gameplay_outputs() {
+        use crate::rendering::card_view::CardViewCamera;
+
+        let mut app = App::new();
+        app.add_plugins(RenderDiagnosticsPublishPlugin);
+        let view = app.world_mut().spawn(LocalView).id();
+        let plane = app.world_mut().spawn((Camera::default(), MainCamera, PresentsView(view))).id();
+        let card = app.world_mut().spawn((Camera::default(), CardViewCamera, PresentsView(view))).id();
+        app.world_mut().spawn((Camera::default(), FrontHudCamera));
+
+        for (plane_active, card_active, draws) in [(true, false, 1.0), (false, true, 1.0), (true, true, 2.0)] {
+            app.world_mut().get_mut::<Camera>(plane).unwrap().is_active = plane_active;
+            app.world_mut().get_mut::<Camera>(card).unwrap().is_active = card_active;
+            app.update();
+            assert_eq!(app.world().resource::<DiagnosticsStore>().get(&WORLD_DRAWS).unwrap().value(), Some(draws));
+        }
     }
 }

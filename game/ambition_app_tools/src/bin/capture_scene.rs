@@ -30,6 +30,8 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
 use bevy::app::AppExit;
 #[path = "capture_scene/art_snapshot.rs"]
 mod art_snapshot;
+#[path = "capture_scene/frame_timing.rs"]
+mod frame_timing;
 #[path = "capture_scene/fracture_preview.rs"]
 mod fracture_preview;
 #[path = "capture_scene/portal_fixture.rs"]
@@ -49,6 +51,7 @@ use bevy::render::render_resource::{TextureFormat, TextureUsages};
 #[derive(Resource, Clone, Debug)]
 struct SceneCaptureConfig {
     art_snapshot: bool,
+    measure_from: Option<u64>,
     /// Read back private RGBA camera targets on this tick.
     dump_targets_at: Option<u64>,
     room_id: String,
@@ -420,6 +423,8 @@ OPTIONS:
                         or oblique. Works for rooms and gameplay routes.
     --at-tick TICK      take the first shot at this simulation tick. Take
                         later shots by --stride ticks. Enables --tick-per-frame.
+    --measure-from TICK record wall time per frame up to the single --at-tick
+                        shot. Writes <stem>.frame-ms.json before readback.
     --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest or moving at VX,VY px/s;
@@ -628,9 +633,12 @@ fn install_capture_presentation(app: &mut App, config: &SceneCaptureConfig) {
         app.add_systems(Last, pace_the_clock_by_the_shots);
     }
     eprintln!("capture_scene: gameplay renderer {:?}", config.renderer);
-    if config.renderer != CardViewMode::Plane {
+    if config.renderer != CardViewMode::Plane || config.measure_from.is_some() {
         app.insert_resource(CardViewSettings::for_game(config.renderer));
         app.add_plugins(CardViewPlugin);
+    }
+    if let Some((start, end)) = config.measure_from.zip(config.at_tick) {
+        frame_timing::install(app, start, end, config.output.with_extension("frame-ms.json"));
     }
     app.init_resource::<PendingArtSnapshot>()
         .add_systems(Last, write_art_snapshot);
@@ -1911,6 +1919,7 @@ impl SceneCaptureConfig {
         let mut gear: Vec<(String, u64)> = Vec::new();
         let mut tick_per_frame = false;
         let mut at_tick = None;
+        let mut measure_from = None;
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
         let mut player_dies: Vec<u64> = Vec::new();
@@ -2282,6 +2291,11 @@ impl SceneCaptureConfig {
                         .parse().map_err(|_|"--dump-targets-at requires a tick")?);
                     2
                 }
+                "--measure-from" => {
+                    measure_from = Some(args.get(i + 1).ok_or("--measure-from requires a sim tick")?
+                        .parse().map_err(|_| "--measure-from requires a sim tick")?);
+                    2
+                }
                 "--portal-at" => {
                     portal_placements.push(portal_fixture::PortalAt::parse(
                         args.get(i + 1).ok_or("--portal-at requires an aperture")?)?);
@@ -2545,6 +2559,12 @@ impl SceneCaptureConfig {
             );
         }
 
+        if measure_from.is_some_and(|start| {
+            frames != 1 || at_tick.is_none_or(|end| start >= end)
+        }) {
+            return Err("--measure-from requires a single --at-tick shot after the start tick".into());
+        }
+
         // A route has no room id and no focus point: the shell composes its
         // own surface and cameras.
         if camera_roll.is_some() && route.is_some() {
@@ -2582,6 +2602,7 @@ impl SceneCaptureConfig {
             let size = size.unwrap_or(UVec2::new(1280, 720));
             return Ok(Self {
                 art_snapshot,
+                measure_from,
                 dump_targets_at,
                 room_id: String::new(),
                 focus: ae::Vec2::ZERO,
@@ -2679,6 +2700,7 @@ impl SceneCaptureConfig {
             .unwrap_or(UVec2::new(1280, 720));
         Ok(Self {
             art_snapshot,
+            measure_from,
             dump_targets_at,
             room_id,
             focus,

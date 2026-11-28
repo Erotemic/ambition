@@ -104,7 +104,7 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::sprite::{SpriteImageMode, SpriteScalingMode, TextureSlice};
 
-use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
+use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, CARD_VIEW_LAYER};
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, PlayerVisual, PresentationOf};
 use ambition_sprite_sheet::character::rigged::PartDraw;
@@ -118,6 +118,7 @@ use super::actors::rigged::{
 use super::dash_afterimage::DashAfterimage;
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
+use super::camera::coverage::{GameplayOutputs, OutputFootprint};
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVessel};
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
@@ -736,9 +737,15 @@ impl TextureQuad {
         }
     }
 
+    fn corners(self) -> (Vec2, Vec2) {
+        let half = Vec2::splat(0.5);
+        ((-half - self.anchor) * self.size, (half - self.anchor) * self.size)
+    }
+
     fn vertices(self) -> ([[f32; 3]; 4], [[f32; 2]; 4]) {
-        let [x0, y0] = ((-Vec2::splat(0.5) - self.anchor) * self.size).to_array();
-        let [x1, y1] = ((Vec2::splat(0.5) - self.anchor) * self.size).to_array();
+        let (a, b) = self.corners();
+        let [x0, y0] = a.to_array();
+        let [x1, y1] = b.to_array();
         let [mut u0, mut v0, mut u1, mut v1] = ambition_sprite_fx::TextureRegion {
             rect: self.rect,
             page_size: self.page,
@@ -1377,142 +1384,121 @@ pub(super) fn realize_card_bodies(
     }
 
     for (owner, of, presentation, sample) in &owners {
-        let body = match by_owner.get(&owner) {
-            Some(&body) => body,
-            None => {
-                let body = commands.spawn((
-                    CardBody { owner, parts: Vec::new() },
-                    Transform::default(),
-                    Visibility::Hidden,
-                    layer.clone(),
-                    Name::new("Card body"),
-                )).id();
-                by_owner.insert(owner, body);
-                body
-            }
-        };
-        let Ok((_, mut card_body, mut body_transform, mut body_visibility)) = bodies.get_mut(body) else {
-            // Spawned this frame: filled from the next.
-            continue;
-        };
-        let Ok((root, _, flash, _, prop, visibility)) = roots.get(of.0) else {
-            body_visibility.set_if_neq(Visibility::Hidden);
-            hide_part_cards(&mut cards, &card_body.parts);
-            continue;
-        };
-        if !root_shows(visibility) {
-            body_visibility.set_if_neq(Visibility::Hidden);
-            hide_part_cards(&mut cards, &card_body.parts);
-            continue;
-        }
-        let depth = placements.get(&owner).copied().or_else(|| {
-            if !prop || (sample.baked.is_none() && sample.feet.is_none()) {
+        shown.clear();
+        let placement = (|| {
+            let (root, _, flash, _, prop, visibility) = roots.get(of.0).ok()?;
+            if !root_shows(visibility) {
                 return None;
             }
-            let source_z = root.translation.z;
-            let room = rooms.of(of.0);
-            let projected = |z| root_depths.as_deref().map_or_else(
-                || CardDepth::on_plane(scenery_depth(z, CARD_BODY_STEP)),
-                |depths| depths.scenery(z, room),
-            );
-            let depth = projected(source_z);
-            let span = projected(source_z + super::world::SCENERY_Z_STEP).paint.0 - depth.paint.0;
-            let count = sample.parts().map_or(1, |parts| parts.len()).max(1);
-            Some(CardBodyDepth {
-                depth,
-                source_z,
-                order_scale: span / (count as f32 * CARD_PART_STEP),
-                front_part: 0.0,
-                representation: CardBodyRepresentation::Sprite,
-            })
-        });
-        let Some(depth) = depth else {
-            body_visibility.set_if_neq(Visibility::Hidden);
-            hide_part_cards(&mut cards, &card_body.parts);
-            continue;
-        };
-        let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
-        let baked = sample.baked.as_ref().or_else(|| presentation.composed_frame());
-        if let Some(depths) = root_depths.as_deref_mut() {
-            let front_part = sample.parts()
-                .filter(|_| baked.is_none())
-                .map_or(0.0, |parts| parts.len().saturating_sub(1) as f32 * CARD_PART_STEP);
-            depths.roots.insert(of.0, CardBodyDepth {
-                front_part,
-                representation: if baked.is_some() {
-                    CardBodyRepresentation::RiggedFrame
-                } else {
-                    CardBodyRepresentation::RiggedParts
-                },
-                ..depth
-            });
-        }
-        if let Some(baked) = baked {
-            body_transform.set_if_neq(depth.depth.place(root));
-            body_visibility.set_if_neq(Visibility::Inherited);
-            let Some(page_size) = images.get(&baked.image).map(|image| image.size().as_vec2()) else {
-                // Not loaded yet: draw nothing rather than the last clip's parts.
-                hide_part_cards(&mut cards, &card_body.parts);
-                continue;
-            };
-            let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
-            let material = if sample.body_color == LinearRgba::WHITE {
-                PartMaterial::Shared(cache.textured_material(&baked.image, [255; 4], &mut materials))
-            } else {
-                PartMaterial::Tinted { image: baked.image.clone(), color: Color::LinearRgba(sample.body_color) }
-            };
-            show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &[
-                PartCardDraw { mesh, material, place: Transform::IDENTITY, paint: depth.depth.paint },
-            ]);
-            continue;
-        }
-        let (Some(draws), Some(feet)) = (sample.parts(), sample.feet) else {
-            body_visibility.set_if_neq(Visibility::Hidden);
-            hide_part_cards(&mut cards, &card_body.parts);
-            continue;
-        };
-        // The body's scene placement (its root), then its own feet.
-        body_transform.set_if_neq(depth.depth.place(&root.mul_transform(feet)));
-        body_visibility.set_if_neq(Visibility::Inherited);
-
-        shown.clear();
-        let body_color = sample.direct_body_color();
-        for (index, draw) in draws.iter().enumerate() {
-            let Some(RiggedPartImage { page, rect, size, anchor }) = presentation.part_image(draw) else {
-                continue;
-            };
-            let Some(page_size) = images.get(page).map(|image| image.size().as_vec2()) else {
-                continue;
-            };
-            let mesh = cache.quad(TextureQuad {
-                rect,
-                page: page_size,
-                size,
-                anchor,
-                flip: [false; 2],
-            }, &mut meshes);
-            let material = if body_color == LinearRgba::WHITE {
-                PartMaterial::Shared(cache.textured_material(page, draw.color, &mut materials))
-            } else {
-                PartMaterial::Tinted { image: page.clone(), color: part_color(draw, body_color) }
-            };
-            let place = card_part_local(draw);
-            let offset = index as f32 * CARD_PART_STEP;
-            let paint = depth.at_offset(offset).paint;
-            if let Some(flash) = flash {
-                let silhouette = cache.flash(page, flash, &mut materials);
-                shown.push(PartCardDraw { mesh: mesh.clone(), material, place, paint });
-                shown.push(PartCardDraw {
-                    mesh,
-                    material: PartMaterial::Shared(silhouette),
-                    place,
-                    paint: depth.at_offset(offset + FLASH_STEP).paint,
+            let depth = placements.get(&owner).copied().or_else(|| {
+                if !prop || (sample.baked.is_none() && sample.feet.is_none()) {
+                    return None;
+                }
+                let source_z = root.translation.z;
+                let room = rooms.of(of.0);
+                let projected = |z| root_depths.as_deref().map_or_else(
+                    || CardDepth::on_plane(scenery_depth(z, CARD_BODY_STEP)),
+                    |depths| depths.scenery(z, room),
+                );
+                let depth = projected(source_z);
+                let span = projected(source_z + super::world::SCENERY_Z_STEP).paint.0 - depth.paint.0;
+                let count = sample.parts().map_or(1, |parts| parts.len()).max(1);
+                Some(CardBodyDepth {
+                    depth,
+                    source_z,
+                    order_scale: span / (count as f32 * CARD_PART_STEP),
+                    front_part: 0.0,
+                    representation: CardBodyRepresentation::Sprite,
+                })
+            })?;
+            let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
+            let baked = sample.baked.as_ref().or_else(|| presentation.composed_frame());
+            if let Some(depths) = root_depths.as_deref_mut() {
+                let front_part = sample.parts()
+                    .filter(|_| baked.is_none())
+                    .map_or(0.0, |parts| parts.len().saturating_sub(1) as f32 * CARD_PART_STEP);
+                depths.roots.insert(of.0, CardBodyDepth {
+                    front_part,
+                    representation: if baked.is_some() {
+                        CardBodyRepresentation::RiggedFrame
+                    } else {
+                        CardBodyRepresentation::RiggedParts
+                    },
+                    ..depth
                 });
-            } else {
-                shown.push(PartCardDraw { mesh, material, place, paint });
             }
+            if let Some(baked) = baked {
+                let page_size = images.get(&baked.image)?.size().as_vec2();
+                let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
+                let material = if sample.body_color == LinearRgba::WHITE {
+                    PartMaterial::Shared(cache.textured_material(&baked.image, [255; 4], &mut materials))
+                } else {
+                    PartMaterial::Tinted { image: baked.image.clone(), color: Color::LinearRgba(sample.body_color) }
+                };
+                shown.push(PartCardDraw { mesh, material, place: Transform::IDENTITY, paint: depth.depth.paint });
+                return Some(depth.depth.place(root));
+            }
+            let draws = sample.parts()?;
+            let feet = sample.feet?;
+            let body_color = sample.direct_body_color();
+            for (index, draw) in draws.iter().enumerate() {
+                let Some(RiggedPartImage { page, rect, size, anchor }) = presentation.part_image(draw) else {
+                    continue;
+                };
+                let Some(page_size) = images.get(page).map(|image| image.size().as_vec2()) else {
+                    continue;
+                };
+                let mesh = cache.quad(TextureQuad {
+                    rect,
+                    page: page_size,
+                    size,
+                    anchor,
+                    flip: [false; 2],
+                }, &mut meshes);
+                let material = if body_color == LinearRgba::WHITE {
+                    PartMaterial::Shared(cache.textured_material(page, draw.color, &mut materials))
+                } else {
+                    PartMaterial::Tinted { image: page.clone(), color: part_color(draw, body_color) }
+                };
+                let place = card_part_local(draw);
+                let offset = index as f32 * CARD_PART_STEP;
+                let paint = depth.at_offset(offset).paint;
+                if let Some(flash) = flash {
+                    let silhouette = cache.flash(page, flash, &mut materials);
+                    shown.push(PartCardDraw { mesh: mesh.clone(), material, place, paint });
+                    shown.push(PartCardDraw {
+                        mesh,
+                        material: PartMaterial::Shared(silhouette),
+                        place,
+                        paint: depth.at_offset(offset + FLASH_STEP).paint,
+                    });
+                } else {
+                    shown.push(PartCardDraw { mesh, material, place, paint });
+                }
+            }
+            // Place the body root, then its feet.
+            Some(depth.depth.place(&root.mul_transform(feet)))
+        })();
+        let existing = by_owner.get(&owner).and_then(|body| bodies.get_mut(*body).ok());
+        match (placement.filter(|_| !shown.is_empty()), existing) {
+            (Some(place), Some((body, mut card, mut transform, mut visibility))) => {
+                transform.set_if_neq(place);
+                visibility.set_if_neq(Visibility::Inherited);
+                show_cards(&mut commands, &mut card, &mut cards, body, of.0, &layer, &mut materials, shown);
+            }
+            (Some(place), None) => {
+                let body = commands.spawn((place, Visibility::Inherited, layer.clone(), Name::new("Card body"))).id();
+                let mut card = CardBody { owner, parts: Vec::new() };
+                show_cards(&mut commands, &mut card, &mut cards, body, of.0, &layer, &mut materials, shown);
+                commands.entity(body).insert(card);
+                by_owner.insert(owner, body);
+            }
+            (None, Some((_, card, _, mut visibility))) => {
+                visibility.set_if_neq(Visibility::Hidden);
+                hide_part_cards(&mut cards, &card.parts);
+            }
+            (None, None) => {}
         }
-        show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &shown);
     }
 }
 
@@ -1640,6 +1626,23 @@ fn sprite_card_place(place: &Transform, z: f32) -> Transform {
     place.with_translation(place.translation.truncate().extend(z))
 }
 
+fn sprite_card_seen(
+    outputs: Option<&[OutputFootprint]>,
+    place: &Transform,
+    frame: &BakedFrame,
+    mode: &SpriteImageMode,
+) -> bool {
+    let quad = TextureQuad::baked(frame, Vec2::ONE);
+    let quad = match mode {
+        SpriteImageMode::Auto => quad,
+        SpriteImageMode::Scale(scale) => quad.scaled(*scale),
+        SpriteImageMode::Sliced(_) | SpriteImageMode::Tiled { .. } => return true,
+    };
+    let (a, b) = quad.corners();
+    let bounds = Rect::from_corners(a, b);
+    outputs.is_none_or(|outputs| outputs.iter().any(|output| output.sees_quad(place, bounds)))
+}
+
 fn sprite_span_place(place: &Transform, width: f32, [start, end]: [f32; 2]) -> Transform {
     let mut span = sprite_card_place(place, (start + end) * 0.5);
     let planar_length = width * place.scale.x;
@@ -1660,7 +1663,7 @@ pub(super) fn realize_card_sprite_bodies(
     depths: Res<CardRootDepths>,
     mut cards: Query<
         (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut CardPaintDepth, &mut Visibility),
-        (With<CardSpriteBody>, Without<Sprite>),
+        (With<CardSpriteBody>, Without<Sprite>, Without<MainCamera>),
     >,
     images: Option<Res<Assets<Image>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
@@ -1668,17 +1671,24 @@ pub(super) fn realize_card_sprite_bodies(
     layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     mut cache: ResMut<CardMeshes>,
     mut by_body: Local<RetainedEntities<Entity>>,
+    outputs: GameplayOutputs,
 ) {
     let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
         return;
     };
     by_body.reconcile(&mut commands, |body| bodies.contains(*body));
+    let footprints = outputs.card_footprints();
     for (entity, sprite, anchor, place) in &bodies {
         // Ranked only when it is a shown body with no rigged presentation.
         let drawn = depths.roots.get(&entity)
             .filter(|depth| depth.representation == CardBodyRepresentation::Sprite)
-            .and_then(|body| Some((body.depth, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
-        let Some((depth, (frame, page_size))) = drawn else {
+            .and_then(|body| {
+                let (frame, page_size) = sprite_frame(sprite, anchor, &images, layouts.as_deref())?;
+                let card_place = body.depth.place(place);
+                sprite_card_seen(footprints.as_deref(), &card_place, &frame, &sprite.image_mode)
+                    .then_some((body.depth, card_place, frame, page_size))
+            });
+        let Some((depth, card_place, frame, page_size)) = drawn else {
             if let Some(card) = by_body.get(&entity) {
                 if let Ok((mesh, material, .., visibility)) = cards.get_mut(*card) {
                     hide_card(mesh, material, visibility);
@@ -1687,7 +1697,6 @@ pub(super) fn realize_card_sprite_bodies(
             continue;
         };
         let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
-        let card_place = depth.place(place);
         match by_body.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut paint, mut card_visibility)) => {
                 if card_mesh.0 != mesh {
@@ -1786,7 +1795,7 @@ pub(super) fn realize_card_scenery(
     mut cards: Query<
         (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform,
             &mut GlobalTransform, &mut CardPaintDepth, &mut Visibility, &mut InheritedVisibility),
-        (With<CardScenery>, Without<Sprite>),
+        (With<CardScenery>, Without<Sprite>, Without<MainCamera>),
     >,
     images: Option<Res<Assets<Image>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
@@ -1794,11 +1803,13 @@ pub(super) fn realize_card_scenery(
     layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     mut cache: ResMut<CardMeshes>,
     mut by_source: Local<RetainedEntities<Entity>>,
+    outputs: GameplayOutputs,
 ) {
     let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
         return;
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
+    let footprints = outputs.card_footprints();
     for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject, gear, string, afterimage) in &scenery {
         let gear_depth = gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer));
         let shown = visibility.get()
@@ -1841,12 +1852,19 @@ pub(super) fn realize_card_scenery(
             });
             (depth.place(&place), depth.paint)
         };
+        let card = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok());
+        if !sprite_card_seen(footprints.as_deref(), &card_place, &frame, &sprite.image_mode) {
+            if let Some((mesh, material, .., visibility, mut inherited)) = card {
+                hide_card(mesh, material, visibility);
+                inherited.set_if_neq(InheritedVisibility::HIDDEN);
+            }
+            continue;
+        }
         // Keep the quad when the size of an unsliced sprite changes.
         if matches!(sprite.image_mode, SpriteImageMode::Auto) {
             card_place.scale *= frame.size.extend(1.0);
             frame.size = Vec2::ONE;
         }
-        let card = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok());
         let mesh = cache.sprite_mesh(TextureQuad::baked(&frame, page_size), &sprite.image_mode, &mut meshes);
         let material = if animated_tint {
             let handle = card.as_ref().map(|(_, material, ..)| &material.0);

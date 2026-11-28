@@ -115,6 +115,16 @@
             scale: 0.45,
         )),
     ),
+    "imp_ember": (
+        source: Sheet(target: "shot_kit", animation: "fireball", animate: true),
+        size: FixedWidth(17.0),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.62, 0.22, 1.0),
+        label: "imp ember",
+        expiry_vfx: Some((fx: "fireball_fizzle", scale: 0.35)),
+        hit_vfx: Some((fx: "fireball_hit", scale: 0.45)),
+        deflect_vfx: Some((fx: "fireball_deflect", scale: 0.45)),
+    ),
     // Player kit: a comet of fire.
     "fireball": (
         source: Sheet(

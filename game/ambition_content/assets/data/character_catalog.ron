@@ -1557,6 +1557,19 @@
             move_style: Walk,
             melee: Some(Bite(windup_s: 0.45, active_s: 0.12, recover_s: 0.48, damage: 2, reach_px: 44.0)),
         ),
+        // The imp spits a small ember from its mouth.
+        "imp_ember": (
+            move_style: Float,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 320.0,
+                damage: 1,
+                visual: Some("imp_ember"),
+                flight: Some((gravity: 0.0, bounces: 0, bounce_on_world_contact: false, max_lifetime: 1.5, half_extent: (5.0, 4.0), boomerang_return_s: None)),
+                discharge: Some((muzzle: Offset(x: 0.29, y: -0.17), recoil: 0.0)),
+                refire_s: 0.8,
+            ))),
+        ),
         // A light skeleton slash for early barrow encounters.
         "barrow_skeleton_slash": (
             move_style: Walk,
@@ -17236,6 +17249,32 @@
             max_health: Some(4),
             tags: ["enemy", "fantasy", "monster", "cockatrice", "beast"],
             barks: (idle: ["*a low hiss*"], provoked: ["*it clacks its beak*"], on_hit: ["*a sharp squawk*"]),
+        ),
+        // A small winged monster. It keeps its distance and spits embers.
+        "imp": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Imp",
+            manifest: "sprites/imp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(32.0),
+            composition: None,
+            default_action_set: "imp_ember",
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 148.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 360.0,
+                attack_range: 150.0,
+                patrol_effort: 0.35,
+                chase_effort: 0.85,
+                shares_sightings: false,
+                tactics: (notice_s: 0.35),
+                ranged_volley: Some((windup_s: 0.56, firing_s: 0.18, recovery_s: 0.9)),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "fantasy", "monster", "imp", "winged"],
+            cast: (importance: Background, roles: {"encounter": ["mob"]}),
         ),
         // A light melee undead for the fantasy barrows.
         "barrow_skeleton": (

@@ -188,7 +188,12 @@ When a room has more than one vessel, both render phases use its room
 instance and platform identity to order the assemblies. Each assembly has
 rear, rider, and near slots. Held art and body effects with a visual root
 follow that root's slot. The card view keeps the physical depth of each
-slot. A headless test checks rider selection when two beds overlap. Ultra
+slot. In the card view, a single vessel also uses its assembly order.
+The order puts the assembly in front of terrain decor and keeps its
+panels around the rider. Medium workshop captures show the wheel in
+front of the crate, with Scout both in the cart and beside it. A Medium
+fixture with two overlapping carts checks the same order in both views.
+A headless test checks rider selection when two beds overlap. Ultra
 captures of two occupied carts show the same overlap in 2D and side-on 2.5D.
 When a portal cuts a panel, rider, or item, the piece at the entry keeps
 its source slot and physical depth. The piece through the portal uses the
@@ -819,8 +824,12 @@ shared value preparation are sufficient until source proves otherwise.
    owns the effect. The card view also uses the authored shaders for
    the Puppy Slug dream, the Flying Spaghetti Monster's sauce, and the
    Mockingbird's flames. The space art retains its sprite materials as
-   the tint changes. An offscreen fixture shows all four effects in
-   2D and side-on 2.5D at Medium and High. In-game captures are pending.
+   the tint changes. The dream, sauce, and flames use one prepared quad
+   mesh. Portal carry reads the quad bounds before a 2D binding exists.
+   Sauce reads damage from its boss in the same live room. Flames read
+   the phase and health of each bird in its live room. Medium gameplay
+   captures check the three shaders in 2D, side-on 2.5D, and oblique
+   2.5D. An offscreen fixture checks the space art at Medium and High.
 
    Both renderers use the same damage flash and gate scanline shader on
    sheet-drawn actors and on rigged actors with a whole frame. The card
@@ -987,13 +996,21 @@ shared value preparation are sufficient until source proves otherwise.
    Gallus's finish shows the bars and color drain in both views.
 
    Mary-O's fire glow, cosmic aura, barrier, quasar, and room shimmer use
-   the same materials in both views. The shimmer, room sky, and blueprint
-   shaders use the card camera axis at the play plane. An Ultra fixture
-   checks the five Mary-O materials with the published art.
+   one prepared quad with shared geometry and bounds. A 2D camera binds
+   the mesh when it needs the surface. The shimmer, room sky, and
+   blueprint shaders use the card camera axis at the play plane. Medium
+   gameplay captures check the quasar pickup, a spark, and the cosmic
+   form. The capture report lists the prepared meshes and their 2D
+   bindings.
 
    The fire glow and cosmic aura keep their subject's position in depth.
    Their paint order follows their source depth between the bodies of the
    same room. A light can overlap another body without moving to its plane.
+
+   The hit flash and shader glow use the shared quad and its bounds. A
+   portal can request the quad before the 2D draw binding exists. Medium
+   captures show the flash behind the workshop cart rail and on both ends
+   of a portal crossing. High captures check the shader glow in both views.
 
    Cards and sprite effects use the same texture region. A crop uses
    coordinates relative to the atlas cell. An Ultra capture checks both

@@ -35,9 +35,13 @@ use bevy::render::render_resource::{
 use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::reflect::TypePath;
 use bevy::shader::ShaderRef;
-use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dKey, MeshMaterial2d};
+use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dKey};
 
 use ambition_persistence::settings::{ActorGlowQuality, ResolvedVisualQuality};
+
+#[cfg(not(target_os = "android"))]
+use super::planar_mesh::install_planar_mesh_2d;
+use super::planar_mesh::{PlanarUnitQuad, PreparedPlanarMesh};
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ActivePlayerGlow, ActorGlow, CastsLight, GlowLayer, GlowLook,
@@ -267,6 +271,7 @@ pub fn add_actor_glow_material_plugin(app: &mut App) {
         ambition_sprite_fx::install_mesh_fragment_shader(app);
         bevy::asset::embedded_asset!(app, "actor_glow.wgsl");
         app.add_plugins(bevy::sprite_render::Material2dPlugin::<ActorGlowMaterial>::default());
+        install_planar_mesh_2d::<ActorGlowMaterial>(app);
     }
     #[cfg(target_os = "android")]
     let _ = app;
@@ -328,8 +333,7 @@ pub fn sync_actor_glows(
     rooms: LiveRooms,
     quality: Option<Res<ResolvedVisualQuality>>,
     mut materials: Option<ResMut<Assets<ActorGlowMaterial>>>,
-    mut meshes: Option<ResMut<Assets<Mesh>>>,
-    mut quad: Local<Option<Handle<Mesh>>>,
+    quad: Option<Res<PlanarUnitQuad>>,
     bodies: Query<
         (
             Entity,
@@ -352,7 +356,7 @@ pub fn sync_actor_glows(
             &GlowDrawnAs,
             &mut Transform,
             Option<&mut Sprite>,
-            Option<&MeshMaterial2d<ActorGlowMaterial>>,
+            Option<&PreparedPlanarMesh<ActorGlowMaterial>>,
             Option<&mut ambition_sprite_fx::DeclaredFrame>,
             &mut Visibility,
             Option<&CastsLight>,
@@ -361,7 +365,7 @@ pub fn sync_actor_glows(
     >,
 ) {
     let tick = tick.map_or(0, |tick| tick.0);
-    let mode = glow_mode(quality.as_deref(), materials.is_some() && meshes.is_some());
+    let mode = glow_mode(quality.as_deref(), materials.is_some() && quad.is_some());
     let mut drawn: Vec<Entity> = Vec::new();
     for (entity, visual, drawn_as, mut transform, sprite, material, declared, mut visibility, cast) in &mut glows {
         let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, animator, passage, feature)) = bodies.get(visual.0) else {
@@ -398,9 +402,9 @@ pub fn sync_actor_glows(
         } else {
             transform.set_if_neq(Transform::from_translation(at).with_scale(Vec3::new(diameter, diameter, 1.0)));
             let (colour, look) = glow_uniforms(glow, mode, tick, alpha);
-            if let (Some(material), Some(materials)) = (material, materials.as_deref_mut()) {
-                if materials.get(&material.0).is_some_and(|now| now.colour != colour || now.look != look) {
-                    if let Some(mut now) = materials.get_mut(&material.0) {
+            if let (Some(draw), Some(materials)) = (material, materials.as_deref_mut()) {
+                if materials.get(&draw.material).is_some_and(|now| now.colour != colour || now.look != look) {
+                    if let Some(mut now) = materials.get_mut(&draw.material) {
                         now.colour = colour;
                         now.look = look;
                     }
@@ -442,15 +446,13 @@ pub fn sync_actor_glows(
             Name::new("Actor glow"),
             glow_light(glow, diameter, tick, alpha),
         );
-        match (mode, materials.as_deref_mut(), meshes.as_deref_mut()) {
-            (ActorGlowQuality::Smooth | ActorGlowQuality::Light, Some(materials), Some(meshes)) => {
-                let quad = quad.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
+        match (mode, materials.as_deref_mut(), quad.as_deref()) {
+            (ActorGlowQuality::Smooth | ActorGlowQuality::Light, Some(materials), Some(quad)) => {
                 let (colour, look) = glow_uniforms(glow, mode, tick, alpha);
                 commands.spawn_session_scoped(
                     scope,
                     (
-                        Mesh2d(quad),
-                        MeshMaterial2d(materials.add(ActorGlowMaterial { colour, look })),
+                        quad.prepare(materials.add(ActorGlowMaterial { colour, look })),
                         Transform::from_translation(at).with_scale(Vec3::new(diameter, diameter, 1.0)),
                         glow_declared_frame(&picture.0, colour),
                         common,
@@ -639,6 +641,7 @@ mod tests {
         use ambition_persistence::settings::{VisualQualityBudget, VisualQualityProfile};
         let mut app = app();
         app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<PlanarUnitQuad>();
         app.init_resource::<Assets<ActorGlowMaterial>>();
         app.world_mut().spawn((body_sprite(Vec3::ZERO), ActorGlow::soft(0.5, 0.6)));
         let drawn = |app: &mut App, profile| {
@@ -646,9 +649,9 @@ mod tests {
             app.update();
             let world = app.world_mut();
             let found: Vec<_> = world
-                .query_filtered::<(&GlowDrawnAs, Has<Sprite>, Option<&MeshMaterial2d<ActorGlowMaterial>>), With<ActorGlowVisual>>()
+                .query_filtered::<(&GlowDrawnAs, Has<Sprite>, Option<&PreparedPlanarMesh<ActorGlowMaterial>>), With<ActorGlowVisual>>()
                 .iter(world)
-                .map(|(drawn_as, sprite, material)| (drawn_as.0, sprite, material.map(|material| material.0.clone())))
+                .map(|(drawn_as, sprite, draw)| (drawn_as.0, sprite, draw.map(|draw| draw.material.clone())))
                 .collect();
             let looks: Vec<f32> = found.iter().filter_map(|(_, _, material)| material.as_ref())
                 .map(|material| world.resource::<Assets<ActorGlowMaterial>>().get(material).unwrap().look.x)

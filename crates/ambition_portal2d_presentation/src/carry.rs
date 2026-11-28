@@ -52,7 +52,7 @@ use bevy::render::render_resource::TextureFormat;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom;
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    PrivateCameraLayer, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
+    PlanarMeshSource, PrivateCameraLayer, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
 };
 
 use ae::frame::thread::{partition, partition_reaching, PieceBudget, PortalLink, VolumePiece};
@@ -308,9 +308,9 @@ pub struct CarryCameras<'w, 's> {
     >,
 }
 
-// A reaching effect can supply bounds before it has a 2D binding.
+// A prepared surface can supply bounds before it has a 2D binding.
 type CarryablePicture =
-    Or<(With<Sprite>, With<Mesh2d>, With<Text2d>, (With<Aabb>, With<ReachesFrom>))>;
+    Or<(With<Sprite>, With<Mesh2d>, With<Text2d>, (With<Aabb>, With<PlanarMeshSource>))>;
 
 /// A drawable's family and its layers.
 #[derive(bevy::ecs::system::SystemParam)]

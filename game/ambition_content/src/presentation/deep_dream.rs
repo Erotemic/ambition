@@ -27,13 +27,14 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
     sprite::Anchor,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
     InRoomInstance, LiveRoomInstance, LiveRooms, PresentationOf, SessionScopedEntity, SpawnSessionScopedExt,
 };
 use ambition_sprite_sheet::character::rigged::FrameInSprite;
+use ambition_render::rendering::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad, PreparedPlanarMesh};
 use ambition_render::rendering::{
     ActorOverlaySet, FeatureVisual, PlayerVisual, PropVisual, RoomVisual,
 };
@@ -89,11 +90,14 @@ pub fn install(app: &mut App) {
         .world()
         .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
         .is_none()
+        || !app.world().contains_resource::<Assets<Mesh>>()
     {
         return;
     }
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/puppy_slug_deep_dream.wgsl");
     app.add_plugins(Material2dPlugin::<PuppySlugDeepDreamMaterial>::default());
+    app.init_resource::<PlanarUnitQuad>();
+    install_planar_mesh_2d::<PuppySlugDeepDreamMaterial>(app);
     #[cfg(feature = "card_view")]
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         ambition_render::rendering::card_view::install_card_mesh_material::<PuppySlugDeepDreamMaterial>(app);
@@ -218,7 +222,7 @@ pub struct PuppySlugDeepDreamOverlay {
 /// copies the source transform/anchor into world space each frame.
 pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    quad: Res<PlanarUnitQuad>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
@@ -262,7 +266,6 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
             skin_tiles: skin_tiles(render_size, frame_rect(frame)),
             faces: ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content), &asset_server, "fx-sheet", DREAM_FACES_PICTURE),
         });
-        let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
         // Let Bevy's required-component machinery insert Transform's GlobalTransform and
         // Visibility's InheritedVisibility + ViewVisibility with their proper defaults. Same
@@ -272,8 +275,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
             .spawn_session_scoped(
                 session_scope,
                 (
-                    Mesh2d(mesh),
-                    MeshMaterial2d(material),
+                    quad.prepare(material),
                     overlay_transform,
                     Visibility::Visible,
                     PuppySlugDeepDreamOverlay {
@@ -323,7 +325,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         Entity,
         &mut Transform,
         &mut Visibility,
-        &MeshMaterial2d<PuppySlugDeepDreamMaterial>,
+        &PreparedPlanarMesh<PuppySlugDeepDreamMaterial>,
         &PuppySlugDeepDreamOverlay,
     )>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
@@ -367,7 +369,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             Visibility::Visible
         });
         overlay_transform.set_if_neq(overlay_transform_from_source(source_transform, anchor, render_size));
-        if let Some(mut material) = materials.get_mut(&material_handle.0) {
+        if let Some(mut material) = materials.get_mut(&material_handle.material) {
             material.uv_rect = uv_rect;
             material.control = Vec4::new(*elapsed, flip, EFFECT_STRENGTH, source.seed);
             material.color_texture = source_sprite.image.clone();

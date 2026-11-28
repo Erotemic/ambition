@@ -10,7 +10,8 @@ use bevy::render::render_phase::{sort_phase_system, ViewSortedRenderPhases};
 use bevy::render::view::ExtractedView;
 use bevy::render::{Extract, ExtractSchedule, Render, RenderApp, RenderSystems};
 
-use super::{CardScope, CardViewCamera, CAMERA_DISTANCE, NEAR_PANEL_GAP};
+use super::{scenery_paint_depth, CardScope, CardViewCamera, CAMERA_DISTANCE, CARD_BODY_STEP};
+use crate::rendering::moving_platforms::FRONT_LAYER_Z;
 use crate::rendering::vessel_order::{extract_vessel_orders, VesselDrawOrder, VesselOrders};
 
 #[derive(Resource, Default)]
@@ -92,10 +93,11 @@ fn sort_by_card_depth(
                 }
             }
             if !order.vessels.is_empty() {
+                let vessel_depth = scenery_paint_depth(FRONT_LAYER_Z, CARD_BODY_STEP) * back.z;
                 phase.items.sort_by_key(|_, item| {
                     VesselDrawOrder::key(
                         order.vessels.get(&item.entity.1.id()).copied(),
-                        -NEAR_PANEL_GAP * back.z,
+                        vessel_depth,
                         item.distance,
                     )
                 });

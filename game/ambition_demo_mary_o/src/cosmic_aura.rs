@@ -24,11 +24,12 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
+use ambition_platformer2d::render::rendering::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad};
 use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
 use ambition_platformer2d::sprite_sheet::character::CharacterAnimator;
 
@@ -77,13 +78,6 @@ impl Material2d for MaryOCosmicAuraMaterial {
 #[derive(Resource, Default)]
 struct CosmicAuraInstalled;
 
-/// The unit quad the light scales, and its one material.
-#[derive(Resource)]
-struct CosmicAuraAssets {
-    quad: Handle<Mesh>,
-    material: Option<Handle<MaryOCosmicAuraMaterial>>,
-}
-
 /// On her visual while it has its light: the quad.
 #[derive(Component)]
 struct HasCosmicAura(Entity);
@@ -113,21 +107,21 @@ pub fn install(app: &mut App) {
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOCosmicAuraMaterial>::default());
+        install_planar_mesh_2d::<MaryOCosmicAuraMaterial>(app);
         #[cfg(feature = "card_view")]
         ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOCosmicAuraMaterial>(app);
     }
     // The quad is made now and not with the first light: Bevy does not try
     // again to draw a quad whose mesh came late.
-    if let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() {
-        let quad = meshes.add(Rectangle::new(1.0, 1.0));
-        app.insert_resource(CosmicAuraAssets { quad, material: None });
+    if app.world().contains_resource::<Assets<Mesh>>() {
+        app.init_resource::<PlanarUnitQuad>();
     }
     app.add_systems(
         Update,
         light_her_while_she_is_cosmic
             .in_set(crate::MaryOPresentationSet)
             .in_set(ActorOverlaySet)
-            .run_if(resource_exists::<CosmicAuraAssets>)
+            .run_if(resource_exists::<PlanarUnitQuad>)
             .run_if(resource_exists::<Assets<MaryOCosmicAuraMaterial>>),
     );
 }
@@ -164,7 +158,8 @@ fn aura_transform(size: Vec2, anchor: Vec2) -> Transform {
 #[allow(clippy::type_complexity)]
 fn light_her_while_she_is_cosmic(
     mut commands: Commands,
-    mut assets: ResMut<CosmicAuraAssets>,
+    quad: Res<PlanarUnitQuad>,
+    mut shared_material: Local<Option<Handle<MaryOCosmicAuraMaterial>>>,
     mut materials: ResMut<Assets<MaryOCosmicAuraMaterial>>,
     asset_server: Res<AssetServer>,
     quality: Option<Res<ResolvedVisualQuality>>,
@@ -182,8 +177,7 @@ fn light_her_while_she_is_cosmic(
             .map(|(size, anchor)| aura_transform(size, anchor));
         match (wanted, has, place) {
             (true, None, Some(place)) => {
-                let material = assets
-                    .material
+                let material = shared_material
                     .get_or_insert_with(|| {
                         materials.add(MaryOCosmicAuraMaterial {
                             // Display colours: pink at the middle, cyan at the rim, pale gold stars.
@@ -196,8 +190,7 @@ fn light_her_while_she_is_cosmic(
                     .clone();
                 let quad = commands
                     .spawn((
-                        Mesh2d(assets.quad.clone()),
-                        MeshMaterial2d(material),
+                        quad.prepare(material),
                         place,
                         ambition_platformer2d::platformer::lifecycle::PresentationOf(body),
                         Name::new("mary-o cosmic aura"),

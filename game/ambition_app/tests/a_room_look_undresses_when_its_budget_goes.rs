@@ -19,7 +19,7 @@ use ambition_platformer2d::render::rendering::terrain_skin::TerrainSkinMesh;
 use ambition_platformer2d::render::rendering::{EntityArt, LoadingZoneVisual};
 use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
 use bevy::prelude::*;
-use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
+use bevy::sprite_render::ColorMaterial;
 
 /// What the look has put in the room.
 #[derive(Debug, Clone, PartialEq)]
@@ -38,7 +38,7 @@ struct Dress {
 
 fn dress(app: &mut App) -> Dress {
     let world = app.world_mut();
-    let pieces = world.query_filtered::<(), With<MeshMaterial2d<RoomStateMaterial>>>().iter(world).count();
+    let pieces = world.query_filtered::<(), With<PreparedPlanarMesh<RoomStateMaterial>>>().iter(world).count();
     let shaded_skins = world.query_filtered::<(), With<PreparedPlanarMesh<RoomSkinMaterial>>>().iter(world).count();
     let plain_skins = world
         .query_filtered::<&TerrainSkinMesh, With<PreparedPlanarMesh<ColorMaterial>>>()

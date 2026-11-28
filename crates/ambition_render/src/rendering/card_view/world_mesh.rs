@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
+use ambition_platformer2d_shared_tangle::camera_layers::PlanarMeshSource;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 #[cfg(feature = "portal_render")]
 use ambition_portal2d_presentation::{PortalCarryOrder, PortalConeMesh, PortalGlow};
@@ -26,11 +27,11 @@ use bevy::transform::TransformSystems;
 use super::{EARTH_BEHIND_SKIN, TERRAIN_DEPTH, sprite_material};
 use super::{CardBodyRepresentation, CardDepth, CardRootDepths, CardScope, CardViewSettings, RetainedEntities};
 #[cfg(feature = "portal_render")]
-use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, WornGearVisual};
+use super::{platform_card_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, WornGearVisual};
 use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
-use crate::rendering::planar_mesh::{PlanarMeshSource, PreparedPlanarMesh};
+use crate::rendering::planar_mesh::PreparedPlanarMesh;
 use crate::rendering::chain_skin::ChainEarth;
 use crate::rendering::terrain_skin::TerrainSkinMesh;
 
@@ -417,7 +418,7 @@ impl PortalMeshPlacement<'_, '_> {
         }
         let (platform, held, gear, subject) = self.sources.get(source).ok()?;
         if let Some(platform) = platform {
-            return Some(CardDepth::on_plane(platform_depth(platform, self.looks.as_deref())));
+            return Some(platform_card_depth(platform, self.looks.as_deref(), source_z));
         }
         held.and_then(|item| depths.held_depth(item.0, source_z))
             .or_else(|| gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer)))
@@ -812,8 +813,7 @@ mod tests {
             });
             sources.push(world.spawn((
                 PresentationOf(actor),
-                Mesh2d::default(),
-                MeshMaterial2d(material.clone()),
+                PreparedPlanarMesh { mesh: Handle::default(), material: material.clone() },
                 GlobalTransform::from_translation(Vec3::Z * (20.0 + FLASH_OVERLAY_Z_BIAS)),
                 InheritedVisibility::VISIBLE,
             )).id());

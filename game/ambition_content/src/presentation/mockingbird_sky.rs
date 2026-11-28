@@ -20,7 +20,7 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
     sprite::{Anchor, SpriteImageMode},
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_boss_encounter::BossConfig;
@@ -30,10 +30,11 @@ use ambition_extension_host::BodyRecords;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, InRoomInstance, PresentationOf, SessionScopeSet, SessionScopedEntity,
+    ActiveSessionScope, InRoomInstance, LiveRoomInstance, LiveRooms, PresentationOf, SessionScopeSet, SessionScopedEntity,
     SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
+use ambition_render::rendering::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad, PreparedPlanarMesh};
 use ambition_render::rendering::{BossOverlaySet, FeatureVisual, RoomVisual};
 use ambition_sprite_sheet::boss::BossAnimator;
 
@@ -63,8 +64,10 @@ pub fn install(app: &mut App) {
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/mockingbird_fire.wgsl");
     // The material plugins install render-world state: they need an app that
     // renders.
-    if app.get_sub_app(bevy::render::RenderApp).is_some() {
+    if app.get_sub_app(bevy::render::RenderApp).is_some() && app.world().contains_resource::<Assets<Mesh>>() {
         app.add_plugins(Material2dPlugin::<FlameMaterial>::default());
+        app.init_resource::<PlanarUnitQuad>();
+        install_planar_mesh_2d::<FlameMaterial>(app);
         #[cfg(feature = "card_view")]
         ambition_render::rendering::card_view::install_card_mesh_material::<FlameMaterial>(app);
     }
@@ -144,22 +147,26 @@ pub fn flames_of(phase: u32, alive: bool) -> (f32, f32) {
     }
 }
 
-/// Each Mockingbird's view and whether it lives, by its feature id.
+/// Look up each bird in its live room.
 fn birds_by_id<'a>(
-    birds: impl Iterator<Item = (&'a FeatureId, &'a BossConfig, &'a BodyRecords, Option<&'a BodyHealth>)>,
-) -> HashMap<&'a str, (Option<MockingbirdView>, bool)> {
+    birds: impl Iterator<Item = (Entity, &'a FeatureId, &'a BossConfig, &'a BodyRecords, Option<&'a BodyHealth>)>,
+    rooms: &LiveRooms,
+) -> HashMap<(Option<LiveRoomInstance>, &'a str), (Option<MockingbirdView>, bool)> {
     birds
-        .filter(|(_, config, ..)| config.behavior.id == MOCKINGBIRD_ID)
-        .map(|(id, _, records, health)| (id.0.as_str(), (view_of(records), health.is_none_or(|h| h.alive()))))
+        .filter(|(_, _, config, ..)| config.behavior.id == MOCKINGBIRD_ID)
+        .map(|(entity, id, _, records, health)| {
+            ((rooms.of(entity), id.0.as_str()), (view_of(records), health.is_none_or(|h| h.alive())))
+        })
         .collect()
 }
 
 /// A flame sibling for each Mockingbird's sprite.
 pub fn attach_flames(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    quad: Res<PlanarUnitQuad>,
     mut materials: ResMut<Assets<FlameMaterial>>,
-    birds: Query<(&FeatureId, &BossConfig, &BodyRecords, Option<&BodyHealth>)>,
+    rooms: LiveRooms,
+    birds: Query<(Entity, &FeatureId, &BossConfig, &BodyRecords, Option<&BodyHealth>)>,
     candidates: Query<
         (Entity, &FeatureVisual, &Transform, &Sprite, Option<&SessionScopedEntity>, Option<&InRoomInstance>),
         (With<BossAnimator>, Without<FlameSource>),
@@ -168,9 +175,9 @@ pub fn attach_flames(
     if candidates.is_empty() {
         return;
     }
-    let birds = birds_by_id(birds.iter());
+    let birds = birds_by_id(birds.iter(), &rooms);
     for (source, visual, transform, sprite, session_owner, room) in &candidates {
-        if !birds.contains_key(visual.id.as_str()) {
+        if !birds.contains_key(&(rooms.of(source), visual.id.as_str())) {
             continue;
         }
         let material = materials.add(FlameMaterial {
@@ -183,8 +190,7 @@ pub fn attach_flames(
             .spawn_session_scoped(
                 super::overlay_scope_of(session_owner, room),
                 (
-                    Mesh2d(meshes.add(Rectangle::default())),
-                    MeshMaterial2d(material),
+                    quad.prepare(material),
                     *transform,
                     // Hidden until it is angry.
                     Visibility::Hidden,
@@ -206,12 +212,13 @@ pub fn sync_flames(
     mut elapsed: Local<f32>,
     layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
-    birds: Query<(&FeatureId, &BossConfig, &BodyRecords, Option<&BodyHealth>)>,
+    rooms: LiveRooms,
+    birds: Query<(Entity, &FeatureId, &BossConfig, &BodyRecords, Option<&BodyHealth>)>,
     sources: Query<
-        (&FeatureVisual, &Transform, &Sprite, Option<&Anchor>, &FlameSource, Option<&Visibility>),
+        (Entity, &FeatureVisual, &Transform, &Sprite, Option<&Anchor>, &FlameSource, Option<&Visibility>),
         Without<FlameOverlay>,
     >,
-    mut overlays: Query<(&mut Transform, &mut Visibility, &MeshMaterial2d<FlameMaterial>, &mut FlameOverlay)>,
+    mut overlays: Query<(&mut Transform, &mut Visibility, &PreparedPlanarMesh<FlameMaterial>, &mut FlameOverlay)>,
     mut materials: ResMut<Assets<FlameMaterial>>,
 ) {
     let dt = time.scaled_dt();
@@ -219,14 +226,14 @@ pub fn sync_flames(
     if sources.is_empty() {
         return;
     }
-    let birds = birds_by_id(birds.iter());
-    for (visual, transform, sprite, anchor, source, source_visibility) in &sources {
-        let Ok((mut overlay_transform, mut overlay_visibility, material, mut flames)) = overlays.get_mut(source.overlay)
+    let birds = birds_by_id(birds.iter(), &rooms);
+    for (entity, visual, transform, sprite, anchor, source, source_visibility) in &sources {
+        let Ok((mut overlay_transform, mut overlay_visibility, draw, mut flames)) = overlays.get_mut(source.overlay)
         else {
             continue;
         };
         let (phase, alive) = birds
-            .get(visual.id.as_str())
+            .get(&(rooms.of(entity), visual.id.as_str()))
             .map_or((0, false), |(view, alive)| (view.map_or(0, |view| view.phase), *alive));
         let (height, cold) = flames_of(phase, alive);
         flames.height = ease(flames.height, height, FLAME_EASE * dt);
@@ -247,7 +254,7 @@ pub fn sync_flames(
         );
         overlay_transform.scale = (render_size * FLAME_SPREAD).extend(1.0);
         *overlay_visibility = Visibility::Visible;
-        if let Some(mut material) = materials.get_mut(&material.0) {
+        if let Some(mut material) = materials.get_mut(&draw.material) {
             material.uv_rect = uv_rect;
             material.control = Vec4::new(flames.height, if sprite.flip_x { 1.0 } else { 0.0 }, flames.cold, *elapsed);
             material.shape = Vec4::new(FLAME_SPREAD, render_size.x / render_size.y.max(1.0), 0.0, 0.0);

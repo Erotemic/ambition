@@ -181,7 +181,9 @@ fn an_attachment_extends_the_body_capture_and_uses_the_same_cut() {
     app.update();
     let body = spawn_body(&mut app, PieceBudget::SINGLE_HOP, 300.0, authored_entry());
     let top = app.world_mut().spawn((
-        Sprite::from_color(Color::WHITE, Vec2::new(44.0, 12.0)),
+        PlanarMeshSource,
+        Aabb::from_min_max(Vec3::new(-22.0, -6.0, 0.0), Vec3::new(22.0, 6.0, 0.0)),
+        Visibility::Visible,
         Transform::from_xyz(-2.0, 82.0, 20.1),
         PortalDrawnWith(body),
     )).id();
@@ -576,6 +578,7 @@ fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget_without_2d_art() {
     })).id();
     let visual = app.world_mut().spawn((
         Aabb::from_min_max(Vec3::new(-29.0, -3.5, 0.0), Vec3::new(29.0, 3.5, 0.0)),
+        PlanarMeshSource,
         Visibility::Visible,
         Transform::from_translation(PortalWorldFrame { size: WORLD }.to_render(Vec2::new(508.0, 300.0), 20.0)),
         ReachesFrom(Vec2::new(480.0, 300.0)), PresentationOf(owner),

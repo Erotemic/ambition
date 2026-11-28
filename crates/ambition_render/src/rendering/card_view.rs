@@ -159,6 +159,8 @@ pub const SCENERY_DEPTH: f32 = TERRAIN_DEPTH + 0.15;
 pub const BACKDROP_DEPTH: f32 = -(VESSEL_DEPTH + 5.0);
 /// How much card depth one unit of 2D depth inside a band is.
 const BAND_ORDER_SCALE: f32 = 0.1;
+/// Leave space between room scenery and the play-plane body order.
+const SCENERY_FRONT_PAINT: f32 = -4.0 * FLASH_STEP;
 /// How far behind the play plane, along a card camera's view, the parallax
 /// backdrop stands; a layer further back in 2D is further back here.
 const BACKDROP_DISTANCE: f32 = 1500.0;
@@ -342,7 +344,7 @@ impl CardDepth {
 impl CardRootDepths {
     fn scenery(&self, z: f32, room: Option<LiveRoomInstance>) -> CardDepth {
         let front = self.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP);
-        CardDepth::new(scenery_depth(z, CARD_BODY_STEP), scenery_depth(z, front))
+        CardDepth::new(scenery_depth(z, CARD_BODY_STEP), scenery_paint_depth(z, front))
     }
 
     pub(crate) fn field_depth(&self, source: Entity, z: f32, room: Option<LiveRoomInstance>) -> f32 {
@@ -1280,7 +1282,7 @@ pub(super) fn realize_card_bodies(
         if let Some(platform) = platform {
             let part_count = sample.parts().map_or(1, <[PartDraw]>::len).max(1);
             placements.insert(owner, CardBodyDepth {
-                depth: CardDepth::on_plane(platform_depth(platform, platform_looks.as_deref())),
+                depth: platform_card_depth(platform, platform_looks.as_deref(), root.translation.z),
                 source_z: root.translation.z,
                 order_scale: (PLATFORM_PART_DEPTH / (part_count as f32 * CARD_PART_STEP)).min(1.0),
                 front_part: 0.0,
@@ -1733,19 +1735,29 @@ fn scenery_depth(z: f32, front: f32) -> f32 {
     }
 }
 
+fn scenery_paint_depth(z: f32, front: f32) -> f32 {
+    use ambition_platformer2d_core::config::{WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+    if (WORLD_Z_DUMMY..WORLD_Z_PLAYER).contains(&z) {
+        let fraction = (z - WORLD_Z_DUMMY) / (WORLD_Z_PLAYER - WORLD_Z_DUMMY);
+        SCENERY_DEPTH + (SCENERY_FRONT_PAINT - SCENERY_DEPTH) * fraction
+    } else {
+        scenery_depth(z, front)
+    }
+}
+
 fn source_room(source: Entity, rooms: &LiveRooms, parents: &Query<&ChildOf>) -> Option<LiveRoomInstance> {
     rooms.stamped(source)
         .or_else(|| parents.iter_ancestors(source).find_map(|parent| rooms.stamped(parent)))
         .or_else(|| rooms.of(source))
 }
 
-fn platform_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>) -> f32 {
+fn platform_card_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>, source_z: f32) -> CardDepth {
     if platform.front {
-        -NEAR_PANEL_GAP
+        CardDepth::on_plane(-NEAR_PANEL_GAP)
     } else if platform.sheet.as_ref().and_then(|key| looks?.0.get(key)).is_some_and(|look| look.front_row.is_some()) {
-        -VESSEL_DEPTH
+        CardDepth::on_plane(-VESSEL_DEPTH)
     } else {
-        OPEN_PLATFORM_Z
+        CardDepth::new(OPEN_PLATFORM_Z, scenery_paint_depth(source_z, CARD_BODY_STEP))
     }
 }
 
@@ -1803,7 +1815,7 @@ pub(super) fn realize_card_scenery(
             continue;
         };
         let (mut card_place, paint) = if let Some(platform) = platform {
-            let depth = CardDepth::on_plane(platform_depth(platform, platform_looks.as_deref()));
+            let depth = platform_card_depth(platform, platform_looks.as_deref(), local.translation.z);
             (depth.place(local), depth.paint)
         } else if let Some([start, end]) = string.and_then(|string| depths.sling_depths(string.span)) {
             (

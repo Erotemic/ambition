@@ -22,12 +22,12 @@
 #![cfg(feature = "visible")]
 
 use bevy::prelude::*;
-use bevy::sprite_render::MeshMaterial2d;
 
 use ambition_demo_mary_o::quasar_shader::MaryOQuasarMaterial;
 use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::render::rendering::actors::rigged::RiggedPresentedBy;
+use ambition_platformer2d::render::rendering::planar_mesh::PreparedPlanarMesh;
 use ambition_platformer2d::sprite_sheet::character::rigged::FrameInSprite;
 
 /// A body composited for its first reader draws its cell on the second frame
@@ -71,11 +71,11 @@ fn is_composited(app: &App, player: Entity) -> bool {
 /// The image of each quasar overlay that is shown.
 fn shown_overlays(app: &mut App) -> Vec<Handle<Image>> {
     let world = app.world_mut();
-    let mut overlays = world.query::<(&MeshMaterial2d<MaryOQuasarMaterial>, &Visibility)>();
+    let mut overlays = world.query::<(&PreparedPlanarMesh<MaryOQuasarMaterial>, &Visibility)>();
     let shown: Vec<_> = overlays
         .iter(world)
         .filter(|(_, visibility)| **visibility == Visibility::Visible)
-        .map(|(material, _)| material.0.clone())
+        .map(|(draw, _)| draw.material.clone())
         .collect();
     let materials = world.resource::<Assets<MaryOQuasarMaterial>>();
     shown
@@ -179,7 +179,7 @@ fn a_pipe_hides_her_quasar_with_her() {
     );
     let world = app.world_mut();
     let body_z = world.get::<Transform>(player).expect("her transform").translation.z;
-    let mut overlays = world.query::<(&MeshMaterial2d<MaryOQuasarMaterial>, &Transform, &Visibility)>();
+    let mut overlays = world.query::<(&PreparedPlanarMesh<MaryOQuasarMaterial>, &Transform, &Visibility)>();
     let overlay_z = overlays
         .iter(world)
         .find(|(.., visibility)| **visibility == Visibility::Visible)

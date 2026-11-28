@@ -25,11 +25,12 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
+use ambition_platformer2d::render::rendering::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad, PreparedPlanarMesh};
 use ambition_platformer2d::render::rendering::actors::rigged::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest};
 use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
 
@@ -97,10 +98,6 @@ impl Material2d for MaryOCosmicBarrierMaterial {
 #[derive(Resource, Default)]
 struct CosmicBarrierInstalled;
 
-/// The unit quad the barrier scales.
-#[derive(Resource)]
-struct CosmicBarrierQuad(Handle<Mesh>);
-
 /// On her visual while it has its barrier: the quad.
 #[derive(Component)]
 struct HasCosmicBarrier(Entity);
@@ -127,12 +124,12 @@ pub fn install(app: &mut App) {
     ambition_platformer2d::content_asset!(app, "src/shaders/cosmic_barrier.wgsl");
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOCosmicBarrierMaterial>::default());
+        install_planar_mesh_2d::<MaryOCosmicBarrierMaterial>(app);
         #[cfg(feature = "card_view")]
         ambition_platformer2d::render::rendering::card_view::install_card_mesh_material::<MaryOCosmicBarrierMaterial>(app);
     }
-    if let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() {
-        let quad = meshes.add(Rectangle::new(1.0, 1.0));
-        app.insert_resource(CosmicBarrierQuad(quad));
+    if app.world().contains_resource::<Assets<Mesh>>() {
+        app.init_resource::<PlanarUnitQuad>();
     }
     app.add_systems(
         Update,
@@ -142,7 +139,7 @@ pub fn install(app: &mut App) {
                 // parts of this frame, not of the last.
                 .in_set(ActorOverlaySet)
                 .in_set(crate::MaryOPresentationSet)
-                .run_if(resource_exists::<CosmicBarrierQuad>)
+                .run_if(resource_exists::<PlanarUnitQuad>)
                 .run_if(resource_exists::<Assets<MaryOCosmicBarrierMaterial>>),
             // Never asleep: the quad is no child of her body, and a body torn
             // down after the router moved still leaves one to take away.
@@ -218,7 +215,7 @@ fn barrier_of(draws: &PartSetDraws, page_size: impl Fn(&Handle<Image>) -> Option
 #[allow(clippy::type_complexity)]
 fn raise_her_barrier(
     mut commands: Commands,
-    quad: Res<CosmicBarrierQuad>,
+    quad: Res<PlanarUnitQuad>,
     mut materials: ResMut<Assets<MaryOCosmicBarrierMaterial>>,
     images: Res<Assets<Image>>,
     quality: Option<Res<ResolvedVisualQuality>>,
@@ -233,7 +230,7 @@ fn raise_her_barrier(
         ),
         With<PlayerVisual>,
     >,
-    mut quads: Query<(&mut Transform, &mut Visibility, &MeshMaterial2d<MaryOCosmicBarrierMaterial>)>,
+    mut quads: Query<(&mut Transform, &mut Visibility, &PreparedPlanarMesh<MaryOCosmicBarrierMaterial>)>,
 ) {
     let in_budget = barrier_is_in_budget(quality);
     for (body, worn, draws, asks, has, layers) in &bodies {
@@ -256,8 +253,7 @@ fn raise_her_barrier(
             (Some((uniform, page, place)), None) => {
                 let material = materials.add(MaryOCosmicBarrierMaterial { barrier: uniform, page });
                 let mut spawned = commands.spawn((
-                    Mesh2d(quad.0.clone()),
-                    MeshMaterial2d(material),
+                    quad.prepare(material),
                     place,
                     ambition_platformer2d::platformer::lifecycle::PresentationOf(body),
                     Name::new("mary-o cosmic barrier"),
@@ -270,16 +266,16 @@ fn raise_her_barrier(
                 commands.entity(body).try_insert(HasCosmicBarrier(spawned));
             }
             (Some((uniform, page, place)), Some(has)) => {
-                let Ok((mut transform, mut visibility, material)) = quads.get_mut(has.0) else {
+                let Ok((mut transform, mut visibility, draw)) = quads.get_mut(has.0) else {
                     continue;
                 };
                 if *transform != place {
                     *transform = place;
                 }
                 visibility.set_if_neq(Visibility::Inherited);
-                let stale = materials.get(&material.0).is_some_and(|now| now.barrier != uniform || now.page != page);
+                let stale = materials.get(&draw.material).is_some_and(|now| now.barrier != uniform || now.page != page);
                 if stale {
-                    if let Some(mut now) = materials.get_mut(&material.0) {
+                    if let Some(mut now) = materials.get_mut(&draw.material) {
                         now.barrier = uniform;
                         now.page = page;
                     }
@@ -301,7 +297,7 @@ fn drop_the_barrier_of_a_body_that_is_gone(
     mut commands: Commands,
     mut gone: RemovedComponents<HasCosmicBarrier>,
     owners: Query<&HasCosmicBarrier>,
-    quads: Query<Entity, With<MeshMaterial2d<MaryOCosmicBarrierMaterial>>>,
+    quads: Query<Entity, With<PreparedPlanarMesh<MaryOCosmicBarrierMaterial>>>,
 ) {
     if gone.read().count() == 0 {
         return;

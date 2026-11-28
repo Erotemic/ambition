@@ -2,16 +2,15 @@
 
 use std::marker::PhantomData;
 
+use ambition_platformer2d_shared_tangle::camera_layers::PlanarMeshSource;
+use bevy::camera::primitives::{Aabb, MeshAabb};
 use bevy::camera::visibility::{RenderLayers, VisibilitySystems};
 use bevy::prelude::{
-    App, Asset, Camera, Camera2d, Commands, Component, Entity, Handle, IntoScheduleConfigs, Mesh,
-    Mesh2d, PostUpdate, Query, RemovedComponents, Resource, SystemSet, Transform, Visibility, With,
+    App, Asset, Assets, Camera, Camera2d, Commands, Component, Entity, FromWorld, Handle,
+    IntoScheduleConfigs, Mesh, Mesh2d, PostUpdate, Query, Rectangle, RemovedComponents, Resource,
+    SystemSet, Transform, Visibility, With, World,
 };
 use bevy::sprite_render::{Material2d, MeshMaterial2d};
-
-/// A source that supplies its mesh before either renderer draws it.
-#[derive(Component, Default)]
-pub(super) struct PlanarMeshSource;
 
 /// The geometry and material selected for one planar surface.
 /// A surface has one selected material. Remove the old typed component
@@ -21,6 +20,28 @@ pub(super) struct PlanarMeshSource;
 pub struct PreparedPlanarMesh<M: Asset> {
     pub mesh: Handle<Mesh>,
     pub material: Handle<M>,
+}
+
+/// One unit quad that planar effects can share.
+#[derive(Resource)]
+pub struct PlanarUnitQuad {
+    mesh: Handle<Mesh>,
+    bounds: Aabb,
+}
+
+impl FromWorld for PlanarUnitQuad {
+    fn from_world(world: &mut World) -> Self {
+        let mesh = Mesh::from(Rectangle::default());
+        let bounds = mesh.compute_aabb().expect("a unit quad has bounds");
+        Self { mesh: world.resource_mut::<Assets<Mesh>>().add(mesh), bounds }
+    }
+}
+
+impl PlanarUnitQuad {
+    /// Supply the bounds before a camera binds the mesh.
+    pub fn prepare<M: Asset>(&self, material: Handle<M>) -> (PreparedPlanarMesh<M>, Aabb) {
+        (PreparedPlanarMesh { mesh: self.mesh.clone(), material }, self.bounds)
+    }
 }
 
 #[derive(Resource)]

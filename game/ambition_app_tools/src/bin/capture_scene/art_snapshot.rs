@@ -7,7 +7,7 @@ use serde_json::json;
 pub fn snapshot(world: &World) -> serde_json::Value {
     let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     use engine::characters::actor::{BodyHealth, CharacterForm};
-    use engine::platformer::camera_layers::MainCamera;
+    use engine::platformer::camera_layers::{MainCamera, PlanarMeshSource};
     use engine::platformer::lifecycle::{live_room_of, sole_live_room_entity, InRoomInstance, LiveRoomInstance};
     use engine::sprite_sheet::character::CharacterAnimator;
     use engine::render::rendering::actors::{BoundActorArt, BoundSpriteQuality, PlayerSpriteCharacter};
@@ -28,6 +28,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     let mut strikes = Vec::new();
     let mut items = Vec::new();
     let mut portal_drawables = Vec::new();
+    let mut planar_mesh_sources = Vec::new();
     let mut apertures = Vec::new();
     for entity in world.iter_entities() {
         if let Some(camera) = entity.get::<Camera>() {
@@ -47,6 +48,14 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         }
         if entity.contains::<CastBubbleDisc>() && entity.get::<Visibility>() == Some(&Visibility::Visible) {
             visible_cast_bubbles += 1;
+        }
+        if entity.contains::<PlanarMeshSource>() {
+            planar_mesh_sources.push(json!({
+                "entity": format!("{:?}", entity.id()),
+                "name": entity.get::<Name>().map(Name::as_str),
+                "visibility": entity.get::<Visibility>().map(|value| format!("{value:?}")),
+                "plane_bound": entity.contains::<Mesh2d>(),
+            }));
         }
         if let Some(portal) = entity.get::<engine::portal::PlacedPortal>() {
             apertures.push(json!({"channel":portal.channel.name(), "position":portal.pos.to_array(),
@@ -209,6 +218,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     visuals.sort_by_key(|row| row.to_string());
     views.sort_by_key(|row| row.to_string());
     gameplay_outputs.sort_by_key(|row| row.to_string());
+    planar_mesh_sources.sort_by_key(|row| row.to_string());
     let music = world.get_resource::<engine::audio::music::MusicDirectorState>().map(|director| json!({
         "mode": format!("{:?}", director.mode), "cue": director.active_cue_id,
         "base_track": world.get_resource::<engine::audio::library::MusicPlaybackState>().map(|state| state.active_track()),
@@ -226,6 +236,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
         "portal_carry_load":carry_load,
         "gameplay_outputs": gameplay_outputs, "visible_cast_bubbles": visible_cast_bubbles,
+        "planar_mesh_sources": planar_mesh_sources,
         "apertures":apertures,
         "bodies": bodies, "items": items, "visuals": visuals, "views": views, "music": music, "material_parts": material_parts, "strikes": strikes, "portal_drawables": portal_drawables})
 }

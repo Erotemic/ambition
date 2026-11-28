@@ -1,4 +1,4 @@
-//! Draw overlapping vessels as separate assemblies.
+//! Draw each vessel as a separate assembly.
 
 use std::cmp::Reverse;
 
@@ -32,6 +32,7 @@ enum VesselSlot {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct VesselDrawOrder {
     assembly: usize,
+    has_room_peer: bool,
     slot: VesselSlot,
 }
 
@@ -73,6 +74,8 @@ pub(super) fn install(app: &mut App) {
 type Attachment = Or<(With<HeldArtOf>, With<WornGearVisual>, With<PresentationOf>)>;
 
 pub(super) fn extract_vessel_orders(
+    #[cfg(feature = "card_view")]
+    card_settings: Extract<Option<Res<super::card_view::CardViewSettings>>>,
     panels: Extract<Query<(Entity, &VesselPanel)>>,
     riders: Extract<Query<(Entity, &SeatedInVessel)>>,
     twins: Extract<Query<(Entity, &LimbTwin)>>,
@@ -85,6 +88,12 @@ pub(super) fn extract_vessel_orders(
     #[cfg(feature = "portal_render")] pieces: Extract<Query<(Entity, &PortalCarryOrder)>>,
     mut orders: ResMut<VesselOrders>,
 ) {
+    #[cfg(feature = "card_view")]
+    let card_orders = card_settings.as_ref().is_some_and(|settings| {
+        settings.mode != super::card_view::CardViewMode::Plane
+    });
+    #[cfg(not(feature = "card_view"))]
+    let card_orders = false;
     orders.0.clear();
     let mut vessels: Vec<_> = panels.iter()
         .filter_map(|(_, panel)| panel.near.then_some(&panel.vessel))
@@ -94,24 +103,23 @@ pub(super) fn extract_vessel_orders(
     let assembly = |vessel| {
         let index = vessels.binary_search(&vessel).ok()?;
         let room = vessels[index].room;
-        // Use the ordinary layer bands for a single vessel in a room.
-        (index.checked_sub(1).is_some_and(|before| vessels[before].room == room)
-            || vessels.get(index + 1).is_some_and(|after| after.room == room))
-            .then_some(index)
+        let has_room_peer = index.checked_sub(1).is_some_and(|before| vessels[before].room == room)
+            || vessels.get(index + 1).is_some_and(|after| after.room == room);
+        (card_orders || has_room_peer).then_some((index, has_room_peer))
     };
     for (entity, panel) in &panels {
-        if let Some(assembly) = assembly(&panel.vessel) {
+        if let Some((assembly, has_room_peer)) = assembly(&panel.vessel) {
             let slot = if panel.near { VesselSlot::Near } else { VesselSlot::Rear };
-            orders.0.insert(entity, VesselDrawOrder { assembly, slot });
+            orders.0.insert(entity, VesselDrawOrder { assembly, has_room_peer, slot });
         }
     }
     if orders.0.is_empty() {
         return;
     }
     for (entity, rider) in &riders {
-        if let Some(assembly) = assembly(&rider.vessel) {
+        if let Some((assembly, has_room_peer)) = assembly(&rider.vessel) {
             let slot = VesselSlot::Rider(Reverse(rider.slot));
-            orders.0.insert(entity, VesselDrawOrder { assembly, slot });
+            orders.0.insert(entity, VesselDrawOrder { assembly, has_room_peer, slot });
         }
     }
     for (entity, twin) in &twins {
@@ -153,14 +161,16 @@ fn sort_vessels_2d(
     orders: Res<VesselOrders>,
     mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
 ) {
+    let has_peers = orders.0.values().any(|order| order.has_room_peer);
     for phase in phases.values_mut() {
-        if orders.0.is_empty() {
+        if !has_peers {
             phase.sort();
         } else {
             // Use the same key for all draws in one assembly. The remaining
             // fields order its panels, then its parts inside each slot.
             phase.items.sort_by_key(|_, item| {
-                VesselDrawOrder::key(orders.get(item.entity.1.id()), FRONT_LAYER_Z, item.sort_key.0)
+                let order = orders.get(item.entity.1.id()).filter(|order| order.has_room_peer);
+                VesselDrawOrder::key(order, FRONT_LAYER_Z, item.sort_key.0)
             });
         }
     }

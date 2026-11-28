@@ -17,10 +17,13 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
     sprite::Anchor,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
-use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, PresentationOf, SessionScopedEntity, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    InRoomInstance, LiveRooms, PresentationOf, SessionScopedEntity, SpawnSessionScopedExt,
+};
+use ambition_render::rendering::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad, PreparedPlanarMesh};
 use ambition_render::rendering::{BossOverlaySet, FeatureVisual, RoomVisual};
 use ambition_sprite_sheet::boss::{BossAnimator, BossDrawnCell};
 
@@ -33,11 +36,15 @@ const SAUCE_Z_BIAS: f32 = 0.8;
 
 pub fn install(app: &mut App) {
     // A headless app has no asset/render stack, and no sauce.
-    if app.world().get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>().is_none() {
+    if app.world().get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>().is_none()
+        || !app.world().contains_resource::<Assets<Mesh>>()
+    {
         return;
     }
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/fsm_sauce.wgsl");
     app.add_plugins(Material2dPlugin::<SauceMaterial>::default());
+    app.init_resource::<PlanarUnitQuad>();
+    install_planar_mesh_2d::<SauceMaterial>(app);
     #[cfg(feature = "card_view")]
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         ambition_render::rendering::card_view::install_card_mesh_material::<SauceMaterial>(app);
@@ -94,7 +101,7 @@ pub struct SauceOverlay {
 /// A sauce sibling for every boss sprite whose sheet ships a sauce layer.
 pub fn attach_sauce_overlays(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    quad: Res<PlanarUnitQuad>,
     mut materials: ResMut<Assets<SauceMaterial>>,
     candidates: Query<
         (Entity, &FeatureVisual, &Transform, &BossAnimator, Option<&SessionScopedEntity>, Option<&InRoomInstance>),
@@ -114,8 +121,7 @@ pub fn attach_sauce_overlays(
             .spawn_session_scoped(
                 super::overlay_scope_of(session_owner, room),
                 (
-                    Mesh2d(meshes.add(Rectangle::default())),
-                    MeshMaterial2d(material),
+                    quad.prepare(material),
                     *transform,
                     // Hidden until its first sync has placed it on a cell.
                     Visibility::Hidden,
@@ -135,19 +141,20 @@ pub fn attach_sauce_overlays(
 pub fn sync_sauce_overlays(
     layouts: Res<Assets<TextureAtlasLayout>>,
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
+    rooms: LiveRooms,
     sources: Query<
-        (&FeatureVisual, &Transform, &Sprite, Option<&Anchor>, &BossAnimator, &BossDrawnCell, &SauceSource, Option<&Visibility>),
+        (Entity, &FeatureVisual, &Transform, &Sprite, Option<&Anchor>, &BossAnimator, &BossDrawnCell, &SauceSource, Option<&Visibility>),
         Without<SauceOverlay>,
     >,
-    mut overlays: Query<(&mut Transform, &mut Visibility, &MeshMaterial2d<SauceMaterial>), With<SauceOverlay>>,
+    mut overlays: Query<(&mut Transform, &mut Visibility, &PreparedPlanarMesh<SauceMaterial>), With<SauceOverlay>>,
     mut materials: ResMut<Assets<SauceMaterial>>,
 ) {
-    for (visual, transform, sprite, anchor, animator, drawn, source, source_visibility) in &sources {
-        let Ok((mut overlay_transform, mut overlay_visibility, material)) = overlays.get_mut(source.overlay) else {
+    for (entity, visual, transform, sprite, anchor, animator, drawn, source, source_visibility) in &sources {
+        let Ok((mut overlay_transform, mut overlay_visibility, draw)) = overlays.get_mut(source.overlay) else {
             continue;
         };
         let damage = feature_views
-            .get(&visual.id)
+            .get_in(&visual.id, rooms.of(entity))
             .filter(|view| view.hp_max > 0)
             .map_or(0.0, |view| 1.0 - view.hp_current.max(0) as f32 / view.hp_max as f32);
         let hidden = matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
@@ -177,7 +184,7 @@ pub fn sync_sauce_overlays(
         }
         *overlay_transform = super::deep_dream::sibling_quad_transform(transform, Some(cell_anchor), render_size, SAUCE_Z_BIAS);
         *overlay_visibility = Visibility::Visible;
-        if let Some(mut material) = materials.get_mut(&material.0) {
+        if let Some(mut material) = materials.get_mut(&draw.material) {
             material.uv_rect = Vec4::new(
                 rect.min.x as f32 / size.x,
                 rect.min.y as f32 / size.y,

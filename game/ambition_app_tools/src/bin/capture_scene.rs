@@ -1841,6 +1841,7 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         // jump/attack/dash; the preset also binds secondary=A,
         // quick_action=E, special=G, and interact=F.
         "a" => Ok(KeyCode::KeyA),
+        "d" => Ok(KeyCode::KeyD),
         "e" => Ok(KeyCode::KeyE),
         "f" => Ok(KeyCode::KeyF),
         "g" => Ok(KeyCode::KeyG),
@@ -1849,7 +1850,7 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         "tab" => Ok(KeyCode::Tab),
         other => Err(format!(
             "--press does not know the key '{other}'. Known: up, down, left, \
-                 right, enter, space, escape, z, x, c, a, e, f, g, i, tab, wait, wait:N, \
+                 right, enter, space, escape, z, x, c, a, d, e, f, g, i, tab, wait, wait:N, \
                  hold:KEY, release:KEY, touch:XxY"
         )),
     }
@@ -2614,7 +2615,7 @@ impl SceneCaptureConfig {
                 fractures: Vec::new(),
                 portal_shots: Vec::new(),
                 portal_placements: Vec::new(),
-                shots: Vec::new(),
+                shots,
                 items: Vec::new(),
                 portal_effect_off: false,
                 portal_convention,
@@ -2988,6 +2989,10 @@ fn install_route_capture(app: &mut App, route_id: String) {
     if !app.world().resource::<SceneCaptureConfig>().player_at.is_empty() {
         let sim_schedule = app.sim_schedule();
         app.add_systems(sim_schedule, place_player_at);
+    }
+    if !app.world().resource::<SceneCaptureConfig>().shots.is_empty() {
+        let sim_schedule = app.sim_schedule();
+        app.add_systems(sim_schedule, fire_shots);
     }
     app.add_systems(Startup, setup_route_capture_target);
     app.add_systems(

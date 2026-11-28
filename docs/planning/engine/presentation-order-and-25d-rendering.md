@@ -935,8 +935,11 @@ shared value preparation are sufficient until source proves otherwise.
    the card window filters only texels on the visible side. This removes
    a thin line of glow that could show through a clipped body.
 
-   Text cards use Bevy's layout for the current frame. The brief portal
-   input-direction cue appears in both views and clears on release.
+   Text cards use Bevy's layout for the current frame. The layout uses
+   the card output's projection and display scale. It covers labels at
+   the edge of a tilted view and uses the target pixel density. The
+   brief portal input-direction cue appears in both views and clears
+   on release.
 
    Rigged bodies use the same output coverage as portal windows. A tilted
    view samples a body at its own screen edge. A body keeps sprite slots

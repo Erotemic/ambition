@@ -8,28 +8,29 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::{
     Assets, Camera, ChildOf, Color, ColorToPacked, Commands, Component, DetectChanges, DetectChangesMut, Entity,
     GlobalTransform, Image, InheritedVisibility, Local, Mesh, Mesh3d, MeshMaterial3d, Name,
-    Projection, Query, Ref, Res, ResMut, StandardMaterial, TextColor, Transform, UVec2, Vec2, Vec3,
+    Projection, Query, Ref, Res, ResMut, StandardMaterial, TextColor, Transform, Vec2, Vec3,
     Visibility, With, Without,
 };
 use bevy::sprite::Anchor;
 use bevy::text::{ComputedTextBlock, PositionedGlyph, TextBounds, TextLayoutInfo};
 
+use super::gameplay::{same_viewport, PlaneCameraForCard};
 use super::paint_order::CardPaintDepth;
-use super::{source_room, CardMeshes, CardRootDepths, CardScope, RetainedEntities, TextureQuad};
-use crate::rendering::camera::coverage::ReplacedPlaneCamera;
+use super::{source_room, CardMeshes, CardRootDepths, CardScope, CardViewCamera, RetainedEntities, TextureQuad};
 use crate::rendering::primitives::WorldText;
 
 #[derive(Component)]
 pub(super) struct LabelLayoutCamera;
 
-/// Supply Bevy's text layout with the plane view's visible sprites.
-/// This camera has a projection and no render graph or window output.
+/// Supply Bevy's text layout with the card view's projection and target scale.
+/// Use the source mask to find the text. This camera has no render graph.
 pub(super) fn prepare_label_layout(
     mut commands: Commands,
-    plane: Query<
-        (Entity, &Camera, &Transform, &Projection, &RenderLayers),
-        (With<ReplacedPlaneCamera>, Without<LabelLayoutCamera>),
+    outputs: Query<
+        (Entity, &Camera, &Transform, Ref<Projection>, Ref<RenderTarget>, &PlaneCameraForCard),
+        (With<CardViewCamera>, Without<LabelLayoutCamera>),
     >,
+    sources: Query<&RenderLayers, Without<LabelLayoutCamera>>,
     mut preparation: Query<
         (
             &mut Camera,
@@ -38,43 +39,48 @@ pub(super) fn prepare_label_layout(
             &mut RenderTarget,
             &mut RenderLayers,
         ),
-        (With<LabelLayoutCamera>, Without<ReplacedPlaneCamera>),
+        With<LabelLayoutCamera>,
     >,
     mut retained: Local<RetainedEntities<Entity>>,
 ) {
-    retained.reconcile(&mut commands, |source| plane.contains(*source));
-    for (source, plane, place, projection, layers) in &plane {
-        let size = plane.physical_target_size().unwrap_or(UVec2::ONE);
+    retained.reconcile(&mut commands, |source| {
+        outputs.get(*source).is_ok_and(|(_, output, ..)| output.is_active)
+    });
+    for (source, output, place, projection, destination, plane) in &outputs {
+        if !output.is_active {
+            continue;
+        }
+        let layers = sources.get(plane.0).unwrap_or_default();
         if let Some((mut camera, mut transform, mut lens, mut target, mut mask)) = retained
             .get(&source)
             .and_then(|camera| preparation.get_mut(*camera).ok())
         {
-            let rect = |camera: &Camera| {
-                camera
-                    .viewport
-                    .as_ref()
-                    .map(|viewport| (viewport.physical_position, viewport.physical_size))
-            };
-            if rect(&camera) != rect(plane) {
-                camera.viewport.clone_from(&plane.viewport);
+            if !same_viewport(&camera.viewport, &output.viewport) {
+                camera.viewport.clone_from(&output.viewport);
             }
-            if !matches!(&*target, RenderTarget::None { size: current } if *current == size) {
-                *target = RenderTarget::None { size };
+            if camera.sub_camera_view != output.sub_camera_view {
+                camera.sub_camera_view = output.sub_camera_view;
+            }
+            if destination.is_changed() {
+                target.clone_from(&destination);
+            }
+            if destination.is_changed() || projection.is_changed() {
+                lens.clone_from(&projection);
             }
             transform.set_if_neq(*place);
-            *lens = projection.clone();
             mask.set_if_neq(layers.clone());
         } else {
             let camera = commands
                 .spawn((
                     LabelLayoutCamera,
                     Camera {
-                        viewport: plane.viewport.clone(),
+                        viewport: output.viewport.clone(),
+                        sub_camera_view: output.sub_camera_view,
                         ..Default::default()
                     },
                     *place,
-                    projection.clone(),
-                    RenderTarget::None { size },
+                    (*projection).clone(),
+                    (*destination).clone(),
                     layers.clone(),
                     Name::new("World label layout view"),
                 ))

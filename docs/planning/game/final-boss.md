@@ -8,7 +8,7 @@ giant that is a mount and a stage.
 typed characters that fall on a climbing player, an agent that carries the
 Boss on its shoulders) and
 `docs/brainstorms/good_llm_ideas/creator_agents_and_endgame.md` (the Boss
-acquiesces; "the bossofthegame is the bossofthegame until the day he dies, or
+acquiesces; "the bossofthegame is the bossofthegame until the day he dies or
 retires").
 
 Jon, 2026-11-12: *"the bossofthegame fight should mirror gnuton somewhat in
@@ -184,9 +184,8 @@ FINAL TOUR*. He speaks to his agent and not to the player:
 > **bossofthegame:** No plan. Just do it. I'm going to walk away for a few minutes.
 > **bossofthegame:** When I come back the player should be dead. Do not ask me for input.
 
-Then the encounter's intro (`intro_seconds`): Full Stack strikes its first
-chord and the name card shows (*the bossofthegame*, title *until the day he
-retires*).
+Full Stack strikes its first chord in the encounter intro (`intro_seconds`).
+The name card adds *or retires* after *Until the day he dies…*.
 
 ### Phase 1 — "Make No Mistakes" (100% to 66%)
 

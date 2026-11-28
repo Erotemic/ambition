@@ -35,6 +35,8 @@
 //! - `actor.shove <character> <radius>`: each body of the character throws
 //!   back every other body within `radius` pixels of it in its room, away from
 //!   it and off its feet (a launch, as a blow's is; it deals no damage).
+//! - `actor.push <character> <vx> <vy>`: apply a push to those bodies. The
+//!   room uses world axes and pixels per second for the velocity.
 //! - `actor.fight <character> <other character>`: each body of the character
 //!   takes the nearest live body of the other character in its room as its
 //!   foe, as a provocation does (hostile, a grudge, its character's provoked
@@ -146,6 +148,16 @@ const SPACING: ParamSpec = ParamSpec {
     name: "spacing",
     kind: ParamKind::Number,
     summary: "horizontal pixels between bodies, in simulation identity order; negative goes left",
+};
+const PUSH_X: ParamSpec = ParamSpec {
+    name: "vx",
+    kind: ParamKind::Number,
+    summary: "horizontal world velocity in pixels per second",
+};
+const PUSH_Y: ParamSpec = ParamSpec {
+    name: "vy",
+    kind: ParamKind::Number,
+    summary: "vertical world velocity in pixels per second",
 };
 
 const ITEM_PLACEMENT: ParamSpec = ParamSpec {
@@ -272,6 +284,14 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
             params: &[CHARACTER, RADIUS],
         },
         shove,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "push"),
+            summary: "push the named bodies at a specified velocity without damage or hitstun",
+            params: &[CHARACTER, PUSH_X, PUSH_Y],
+        },
+        push,
     );
     app.publish_command(
         CommandDescriptor {
@@ -805,6 +825,28 @@ fn hold(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d
         world.entity_mut(body).insert(held);
     }
     CommandOutcome::Done
+}
+
+fn push(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let (Some(character), Some(vx), Some(vy)) = (Who::of(&args[0]), args[1].as_number(), args[2].as_number()) else {
+        return CommandOutcome::refused("`actor.push` takes a character and a velocity");
+    };
+    let velocity = ae::Vec2::new(vx as f32, vy as f32);
+    if !velocity.is_finite() {
+        return CommandOutcome::refused("`actor.push` needs a finite velocity");
+    }
+    let cast = match cast_of(world, character, context.room) {
+        Ok(cast) => cast,
+        Err(why) => return CommandOutcome::refused(why),
+    };
+    let mut applied = false;
+    for (body, _, _) in cast {
+        if let Some(mut flight) = world.get_mut::<ae::BodyFlightState>(body) {
+            flight.stage_launch(velocity, true, Default::default());
+            applied = true;
+        }
+    }
+    if applied { CommandOutcome::Done } else { CommandOutcome::refused("no body of the character can take the push") }
 }
 
 /// How fast a shove throws a body at its middle; at its edge, slower.

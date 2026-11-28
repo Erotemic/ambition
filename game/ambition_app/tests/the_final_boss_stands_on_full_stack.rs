@@ -241,9 +241,13 @@ fn his_named_agents_join_the_fight() {
 #[test]
 fn the_stage_defeat_leaves_the_boss_alive_and_the_game_open() {
     use ambition_app::AgentAction;
+    use ambition_platformer2d::actors::body::{direction::Posed, navigation::NavigationAdvice, visit::Visit};
+    use ambition_platformer2d::boss_encounter::BossEncounter;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
     use ambition_platformer2d::cutscene::ActiveCutscene;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::platformer::schedule::GameMode;
     use crate::common::walk::{Pad, walk_through, walk_to};
 
     const PLACEMENT: &str = "boss_stage.bossofthegame";
@@ -274,16 +278,53 @@ fn the_stage_defeat_leaves_the_boss_alive_and_the_game_open() {
     }
     assert!(saw_lead && saw_full, "show both parts of the title");
 
-    let start_x = boss(&mut sim).pos.x;
-    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, PLACEMENT, 420);
+    let can_fight = |sim: &ambition_app::Platformer2dSimHarness| {
+        sim.world().resource::<State<GameMode>>().get().allows_gameplay()
+            && !sim.world().resource::<ActiveCutscene>().is_playing()
+            && sim.world().get::<BossEncounter>(boss_entity).unwrap().encounter.as_ref()
+            .is_some_and(|phase| !phase.boss_invulnerable())
+    };
+    for tick in 0..420 {
+        if can_fight(&sim) {
+            break;
+        }
+        advance(&mut sim, tick);
+    }
+    assert!(can_fight(&sim), "combat opens after the introduction, mode={:?}, scene={:?}",
+        sim.world().resource::<State<GameMode>>().get(),
+        sim.world().resource::<ActiveCutscene>().iter().map(|scene| scene.line()).collect::<Vec<_>>());
+    let at = boss(&mut sim).pos;
+    sim.world_mut().write_message(HitEvent {
+        target: HitTarget::Feature(boss_entity),
+        volume: ae::Aabb::new(at, ae::Vec2::splat(64.0)).into(),
+        damage: 9_999,
+        source: HitSource::Projectile,
+        mode: HitMode::Knockback,
+        attacker: None,
+        room: None,
+        status: None,
+        origin: None,
+        properties: Default::default(),
+        contact: None,
+        pieces: Vec::new(),
+        knockback: None,
+        ignored_targets: Vec::new(),
+        strike_sfx: None,
+        attacker_move_instance: None,
+    });
+    sim.step_n(base(), 3);
+    assert_eq!(sim.world().get::<BodyHealth>(boss_entity).unwrap().current(), 1,
+        "the last hit leaves the boss with enough health to leave");
     let mut left_its_saddle = false;
     let mut walked = false;
+    let mut saw_getup = false;
     for tick in 0..1700 {
         advance(&mut sim, tick);
         if let Some(body) = sim.world().get::<ae::BodyKinematics>(boss_entity) {
             assert!(sim.world().get::<BodyHealth>(boss_entity).unwrap().alive(), "the boss yields alive");
             left_its_saddle |= sim.world().get::<ambition_platformer2d::mount::RidingOn>(boss_entity).is_none();
-            walked |= body.pos.x > start_x + 250.0;
+            walked |= saw_getup && body.pos.x > at.x + 450.0;
+            saw_getup |= sim.world().get::<Posed>(boss_entity).is_some_and(|pose| pose.row == "getup");
         }
         if sim.world().get_entity(boss_entity).is_err()
             && !sim.world().resource::<ActiveCutscene>().is_playing()
@@ -291,7 +332,12 @@ fn the_stage_defeat_leaves_the_boss_alive_and_the_game_open() {
             break;
         }
     }
-    assert!(left_its_saddle && walked, "the body from the fight walks to the exit");
+    assert!(left_its_saddle && saw_getup && walked,
+        "the boss gets up and walks to the exit: dismounted={left_its_saddle}, getup={saw_getup}, walked={walked}, start={at:?}, end={:?}, ground={:?}, visit={:?}, route={:?}",
+        sim.world().get::<ae::BodyKinematics>(boss_entity).map(|body| body.pos),
+        sim.world().get::<ae::BodyGroundState>(boss_entity),
+        sim.world().get::<Visit>(boss_entity),
+        sim.world().resource::<NavigationAdvice>().of(boss_entity).errand);
     assert!(sim.world().get_entity(boss_entity).is_err(), "the stage body went through the door");
     assert!(crate::boss_lifecycle::boss_cleared(&sim, PLACEMENT));
 

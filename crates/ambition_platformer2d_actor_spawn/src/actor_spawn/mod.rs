@@ -921,12 +921,8 @@ fn compose_boss_role(
     // toggles a boss: it spawns flying and must stay flying, because its
     // `BossPattern` brain steers ONLY by commanding an exact velocity and only
     // the flight limb reads that. A toggle here costs the boss its legs.
-    let movement_kit = ae::AbilitySet {
-        fly: true,
-        fly_toggle: false,
-        ..ae::AbilitySet::NONE
-    };
-    seed.body = ambition_body_seed::ActorBody::from_abilities(movement_kit, true, kin.size());
+    let form = ambition_boss_encounter::BOSS_BODY_FORM;
+    seed.body = ambition_body_seed::ActorBody::from_abilities(form.abilities, form.free_flight, kin.size());
     let tuning = &mut seed.config.tuning;
     // The BossPattern brain commands an exact per-tick velocity, so the flight
     // limb takes it verbatim (AS4c).
@@ -1108,7 +1104,7 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     // never read the character.
     let role_locomotion = ambition_characters::actor::CharacterLocomotion {
         run_speed: BOSS_FLIGHT_SPEED,
-        baseline_free_flight: Some(true),
+        baseline_free_flight: Some(ambition_boss_encounter::BOSS_BODY_FORM.free_flight),
         ..character.locomotion.clone().unwrap_or_default()
     };
     let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(

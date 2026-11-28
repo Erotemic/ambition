@@ -2004,7 +2004,6 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
-            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "base"],
         barks: (
             on_hit: ["Gah! Watch it!", "Dirty trick!", "I'll remember that!"],
@@ -2029,7 +2028,6 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
-            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "base", "smash_skin"],
             // A look of the goblin says what the goblin says.
             barks: (
@@ -2055,7 +2053,6 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
-            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "base", "smash_skin"],
             // A look of the goblin says what the goblin says.
             barks: (
@@ -2236,7 +2233,6 @@
                 chase_effort: 1.0,
             )),
             max_health: Some(8),
-            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "goblin", "heavy"],
         barks: (
             on_hit: ["Rrrgh!", "Little thing hits back!", "Brute not done!"],
@@ -3728,8 +3724,8 @@
         barks: (
             on_hit: ["That's not on the map!", "I'll redraw your face!", "Uncharted aggression!"],
             provoked: ["You've wandered off the safe zone!"],
-            idle: ["Everything is mappable, given enough patience.", "The blank space on the map isn't empty — it's undiscovered."],
-            hall: ["Message for Bob. As ever. Don't read over my shoulder.", "I send. Whether it arrives unread is the whole science."],
+            idle: ["I need another reading from the hill.", "Leave room on that sheet for Bob's measurements."],
+            hall: ["I should check that scale again.", "Bob will have the other half of this survey."],
         ),
         hall_dialogue_id: Some("hall_npc_alice"),
         ),
@@ -3755,7 +3751,7 @@
             on_hit: ["Not cool.", "I was just trying to help.", "Why?!"],
             provoked: ["Okay, NOW I'm drawing a threat on the map."],
             idle: ["Alice has the maps. I have the snacks.", "Someone has to hold the other end of the measuring tape."],
-            hall: ["Got a message. Is it really from Alice? Hard question.", "Reply, and suddenly I'm the sender. The roles never sit still."],
+            hall: ["Alice will want that chain back.", "I should check which version of the map this is."],
         ),
         hall_dialogue_id: Some("hall_npc_bob"),
         ),
@@ -3783,7 +3779,7 @@
             on_hit: ["Ow. That's my good arm.", "Not the bench!", "Scout, behind you!"],
             provoked: ["Get out of my workshop!"],
             idle: ["Where did I put the gauge.", "Twelve newton-metres. Twelve."],
-            hall: ["I left the 'purpose' field blank on purpose. Best, worst decision.", "Watching the thing you made walk away is the whole job."],
+            hall: ["I ought to sharpen that pencil.", "Have you tried it yourself? Let me know what happens."],
         ),
         hall_dialogue_id: Some("hall_npc_creator"),
         ),
@@ -3816,8 +3812,8 @@
         barks: (
             on_hit: ["Quit messing with my tools!", "Spanner's just decorative? Think again.", "That dented my dignity."],
             provoked: ["Maintenance mode: hostile!"],
-            idle: ["It's always the actuator.", "Lubrication is 90% of uptime.", "Torque first, questions later."],
-            hall: ["That squeak? I hear it. It'll cost someone a leg later.", "Nobody reads the maintenance log. It's a good log. Tragic, really."],
+            idle: ["Check the bearing before you order a new motor.", "A little grease should do it.", "Let me see how it moves under load."],
+            hall: ["Have a seat. I'll be with you in a minute.", "I keep the old parts in the bottom drawer."],
         ),
         hall_dialogue_id: Some("hall_npc_oiler"),
         ),
@@ -3837,8 +3833,8 @@
             default_action_set: "bare_hands",
             tags: ["story", "mechanic", "peaceful"],
             barks: (
-                idle: ["Hold still. I'm nearly done with your everything.", "Oiler says measure twice. I measure once and listen."],
-                hall: ["First thing I ever fixed was a clock. It ran better after. Faster, too.", "Trust me. Mostly.", "Oiler taught me every bolt in town. I'm teaching myself the rest.", "Fingerless gloves. You can't hear a bearing through leather."],
+                idle: ["You can move it now. How does that feel?", "Oiler, could you look at this when you have a moment?"],
+                hall: ["I saved a place for you by the bench.", "Tell me if it hurts when you move.", "Oiler showed me how to make that part.", "I need to finish this before the owner comes back."],
             ),
             hall_dialogue_id: Some("hall_npc_fia"),
         ),
@@ -3977,7 +3973,6 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
-            death_traits: Some((corpse: Some(Fade))),
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
             on_hit: ["Ow! Nobody said it was awake!", "Paid in advance, lads!", "Grab its legs!", "That's coming out of your share!"],
@@ -4228,7 +4223,7 @@
             on_hit: ["Really?", "Was that necessary?", "I was having a nice day."],
             provoked: ["Don't make me regret this!"],
             idle: ["Things could be worse.", "I try to stay positive. It's exhausting.", "This is fine."],
-            hall: ["I'm not doing anything. I'm only listening. To all of it.", "Scramble your words, or assume I have them. Those are the options."],
+            hall: ["Oh, another message.", "They've encrypted this one as well."],
         ),
         hall_dialogue_id: Some("hall_npc_eve"),
         ),
@@ -4595,7 +4590,7 @@
             on_hit: ["Watch where you're swinging!", "Personal space!", "That's one."],
             provoked: ["Mallory keeps score."],
             idle: ["I know things I'm not supposed to know.", "The useful information is always adjacent to the useless information.", "I've noticed some patterns. I keep them to myself."],
-            hall: ["Eve just listens. I edit. Big difference.", "Whatever you were told, I may have improved it in transit."],
+            hall: ["I'd move that decimal one place to the left.", "Has Bob checked the signature yet?"],
         ),
         hall_dialogue_id: Some("hall_npc_mallory"),
         ),

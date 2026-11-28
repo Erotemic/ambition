@@ -17,7 +17,7 @@
 use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use bevy::{
     asset::RenderAssetUsages,
-    camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems},
+    camera::visibility::NoFrustumCulling,
     math::Vec2,
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     prelude::*,
@@ -27,7 +27,7 @@ use bevy::{
         SpecializedMeshPipelineError,
     },
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin},
 };
 
 use ambition_platformer2d_core as ae;
@@ -35,6 +35,7 @@ use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::frame::thread::{HalfPlane, VolumePiece};
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomOf, LiveRooms};
 use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+use crate::rendering::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
 
 /// Triangles with a colour at each corner (linear RGBA), world space (+y
 /// down).
@@ -162,13 +163,6 @@ struct FoldMaterials {
     blended: Handle<ColorMaterial>,
 }
 
-/// Prepared geometry and material for a planar draw.
-#[derive(Component)]
-pub(crate) struct PreparedPlanarMesh<M: Asset> {
-    pub mesh: Handle<Mesh>,
-    pub material: Handle<M>,
-}
-
 /// The set the writer runs in: a producer of a [`FoldedMesh`] runs before it.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FoldedMeshSync;
@@ -205,6 +199,9 @@ impl Plugin for FoldedMeshPlugin {
             return;
         };
         app.insert_resource(FoldMaterials { added, blended });
+        install_planar_mesh_2d::<ColorMaterial>(app);
+        #[cfg(not(target_os = "android"))]
+        install_planar_mesh_2d::<AddedLightMaterial>(app);
         use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
         app.configure_sets(
             Update,
@@ -215,14 +212,6 @@ impl Plugin for FoldedMeshPlugin {
                 .run_if(session_world_exists),
         );
         app.add_systems(Update, prepare_folded_meshes.in_set(FoldedMeshSync));
-        app.add_systems(
-            PostUpdate,
-            draw_folded_meshes_2d
-                .run_if(any_with_component::<FoldedMesh>)
-                .after(bevy::camera::CameraUpdateSystems)
-                .after(crate::rendering::view_isolation::isolate_live_rooms)
-                .before(VisibilitySystems::CheckVisibility),
-        );
     }
 }
 
@@ -365,45 +354,11 @@ fn prepare_folded_meshes(
     }
 }
 
-/// Bind a mesh when a 2D camera uses its layers. Portal captures can use the
-/// mesh while the main output draws in 2.5D.
-fn draw_folded_meshes_2d(
-    mut commands: Commands,
-    cameras: Query<(&Camera, Option<&RenderLayers>), With<Camera2d>>,
-    effects: Query<(
-        Entity, Option<&RenderLayers>, Option<&Mesh2d>,
-        Option<&PreparedPlanarMesh<AddedLightMaterial>>, Option<&PreparedPlanarMesh<ColorMaterial>>,
-        Option<&MeshMaterial2d<AddedLightMaterial>>, Option<&MeshMaterial2d<ColorMaterial>>,
-    ), With<FoldedMesh>>,
-) {
-    let masks: Vec<_> = cameras.iter().filter_map(|(camera, mask)| {
-        camera.is_active.then(|| mask.unwrap_or_default())
-    }).collect();
-    for (id, layers, drawn, added, blended, light, color) in &effects {
-        let wanted = masks.iter().any(|mask| mask.intersects(layers.unwrap_or_default()));
-        if !wanted {
-            if drawn.is_some() {
-                commands.entity(id).remove::<(Mesh2d, MeshMaterial2d<AddedLightMaterial>, MeshMaterial2d<ColorMaterial>)>();
-            }
-        } else if let Some(draw) = added {
-            if drawn.is_none_or(|mesh| mesh.0 != draw.mesh) || light.is_none_or(|material| material.0 != draw.material) {
-                commands.entity(id)
-                    .remove::<MeshMaterial2d<ColorMaterial>>()
-                    .insert((Mesh2d(draw.mesh.clone()), MeshMaterial2d(draw.material.clone())));
-            }
-        } else if let Some(draw) = blended {
-            if drawn.is_none_or(|mesh| mesh.0 != draw.mesh) || color.is_none_or(|material| material.0 != draw.material) {
-                commands.entity(id)
-                    .remove::<MeshMaterial2d<AddedLightMaterial>>()
-                    .insert((Mesh2d(draw.mesh.clone()), MeshMaterial2d(draw.material.clone())));
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::camera::visibility::RenderLayers;
+    use bevy::sprite_render::MeshMaterial2d;
     use ambition_platformer2d_core::frame::thread::{partition, PieceBudget, PortalLink};
     use ambition_platformer2d_core::frame::{MapConvention, PortalAperture, PortalFrame};
 
@@ -450,7 +405,9 @@ mod tests {
             layer.clone(),
         )).id();
         world.spawn((Camera2d, RenderLayers::layer(8)));
-        app.add_systems(Update, (prepare_folded_meshes, draw_folded_meshes_2d).chain());
+        app.add_systems(Update, prepare_folded_meshes);
+        install_planar_mesh_2d::<ColorMaterial>(&mut app);
+        install_planar_mesh_2d::<AddedLightMaterial>(&mut app);
 
         app.update();
         let mesh = app.world().get::<PreparedPlanarMesh<ColorMaterial>>(effect).unwrap().mesh.clone();

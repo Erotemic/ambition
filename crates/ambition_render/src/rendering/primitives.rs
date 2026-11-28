@@ -16,22 +16,12 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSes
 // (content-free, so sim systems can tag visuals without importing
 // presentation).
 pub use ambition_platformer2d_shared_tangle::lifecycle::{
-    LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual,
+    AnimatedWorldSpriteTint, LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual, WorldSprite,
 };
-
-/// A sprite with a position in the world. Both outputs draw it at that
-/// position and use its world draw order.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct WorldSprite;
 
 /// Text placed in the world and drawn by both outputs.
 #[derive(Component, Default)]
 pub struct WorldText;
-
-/// The sprite changes color while it is visible. Keep its card material.
-#[derive(Component, Default)]
-#[require(WorldSprite)]
-pub struct AnimatedWorldSpriteTint;
 
 /// Standing-stance render size of the textured player sprite, recorded when
 /// the sprite is built. The crouch squash in `sync_visuals` uses it to scale

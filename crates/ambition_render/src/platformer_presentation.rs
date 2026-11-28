@@ -33,6 +33,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         // Room visuals include world labels, so this composition also installs their layout pass.
         // `WorldLabelLayoutPlugin` is idempotent.
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);
+        crate::rendering::planar_mesh::install_planar_mesh_2d::<bevy::sprite_render::ColorMaterial>(app);
         // Room/parallax passes consume the resolved quality budget; install its idempotent owner.
         app.add_plugins(crate::quality::VisualQualityPlugin);
         if !app.is_plugin_added::<crate::late_mesh_specialization::LateMeshSpecializationPlugin>() {

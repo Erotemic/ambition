@@ -165,16 +165,16 @@ title: frontier_inn_alice
 ---
 <<present_speaker "npc_alice">>
 <<if verdict("world.flag_set", "frontier_inn_alice_met") == "satisfied">>
-    Alice: Still here. Still lying down. Go and see the mechanic, we'll be an hour at least.
+    Alice: Still here. Bob's just managed to sit up. We'll be a while yet; go and see the mechanic if you haven't.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_inn_alice_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_inn_alice_met" true>>
     Alice: This isn't where we meant to come out. The dialer back home only had the one line working after the bear.
-    Alice: We need an hour flat on our backs, and then we'll find the way to the city from here.
+    Alice: Bob and I need about an hour before we can set off again. We'll look at the routes to the city when we can read a map without feeling worse.
     -> What should I do?
         Alice: That bear knocked you about. There's a mechanic over the trestle, on Sprocket Row, if you want somebody to check your joints.
     -> I'll wait with you.
-        Alice: Thanks. Could you put that bucket a little nearer Bob? Go and look round if you like.
+        Alice: Thanks. Could you put that bucket between the cots? Bob says he's fine. He's gone a funny colour.
 <<else>>
     <<stop>>
 <<endif>>
@@ -183,12 +183,12 @@ title: frontier_inn_bob
 ---
 <<present_speaker "npc_bob">>
 <<if verdict("world.flag_set", "frontier_inn_bob_met") == "satisfied">>
-    Bob: Still not ready to stand up.
+    Bob: Tell Alice I'll be up in a minute. On second thoughts, make that ten.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_inn_bob_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_inn_bob_met" true>>
-    Bob: Every time. Every single gate.
-    Bob: I'm adding this town to the map once the room stops moving. Halfway Siding. I'll draw it lying down.
+    Bob: I told Alice I'd carry the instruments this time. I barely got them as far as the inn.
+    Bob: Halfway Siding. I've got the name written down at least. I'll ask Alice to check the spelling when she's feeling better.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -204,8 +204,8 @@ title: frontier_mechanic
     <<command "world.set_flag" "frontier_mechanic_met" true>>
     Hettie: Hettie Gimbal. Pumps, windmills, wagons, the odd automaton. What's broken?
     -> Nothing, I think. A friend said to come and see you.
-        Hettie: Turn round. Hm. A dent, a scuff, nothing loose. You're fine.
-        Hettie: Come back when something actually falls off. I'll do it cheap.
+        Hettie: Turn round. Lift that foot. Hm. A dent, a scuff, nothing loose. You're fine.
+        Hettie: If it starts rattling under load, bring it back before it drops off. Saves us both work.
     -> ‹go›
 <<else>>
     <<stop>>

@@ -18,7 +18,7 @@ use bevy::color::Alpha;
 use ambition_platformer2d_core::AabbExt;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, RoomWrite, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, AnimatedWorldSpriteTint, RoomWrite, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
 #[cfg(feature = "physics_debris")]
@@ -66,6 +66,7 @@ pub struct PhysicsRoomFloor;
 /// A short-lived body for a fragment or impact effect.
 #[cfg(feature = "physics_debris")]
 #[derive(Component, Clone, Copy, Debug)]
+#[require(AnimatedWorldSpriteTint)]
 pub struct PhysicsDebris {
     pub lifetime: f32,
 }

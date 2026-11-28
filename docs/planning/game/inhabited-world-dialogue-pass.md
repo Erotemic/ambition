@@ -215,3 +215,21 @@ false explanation of the actual concept (for example, soft attention is not
 necessarily exclusive to one item, and a runtime Busy Beaver maximizes steps
 rather than output). This pass changes speech only; the new small anecdotes
 are provisional and no mechanics or locations are changed.
+
+## Follow-up: recurring cast and continuity
+
+Keep the existing rural opening's tasks and player choice order. Alice and
+Bob know each other's surveying habits and work together; do not turn their
+relationship into a player-selected or discussed romance. Field conversations
+should not assume the later cryptography arc has already happened. Eve may
+listen without necessarily intending harm; Mallory changes messages, and
+signature checks depend on verifying the intended sender's public key.
+Dennis builds Scout, and the locals know him as Dennis. Oiler's repair response
+must make sense after either offered answer. Oiler teaches rather than belittles
+an inexperienced repair customer. Fia's early kindness should be sincere; her
+later strategic behavior should develop in the story rather than be announced
+in idle barks. The Hall transformation remains a preview, not an explanation
+of the origin of her void forms. The Business Dimension's distribution rules
+foreshadow the cartography conflict without asserting an arrest already happened.
+New small anecdotes are provisional; no progression, map, or character mechanics
+are added in this pass.

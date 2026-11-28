@@ -83,6 +83,12 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_render::",
         "presentation: draws the sim, never authors it",
     ),
+    // A drawn effect is in the population only because it carries the
+    // live-room stamp (`InRoomInstance`) that the rollback vocabulary names.
+    (
+        "ambition_platformer2d_shared_tangle::lifecycle::markers::WorldSprite",
+        "presentation: marks a sprite both world renderers draw; only the renderers read it",
+    ),
     ("ambition_vfx::", "presentation effects"),
     ("ambition_sfx::", "presentation audio"),
     ("ambition_audio::", "presentation audio"),
@@ -1642,6 +1648,28 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          rings, written at composition time and restated only by the reload \
          transaction, at its publication boundary. The live links and the open \
          terminal are rollback state, in `GateNetworkState`",
+    ),
+    (
+        "ambition_content::gate_network::GateWordsResource",
+        "what a terminal shows of the dialed chevrons (`gate_network.ron`), written \
+         at composition time beside `GateNetworkCatalog` and restated only by the \
+         reload transaction, at its publication boundary",
+    ),
+    (
+        "ambition_content::gate_network::GateDirectoryResource",
+        "what Ambition's terminals list (`gate_directory.ron`), written at \
+         composition time and restated only by the reload transaction, at its \
+         publication boundary",
+    ),
+    (
+        "ambition_platformer2d_world::rooms::gate_network::GateAddressRule",
+        "the game's address spelling, a function the game inserts at composition; \
+         never written again",
+    ),
+    (
+        "ambition_platformer2d_core::crush::CrushPolicy",
+        "the game's authored crush policy, inserted at composition from its \
+         gameplay defaults; never written while the game runs",
     ),
     ("::world_manifest::WorldManifest", "authored world manifest"),
     (

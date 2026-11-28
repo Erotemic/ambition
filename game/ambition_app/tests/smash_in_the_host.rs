@@ -37,6 +37,14 @@ use leafwing_input_manager::prelude::Buttonlike;
 /// ("Start does not add a CPU", "there is no start on a keyboard") lived in the
 /// span between a key and that resource, which hand-set frames skip over.
 fn shell_host_app() -> App {
+    shell_host_app_booting_to(None)
+}
+
+/// [`shell_host_app`], booting to `route` when one is named: the road
+/// `AMBITION_BOOT_ROUTE` takes. A `GoTo` written before the first update is
+/// not that road: the shell's own `Initialize` follows it in the same frame
+/// and replaces it with the launcher.
+fn shell_host_app_booting_to(route: Option<&str>) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     // PINNED, because `app.update()` is otherwise a unit of WALL CLOCK.
@@ -52,7 +60,10 @@ fn shell_host_app() -> App {
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
-    shell_host::compose_ambition_shell_host(&mut app);
+    match route {
+        Some(route) => shell_host::compose_ambition_shell_host_booting_to(&mut app, route),
+        None => shell_host::compose_ambition_shell_host(&mut app),
+    }
     app
 }
 
@@ -5422,17 +5433,19 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
             &InputMap<InputAction>,
             With<ambition_platformer2d::input::InputParticipant>,
         >();
+        // The pad's seat: the keyboard's seat binds no button, and the query
+        // states no order between the two.
         let bound: Vec<PhysicalControl> = q
             .iter(world)
-            .next()
             .map(|map| {
                 ActionBindings::from_map(map)
                     .controls(&InputAction::Grab)
                     .iter()
                     .filter(|control| matches!(control, PhysicalControl::Button(_)))
                     .cloned()
-                    .collect()
+                    .collect::<Vec<_>>()
             })
+            .find(|buttons| !buttons.is_empty())
             .unwrap_or_default();
         assert_eq!(
             bound,
@@ -5846,18 +5859,19 @@ fn quitting_a_smash_match_gives_the_pad_back() {
             &InputMap<InputAction>,
             With<ambition_platformer2d::input::InputParticipant>,
         >();
-        // Any seat: the layout is a fact about the GAME, so every participant
-        // in the composition carries the same answer.
+        // Any seat that has a pad: the layout is a fact about the GAME, so
+        // every pad seat carries the same answer. A keyboard seat binds no
+        // button, and the query states no order between seats.
         q.iter(world)
-            .next()
             .map(|map| {
                 ActionBindings::from_map(map)
                     .controls(&action)
                     .iter()
                     .filter(|control| matches!(control, PhysicalControl::Button(_)))
                     .cloned()
-                    .collect()
+                    .collect::<Vec<_>>()
             })
+            .find(|buttons| !buttons.is_empty())
             .unwrap_or_default()
     }
 
@@ -8657,13 +8671,9 @@ fn an_unattended_four_cpu_smash_profile_enters_a_live_round() {
 fn assert_unattended_smash_profile_enters_live_match(profile: &str, expected_seats: usize) {
     use ambition_platformer2d::actor::{ControllerBinding, MatchParticipantRoster, MatchSeat};
     use ambition_platformer2d::characters::control::ControlHolds;
-    use ambition_platformer2d::game_shell::ShellRouteId;
     use ambition_platformer2d::input::SessionSeatingSource;
-    let mut app = shell_host_app();
+    let mut app = shell_host_app_booting_to(Some(ambition_demo_smash::SMASH_SELECT_ROUTE));
     ambition_platformer2d::scripted_input::install_autoplay(&mut app, profile);
-    app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
-        ambition_demo_smash::SMASH_SELECT_ROUTE,
-    )));
 
     let mut went_live = false;
     for _ in 0..700 {

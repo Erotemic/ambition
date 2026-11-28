@@ -2580,8 +2580,8 @@ fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
     let sampled = app.world().get::<RiggedLocalSample>(owner).unwrap().draws.len();
     let shown = cards(&mut app);
     assert_eq!(shown.len(), 2 * sampled, "part by part, a silhouette over each card");
-    assert_eq!(shown[1].base_color.alpha(), 0.75, "as strong as the cue");
-    assert_eq!(shown[1].emissive, Color::srgb(1.0, 0.5, 0.0).to_linear(), "in the cue's colour");
+    assert!((shown[1].base_color.alpha() - cue.intensity).abs() <= 0.5 / 255.0);
+    assert_eq!(shown[1].emissive, Color::srgb_u8(255, 128, 0).to_linear());
     app.world_mut().entity_mut(root).insert(PresentedFlash::default());
     app.update();
     assert_eq!(cards(&mut app).len(), sampled, "no cue, no silhouette");

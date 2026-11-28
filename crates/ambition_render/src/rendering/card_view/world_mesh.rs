@@ -24,7 +24,7 @@ use bevy::sprite_render::{AlphaMode2d, ColorMaterial, Material2d, MeshMaterial2d
 use bevy::transform::TransformSystems;
 
 use super::{EARTH_BEHIND_SKIN, TERRAIN_DEPTH, sprite_material};
-use super::{CardBodyRepresentation, CardDepth, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
+use super::{CardBodyRepresentation, CardDepth, CardRootDepths, CardScope, CardViewSettings, RetainedEntities};
 #[cfg(feature = "portal_render")]
 use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, WornGearVisual};
 use super::paint_order::CardPaintDepth;
@@ -148,15 +148,12 @@ where
     }
 }
 
-fn cards_are_visible(settings: Option<Res<CardViewSettings>>) -> bool {
-    settings.is_some_and(|settings| settings.mode != CardViewMode::Plane)
-}
-
 fn cards_are_visible_or_were(
     settings: Option<Res<CardViewSettings>>,
+    views: Query<(), With<ambition_sim_view::LocalView>>,
     mut previous: Local<bool>,
 ) -> bool {
-    let active = cards_are_visible(settings);
+    let active = super::wants_card_outputs(settings.as_deref(), !views.is_empty());
     active | std::mem::replace(&mut *previous, active)
 }
 
@@ -323,10 +320,11 @@ fn realize_color_meshes(
     mut used: Local<HashSet<AssetId<ColorMaterial>>>,
     mut products: MeshProducts<StandardMaterial>,
     settings: Option<Res<CardViewSettings>>,
+    views: Query<(), With<ambition_sim_view::LocalView>>,
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
 ) {
-    if !cards_are_visible(settings) {
+    if !super::wants_card_outputs(settings.as_deref(), !views.is_empty()) {
         by_material.clear();
         return;
     }
@@ -430,11 +428,12 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     mut used: Local<HashSet<AssetId<M>>>,
     mut products: MeshProducts<CardMaterial<M>>,
     settings: Option<Res<CardViewSettings>>,
+    views: Query<(), With<ambition_sim_view::LocalView>>,
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
     #[cfg(feature = "portal_render")] portal: PortalMeshPlacement,
 ) {
-    if !cards_are_visible(settings) {
+    if !super::wants_card_outputs(settings.as_deref(), !views.is_empty()) {
         by_material.clear();
         return;
     }
@@ -509,8 +508,9 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_sim_view::LocalView;
     use crate::rendering::hit_flash::{HitFlashMaterial, FLASH_OVERLAY_Z_BIAS};
-    use super::super::CardBodyDepth;
+    use super::super::{CardBodyDepth, CardViewMode};
 
     #[test]
     fn terrain_cards_draw_untextured_earth_and_keep_skin_layer_order() {
@@ -525,6 +525,7 @@ mod tests {
                 crate::rendering::chain_skin::build_chain_earth_meshes, realize_color_meshes,
             ).chain());
         let world = app.world_mut();
+        world.spawn(LocalView);
         let ground = ae::World::new("hill", ae::Vec2::new(80.0, 48.0), ae::Vec2::ZERO, Vec::new());
         let hill = ChainEarth::under(&ground, &[ae::Vec2::new(0.0, 20.0), ae::Vec2::new(80.0, 28.0)], None);
         let earth_z = WORLD_Z_BLOCK - 0.5;
@@ -590,6 +591,7 @@ mod tests {
             .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
             .add_systems(Update, realize_shaded_meshes::<AddedLightMaterial>);
         let world = app.world_mut();
+        world.spawn(LocalView);
         let source_material = world.resource_mut::<Assets<AddedLightMaterial>>()
             .add(AddedLightMaterial { strength: Vec4::ONE });
         let source = world.spawn((
@@ -629,6 +631,7 @@ mod tests {
             .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
             .add_systems(Update, realize_shaded_meshes::<PortalClipMaterial>);
         let world = app.world_mut();
+        world.spawn(LocalView);
         let root = world.spawn_empty().id();
         let depths = &mut *world.resource_mut::<CardRootDepths>();
         depths.fronts.insert(None, 7.5);
@@ -710,6 +713,7 @@ mod tests {
             .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
             .add_systems(Update, realize_shaded_meshes::<HitFlashMaterial>);
         let world = app.world_mut();
+        world.spawn(LocalView);
         let material = world.resource_mut::<Assets<HitFlashMaterial>>().add(HitFlashMaterial {
             uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0),
             control: Vec4::new(0.8, 0.0, 0.7, 1.0),

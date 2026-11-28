@@ -875,6 +875,11 @@ shared value preparation are sufficient until source proves otherwise.
    Their paint order follows their source depth between the bodies of the
    same room. A light can overlap another body without moving to its plane.
 
+   Card caches keep meshes and materials that a draw used recently.
+   Hidden sprite cards release their handles. The last view releases the card
+   products when it closes. The cache uses the same rounded color for
+   the flash key and the flash material.
+
    Both renderers draw emitted trails and retained debug lines from the same
    line buffers. Each card camera draws the lines for its room and local
    view. Switching to 2D removes the card draws and keeps the line buffers.

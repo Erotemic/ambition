@@ -81,6 +81,7 @@
 //! The card view also uses the 2D view's portal capture texture. A body
 //! split across an opening still needs its own presentation.
 
+mod asset_cache;
 mod drawings;
 mod gameplay;
 mod labels;
@@ -92,6 +93,7 @@ mod portal_windows;
 pub use world_mesh::{install_card_mesh_material, CardMaterialSource};
 pub(crate) use gameplay::PlaneCameraForCard;
 
+use asset_cache::RecentAsset;
 use gameplay::CardScope;
 use std::collections::HashMap;
 
@@ -482,6 +484,7 @@ impl Plugin for CardViewPlugin {
                 .chain()
                 .before(bevy::camera::CameraUpdateSystems),
         );
+        app.add_systems(Last, prune_card_cache.run_if(card_outputs_enabled));
         app.add_systems(
             PostUpdate,
             labels::prepare_label_layout
@@ -523,23 +526,33 @@ impl Plugin for CardViewPlugin {
     }
 }
 
-fn card_outputs_enabled(settings: Res<CardViewSettings>) -> bool {
-    settings.mode != CardViewMode::Plane
+fn wants_card_outputs(settings: Option<&CardViewSettings>, has_views: bool) -> bool {
+    has_views && settings.is_some_and(|settings| settings.mode != CardViewMode::Plane)
+}
+
+fn card_outputs_enabled(
+    settings: Res<CardViewSettings>,
+    views: Query<(), With<ambition_sim_view::LocalView>>,
+) -> bool {
+    wants_card_outputs(Some(&settings), !views.is_empty())
 }
 
 fn retire_card_outputs(
     settings: Res<CardViewSettings>,
+    views: Query<(), With<ambition_sim_view::LocalView>>,
     mut commands: Commands,
     outputs: Query<Entity, Or<(With<CardScope>, With<CardBody>, With<CardViewCamera>)>>,
     mut meshes: ResMut<CardMeshes>,
 ) {
-    if settings.mode != CardViewMode::Plane || outputs.is_empty() {
+    if wants_card_outputs(Some(&settings), !views.is_empty()) {
         return;
     }
     for output in &outputs {
         commands.entity(output).try_despawn();
     }
-    *meshes = CardMeshes::default();
+    if !meshes.is_empty() {
+        *meshes = CardMeshes::default();
+    }
 }
 
 /// Give each local view one card camera, and retire it with its view.
@@ -642,11 +655,30 @@ fn body_paint_z(seated: bool, rank: usize) -> f32 {
 /// Part quads and their materials, made once per part and per colour.
 #[derive(Resource, Default)]
 pub struct CardMeshes {
-    meshes: HashMap<QuadKey, Handle<Mesh>>,
-    subdivided: HashMap<QuadKey, Vec<(SpriteImageMode, Handle<Mesh>)>>,
-    materials: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
+    meshes: HashMap<QuadKey, RecentAsset<Mesh>>,
+    subdivided: HashMap<QuadKey, Vec<(SpriteImageMode, RecentAsset<Mesh>)>>,
+    materials: HashMap<(AssetId<Image>, [u8; 4]), RecentAsset<StandardMaterial>>,
     /// Silhouettes, by page and the cue's colour and strength in bytes.
-    flashes: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
+    flashes: HashMap<(AssetId<Image>, [u8; 4]), RecentAsset<StandardMaterial>>,
+    frames: u8,
+}
+
+/// Keep recent animation frames and atlas pages for one to two passes.
+const CARD_CACHE_PASS_FRAMES: u8 = 60;
+
+fn prune_card_cache(mut cache: ResMut<CardMeshes>) {
+    cache.frames += 1;
+    if cache.frames < CARD_CACHE_PASS_FRAMES {
+        return;
+    }
+    cache.frames = 0;
+    cache.meshes.retain(|_, asset| asset.retain());
+    cache.subdivided.retain(|_, variants| {
+        variants.retain_mut(|(_, asset)| asset.retain());
+        !variants.is_empty()
+    });
+    cache.materials.retain(|_, asset| asset.retain());
+    cache.flashes.retain(|_, asset| asset.retain());
 }
 
 /// A flash's silhouette over a card of `page`: the page's alpha, its colour
@@ -847,8 +879,12 @@ fn a_sliced_column_keeps_its_caps_and_repeats_its_middle() {
 }
 
 impl CardMeshes {
+    fn is_empty(&self) -> bool {
+        self.meshes.is_empty() && self.subdivided.is_empty() && self.materials.is_empty() && self.flashes.is_empty()
+    }
+
     fn quad(&mut self, quad: TextureQuad, meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
-        self.meshes.entry(quad.key()).or_insert_with(|| meshes.add(quad.mesh())).clone()
+        self.meshes.entry(quad.key()).or_insert_with(|| RecentAsset::new(quad.mesh(), meshes)).get()
     }
 
     fn sprite_mesh(
@@ -861,11 +897,12 @@ impl CardMeshes {
             return self.quad(quad, meshes);
         }
         let variants = self.subdivided.entry(quad.key()).or_default();
-        if let Some((_, handle)) = variants.iter().find(|(recipe, _)| recipe == mode) {
-            return handle.clone();
+        if let Some((_, asset)) = variants.iter_mut().find(|(recipe, _)| recipe == mode) {
+            return asset.get();
         }
-        let handle = meshes.add(quad.subdivided_mesh(mode));
-        variants.push((mode.clone(), handle.clone()));
+        let mut asset = RecentAsset::new(quad.subdivided_mesh(mode), meshes);
+        let handle = asset.get();
+        variants.push((mode.clone(), asset));
         handle
     }
 
@@ -878,8 +915,22 @@ impl CardMeshes {
         self.materials.entry((texture.id(), color)).or_insert_with(|| {
             let color = Color::srgba_u8(color[0], color[1], color[2], color[3]);
             let texture = (*texture != Handle::default()).then(|| texture.clone());
-            materials.add(sprite_material(texture, color))
-        }).clone()
+            RecentAsset::new(sprite_material(texture, color), materials)
+        }).get()
+    }
+
+    fn flash(
+        &mut self,
+        page: &Handle<Image>,
+        flash: PresentedFlash,
+        materials: &mut Assets<StandardMaterial>,
+    ) -> Handle<StandardMaterial> {
+        let key = flash_key(flash);
+        self.flashes.entry((page.id(), key)).or_insert_with(|| {
+            let [r, g, b, intensity] = key.map(|component| f32::from(component) / 255.0);
+            let flash = PresentedFlash { tint: Vec3::new(r, g, b), intensity };
+            RecentAsset::new(flash_material(page, flash), materials)
+        }).get()
     }
 }
 
@@ -928,7 +979,10 @@ impl CardPart {
         materials: &mut Assets<StandardMaterial>,
     ) -> Handle<StandardMaterial> {
         match draw {
-            PartMaterial::Shared(material) => material.clone(),
+            PartMaterial::Shared(material) => {
+                self.tinted_material = None;
+                material.clone()
+            }
             PartMaterial::Tinted { image, color } => {
                 let handle = retain_sprite_material(self.tinted_material.as_ref(), image, *color, materials);
                 if self.tinted_material.as_ref() != Some(&handle) {
@@ -953,6 +1007,29 @@ struct PartCardDraw {
     material: PartMaterial,
     place: Transform,
     paint: CardPaintDepth,
+}
+
+fn hide_card(
+    mut mesh: Mut<Mesh3d>,
+    mut material: Mut<MeshMaterial3d<StandardMaterial>>,
+    mut visibility: Mut<Visibility>,
+) {
+    visibility.set_if_neq(Visibility::Hidden);
+    if mesh.0 != Handle::default() {
+        mesh.0 = Handle::default();
+    }
+    if material.0 != Handle::default() {
+        material.0 = Handle::default();
+    }
+}
+
+fn hide_part_cards(cards: &mut CardQuery, parts: &[Entity]) {
+    for &card in parts {
+        if let Ok((mut part, mesh, material, .., visibility)) = cards.get_mut(card) {
+            part.bypass_change_detection().tinted_material = None;
+            hide_card(mesh, material, visibility);
+        }
+    }
 }
 
 /// Show `shown` as a body's cards, in order, spawning what it lacks and
@@ -1005,11 +1082,7 @@ fn show_cards(
         order.set_if_neq(*paint);
         visibility.set_if_neq(Visibility::Inherited);
     }
-    for &card in body.parts.iter().skip(shown.len()) {
-        if let Ok((.., mut visibility)) = cards.get_mut(card) {
-            visibility.set_if_neq(Visibility::Hidden);
-        }
-    }
+    hide_part_cards(cards, &body.parts[shown.len()..]);
 }
 
 /// Place a part in the plane of its body.
@@ -1247,10 +1320,12 @@ pub(super) fn realize_card_bodies(
         };
         let Ok((root, _, flash, _, prop, visibility)) = roots.get(of.0) else {
             body_visibility.set_if_neq(Visibility::Hidden);
+            hide_part_cards(&mut cards, &card_body.parts);
             continue;
         };
         if !root_shows(visibility) {
             body_visibility.set_if_neq(Visibility::Hidden);
+            hide_part_cards(&mut cards, &card_body.parts);
             continue;
         }
         let depth = placements.get(&owner).copied().or_else(|| {
@@ -1276,6 +1351,7 @@ pub(super) fn realize_card_bodies(
         });
         let Some(depth) = depth else {
             body_visibility.set_if_neq(Visibility::Hidden);
+            hide_part_cards(&mut cards, &card_body.parts);
             continue;
         };
         let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
@@ -1299,7 +1375,7 @@ pub(super) fn realize_card_bodies(
             body_visibility.set_if_neq(Visibility::Inherited);
             let Some(page_size) = images.get(&baked.image).map(|image| image.size().as_vec2()) else {
                 // Not loaded yet: draw nothing rather than the last clip's parts.
-                show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &[]);
+                hide_part_cards(&mut cards, &card_body.parts);
                 continue;
             };
             let mesh = cache.quad(TextureQuad::baked(baked, page_size), &mut meshes);
@@ -1315,6 +1391,7 @@ pub(super) fn realize_card_bodies(
         }
         let (Some(draws), Some(feet)) = (sample.parts(), sample.feet) else {
             body_visibility.set_if_neq(Visibility::Hidden);
+            hide_part_cards(&mut cards, &card_body.parts);
             continue;
         };
         // The body's scene placement (its root), then its own feet.
@@ -1348,11 +1425,7 @@ pub(super) fn realize_card_bodies(
             let offset = index as f32 * CARD_PART_STEP;
             let paint = depth.at_offset(offset).paint;
             if let Some(flash) = flash {
-                let silhouette = cache
-                    .flashes
-                    .entry((page.id(), flash_key(flash)))
-                    .or_insert_with(|| materials.add(flash_material(page, flash)))
-                    .clone();
+                let silhouette = cache.flash(page, flash, &mut materials);
                 shown.push(PartCardDraw { mesh: mesh.clone(), material, place, paint });
                 shown.push(PartCardDraw {
                     mesh,
@@ -1407,8 +1480,8 @@ fn realize_card_held_art(
             .and_then(|depth| Some((depth, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
         let Some((depth, (frame, page_size))) = frame else {
             if let Some(card) = by_art.get(&entity) {
-                if let Ok((.., mut card_visibility)) = cards.get_mut(*card) {
-                    card_visibility.set_if_neq(Visibility::Hidden);
+                if let Ok((mesh, material, .., visibility)) = cards.get_mut(*card) {
+                    hide_card(mesh, material, visibility);
                 }
             }
             continue;
@@ -1539,8 +1612,8 @@ pub(super) fn realize_card_sprite_bodies(
             .and_then(|body| Some((body.depth, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
         let Some((depth, (frame, page_size))) = drawn else {
             if let Some(card) = by_body.get(&entity) {
-                if let Ok((.., mut card_visibility)) = cards.get_mut(*card) {
-                    card_visibility.set_if_neq(Visibility::Hidden);
+                if let Ok((mesh, material, .., visibility)) = cards.get_mut(*card) {
+                    hide_card(mesh, material, visibility);
                 }
             }
             continue;
@@ -1657,8 +1730,8 @@ pub(super) fn realize_card_scenery(
         let Some((mut frame, page_size)) =
             sprite_frame(sprite, anchor, &images, layouts.as_deref()).filter(|_| shown)
         else {
-            if let Some((.., mut card_visibility, mut inherited)) = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-                card_visibility.set_if_neq(Visibility::Hidden);
+            if let Some((mesh, material, .., visibility, mut inherited)) = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+                hide_card(mesh, material, visibility);
                 inherited.set_if_neq(InheritedVisibility::HIDDEN);
             }
             continue;
@@ -1802,10 +1875,10 @@ pub(super) fn realize_card_backdrop(
                 Some((frame, sprite_frame(sprite, anchor, &images, layouts.as_deref())?))
             });
             let Some((frame, (cell, page_size))) = made else {
-                if let Some((.., mut card_visibility)) =
+                if let Some((mesh, material, .., visibility)) =
                     by_panel.get(&(panel, camera)).and_then(|card| cards.get_mut(*card).ok())
                 {
-                    card_visibility.set_if_neq(Visibility::Hidden);
+                    hide_card(mesh, material, visibility);
                 }
                 continue;
             };
@@ -1848,6 +1921,82 @@ mod tests {
     use super::*;
     use crate::rendering::chain_skin::ChainTurfPiece;
     use crate::rendering::PropVisual;
+
+    #[test]
+    fn unused_card_assets_retire_while_other_views_keep_drawing() {
+        use ambition_sim_view::LocalView;
+        use bevy::asset::{AssetApp, AssetPlugin};
+
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>()
+            .init_asset::<Mesh>()
+            .init_asset::<StandardMaterial>()
+            .init_resource::<CardMeshes>()
+            .init_resource::<CardRootDepths>()
+            .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
+            .add_systems(Update, realize_card_scenery.run_if(card_outputs_enabled))
+            .add_systems(PostUpdate, retire_card_outputs)
+            .add_systems(Last, prune_card_cache.run_if(card_outputs_enabled));
+        let world = app.world_mut();
+        let first = world.spawn(LocalView).id();
+        let second = world.spawn(LocalView).id();
+        let image = world.resource_mut::<Assets<Image>>().add(Image::default());
+        let image_id = image.id();
+        let old = world.spawn((
+            WorldSprite,
+            Sprite {
+                image,
+                color: Color::srgb(0.3, 0.4, 0.5),
+                custom_size: Some(Vec2::splat(20.0)),
+                image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
+                ..default()
+            },
+            GlobalTransform::IDENTITY,
+            InheritedVisibility::VISIBLE,
+        )).id();
+        let live = world.spawn((
+            WorldSprite,
+            Sprite::from_color(Color::WHITE, Vec2::splat(25.0)),
+            GlobalTransform::IDENTITY,
+            InheritedVisibility::VISIBLE,
+        )).id();
+        let assets_of = |world: &mut World, source| {
+            world.query_filtered::<(
+                Entity, &CardScope, &Mesh3d, &MeshMaterial3d<StandardMaterial>,
+            ), With<CardScenery>>().iter(world)
+                .find_map(|(card, scope, mesh, material)| {
+                    (*scope == CardScope::Source(source))
+                        .then_some((card, mesh.0.id(), material.0.id()))
+                }).unwrap()
+        };
+        app.update();
+        let (old_card, old_mesh, old_material) = assets_of(app.world_mut(), old);
+        let active = assets_of(app.world_mut(), live);
+
+        let world = app.world_mut();
+        world.get_mut::<Sprite>(old).unwrap().image = Handle::default();
+        world.entity_mut(old).insert(InheritedVisibility::HIDDEN);
+        world.despawn(first);
+        for _ in 0..(u16::from(CARD_CACHE_PASS_FRAMES) * 2 + 3) {
+            app.update();
+        }
+        let world = app.world_mut();
+        assert_eq!(world.get::<Visibility>(old_card), Some(&Visibility::Hidden));
+        assert!(!world.resource::<Assets<Mesh>>().contains(old_mesh));
+        assert!(!world.resource::<Assets<StandardMaterial>>().contains(old_material));
+        assert!(!world.resource::<Assets<Image>>().contains(image_id));
+        assert_eq!(assets_of(world, live), active);
+
+        world.despawn(second);
+        app.update();
+        app.update();
+        let world = app.world();
+        assert!(world.get::<CardScenery>(active.0).is_none());
+        assert!(!world.resource::<Assets<Mesh>>().contains(active.1));
+        assert!(!world.resource::<Assets<StandardMaterial>>().contains(active.2));
+        assert!(world.get::<Sprite>(live).is_some());
+    }
 
     #[test]
     fn texture_flips_keep_an_asymmetric_anchor_and_reverse_uvs() {

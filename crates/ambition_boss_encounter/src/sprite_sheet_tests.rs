@@ -22,7 +22,7 @@ fn sentinel_sheet() -> BossSheetSpec {
 /// published sheet RON exists.
 fn const_flat(spec: &BossSheetSpec, anim: BossAnim, frame: usize) -> usize {
     spec.synth_record("x.png")
-        .flat_index_in_page(spec.record_row(anim), frame)
+        .flat_index_in_page(BossRowBinding::positional(spec).record_row(spec, anim), frame)
 }
 
 /// Number of atlas cells the const's grid produces through the shared algebra.

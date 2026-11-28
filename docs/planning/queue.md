@@ -589,7 +589,11 @@ from admission (2026-11-24: `AdmittedBodyRig` per rig text, shared across
 generations; the renderer rebinds only for a different rig or program). The
 static source review adds a [named source-binding customer](engine/runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows):
 boss roles resolve source rows, timing policy and mechanical geometry
-association once. Preserve the native cursor, hurt-part sample, death
+association once. (First slice 2026-11-28: a boss sheet row names its
+published row, and the drawn record row is bound once by name; six bosses
+name every row, and a record that breaks a named relation is refused. The
+other thirteen bosses, the session binding, retiming and the alias law
+remain.) Preserve the native cursor, hurt-part sample, death
 timing and visual projection under equal-capacity row reordering; keep
 explicit retiming, independent rig/move sources and dense runtime handles.
 The duplicate fact collectors are removed (one EventMailbox scan for all native

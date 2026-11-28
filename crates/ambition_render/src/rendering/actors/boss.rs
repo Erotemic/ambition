@@ -239,12 +239,12 @@ pub fn animate_bosses(
 /// 3. The cursor's slot row.
 pub fn drawn_cell(animator: &BossAnimator, view: &ambition_sim_view::BossFrameView) -> (usize, usize) {
     match hit_reaction(&animator.spec, view.posed_by_rig, view.hit_flash_secs) {
-        Some((anim, frame)) => (animator.spec.record_row(anim), frame),
+        Some((anim, frame)) => (animator.record_row(anim), frame),
         None => view
             .pinned
             .as_ref()
             .and_then(|pin| animator.pinned_cell(pin.rows.iter().map(String::as_str), pin.elapsed, pin.looping))
-            .unwrap_or((animator.spec.record_row(view.cursor_anim), view.cursor_frame)),
+            .unwrap_or((animator.record_row(view.cursor_anim), view.cursor_frame)),
     }
 }
 
@@ -362,7 +362,7 @@ pub fn pose_boss_part_animators(
         }
         // Hit, it wears its `Hit` row's face in the pose it has.
         let face = drawn.hurt_face.and_then(|frame| {
-            let row = boss.record.rows.get(boss.spec.record_row(sprites::BossAnim::Hit))?;
+            let row = boss.record.rows.get(boss.record_row(sprites::BossAnim::Hit))?;
             Some((row.animation.as_str(), frame))
         });
         let worn = animator.expression.as_ref().map(|(row, frame)| (row.as_str(), *frame));
@@ -398,8 +398,8 @@ mod tests {
     fn a_boss_posed_by_its_rig_draws_no_presentation_only_hit_row() {
         let spec = BossSheetSpec {
             rows: vec![
-                (BossAnim::Rest, AnimRow { frame_count: 4, duration_secs: 0.12 }),
-                (BossAnim::Hit, AnimRow { frame_count: 5, duration_secs: 0.09 }),
+                (BossAnim::Rest, AnimRow { frame_count: 4, duration_secs: 0.12, source: None }),
+                (BossAnim::Hit, AnimRow { frame_count: 5, duration_secs: 0.09, source: None }),
             ],
             ..BossSheetSpec::unauthored()
         };

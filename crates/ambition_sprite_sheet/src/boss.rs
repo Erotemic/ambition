@@ -30,10 +30,17 @@ pub enum BossAnim {
     Death = 6,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AnimRow {
     pub frame_count: usize,
     pub duration_secs: f32,
+    /// The published sheet row this role draws, by its name in the record
+    /// (`noodle_whip` for the spaghetti monster's `SideSweep`). Bound once
+    /// when the spec meets its record ([`BossSheetSpec::bind_to_record`]), so
+    /// reordering the published rows cannot hand a role another row's art.
+    /// A row without one draws the record row at its own position.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// Frame layout for a boss sheet. Like `character_sprites::CharacterSheetSpec`,
@@ -147,6 +154,7 @@ impl BossSheetSpec {
                 AnimRow {
                     frame_count: 1,
                     duration_secs: 1.0,
+                    source: None,
                 },
             )],
             collision_scale: 1.0,
@@ -172,6 +180,7 @@ fn fixture_sheet() -> BossSheetSpec {
                 AnimRow {
                     frame_count: 4,
                     duration_secs: 0.12,
+                    source: None,
                 },
             ),
             (
@@ -179,6 +188,7 @@ fn fixture_sheet() -> BossSheetSpec {
                 AnimRow {
                     frame_count: 5,
                     duration_secs: 0.09,
+                    source: None,
                 },
             ),
         ],
@@ -231,21 +241,67 @@ impl BossSheetSpec {
         Some((BossAnim::Hit, frame))
     }
 
-    pub(crate) fn row(&self, anim: BossAnim) -> AnimRow {
-        let resolved = self.resolve_anim(anim);
-        let idx = self
-            .row_index(resolved)
-            .expect("boss sprite sheet must define a Rest row");
-        self.rows[idx].1
+    pub(crate) fn row(&self, anim: BossAnim) -> &AnimRow {
+        &self.rows[self.row_position(anim)].1
     }
 
-    /// Index into the backing [`SheetRecord`]'s rows for `anim` (after `Rest`
-    /// fallback). The const lists rows in PNG order, so a row's position in
-    /// `self.rows` is its record-row index.
-    pub fn record_row(&self, anim: BossAnim) -> usize {
+    /// The position in `self.rows` of the row `anim` plays (after the `Rest`
+    /// fallback). A record row is found from it through the sheet's
+    /// [`BossRowBinding`].
+    fn row_position(&self, anim: BossAnim) -> usize {
         let resolved = self.resolve_anim(anim);
         self.row_index(resolved)
             .expect("boss sprite sheet must define a Rest row")
+    }
+
+    /// Bind each of this spec's rows to its row in `record`: by its `source`
+    /// name where it states one, else at its own position. Every bound row
+    /// must hold the frames (and rects) the spec plays, since the simulation's
+    /// cursor counts frames from the spec.
+    ///
+    /// `Err` names the first row that does not bind, and why.
+    pub fn bind_to_record(&self, record: &SheetRecord) -> Result<BossRowBinding, String> {
+        let names = record.anim_rows();
+        self.rows
+            .iter()
+            .enumerate()
+            .map(|(position, (anim, row))| {
+                let index = match &row.source {
+                    Some(name) => names
+                        .resolve_str(name, || format!("boss role `{anim:?}`"))
+                        .map_err(|unresolved| unresolved.to_string())?
+                        .slot(),
+                    None => position,
+                };
+                let bound = record.rows.get(index).ok_or_else(|| {
+                    format!(
+                        "boss role `{anim:?}` is row {position}, and the sheet `{}` has {} rows",
+                        record.target,
+                        record.rows.len()
+                    )
+                })?;
+                if (bound.frame_count as usize) < row.frame_count || bound.rects.len() < row.frame_count {
+                    return Err(format!(
+                        "boss role `{anim:?}` plays {} frames, and the sheet `{}` row `{}` has {} \
+                         frames and {} rects",
+                        row.frame_count,
+                        record.target,
+                        bound.animation,
+                        bound.frame_count,
+                        bound.rects.len()
+                    ));
+                }
+                Ok(index)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(BossRowBinding)
+    }
+
+    /// True when any row names its published source row: the spec then states
+    /// its relation to the record, and a record that breaks it is refused
+    /// rather than replaced by a grid of the spec's own invention.
+    pub fn names_its_rows(&self) -> bool {
+        self.rows.iter().any(|(_, row)| row.source.is_some())
     }
 
     /// A [`SheetRecord`] view of this const grid, for when no published sheet
@@ -368,6 +424,8 @@ pub struct BossSpriteAsset {
     /// const). The shared frame algebra reads pages, flat indices, and trim
     /// from it.
     pub record: SheetRecord,
+    /// The record row each of `spec`'s rows draws.
+    pub rows: BossRowBinding,
     pub spec: BossSheetSpec,
     /// The companion layers [`BossSheetSpec::layers`] names that loaded.
     pub layers: Vec<BossSpriteLayer>,
@@ -404,8 +462,12 @@ impl BossSpriteAsset {
 
     /// Page-local flat atlas index of `(anim, frame)` via the shared algebra.
     pub fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
-        self.record
-            .flat_index_in_page(self.spec.record_row(anim), frame)
+        self.record.flat_index_in_page(self.record_row(anim), frame)
+    }
+
+    /// The record row `anim` draws.
+    pub fn record_row(&self, anim: BossAnim) -> usize {
+        self.rows.record_row(&self.spec, anim)
     }
 }
 
@@ -461,13 +523,26 @@ fn boss_record_key(path: &str) -> Option<String> {
 /// and rects. Otherwise the boss renders from the const grid (see
 /// [`BossSheetSpec::synth_record`]).
 pub fn record_aligns_with_const(record: &SheetRecord, spec: &BossSheetSpec) -> bool {
-    if record.rows.len() < spec.rows.len() {
-        return false;
+    spec.bind_to_record(record).is_ok()
+}
+
+/// Which record row each of a boss spec's rows draws, resolved once when the
+/// spec meets its record ([`BossSheetSpec::bind_to_record`]). Indexed by the
+/// row's position in [`BossSheetSpec::rows`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BossRowBinding(Vec<usize>);
+
+impl BossRowBinding {
+    /// The binding of a record built from `spec` ([`BossSheetSpec::synth_record`]),
+    /// whose rows are the spec's rows in order.
+    pub fn positional(spec: &BossSheetSpec) -> Self {
+        Self((0..spec.rows.len()).collect())
     }
-    spec.rows.iter().enumerate().all(|(i, (_, row))| {
-        let rec = &record.rows[i];
-        (rec.frame_count as usize) >= row.frame_count && rec.rects.len() >= row.frame_count
-    })
+
+    /// The record row `anim` draws (after the `Rest` fallback).
+    pub fn record_row(&self, spec: &BossSheetSpec, anim: BossAnim) -> usize {
+        self.0[spec.row_position(anim)]
+    }
 }
 
 /// The path a boss sheet `id` loads by: its page when the page is there to
@@ -522,21 +597,39 @@ pub fn load_named_boss_sprite_via_catalog(content: &crate::SpriteContent,
         return None;
     };
     // Prefer the published sheet RON, so atlas, page splits, trim, and aspect
-    // follow the texture. The const still owns the row mapping and tuning.
-    // Without a matching baked record (subdir bosses, headless, tests), build a
-    // grid-only record from the const. Both use the same frame algebra.
+    // follow the texture; each spec row binds its record row once, by name
+    // where it names one. Without a baked record (subdir bosses, headless,
+    // tests), build a grid-only record from the const. Both use the same frame
+    // algebra.
+    //
+    // A spec that names its rows states its relation to the record, so a
+    // record that breaks it is refused, not replaced by a grid the record does
+    // not draw. A spec that names none keeps the old positional join.
     let mut spec = spec;
-    let record = boss_record_key(&path)
+    let published = boss_record_key(&path)
         .as_deref()
-        .and_then(|key| record_for_sheet_key(content, key))
-        .filter(|record| record_aligns_with_const(record, &spec))
-        .map(|record| {
+        .and_then(|key| record_for_sheet_key(content, key));
+    let bound = match published.map(|record| (record, spec.bind_to_record(record))) {
+        Some((record, Ok(rows))) => Some((record, rows)),
+        Some((record, Err(reason))) if spec.names_its_rows() => {
+            eprintln!(
+                "[boss_sprites] {label}: the published sheet `{}` does not draw this boss's \
+                 rows ({reason}) — falling back to entity sprite",
+                record.target
+            );
+            return None;
+        }
+        _ => None,
+    };
+    let (record, rows) = match bound {
+        Some((record, rows)) => {
             spec.frame_width = record.frame_width;
             spec.frame_height = record.frame_height;
             spec.label_width = record.label_width;
-            record.clone()
-        })
-        .unwrap_or_else(|| spec.synth_record(&boss_filename_of(&path)));
+            (record.clone(), rows)
+        }
+        None => (spec.synth_record(&boss_filename_of(&path)), BossRowBinding::positional(&spec)),
+    };
 
     let pages = build_boss_pages(&content, &record, &spec, &path, asset_server, layouts);
     let layers = spec
@@ -547,6 +640,7 @@ pub fn load_named_boss_sprite_via_catalog(content: &crate::SpriteContent,
     Some(BossSpriteAsset {
         pages,
         record,
+        rows,
         spec,
         layers,
     })
@@ -650,6 +744,8 @@ pub struct BossAnimator {
     pub layers: Vec<BossSpriteLayer>,
     /// Backing sheet record, cloned from the asset.
     pub record: SheetRecord,
+    /// The record row each of `spec`'s rows draws, cloned from the asset.
+    pub rows: BossRowBinding,
     /// Per-page texture and layout handles, so the renderer can swap them when
     /// the frame is on another page. Length 1 for a single-PNG boss.
     pub pages: Vec<BossSpritePage>,
@@ -664,6 +760,7 @@ impl BossAnimator {
             spec: asset.spec.clone(),
             layers: asset.layers.clone(),
             record: asset.record.clone(),
+            rows: asset.rows.clone(),
             pages: asset.pages.clone(),
             render_basis: None,
         }
@@ -680,8 +777,12 @@ impl BossAnimator {
     /// Page-local flat atlas index of the published `(anim, frame)`. A pure
     /// lookup; the sim owns the cursor.
     pub fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
-        self.record
-            .flat_index_in_page(self.spec.record_row(anim), frame)
+        self.record.flat_index_in_page(self.record_row(anim), frame)
+    }
+
+    /// The record row `anim` draws.
+    pub fn record_row(&self, anim: BossAnim) -> usize {
+        self.rows.record_row(&self.spec, anim)
     }
 
     /// True when the sheet is split across more than one page image, so the
@@ -693,14 +794,14 @@ impl BossAnimator {
     /// The page image index `(anim, frame)` draws from (per-frame: a packed
     /// animation can span pages).
     pub fn page_of(&self, anim: BossAnim, frame: usize) -> u32 {
-        self.record.frame_page_of(self.spec.record_row(anim), frame)
+        self.record.frame_page_of(self.record_row(anim), frame)
     }
 
     /// Per-frame `(custom_size, anchor)` for `(anim, frame)`, or `None` when the
     /// sheet is untrimmed (or no basis is set) — callers then keep the fixed
     /// spawn-time size/anchor, so untrimmed boss sheets are unaffected.
     pub fn render_of(&self, anim: BossAnim, frame: usize) -> Option<(Vec2, Vec2)> {
-        self.render_at(self.spec.record_row(anim), frame)
+        self.render_at(self.record_row(anim), frame)
     }
 
     /// The record `(row, frame)` a PINNED row draws — the first of `rows` this
@@ -970,6 +1071,7 @@ mod layer_tests {
         let asset = BossSpriteAsset {
             pages: Vec::new(),
             record: art.clone(),
+            rows: BossRowBinding::positional(&spec),
             spec,
             layers: vec![BossSpriteLayer { name: "sauce".into(), pages: Vec::new(), record: layer.clone() }],
         };
@@ -1006,5 +1108,88 @@ mod hit_reaction_tests {
         let mut bare = sheet.clone();
         bare.rows.retain(|(anim, _)| *anim != BossAnim::Hit);
         assert_eq!(bare.hit_reaction_frame(full), None);
+    }
+}
+
+#[cfg(test)]
+mod row_binding_tests {
+    use super::*;
+
+    fn row(anim: BossAnim, frame_count: usize, source: Option<&str>) -> (BossAnim, AnimRow) {
+        (anim, AnimRow { frame_count, duration_secs: 0.1, source: source.map(str::to_owned) })
+    }
+
+    /// A published record whose rows are `names`, in that order, seven framed
+    /// cells each.
+    fn record_of(names: &[&str]) -> SheetRecord {
+        let rect: crate::FrameRect = ron::from_str("(x: 0, y: 0, w: 8, h: 8)").expect("a rect");
+        let mut record = BossSheetSpec::unauthored().synth_record("sheet.png");
+        record.target = "sheet".into();
+        record.rows = names
+            .iter()
+            .enumerate()
+            .map(|(index, name)| crate::SheetRow {
+                animation: (*name).to_owned(),
+                row_index: index as u32,
+                frame_count: 7,
+                duration_ms: 700,
+                duration_secs: 0.7,
+                page: 0,
+                mirror_of: None,
+                rects: vec![rect.clone(); 7],
+            })
+            .collect();
+        record
+    }
+
+    /// The spaghetti monster's two equal-capacity attack rows, named.
+    fn named_spec() -> BossSheetSpec {
+        BossSheetSpec {
+            rows: vec![
+                row(BossAnim::Rest, 6, Some("idle")),
+                row(BossAnim::SideSweep, 7, Some("noodle_whip")),
+                row(BossAnim::FloorSlam, 7, Some("meatball_volley")),
+            ],
+            ..BossSheetSpec::unauthored()
+        }
+    }
+
+    /// Swapping two rows of equal capacity in the published sheet moves
+    /// each role with its named row. The positional join accepted the
+    /// swapped record and drew `SideSweep` from `meatball_volley`.
+    #[test]
+    fn a_named_role_draws_its_own_row_when_the_published_rows_are_reordered() {
+        let spec = named_spec();
+        let shipped = record_of(&["idle", "noodle_whip", "meatball_volley"]);
+        let swapped = record_of(&["idle", "meatball_volley", "noodle_whip"]);
+        for record in [&shipped, &swapped] {
+            let rows = spec.bind_to_record(record).expect("every named row is in the sheet");
+            let drawn = |anim| record.rows[rows.record_row(&spec, anim)].animation.as_str();
+            assert_eq!(
+                (drawn(BossAnim::SideSweep), drawn(BossAnim::FloorSlam), drawn(BossAnim::Rest)),
+                ("noodle_whip", "meatball_volley", "idle"),
+            );
+        }
+        // The control: without names, the swapped record binds by position.
+        let mut unnamed = spec.clone();
+        unnamed.rows.iter_mut().for_each(|(_, row)| row.source = None);
+        let rows = unnamed.bind_to_record(&swapped).expect("positional rows fit");
+        assert_eq!(swapped.rows[rows.record_row(&unnamed, BossAnim::SideSweep)].animation, "meatball_volley");
+    }
+
+    /// A named row the sheet does not have, or one with fewer frames than
+    /// the role plays, does not bind, and the refusal names the role.
+    #[test]
+    fn a_named_row_the_sheet_cannot_draw_is_refused() {
+        let spec = named_spec();
+        let missing = spec
+            .bind_to_record(&record_of(&["idle", "noodle_whip"]))
+            .expect_err("`meatball_volley` is not in the sheet");
+        assert!(missing.contains("FloorSlam") && missing.contains("meatball_volley"), "{missing}");
+        let mut short = record_of(&["idle", "noodle_whip", "meatball_volley"]);
+        short.rows[2].frame_count = 5;
+        let short = spec.bind_to_record(&short).expect_err("five frames cannot play seven");
+        assert!(short.contains("FloorSlam"), "{short}");
+        assert!(spec.names_its_rows() && !BossSheetSpec::unauthored().names_its_rows());
     }
 }

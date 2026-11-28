@@ -499,8 +499,33 @@ further preparation customer.
 
 #### Bind semantic roles to named source rows
 
-**State:** PLANNED PVS-1/E2 refinement, static source `00bf92c22142`,
-2026-11-22. First customer: the existing Flying Spaghetti Monster boss.
+**State:** first slice LANDED 2026-11-28; the rest is PLANNED. PVS-1/E2
+refinement, static source `00bf92c22142`, 2026-11-22. First customer: the
+existing Flying Spaghetti Monster boss.
+
+*Landed (2026-11-28):* a boss sheet row may name its published source row
+(`AnimRow::source`, `source: Some("noodle_whip")` in `boss_sheets.ron`).
+`BossSheetSpec::bind_to_record` resolves each row once, through the sheet's
+`anim_rows()` resolver, into a `BossRowBinding`. The binding is held by
+`BossSpriteAsset` and `BossAnimator`, and every record-row lookup reads it
+(the cursor row, the hit row, the flat index, the page and the trim). A
+named row must also hold the frames and rects its role plays. A spec that
+names its rows and meets a record that breaks the relation is refused at
+load, with the reason, instead of being drawn from a grid `synth_record`
+invents. Witnessed by `boss::row_binding_tests`: the two equal-capacity
+attack rows swapped in the record keep their roles, a missing or short named
+row is refused, and the unnamed control binds by position. Six bosses name
+every row: the spaghetti monster, smirking behemoth, hunny horror, inugami,
+Marshal Gallus and the Supreme Leader. Each name is the row its position
+drew, so nothing drawn changed, and the app's boss-sheet wiring lane loads
+all of them.
+
+*Still open:* the other thirteen bosses still join by position. Barrow King's
+local record is older than its spec, and the rest have no published record
+on this VM to read names from. Also open: the retained session binding for
+the simulation's cursor and hurt sampling (they already read frame facts from
+the spec and geometry by key), explicit retiming overrides, and the
+character alias law below.
 The source-to-native association belongs at content preparation, including
 headless mechanical preparation. The renderer consumes its visual projection.
 No renderer or gameplay run was made for this audit.

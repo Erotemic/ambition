@@ -25,7 +25,8 @@ use ambition_platformer2d::world::rooms::RoomSpec;
         for name in [&key, &"unrelated".to_string()] {
             let spec = BossSheetSpec::unauthored();
             assets.boss_sprites.insert(name.clone(), BossSpriteAsset {
-                record: spec.synth_record("body.png"), spec,
+                record: spec.synth_record("body.png"),
+                rows: ambition_platformer2d::sprite_sheet::boss::BossRowBinding::positional(&spec), spec,
                 pages: vec![BossSpritePage { texture: images.add(Image::default()), layout: Handle::default() }],
                 layers: Vec::new(),
             });

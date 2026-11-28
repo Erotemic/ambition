@@ -337,7 +337,7 @@ mod boss_pass {
         record.drawn_from_parts = true;
         let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
         assets.characters.declare("boss_character");
-        assets.boss = Some(BossSpriteAsset { pages: vec![BossSpritePage { texture: texture.clone(), layout }], record, spec, layers: Vec::new() });
+        assets.boss = Some(BossSpriteAsset { pages: vec![BossSpritePage { texture: texture.clone(), layout }], record, rows: ambition_sprite_sheet::boss::BossRowBinding::positional(&spec), spec, layers: Vec::new() });
         app.insert_resource(assets);
         app.init_resource::<CharacterLoadDemand>();
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(BOSS_ID.to_string(), a_feature_view())]));
@@ -386,6 +386,7 @@ mod boss_pass {
         assets.boss = Some(BossSpriteAsset {
             pages: vec![BossSpritePage { texture, layout }],
             record,
+            rows: ambition_sprite_sheet::boss::BossRowBinding::positional(&spec),
             spec,
             layers: Vec::new(),
         });

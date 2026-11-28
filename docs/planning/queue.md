@@ -1832,8 +1832,12 @@ that watched the edit, systems bind `SelectedPacks` once, and helpers in
 Mary-O, Smash, Sanic and versus take the row they read. See the owner's
 receipt.
 
-**Next action:** audit the three owner pages for open I2/I3 work that is
-not this cut. Delete this row if none remains.
+**Next action:** a running demo's world reload. F11/F12 reloads the
+Ambition world only, so an edit to a demo's authored world still costs a
+restart ([fast iteration](engine/fast-iteration-implementation.md), "Still
+open"). After it, the owner pages' open items: I5 durable-record
+eligibility, I6's native-ABI comparison (M1), and I7's deterministic
+cancellation and cleanup.
 
 **Acceptance:** a foreign-audio collision plus a rules edit leaves the old
 pack and all affected products selected, with one refusal and no published

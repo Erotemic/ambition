@@ -24,6 +24,10 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct WorldSprite;
 
+/// Text placed in the world and drawn by both outputs.
+#[derive(Component, Default)]
+pub struct WorldText;
+
 /// The sprite changes color while it is visible. Keep its card material.
 #[derive(Component, Default)]
 #[require(WorldSprite)]

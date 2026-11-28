@@ -762,12 +762,12 @@ impl GameplayScreenDensity<'_, '_> {
         };
         // Below 1.0 too: a view zoomed out past one pixel a world unit has
         // fewer pixels than units, and a capture with more is resampled.
-        screen_texel_density(physical, view.visible_view)
+        limit_capture_density(physical / view.visible_view)
     }
 }
 
-fn screen_texel_density(physical: Vec2, extent: Vec2) -> Vec2 {
-    (physical / extent).clamp(Vec2::splat(0.05), Vec2::splat(4.0))
+fn limit_capture_density(density: Vec2) -> Vec2 {
+    density.clamp(Vec2::splat(0.05), Vec2::splat(4.0))
 }
 
 /// How far past the viewer's own extent a portal still counts as "at the seam"
@@ -1023,7 +1023,7 @@ pub fn sync_portal_view_cones(
         let view = mapped_from.unwrap_or_else(|| geometry::CaptureCameraFrame::aligned(Vec2::ZERO, placement.frame.size));
         let screen_scale = window.map_or_else(
             || screen_density.texels_per_world(host_view),
-            |window| screen_texel_density(window.output_pixels, window.visible_view),
+            |window| limit_capture_density(window.texels_per_world),
         );
         eyes.push(RoomEye {
             placement,

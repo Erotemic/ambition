@@ -17,7 +17,7 @@ use bevy::prelude::{
 use bevy::render::render_phase::{sort_phase_system, ViewSortedRenderPhases};
 use bevy::render::{Extract, ExtractSchedule, Render, RenderApp, RenderSystems};
 
-use super::actors::rigged::{RiggedPartSlot, RiggedPresentationOf};
+use super::actors::rigged::{LimbTwin, RiggedPartSlot, RiggedPresentationOf};
 use super::moving_platforms::{SeatedInVessel, VesselPanel, FRONT_LAYER_Z};
 use super::posed_hand::HeldArtOf;
 use super::worn_gear_visuals::WornGearVisual;
@@ -75,6 +75,7 @@ type Attachment = Or<(With<HeldArtOf>, With<WornGearVisual>, With<PresentationOf
 pub(super) fn extract_vessel_orders(
     panels: Extract<Query<(Entity, &VesselPanel)>>,
     riders: Extract<Query<(Entity, &SeatedInVessel)>>,
+    twins: Extract<Query<(Entity, &LimbTwin)>>,
     rig_owners: Extract<Query<&RiggedPresentationOf>>,
     parts: Extract<Query<(Entity, &ChildOf, &RenderLayers), With<RiggedPartSlot>>>,
     attachments: Extract<Query<
@@ -111,6 +112,11 @@ pub(super) fn extract_vessel_orders(
         if let Some(assembly) = assembly(&rider.vessel) {
             let slot = VesselSlot::Rider(Reverse(rider.slot));
             orders.0.insert(entity, VesselDrawOrder { assembly, slot });
+        }
+    }
+    for (entity, twin) in &twins {
+        if let Some(order) = orders.get(twin.of) {
+            orders.0.insert(entity, order);
         }
     }
     let atlas_layers = RenderLayers::layer(RIGGED_IMPOSTOR_LAYER);

@@ -23,6 +23,7 @@
 
 use bevy::camera::{CameraMainTextureUsages, ClearColorConfig, CompositingSpace, Hdr, RenderTarget};
 use bevy::prelude::*;
+use bevy::render::camera::CameraRenderGraph;
 use bevy::render::view::Msaa;
 use bevy::window::{PrimaryWindow, WindowRef};
 
@@ -129,12 +130,14 @@ type CameraFacts = (
     Option<&'static CameraMainTextureUsages>,
     Option<&'static Name>,
 );
+// Headless tests can declare the standard camera types without the render plugins.
+type DrawCamera = Or<(With<Camera2d>, With<Camera3d>, With<CameraRenderGraph>)>;
 
 /// The active cameras that draw into a window, as [`incompatible_window_stacks`]
 /// reads them.
 pub fn window_cameras(world: &mut World) -> Vec<WindowCamera> {
     let mut primary = world.query_filtered::<Entity, With<PrimaryWindow>>();
-    let mut cameras = world.query::<CameraFacts>();
+    let mut cameras = world.query_filtered::<CameraFacts, DrawCamera>();
     window_cameras_in(world, &mut primary, &mut cameras)
 }
 
@@ -144,7 +147,7 @@ pub fn window_cameras(world: &mut World) -> Vec<WindowCamera> {
 fn window_cameras_in(
     world: &World,
     primary: &mut QueryState<Entity, With<PrimaryWindow>>,
-    cameras: &mut QueryState<CameraFacts>,
+    cameras: &mut QueryState<CameraFacts, DrawCamera>,
 ) -> Vec<WindowCamera> {
     let primary = primary.iter(world).next();
     cameras
@@ -188,7 +191,7 @@ fn window_cameras_in(
 pub fn report_incompatible_window_stacks(
     world: &mut World,
     primary: &mut QueryState<Entity, With<PrimaryWindow>>,
-    cameras: &mut QueryState<CameraFacts>,
+    cameras: &mut QueryState<CameraFacts, DrawCamera>,
     mut last: Local<Vec<String>>,
 ) {
     let found: Vec<String> = incompatible_window_stacks(window_cameras_in(world, primary, cameras))
@@ -206,6 +209,17 @@ pub fn report_incompatible_window_stacks(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_layout_camera_does_not_join_the_window_stack() {
+        let mut world = World::new();
+        world.spawn((Camera2d, Name::new("Game view")));
+        world.spawn((Camera::default(), Name::new("Text layout view")));
+
+        let stack = window_cameras(&mut world);
+        assert_eq!(stack.len(), 1);
+        assert!(stack[0].name.starts_with("Game view"));
+    }
 
     fn camera(name: &str, order: isize, clears: bool, format: MainTextureFormat, msaa: u32) -> WindowCamera {
         WindowCamera {

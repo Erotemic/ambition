@@ -1,16 +1,20 @@
 //! Play the mine with its authored rooms, normal player input, and boss scripts.
 
 use ambition_app::AgentAction;
-use ambition_platformer2d::boss_encounter::BossEncounterPhase;
-use ambition_platformer2d::characters::actor::{BodyWallet, CharacterForm};
+use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounterPhase};
+use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, CharacterForm};
+use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState};
+use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor};
 use ambition_platformer2d::engine_core::Vec2;
+use ambition_platformer2d::extension::ExtensionFaults;
 use ambition_platformer2d::platformer::lifecycle::sole_live_room_component;
 use ambition_platformer2d::projectiles::ProjectileVisualId;
+use ambition_platformer2d::vfx::vfx::AttackMarks;
 use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_platformer2d::world::collision::MovingPlatformSet;
-use bevy::prelude::World;
+use bevy::prelude::{Entity, World};
 
-use crate::boss_lifecycle::{boss_cleared, boss_phase, boss_pos, lower_guard};
+use crate::boss_lifecycle::{boss_cleared, boss_phase, boss_pos};
 use crate::common::walk::{Pad, Press, Walker as _, fight, the_player, walk_through, walk_to};
 use crate::common::{base, fixed_60hz_room_sim};
 
@@ -162,30 +166,107 @@ fn the_ore_shuttle_carries_a_rider_over_the_pool() {
 }
 
 #[test]
-fn mother_lode_releases_both_hazards_and_leaves_the_sample_chest_accessible() {
+fn mother_lode_warns_before_hazards_and_opens_the_sample_chest_after_the_fight() {
     let mut sim = fixed_60hz_room_sim(CAVERN);
     sim.step_n(base(), 25);
     assert!(gate_stands(sim.world_mut(), "mine_listening_screen"));
-    walk_to(&mut Pad::new(&mut sim), Vec2::new(820.0, 720.0)).expect("enter the cavern");
-    let mut saw_fault = false;
-    let mut saw_crystals = false;
-    for frame in 0..2300 {
+    walk_to(&mut Pad::new(&mut sim), Vec2::new(820.0, 636.0)).expect("reach the west crystal shelf");
+    let player = the_player(sim.world_mut());
+    let boss = {
         let world = sim.world_mut();
+        world.query::<(Entity, &BossConfig)>().iter(world)
+            .find(|(_, cfg)| cfg.id == LODE).unwrap().0
+    };
+    let hp = |world: &World| world.get::<BodyHealth>(player).unwrap().current();
+    let mut saw_fault = false;
+    let mut crystal_lanes = Vec::new();
+    let mut center_fell_first = false;
+    let mut saw_flanking_crystals = false;
+    let mut split = None;
+    let mut crossed_split = false;
+    let mut hp_at_split = None;
+    let mut punished = false;
+    for frame in 0..2300 {
+        let observation = sim.observation();
+        let world = sim.world_mut();
+        let marks: Vec<_> = world.resource::<AttackMarks>().0.iter()
+            .filter(|mark| mark.key.owner == boss)
+            .map(|mark| (mark.key.slot, mark.center, mark.half, mark.active))
+            .collect();
+
         let mut visuals = world.query::<&ProjectileVisualId>();
-        for visual in visuals.iter(world) {
-            saw_fault |= visual.0 == "lode_fault_wave";
-            saw_crystals |= visual.0 == "lode_falling_crystal";
-        }
+        let crystals = visuals.iter(world).filter(|visual| visual.0 == "lode_falling_crystal").count();
+        saw_fault |= visuals.iter(world).any(|visual| visual.0 == "lode_fault_wave");
+        let attack = world.get::<BossAttackState>(boss).unwrap();
+        let is_split = [&attack.telegraph_profile, &attack.active_profile].into_iter()
+            .any(|profile| matches!(profile, Some(BossAttackProfile::Special(key)) if key == "lode_split"));
         let phase = boss_phase(sim.world_mut(), LODE);
+        let mut input = base();
+        if marks.len() == 3 && marks.iter().all(|mark| mark.2.y > mark.2.x) {
+            if crystal_lanes.is_empty() && marks.iter().all(|mark| !mark.3) {
+                crystal_lanes = marks.iter().map(|mark| (mark.0, mark.1, mark.2)).collect();
+            }
+            if phase == Some(BossEncounterPhase::Phase2) {
+                for &(slot, center, half, _) in &marks {
+                    assert!(crystal_lanes.contains(&(slot, center, half)), "the lanes must stay fixed");
+                }
+                if crystals == 1 && marks.iter().filter(|mark| mark.3).map(|mark| mark.0).eq([1]) {
+                    center_fell_first = true;
+                }
+                if crystals >= 2 && marks.iter().all(|mark| mark.3) {
+                    saw_flanking_crystals = true;
+                }
+            }
+        }
+
+        if !crossed_split && (!is_split || marks.is_empty()) {
+            split = None;
+        }
+        if let (true, [left, right]) = (is_split && !crossed_split, marks.as_slice()) {
+            let gap = (left.1.x + left.2.x + right.1.x - right.2.x) / 2.0;
+            if !left.3 && !right.3 && split.is_none() {
+                split = Some((marks.clone(), hp(sim.world())));
+            }
+            input.move_x = ((gap - observation.player_pos.0) / 22.0).clamp(-1.0, 1.0);
+            if left.3 && right.3 {
+                let (warning, health) = split.as_ref().expect("both bands must have a warning");
+                let world = sim.world_mut();
+                let mut hitboxes = world.query::<&Hitbox>();
+                let active: Vec<_> = hitboxes.iter(world).filter_map(|hitbox| {
+                    let HitboxAnchor::World { center } = hitbox.anchor else { return None };
+                    (hitbox.owner == boss).then_some((center, hitbox.half_extent))
+                }).collect();
+                for &(_, center, half, _) in warning.iter() {
+                    assert!(active.contains(&(center, half)),
+                        "expected damage at {center:?} with half size {half:?}, got {active:?}");
+                }
+                assert!((observation.player_pos.0 - gap).abs() < 32.0 && observation.on_ground,
+                    "reach the gap at {gap}, got {:?}", observation.player_pos);
+                assert_eq!(hp(world), *health, "walk into the seam without a jump or a hit");
+                crossed_split = true;
+                hp_at_split.get_or_insert(world.get::<BodyHealth>(boss).unwrap().current());
+            }
+        }
+        if let Some(before) = hp_at_split {
+            punished |= sim.world().get::<BodyHealth>(boss).unwrap().current() < before;
+        }
+        if crossed_split && !punished && marks.is_empty() {
+            let toward = boss_pos(sim.world_mut(), LODE).unwrap().x - observation.player_pos.0;
+            if toward.abs() > 67.0 || toward * observation.facing < 0.0 {
+                input.move_x = toward.signum();
+            } else {
+                input.attack = frame % 15 == 0;
+            }
+        }
         let may_hit = match phase {
             Some(BossEncounterPhase::Phase1) => saw_fault,
-            Some(BossEncounterPhase::Phase2 | BossEncounterPhase::Enrage) => saw_crystals,
+            Some(BossEncounterPhase::Phase2) => saw_flanking_crystals,
+            Some(BossEncounterPhase::Enrage) => punished,
             _ => false,
         };
         if may_hit && frame % 91 == 0 {
             use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
             let at = boss_pos(sim.world_mut(), LODE).unwrap();
-            lower_guard(sim.world_mut(), LODE);
             sim.world_mut().write_message(HitEvent {
                 status: None, origin: None, properties: Default::default(), contact: None, pieces: Vec::new(),
                 volume: ambition_platformer2d::engine_core::Aabb::new(at, Vec2::splat(64.0)).into(),
@@ -194,10 +275,14 @@ fn mother_lode_releases_both_hazards_and_leaves_the_sample_chest_accessible() {
                 attacker_move_instance: None,
             });
         }
-        sim.step(base());
+        sim.step(input);
         if boss_cleared(&sim, LODE) { break; }
     }
-    assert!(saw_fault && saw_crystals, "fault {saw_fault}, falling crystals {saw_crystals}");
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert_eq!(faults.total, 0, "{:?}", faults.recent);
+    assert!(saw_fault && center_fell_first && saw_flanking_crystals);
+    assert!(crossed_split, "Mother Lode must leave a safe path through the split");
+    assert!(punished, "the exit from the seam gives time to land a blade hit");
     assert!(boss_cleared(&sim, LODE), "the boss finish is saved");
     sim.step_n(base(), 95);
     let mut pad = Pad::new(&mut sim);

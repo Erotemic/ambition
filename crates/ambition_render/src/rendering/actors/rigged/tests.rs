@@ -1079,6 +1079,35 @@ fn a_change_between_carriage_poses_blends_and_a_strike_does_not() {
     );
 }
 
+#[test]
+fn a_blend_from_a_wide_pose_draws_outside_the_atlas() {
+    use ambition_sprite_sheet::character::CharacterAnim;
+
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprites, "mary_o_v2_tall").unwrap();
+    let (mut app, root) = app_with(&sprites, true, sheet_with(&sprites, "mary_o_v2_tall", Some(flipbook.clone())));
+    settle(&mut app);
+    let owner = owner(&app, root);
+    assert!(draws_impostor(&app, root, owner));
+
+    // A clip blend starts from the last drawn pose, even after a pose source clears.
+    let world = app.world_mut();
+    let mut presentation = world.get_mut::<RiggedPresentation>(owner).unwrap();
+    for part in &mut presentation.last_draws {
+        part.at.x += 800.0;
+    }
+    world.get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Walk);
+    app.update();
+
+    let world = app.world();
+    let sample = world.get::<RiggedLocalSample>(owner).unwrap();
+    let reach = flipbook.reach_past_frame(sample.parts().unwrap());
+    assert!(reach > impostor_margin(&flipbook));
+    let presentation = world.get::<RiggedPresentation>(owner).unwrap();
+    assert!(presentation.impostor.is_none());
+    assert!(slots(&app, owner).iter().any(|(_, visible)| *visible));
+}
+
 /// The impostor lands where the baked frame would, whatever the root's anchor:
 /// a frame pixel is drawn at the same root-local point from the cell quad as
 /// from the baked FULL frame (`render_size` at the basis anchor), for a
@@ -2580,8 +2609,8 @@ fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
     let sampled = app.world().get::<RiggedLocalSample>(owner).unwrap().draws.len();
     let shown = cards(&mut app);
     assert_eq!(shown.len(), 2 * sampled, "part by part, a silhouette over each card");
-    assert_eq!(shown[1].base_color.alpha(), 0.75, "as strong as the cue");
-    assert_eq!(shown[1].emissive, Color::srgb(1.0, 0.5, 0.0).to_linear(), "in the cue's colour");
+    assert!((shown[1].base_color.alpha() - cue.intensity).abs() <= 0.5 / 255.0);
+    assert_eq!(shown[1].emissive, Color::srgb_u8(255, 128, 0).to_linear());
     app.world_mut().entity_mut(root).insert(PresentedFlash::default());
     app.update();
     assert_eq!(cards(&mut app).len(), sampled, "no cue, no silhouette");
@@ -2685,25 +2714,54 @@ fn a_cart_drawn_from_parts_keeps_its_rider_between_its_panels() {
         let mut cards = world.query::<(Entity, &CardBody, &Transform)>();
         let (entity, body, place) = cards.iter(world).find(|(_, body, _)| body.owner == owner).unwrap();
         assert!(body.parts.len() > 1);
-        let last_paint = body.parts.iter()
-            .map(|part| world.get::<CardPaintDepth>(*part).unwrap().0)
-            .max_by(f32::total_cmp).unwrap();
-        (entity, place.translation, last_paint)
+        let paint = |part: &Entity| world.get::<CardPaintDepth>(*part).unwrap().0;
+        let last = body.parts.iter().map(paint).max_by(f32::total_cmp).unwrap();
+        let first = body.parts.iter().map(paint).min_by(f32::total_cmp).unwrap();
+        (entity, place.translation, last, first)
     };
     let far = placement(&mut app, far);
-    let rider = placement(&mut app, rider);
+    let rider_card = placement(&mut app, rider);
     let before = placement(&mut app, near);
     let deck = placement(&mut app, deck);
     let free_depth = app.world_mut().query_filtered::<&Transform, With<CardSpriteBody>>()
         .single(app.world()).unwrap().translation.z;
-    assert!(far.2 < rider.1.z && rider.2 < before.1.z && before.2 < free_depth);
-    assert!(far.1.z < rider.1.z && rider.1.z < before.1.z && before.1.z < free_depth);
+    assert!(far.2 < rider_card.1.z && rider_card.2 < before.1.z && before.2 < free_depth);
+    assert!(far.1.z < rider_card.1.z && rider_card.1.z < before.1.z && before.1.z < free_depth);
     assert!(deck.2 < free_depth, "all parts of the deck are behind the free actor");
 
     app.world_mut().get_mut::<Transform>(near).unwrap().translation.x += 30.0;
     app.update();
     let moved = placement(&mut app, near);
-    assert_eq!(moved, (before.0, before.1 + Vec3::X * 30.0, before.2));
+    assert_eq!(moved, (before.0, before.1 + Vec3::X * 30.0, before.2, before.3));
+
+    app.add_systems(
+        Update,
+        follow_limb_twins.after(animate).after(seat_bodies_in_vessels).before(bind_rigged_presentations),
+    );
+    let mut commands = app.world_mut().commands();
+    let limb = LimbTwin::spawn(&mut commands, rider, "hand_left");
+    let over = LimbTwin::spawn_over(&mut commands, rider);
+    for twin in [limb, over] {
+        // Use a full frame for each twin to test the paint range.
+        commands.entity(twin).insert((Visibility::Inherited, RiggedTrackMask::without(Vec::new())));
+    }
+    app.world_mut().flush();
+    settle(&mut app);
+
+    let rider_card = placement(&mut app, rider);
+    let limb_card = placement(&mut app, limb);
+    let over_card = placement(&mut app, over);
+    assert_eq!(limb_card.1, rider_card.1);
+    assert_eq!(over_card.1, rider_card.1);
+    assert!(far.2 < rider_card.3);
+    assert!(rider_card.2 < limb_card.3 && limb_card.2 < over_card.3);
+    assert!(over_card.2 < moved.3);
+
+    app.world_mut().entity_mut(rider).remove::<BodyPoseView>();
+    app.update();
+    assert!(app.world().get::<SeatedInVessel>(rider).is_none());
+    assert_eq!(placement(&mut app, limb).1.z, free_depth);
+    assert_eq!(placement(&mut app, over).1.z, free_depth);
 }
 
 #[cfg(feature = "card_view")]

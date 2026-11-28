@@ -194,6 +194,9 @@ When a portal cuts a panel, rider, or item, the piece at the entry keeps
 its source slot and physical depth. The piece through the portal uses the
 exit layer. An Ultra fixture checks the overlap while a rider, the cart,
 and a held item cross a paired opening.
+When a rider's limb enters a portal, the local pieces keep the rider's
+seat. The card view draws the limb and the body parts above it on the
+same plane, in that order and behind the near panel.
 
 ## One shared sample, two concrete Bevy renderers
 
@@ -756,6 +759,9 @@ shared value preparation are sufficient until source proves otherwise.
    Scout, Dennis, and the pause cube. It shows both renderers in the
    comparison mode. Switching the output kept one workshop session
    active and kept it paused while the cube was open.
+   Text cards use each span's color. Control signs show the input glyph
+   when its image is ready. Nameplate outlines draw behind the text in
+   the same room and view.
 
    A card uses the existing portal capture mesh and texture for the far-side
    window. It stays at the seam and uses the source pane order and opaque
@@ -869,6 +875,11 @@ shared value preparation are sufficient until source proves otherwise.
    Their paint order follows their source depth between the bodies of the
    same room. A light can overlap another body without moving to its plane.
 
+   Card caches keep meshes and materials that a draw used recently.
+   Hidden sprite cards release their handles. The last view releases the card
+   products when it closes. The cache uses the same rounded color for
+   the flash key and the flash material.
+
    Both renderers draw emitted trails and retained debug lines from the same
    line buffers. Each card camera draws the lines for its room and local
    view. Switching to 2D removes the card draws and keeps the line buffers.
@@ -913,6 +924,10 @@ shared value preparation are sufficient until source proves otherwise.
    A tilted view projects its viewport onto the play plane. Its capture
    covers the bounds of that projection. The comparison inset and its
    main output share one capture for each portal and observer.
+   The capture covers the union of the observer's output bounds. It uses
+   the highest projected pixel density along each axis, within the
+   capture limits. A projection test checks the density of a zoomed,
+   tilted inset on a high-DPI display.
 
    Portal windows, rims, and exit pieces project from the same play plane
    in 2.5D. The draw order of each stays in its own layer. An Ultra capture
@@ -920,8 +935,11 @@ shared value preparation are sufficient until source proves otherwise.
    the card window filters only texels on the visible side. This removes
    a thin line of glow that could show through a clipped body.
 
-   Text cards use Bevy's layout for the current frame. The brief portal
-   input-direction cue appears in both views and clears on release.
+   Text cards use Bevy's layout for the current frame. The layout uses
+   the card output's projection and display scale. It covers labels at
+   the edge of a tilted view and uses the target pixel density. The
+   brief portal input-direction cue appears in both views and clears
+   on release.
 
    Rigged bodies use the same output coverage as portal windows. A tilted
    view samples a body at its own screen edge. A body keeps sprite slots

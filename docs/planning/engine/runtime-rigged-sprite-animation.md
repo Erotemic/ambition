@@ -632,6 +632,10 @@ and coordinate space. Bind each reader's track selection when its request or
 program changes; retain independent reader leases. Separate world placement from
 local draws, so root motion does not rebuild an unchanged local part selection.
 
+When runtime animation changes the frame bounds, the sample requests a size
+check before composition. An image request can use the atlas only if the
+final parts fit. A wide clip blend uses direct parts until it fits again.
+
 The selected [2D/2.5D presentation work](presentation-order-and-25d-rendering.md)
 adds a second consumer of this sample. Extract it before the current driver's
 `Sprite`/`Anchor` and slot writes. Retain the baked alternative, full appearance

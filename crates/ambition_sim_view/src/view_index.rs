@@ -22,7 +22,7 @@ use ambition_encounter::switches::SwitchFeature;
 use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::{FeatureSimEntity, LiveRoomInstance, LiveRooms};
 
 /// Which order block a body is drawn as among the bodies of its plane: the
 /// block of `body` (a simulation body's index), in seat `seat` of it. A body
@@ -929,6 +929,8 @@ pub fn rebuild_actor_render_index(
 /// Static per boss, so the rebuild re-clones only on a genuine change.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BossRenderView {
+    /// The live room of this boss occurrence.
+    pub room: Option<LiveRoomInstance>,
     pub name: String,
     pub behavior_id: String,
     /// The epithet its name card shows under its name.
@@ -954,7 +956,7 @@ pub struct BossRenderView {
 
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BossRenderIndex {
-    views: bevy::platform::collections::HashMap<String, (BossRenderView, u64)>,
+    views: bevy::platform::collections::HashMap<String, Vec<(BossRenderView, u64)>>,
     generation: u64,
 }
 
@@ -971,13 +973,20 @@ impl BossRenderIndex {
     pub fn from_rows(entries: impl IntoIterator<Item = (String, BossRenderView)>) -> Self {
         let mut index = Self::default();
         for (id, view) in entries {
-            index.views.insert(id, (view, index.generation));
+            index.refresh(&id, view.room, |_| false, || view);
         }
         index
     }
 
+    /// Read the sole occurrence of this ID.
     pub fn get(&self, id: &str) -> Option<&BossRenderView> {
-        self.views.get(id).map(|(view, _)| view)
+        let rows = self.views.get(id)?;
+        (rows.len() == 1).then(|| &rows[0].0)
+    }
+
+    /// Read the occurrence in this exact live room.
+    pub fn get_in(&self, id: &str, room: Option<LiveRoomInstance>) -> Option<&BossRenderView> {
+        self.views.get(id)?.iter().map(|(row, _)| row).find(|row| row.room == room)
     }
 
     /// Iterate every `(id, view)` boss identity row — the "which ids are
@@ -988,11 +997,11 @@ impl BossRenderIndex {
         // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
         // §Excluded). Every consumer of this iterator is presentation. No sim state
         // reads it, so its order can never enter a trajectory.
-        self.views.iter().map(|(id, (view, _))| (id.as_str(), view))
+        self.views.iter().flat_map(|(id, rows)| rows.iter().map(move |(row, _)| (id.as_str(), row)))
     }
 
     pub fn len(&self) -> usize {
-        self.views.len()
+        self.views.values().map(Vec::len).sum()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -1004,27 +1013,33 @@ impl BossRenderIndex {
     }
 
     fn end_rebuild(&mut self) {
-        let gen = self.generation;
-        self.views.retain(|_, (_, g)| *g == gen);
+        let generation = self.generation;
+        self.views.retain(|_, rows| {
+            rows.retain(|(_, stamped)| *stamped == generation);
+            !rows.is_empty()
+        });
     }
 
-    fn touch(&mut self, id: &str) {
-        let gen = self.generation;
-        if let Some(slot) = self.views.get_mut(id) {
-            slot.1 = gen;
-        }
-    }
-
-    fn upsert(&mut self, id: &str, view: BossRenderView) {
-        let gen = self.generation;
-        if let Some(slot) = self.views.get_mut(id) {
-            if slot.0 != view {
-                slot.0 = view;
+    fn refresh(
+        &mut self,
+        id: &str,
+        room: Option<LiveRoomInstance>,
+        fresh: impl FnOnce(&BossRenderView) -> bool,
+        build: impl FnOnce() -> BossRenderView,
+    ) {
+        let generation = self.generation;
+        if let Some(rows) = self.views.get_mut(id) {
+            if let Some((row, stamped)) = rows.iter_mut().find(|(row, _)| row.room == room) {
+                if !fresh(row) {
+                    *row = build();
+                }
+                *stamped = generation;
+            } else {
+                rows.push((build(), generation));
             }
-            slot.1 = gen;
-            return;
+        } else {
+            self.views.insert(id.to_string(), vec![(build(), generation)]);
         }
-        self.views.insert(id.to_string(), (view, gen));
     }
 }
 
@@ -1048,10 +1063,12 @@ fn staged_with_its_card(
 /// Rebuild [`BossRenderIndex`] from the live boss clusters before drawing.
 pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
-    bosses: Query<(&FeatureId, ambition_boss_encounter::BossClusterRef)>,
+    bosses: Query<(Entity, &FeatureId, ambition_boss_encounter::BossClusterRef)>,
+    rooms: LiveRooms,
 ) {
     index.begin_rebuild();
-    for (id, boss) in &bosses {
+    for (entity, id, boss) in &bosses {
+        let room = rooms.of(entity);
         let phase = boss.status.encounter_phase();
         let awake = phase != ambition_boss_encounter::BossEncounterPhase::Dormant;
         // An escort is never the fight (`BossEncounterSpec::escort`).
@@ -1076,24 +1093,16 @@ pub fn rebuild_boss_render_index(
                 && view.fighting == fighting
                 && view.finish == finish
         };
-        // Compared before it is built, so a row that has not changed
-        // allocates nothing.
-        if index.get(id.as_str()).is_some_and(fresh) {
-            index.touch(id.as_str());
-            continue;
-        }
-        index.upsert(
-            id.as_str(),
-            BossRenderView {
-                name: boss.config.name.clone(),
-                behavior_id: boss.config.behavior.id.clone(),
-                title: title.map(str::to_owned),
-                stage,
-                awake,
-                fighting,
-                finish,
-            },
-        );
+        index.refresh(id.as_str(), room, fresh, || BossRenderView {
+            room,
+            name: boss.config.name.clone(),
+            behavior_id: boss.config.behavior.id.clone(),
+            title: title.map(str::to_owned),
+            stage,
+            awake,
+            fighting,
+            finish,
+        });
     }
     index.end_rebuild();
 }

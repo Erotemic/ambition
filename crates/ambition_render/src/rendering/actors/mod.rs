@@ -729,8 +729,12 @@ pub struct PlayerSpriteCharacter {
 /// cannot fix this, and a `Without<BossAnimator>` filter cannot either: the boss
 /// upgrader can skip frames while its image loads. The boss index claims the id,
 /// so the boss path owns it.
-pub fn actor_sprite_path_owns(id: &str, boss_render: &ambition_sim_view::BossRenderIndex) -> bool {
-    boss_render.get(id).is_none()
+pub fn actor_sprite_path_owns(
+    id: &str,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    boss_render: &ambition_sim_view::BossRenderIndex,
+) -> bool {
+    boss_render.get_in(id, room).is_none()
 }
 
 /// Bind an actor's visual to its character sheet when the asset is available,
@@ -783,7 +787,7 @@ pub fn upgrade_actor_sprites(
         // half needs the realization, so it is checked below.
         let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
         // Identity decides which upgrader owns a body, not system order.
-        if !actor_sprite_path_owns(&visual.id, &boss_render) {
+        if !actor_sprite_path_owns(&visual.id, view.room, &boss_render) {
             continue;
         }
         // Absent: the read-model has not seen this actor yet. Skip a frame; the

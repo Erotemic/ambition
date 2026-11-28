@@ -4,7 +4,7 @@ use std::hash::Hash;
 use bevy::prelude::{Commands, Entity};
 
 /// Keep one derived entity for each source key.
-pub(super) struct RetainedEntities<K>(HashMap<K, Entity>);
+pub(crate) struct RetainedEntities<K>(HashMap<K, Entity>);
 
 impl<K> Default for RetainedEntities<K> {
     fn default() -> Self {

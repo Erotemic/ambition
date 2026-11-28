@@ -1848,9 +1848,10 @@ Sanic's three acts reload in their running sessions. See the
 [fast iteration](engine/fast-iteration-implementation.md) receipt.
 
 **Next action:** wasmi's per-call cost, the largest loaded-road cost M1
-measured (about 89 µs per sentry call against 0.8 µs native, 2026-11-28):
-instance reuse from a restored image, or a lighter input encoding, keeping
-the fresh-state guarantee. I6's native arm is measured and not shipped; I7's
+measured. A 128 KiB module stack took a sentry call from about 89 to 59 µs
+(2026-11-28; native is 0.8 µs). What remains is instantiating a file of
+every content module per call: instance reuse from a restored image, or one
+file per module, keeping the fresh-state guarantee. I6's native arm is measured and not shipped; I7's
 cancellation was measured with no defect; I5's `Checkpoint` eligibility
 waits for a module that declares it.
 

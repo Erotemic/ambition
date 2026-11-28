@@ -148,6 +148,14 @@ library loaded as long as the backend, which pins the code a call runs.
   above; the instance per call is that cost.
 - A cold `cdylib` build took 26 s and a rebuild under 1 s; the wasm module
   file builds in about 11 s.
+- Where the wasm call's time went: instantiation was 64 µs and the first
+  allocation about 50 µs more. The module's memory started at 17 pages, a
+  1 MiB stack that every fresh instance zeroes. Linked with a 128 KiB stack
+  (`MODULE_STACK_BYTES`), memory starts at 3 pages, instantiation takes
+  33 µs, the first allocation costs nothing extra, and a sentry call takes
+  59 µs, byte-equal. The rest of instantiation scales with the module
+  file's functions (every content module in one file); reuse of an instance
+  restored to its image is what remains.
 
 **Deployment choice: keep wasmi and Rhai as the loaded roads; do not ship
 the native arm.** A native library has no sandbox, no fuel, no

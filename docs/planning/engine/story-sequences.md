@@ -684,7 +684,20 @@ brute's hand, the wound in normal and skipped play, and Dennis' death after
 his final words. A rewind restores the case's reference to its live holder.
 A save after departure restores the final conversation and the same case at
 the siding. Still open: a general recovery policy when a required command
-is refused, and save recovery during an active projectile flight.
+is refused.
+
+*Save recovery during the bomb's flight (checked 2026-11-27).* The save
+written the tick the bomb leaves the brute's hand holds no fact of the
+throw: `intro_dennis_wounded`, `intro_case_taken` and the scene's seen flag
+are all unset, and only `intro_raiders_coming` is. A session loaded from it
+returns to that fact. The three raiders stand again, with no brute, no bomb
+and no scene, the case is on the bench and Dennis is at full health (12).
+Played on with the raid walker, the raid ends as a straight run does: the
+scene is seen, the one new bomb wounds Dennis (12 to 8), the brute takes
+the case and leaves, all three raiders fall, and no case remains. The bomb
+is thrown once per durable timeline, never twice. This was a temporary
+probe in `the_raid_brute_takes_the_case.rs` (deleted): it captured the save
+at the first tick a bomb flies and booted `intro_wake_room` from it.
 
 ## Acceptance for the first slice (SS1 + SS2)
 

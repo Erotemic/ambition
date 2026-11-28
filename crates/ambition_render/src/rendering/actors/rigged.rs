@@ -562,6 +562,7 @@ pub struct RiggedLocalSample {
     /// a renderer draws whole. `None` otherwise, or while its page is not
     /// laid out.
     pub baked: Option<BakedFrame>,
+    check_composite_extent: bool,
 }
 
 /// One complete frame from a baked sheet or the compositor. Draw its page
@@ -754,7 +755,6 @@ type Roots<'w, 's> = Query<
         &'static Transform,
         RootShows,
         Option<&'static RenderLayers>,
-        Option<&'static PartPose>,
         Option<&'static FrameInSprite>,
         Option<&'static PerformedBodyWarp>,
         // A reader's ask for the draws of some tracks, and its answer.
@@ -1370,6 +1370,7 @@ pub fn sample_rigged_presentations(
         sample.body_color = LinearRgba::WHITE;
         sample.feet = None;
         sample.baked = None;
+        sample.check_composite_extent = false;
         let Ok((animator, pose, mask, root_sprite, root_anchor)) = roots.get(root) else {
             continue;
         };
@@ -1429,7 +1430,10 @@ pub fn sample_rigged_presentations(
             swing,
             &mut drawn,
             &mut posed_draws,
-        );
+        ).map(|(draws, check_extent)| {
+            sample.check_composite_extent = check_extent;
+            draws
+        });
         presentation.blend_from = blend_from;
         let dt = time.as_ref().map_or(0.0, |time| time.delta_secs());
         presentation.blend_left = (presentation.blend_left - dt).max(0.0);
@@ -1553,16 +1557,15 @@ pub fn drive_rigged_presentations(
             presentation.overflow_hold = 0;
             continue;
         }
-        let Ok((_, _, _, _, _, _, root_layers, pose, _, _, _, _)) = roots.get(root) else {
+        let Ok((_, _, _, _, _, _, root_layers, _, _, _, _)) = roots.get(root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
         let wanted = presentation.composed_hold > 0;
         let margin = impostor_margin(&flipbook);
-        // ⛔ A POSE IS IN NO FILE, SO ITS REACH IS MEASURED. The margin holds
-        // what the flipbook draws; a `PartPose` can put a part anywhere.
-        let past_cell = pose
-            .and_then(|_| presentation.posed.as_ref().and(sample.parts()))
+        // A runtime pose can extend beyond the authored frame.
+        let past_cell = sample.parts()
+            .filter(|_| wanted && sample.check_composite_extent)
             .map(|draws| flipbook.reach_past_frame(draws))
             .filter(|reach| *reach + IMPOSTOR_FRINGE > margin);
         presentation.overflow_hold = match past_cell {
@@ -1668,7 +1671,6 @@ pub fn drive_rigged_presentations(
             color_shift,
             root_transform,
             root_visibility,
-            _,
             _,
             frame_in_sprite,
             performed,
@@ -1913,20 +1915,21 @@ fn frame_draws<'a>(
     swing: Option<Swing>,
     drawn: &'a mut Vec<PartDraw>,
     posed_draws: &'a mut Vec<PartDraw>,
-) -> Option<&'a [PartDraw]> {
+) -> Option<(&'a [PartDraw], bool)> {
     let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row))?;
     flipbook.tween_into(row, animator.frame, animator.frame_phase(), drawn)?;
+    let mut check_extent = false;
     // The row is the picture of the upper body: its legs are those of the
     // pose the body is in under the move (it walks, it runs, it falls).
     if let Some((legs_row, frame, t)) = animator.legs_row() {
         if let Some(legs_row) = animator.spec.row_name(legs_row) {
-            flipbook.legs_under(legs_row, frame, t, drawn, posed_draws);
+            check_extent |= flipbook.legs_under(legs_row, frame, t, drawn, posed_draws);
         }
     }
     // A body that looks up while it walks: its head turns up on the walk.
     if let Some((look_row, fraction)) = animator.head_turn_row() {
         if let Some(look_row) = animator.spec.row_name(look_row) {
-            flipbook.head_turned_as(look_row, fraction, drawn);
+            check_extent |= flipbook.head_turned_as(look_row, fraction, drawn);
         }
     }
     // A hurt face over the pose it has. A body with no face to wince with
@@ -1935,14 +1938,14 @@ fn frame_draws<'a>(
     // its hits: then a part drawn elsewhere would not be where a strike lands.
     if let Some((face_row, index)) = animator.expression.as_ref() {
         if flipbook.has_expression_tracks() {
-            flipbook.face_as(face_row, *index, drawn);
+            check_extent |= flipbook.face_as(face_row, *index, drawn);
         } else if posed.is_none() && flipbook.tween_into(face_row, *index, 0.0, posed_draws).is_some() {
             std::mem::swap(drawn, posed_draws);
         }
     }
     // A layer over the row, on its own clock (a ward round a head).
     if let Some((layer_row, index, mirrored)) = animator.layer.as_ref() {
-        flipbook.layer_over(layer_row, *index, *mirrored, drawn);
+        check_extent |= flipbook.layer_over(layer_row, *index, *mirrored, drawn);
     }
     // Its wounds, as much as it is hurt (eyes that go bloodshot).
     flipbook.wounded_by(animator.wounds, drawn);
@@ -1950,6 +1953,7 @@ fn frame_draws<'a>(
     // limb ends the new pose plants (a ledge catch's hands) stay where it
     // draws them, their limbs solved to them.
     if let Some((from, t)) = blend {
+        check_extent = true;
         ambition_sprite_sheet::character::rigged::blend_from(from, t, drawn);
         if let Some(posed) = posed {
             posed.hold(row, animator.frame, animator.current.planted_contacts(), drawn);
@@ -1957,14 +1961,15 @@ fn frame_draws<'a>(
     }
     // The arms and head swinging on after a landing, a brake or a blow.
     if let (Some(swing), Some(posed)) = (swing, posed) {
+        check_extent = true;
         posed.follow_through(row, animator.frame, swing, drawn);
     }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);
-            posed_draws.as_slice()
+            (posed_draws.as_slice(), true)
         }
-        _ => drawn.as_slice(),
+        _ => (drawn.as_slice(), check_extent),
     })
 }
 

@@ -1079,6 +1079,35 @@ fn a_change_between_carriage_poses_blends_and_a_strike_does_not() {
     );
 }
 
+#[test]
+fn a_blend_from_a_wide_pose_draws_outside_the_atlas() {
+    use ambition_sprite_sheet::character::CharacterAnim;
+
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprites, "mary_o_v2_tall").unwrap();
+    let (mut app, root) = app_with(&sprites, true, sheet_with(&sprites, "mary_o_v2_tall", Some(flipbook.clone())));
+    settle(&mut app);
+    let owner = owner(&app, root);
+    assert!(draws_impostor(&app, root, owner));
+
+    // A clip blend starts from the last drawn pose, even after a pose source clears.
+    let world = app.world_mut();
+    let mut presentation = world.get_mut::<RiggedPresentation>(owner).unwrap();
+    for part in &mut presentation.last_draws {
+        part.at.x += 800.0;
+    }
+    world.get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Walk);
+    app.update();
+
+    let world = app.world();
+    let sample = world.get::<RiggedLocalSample>(owner).unwrap();
+    let reach = flipbook.reach_past_frame(sample.parts().unwrap());
+    assert!(reach > impostor_margin(&flipbook));
+    let presentation = world.get::<RiggedPresentation>(owner).unwrap();
+    assert!(presentation.impostor.is_none());
+    assert!(slots(&app, owner).iter().any(|(_, visible)| *visible));
+}
+
 /// The impostor lands where the baked frame would, whatever the root's anchor:
 /// a frame pixel is drawn at the same root-local point from the cell quad as
 /// from the baked FULL frame (`render_size` at the basis anchor), for a

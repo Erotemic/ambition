@@ -162,7 +162,8 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(
             Update,
             crate::rendering::daylight::light_the_world
-                .run_if(resource_exists::<crate::rendering::daylight::DaylightStyle>)
+                .run_if(resource_exists::<crate::rendering::daylight::DaylightStyle>
+                    .or_else(any_with_component::<crate::rendering::daylight::DaylightVeil>))
                 .after(crate::rendering::ViewCameraSet),
         );
         // The darkness of a dark room (its level fields `darkness` and

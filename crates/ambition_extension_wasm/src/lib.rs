@@ -148,6 +148,11 @@ impl WasmModules {
             .get_typed_func::<(u32, u32, u32, u32), u64>(&store, "amb_invoke")
             .map_err(|e| format!("amb_invoke: {e}"))?;
         if self.restorable.is_ok() {
+            // What `amb_prepare` builds (the guest's module table) is then in
+            // the image, so no call builds it again.
+            if let Ok(prepare) = instance.get_typed_func::<(), ()>(&store, "amb_prepare") {
+                prepare.call(&mut store, ()).map_err(trap)?;
+            }
             // The guest's allocator takes its heap with `memory.grow` on its
             // first allocation, so a call from the bare instance always grows
             // memory and the instance could never be put back. The image is
@@ -547,4 +552,3 @@ mod m1_measurement_tests {
         );
     }
 }
-

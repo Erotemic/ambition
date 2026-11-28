@@ -1,17 +1,22 @@
 //! The loaded-module ABI, `ambition-ext-3`: the bytes a host and a guest
 //! exchange, and the guest half that runs an entry from them.
 //!
-//! A guest exports three functions and its linear memory:
+//! A guest exports three functions and its linear memory, and may export a
+//! fourth:
 //!
 //! | export | signature | meaning |
 //! |---|---|---|
 //! | `amb_alloc` | `(len: u32) -> u32` | a buffer of `len` bytes for the host to write into |
 //! | `amb_describe` | `() -> u64` | the module list ([`describe`]), as `ptr << 32 \| len` |
 //! | `amb_invoke` | `(module: u32, entry: u32, ptr: u32, len: u32) -> u64` | run one entry ([`invoke`]) |
+//! | `amb_prepare` (optional) | `() -> ()` | build the module table once, before the image every call starts from |
 //!
-//! It imports nothing: no clock, no files, no entropy. The host builds a new
-//! instance for each call, so no guest global outlives an invocation; all
-//! state that lasts is in the records the host gives and takes back.
+//! It imports nothing: no clock, no files, no entropy. Every call starts from
+//! the instance's starting image (a new instance, or one the host put back to
+//! that image), so no guest global outlives an invocation; all state that
+//! lasts is in the records the host gives and takes back. A host that reuses
+//! instances calls `amb_prepare` before it takes the image, so what it builds
+//! is in every call's starting state and not rebuilt by each call.
 //! [`export_modules!`](crate::export_modules) writes the exports.
 //!
 //! Input (host → guest): clock domain `u8`, tick or frame `u64`, dt `f32`;
@@ -260,13 +265,24 @@ fn invoke_run(
 /// ```
 #[macro_export]
 macro_rules! export_modules {
-    // A list of module constructors: a call builds only the module it names
-    // (each call is a new instance, so a whole table per call is the cost of
-    // every call). Measured 2026-10-01: about 30 us of guest time per call
-    // with fifteen modules.
+    // A list of module constructors: a call in a new instance builds only the
+    // module it names (a whole table per call was about 30 us of guest time
+    // with fifteen modules, 2026-10-01). A host that reuses instances calls
+    // `amb_prepare` first, and every call reads the prepared table.
     (list: $list:path) => {
         #[cfg(target_arch = "wasm32")]
         mod __ambition_extension_exports {
+            /// The table `amb_prepare` built, in the starting image of a host
+            /// that reuses instances; empty in a new instance.
+            static PREPARED: ::std::sync::OnceLock<
+                ::std::vec::Vec<$crate::ModuleDescriptor>,
+            > = ::std::sync::OnceLock::new();
+
+            #[no_mangle]
+            pub extern "C" fn amb_prepare() {
+                PREPARED.get_or_init(|| $list.iter().map(|build| build()).collect());
+            }
+
             fn publish(bytes: ::std::vec::Vec<u8>) -> u64 {
                 let bytes = ::std::mem::ManuallyDrop::new(bytes);
                 ((bytes.as_ptr() as u64) << 32) | bytes.len() as u64
@@ -291,6 +307,9 @@ macro_rules! export_modules {
                 // SAFETY: the host wrote `len` bytes at `ptr`, a buffer
                 // `amb_alloc` returned, before this call.
                 let input = unsafe { ::std::slice::from_raw_parts(ptr as *const u8, len as usize) };
+                if let Some(prepared) = PREPARED.get() {
+                    return publish($crate::abi::invoke(prepared, module, entry, input));
+                }
                 publish(match $list.get(module as usize) {
                     Some(build) => $crate::abi::invoke_one(&build(), entry, input),
                     None => $crate::abi::invoke(&[], module, entry, input),
@@ -301,6 +320,17 @@ macro_rules! export_modules {
     ($modules:path) => {
         #[cfg(target_arch = "wasm32")]
         mod __ambition_extension_exports {
+            /// The table `amb_prepare` built, in the starting image of a host
+            /// that reuses instances; empty in a new instance.
+            static PREPARED: ::std::sync::OnceLock<
+                ::std::vec::Vec<$crate::ModuleDescriptor>,
+            > = ::std::sync::OnceLock::new();
+
+            #[no_mangle]
+            pub extern "C" fn amb_prepare() {
+                PREPARED.get_or_init($modules);
+            }
+
             fn publish(bytes: ::std::vec::Vec<u8>) -> u64 {
                 let bytes = ::std::mem::ManuallyDrop::new(bytes);
                 ((bytes.as_ptr() as u64) << 32) | bytes.len() as u64
@@ -324,7 +354,10 @@ macro_rules! export_modules {
                 // SAFETY: the host wrote `len` bytes at `ptr`, a buffer
                 // `amb_alloc` returned, before this call.
                 let input = unsafe { ::std::slice::from_raw_parts(ptr as *const u8, len as usize) };
-                publish($crate::abi::invoke(&$modules(), module, entry, input))
+                match PREPARED.get() {
+                    Some(prepared) => publish($crate::abi::invoke(prepared, module, entry, input)),
+                    None => publish($crate::abi::invoke(&$modules(), module, entry, input)),
+                }
             }
         }
     };

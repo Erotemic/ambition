@@ -120,7 +120,8 @@ customer exists, with the same contract and hidden-state tests.
 - Every call starts from the file's starting image: that is what stops a
   guest static from carrying state across a rewind. Since 2026-11-28 the
   image is restored into a reused instance rather than built anew (below).
-- Open: the guest's own glue (a lighter input encoding).
+- Open: the image restore (6.4 µs for 4 pages) and the sentry's own guest
+  work.
 
 ### M1 results: the native shared-library arm (2026-11-28, release, agent machine)
 
@@ -138,7 +139,7 @@ library loaded as long as the backend, which pins the code a call runs.
 | --- | --- | --- |
 | native, linked (the reference) | — | 755–777 ns |
 | native shared library | 2000 of 2000 | 770–789 ns |
-| wasm (wasmi, instance per call) | 2000 of 2000 | 88.4–90.9 µs (34.0–35.9 µs after the stack and reuse changes below) |
+| wasm (wasmi, instance per call) | 2000 of 2000 | 88.4–90.9 µs (27.3–29.3 µs after the stack, reuse and prepare changes below) |
 | engine Rhai backend | 2000 of 2000 | ≈10.6 µs |
 
 - The shared library's transport costs about 15 ns per call over the linked
@@ -169,6 +170,15 @@ library loaded as long as the backend, which pins the code a call runs.
   33 µs of instantiation. Witnesses: a write to an exported global or to
   memory is gone at the next call; a file with a hidden mutable global gets a
   new instance per call; a call that grows memory does not leave it grown.
+- The module table in the image (2026-11-28): with the instance reused, each
+  call still built its module's descriptor before decoding, 14k–112k fuel by
+  module (sentry 26k, the bossofthegame 103k). A guest now exports
+  `amb_prepare` (`export_modules!` writes it), which builds the table into a
+  static; a host that reuses instances calls it before taking the image.
+  Every module's refused call is then 9.2k fuel, its guest side 2.0 µs
+  against 9.7 µs, and restoring the 4-page image (6.4 µs) is the larger part.
+  A sentry call takes 27.3–29.3 µs (3 runs), byte-equal over the 2000
+  ticks.
 
 **Deployment choice: keep wasmi and Rhai as the loaded roads; do not ship
 the native arm.** A native library has no sandbox, no fuel, no

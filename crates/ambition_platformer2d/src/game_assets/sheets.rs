@@ -200,12 +200,39 @@ pub fn restate_prop_sheet_rows(
     previous: &[String],
     rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows,
 ) -> Result<Vec<String>, String> {
-    let kinds = world
-        .get_resource_or_insert_with(PropSheets::default)
-        .restate(world_provider, previous.iter().map(String::as_str), rows)?;
-    let dropped: Vec<String> = previous.iter().filter(|kind| !kinds.contains(kind)).cloned().collect();
-    reload_prop_sheets(world, &dropped, &kinds);
+    let admitted = admit_prop_sheet_rows(world, world_provider, previous, rows)?;
+    let kinds = admitted.kinds.clone();
+    commit_prop_sheet_rows(world, admitted);
     Ok(kinds)
+}
+
+/// The prop sheets with `rows` restated, admitted on a copy: the world is
+/// unchanged until [`commit_prop_sheet_rows`].
+pub struct AdmittedPropSheetRows {
+    sheets: PropSheets,
+    dropped: Vec<String>,
+    /// The kinds the rows register now.
+    pub kinds: Vec<String>,
+}
+
+/// Admit `rows` as [`restate_prop_sheet_rows`] does, changing nothing.
+pub fn admit_prop_sheet_rows(
+    world: &World,
+    world_provider: &str,
+    previous: &[String],
+    rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows,
+) -> Result<AdmittedPropSheetRows, String> {
+    let mut sheets = world.get_resource::<PropSheets>().cloned().unwrap_or_default();
+    let kinds = sheets.restate(world_provider, previous.iter().map(String::as_str), rows)?;
+    let dropped = previous.iter().filter(|kind| !kinds.contains(kind)).cloned().collect();
+    Ok(AdmittedPropSheetRows { sheets, dropped, kinds })
+}
+
+/// Install admitted prop sheet rows and load their sheets again.
+pub fn commit_prop_sheet_rows(world: &mut World, admitted: AdmittedPropSheetRows) {
+    let AdmittedPropSheetRows { sheets, dropped, kinds } = admitted;
+    world.insert_resource(sheets);
+    reload_prop_sheets(world, &dropped, &kinds);
 }
 
 /// Load again each prop sheet made from a sheet of `targets`, after a sheet

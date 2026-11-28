@@ -66,7 +66,7 @@ impl WorldItemArtEntry {
 /// Accumulates every provider's [`WorldItemArtEntry`] before the render layer
 /// resolves them into loaded handles. Contributors EXTEND it (never replace), so
 /// composing several games unions their pickup art.
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Default, Debug, Clone)]
 pub struct WorldItemArtManifest(pub Vec<WorldItemArtEntry>);
 
 impl WorldItemArtManifest {

@@ -14,6 +14,7 @@ mod sheets;
 pub use sheets::{
     boss_sheet_keys_for_room, ensure_boss_sheets_loaded, load_game_assets, reload_fx_sheets_of_targets,
     load_the_prop_sheets_in_reach, reload_prop_sheets_of_targets, restate_prop_sheet_rows,
+    admit_prop_sheet_rows, commit_prop_sheet_rows, AdmittedPropSheetRows,
     PropSheetDemandSet,
 };
 // The room's prop sheets are prepared where a room is drawn.

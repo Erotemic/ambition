@@ -681,6 +681,34 @@ No runtime saving is claimed until the relevant caller path is measured.
    selected rules, catalogs, session identity or rollback baseline. Retained
    old-generation rows remain valid until their last reader retires.
 
+**Steps 1–3 landed 2026-11-27** (`content/live_reload.rs`):
+- A `Restater` is now one owner's product: the schemas it reads, and a
+  read-only `prepare` that admits the product from the candidate and returns
+  an infallible `Commit`.
+- The publication prepares every affected owner of a pack first, each once,
+  however many of its schemas changed. Audio is one product from both
+  registries, and the cast one from all three families.
+- Only when all of them admit is the pack selected, each commit run with
+  that generation, and the publication counted. One refusal keeps the old
+  pack and every product, drops the candidate, and names the owner in the
+  watch's refusal.
+- Rows shared with other providers are admitted on a private copy of their
+  catalog (`on_a_copy`; prop sheets through `admit_prop_sheet_rows` and
+  `commit_prop_sheet_rows`). The cast stages into a revision of its own
+  (`StagedCastRevision::stage`) and is admitted by
+  `admit_revision_with_catalog`, so it neither drains nor replaces the
+  shared staging resource.
+- Two packs published in one frame commit in turn, so the second admits
+  against the first's rows.
+
+Witness: `a_refused_owner_keeps_the_whole_publication_out`. One save edits
+the rules and the music, and the new track takes the host provider's id for
+another recording. Before the change the edit was counted as published,
+with the new rules selected beside the old music.
+
+Still open: step 4, the App-owned selection (`EmbeddedPack::current` is
+still process-wide).
+
 Preserve `only_live`, local timeline rebase, remote generation and shell
 preparation policy. This cut does not permit cast/catalog restatement inside
 a live session or lift the prepared-artifact serialization hold. Acceptance

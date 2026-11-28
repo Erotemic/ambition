@@ -868,7 +868,7 @@ impl CutscenesInRooms {
 /// Registry of cutscene scripts keyed by id. A game's content installs scripts
 /// here at startup; the trigger/playback systems look one up by id when a
 /// trigger fires.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct CutsceneLibrary {
     pub scripts: BTreeMap<String, CutsceneScript>,
 }

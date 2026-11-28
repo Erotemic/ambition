@@ -136,7 +136,6 @@ fn generic_presentation_runs_without_shell_resources() {
         ambition_load::AmbitionLoadPlugin,
         AmbitionLoadPresentationPlugin,
     ));
-    app.insert_resource(Time::<()>::default());
 
     let load = LoadId::new("room-transition");
     let barrier = LoadBarrierId::new("target-ready");
@@ -180,7 +179,7 @@ fn generic_presentation_runs_without_shell_resources() {
     assert!(!(&only_presentation(&app).model).visible);
 
     app.world_mut()
-        .resource_mut::<Time>()
+        .resource_mut::<Time<Real>>()
         .advance_by(Duration::from_millis(125));
     app.update();
     assert!((&only_presentation(&app).model).visible);
@@ -227,7 +226,6 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
         ambition_load::AmbitionLoadPlugin,
         AmbitionLoadPresentationPlugin,
     ));
-    app.insert_resource(Time::<()>::default());
 
     let load = LoadId::new("room-transition-failure");
     let barrier = LoadBarrierId::new("target-ready");
@@ -316,7 +314,6 @@ fn composed_app(
 
     let mut app = App::new();
     app.add_plugins(MinimalLoadShellPlugins);
-    app.insert_resource(Time::<()>::default());
 
     let load = ambition_load::LoadId::new("fixture-load");
     let barrier = ambition_load::LoadBarrierId::new("fixture-ready");
@@ -477,7 +474,7 @@ fn engaged_activity_holds_ready_until_continue_and_cleans_scope() {
 #[test]
 fn slow_required_work_reveals_exact_facts() {
     use ambition_load::{LoadCommand, LoadWorkSpec, LoadWorkState};
-    use bevy::prelude::Time;
+    use bevy::prelude::{Real, Time};
 
     let (mut app, load, barrier) = composed_app(
         ReadyTransitionPolicy::AutoAdvance,
@@ -513,7 +510,7 @@ fn slow_required_work_reveals_exact_facts() {
     assert!(!(&only_presentation(&app).model).visible);
 
     app.world_mut()
-        .resource_mut::<Time>()
+        .resource_mut::<Time<Real>>()
         .advance_by(Duration::from_millis(250));
     app.update();
     let model = &only_presentation(&app).model;

@@ -5,7 +5,7 @@ use std::time::Duration;
 use ambition_load::{BarrierReadiness, LoadCoordinator};
 use bevy::ecs::schedule::SystemSet;
 use bevy::prelude::{
-    App, Commands, IntoScheduleConfigs, MessageReader, MessageWriter, Messages, Plugin, Query, Res,
+    App, Commands, IntoScheduleConfigs, MessageReader, MessageWriter, Messages, Plugin, Query, Real, Res,
     ResMut, Time, Update, With,
 };
 
@@ -20,7 +20,7 @@ pub struct AmbitionLoadPresentationPlugin;
 
 impl Plugin for AmbitionLoadPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Time>()
+        app.init_resource::<Time<Real>>()
             .init_resource::<LoadPresentations>()
             .add_message::<LoadPresentationCommand>()
             .add_message::<LoadPresentationAction>()
@@ -130,14 +130,14 @@ fn apply_presentation_commands(
 }
 
 fn drive_foreground(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     loads: Res<LoadCoordinator>,
     mut presentations: ResMut<LoadPresentations>,
 ) {
     let LoadPresentations { entries, next_activity_activation } = &mut *presentations;
     for entry in entries.values_mut() {
         let active = &mut entry.foreground;
-        active.elapsed = active.elapsed.saturating_add(Duration::from_secs_f32(time.delta_secs()));
+        active.elapsed = active.elapsed.saturating_add(time.delta());
         let Some(snapshot) = loads.snapshot(&active.barrier.load_id, &active.barrier.barrier_id) else { continue };
         if active.phase == LoadForegroundPhase::HiddenGrace && active.elapsed >= active.spec.reveal_after {
             active.phase = LoadForegroundPhase::Visible;

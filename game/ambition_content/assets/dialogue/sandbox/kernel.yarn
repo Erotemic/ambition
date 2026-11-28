@@ -298,7 +298,7 @@ Kernel Guide: Stub command. It records the chest id but does not spawn a chest y
 title: hub_guide__test_boss
 ---
 <<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
-    Kernel Guide: boss_cleared("cove.mockingbird") returned TRUE. The cove uses its after-treasure dialogue now.
+    Kernel Guide: boss_cleared("cove.mockingbird") returned TRUE. The cove can show its post-fight dialogue now.
 <<elseif boss_cleared_verdict("cove.mockingbird") == "not_satisfied">>
     Kernel Guide: boss_cleared("cove.mockingbird") returned FALSE. The encounter is Dormant or InProgress.
 <<else>>

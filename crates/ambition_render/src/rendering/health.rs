@@ -6,20 +6,52 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use super::primitives::HealthOverlayVisual;
+use super::primitives::{FeatureVisual, WorldSprite, WorldText};
+use super::retained_entities::RetainedEntities;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_characters::actor::Health;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, LiveRoomInstance, LiveRoomOf, SessionScopeId, SessionSpawnScope,
+    SpawnSessionScopedExt,
 };
 use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
+use bevy::ecs::system::SystemParam;
+use std::collections::HashSet;
 
 /// One boss health bar: what it shows, over which view, in which rectangle.
 /// The bar is rebuilt only when this changes.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BossHealthBarOverlayVisual(DrawnBossBar);
+
+#[derive(Component)]
+#[require(WorldSprite)]
+pub struct HealthOverlayVisual {
+    fill: Entity,
+    label: Entity,
+    hp: [i32; 2],
+}
+
+type HealthBarKey = (Entity, LiveRoomInstance, Option<SessionScopeId>);
+
+#[derive(SystemParam)]
+pub struct HealthBarProducts<'w, 's> {
+    commands: Commands<'w, 's>,
+    retained: Local<'s, RetainedEntities<HealthBarKey>>,
+    shown: Local<'s, HashSet<HealthBarKey>>,
+    bars: Query<'w, 's, (
+        &'static mut HealthOverlayVisual,
+        &'static mut Transform,
+        &'static mut Sprite,
+    )>,
+    fills: Query<'w, 's, (
+        &'static mut Transform,
+        &'static mut Sprite,
+        &'static mut Visibility,
+    ), Without<HealthOverlayVisual>>,
+    labels: Query<'w, 's, &'static mut Text2d>,
+}
 
 /// What a boss health bar shows, and where.
 #[derive(Clone, Debug, PartialEq)]
@@ -245,18 +277,12 @@ pub fn health_bars_are_on_or_drawn(
 }
 
 pub fn sync_health_overlays(
-    mut commands: Commands,
-    // Each bar is drawn in the live room of the body it measures, by that
-    // room's geometry: the player's own room, or the room a feature's sprite
-    // is stamped with (V2b).
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    sprites: Query<(Entity, &super::primitives::FeatureVisual)>,
+    mut bars: HealthBarProducts,
+    rooms: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
+    sprites: Query<(Entity, &FeatureVisual)>,
     dev_state: Res<ambition_dev_tools::DeveloperRuntimeState>,
     active_session: Option<Res<ActiveSessionScope>>,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
-    overlays: Query<Entity, With<HealthOverlayVisual>>,
     player: Query<
         (
             Entity,
@@ -270,37 +296,23 @@ pub fn sync_health_overlays(
     boss_render: Res<BossRenderIndex>,
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
 ) {
-    for entity in overlays.iter() {
-        commands.entity(entity).despawn();
-    }
-
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    let scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
+    let Some(scope) = scope.filter(|_| dev_state.debug_enabled() && developer_tools.show_health_bars)
     else {
+        bars.finish();
         return;
     };
-
-    if !dev_state.debug_enabled() || !developer_tools.show_health_bars {
-        return;
-    }
-
-    let room_by_id: std::collections::HashMap<&str, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> =
-        sprites
-            .iter()
-            .filter_map(|(entity, sprite)| Some((sprite.id.as_str(), rooms.room_of(entity)?)))
-            .collect();
-    // A body whose live room cannot be told gets no bar.
-    let placed = |room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>| {
-        room.and_then(|room| Some((session_scope.in_room(Some(room)), &rooms.in_room(room)?.0)))
+    let placed = |entity| {
+        let room = rooms.room_of(entity)?;
+        Some(((entity, room, scope.id()), &rooms.in_room(room)?.0))
     };
-
-    if let Some((pose, presented, (scope, world))) = player
+    if let Some((pose, presented, (key, world))) = player
         .single()
         .ok()
-        .and_then(|(body, pose, presented)| Some((pose, presented, placed(rooms.room_of(body))?)))
+        .and_then(|(body, pose, presented)| Some((pose, presented, placed(body)?)))
     {
-        spawn_health_overlay(
-            &mut commands,
+        bars.show(
+            key,
             scope,
             world,
             "player_robot_v3",
@@ -317,135 +329,137 @@ pub fn sync_health_overlays(
         );
     }
 
-    for (id, view) in feature_views.iter() {
-        let Some((scope, world)) = placed(room_by_id.get(id).copied()) else {
+    for (entity, sprite) in &sprites {
+        let Some((key, world)) = placed(entity) else {
             continue;
         };
-        let hp = Health {
-            current: view.hp_current,
-            max: view.hp_max,
-            invulnerable: Default::default(),
+        let id = sprite.id.as_str();
+        let Some(view) = feature_views.get_in(id, Some(key.1)).filter(|view| view.alive) else {
+            continue;
         };
-        match view.kind {
+        let bounds = ae::Aabb::new(view.pos, view.size * 0.5);
+        let (name, bounds, color) = match view.kind {
             FeatureVisualKind::Actor => {
-                // Bosses share the Actor view kind; their bar anchors to the
-                // combat AABB (`BossFrameIndex`) and draws pink.
                 if let Some(frame) = boss_frames.get(id) {
-                    if view.alive {
-                        let label = boss_render.get(id).map(|b| b.name.as_str()).unwrap_or(id);
-                        spawn_health_overlay(
-                            &mut commands,
-                            scope,
-                            world,
-                            label,
-                            frame.aabb,
-                            hp,
-                            Color::srgba(1.00, 0.32, 0.92, 0.96),
-                        );
-                    }
-                } else if view.fighting && view.alive {
+                    let label = boss_render.get(id).map_or(id, |boss| boss.name.as_str());
+                    // Use the room's bounds when the ID has more than one view.
+                    let bounds = feature_views.get(id).map_or(bounds, |_| frame.aabb);
+                    (label, bounds, Color::srgba(1.00, 0.32, 0.92, 0.96))
+                } else if view.fighting {
+                    let label = actor_render.get(id).map_or(id, |actor| actor.name.as_str());
                     let color = if view.training_dummy {
                         Color::srgba(1.00, 0.66, 0.24, 0.96)
                     } else {
                         Color::srgba(1.00, 0.20, 0.22, 0.96)
                     };
-                    let label = actor_render.get(id).map(|a| a.name.as_str()).unwrap_or(id);
-                    spawn_health_overlay(
-                        &mut commands,
-                        scope,
-                        world,
-                        label,
-                        ae::Aabb::new(view.pos, view.size * 0.5),
-                        hp,
-                        color,
-                    );
+                    (label, bounds, color)
+                } else {
+                    continue;
                 }
             }
-            FeatureVisualKind::Breakable => {
-                if view.alive {
-                    spawn_health_overlay(
-                        &mut commands,
-                        scope,
-                        world,
-                        id,
-                        ae::Aabb::new(view.pos, view.size * 0.5),
-                        hp,
-                        Color::srgba(1.00, 0.72, 0.24, 0.96),
-                    );
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-fn spawn_health_overlay(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    world: &ae::World,
-    name: &str,
-    aabb: ae::Aabb,
-    health: Health,
-    fill_color: Color,
-) {
-    let width = aabb.width().max(56.0);
-    let height = 7.0;
-    let y = aabb.top() - 26.0;
-    let center_x = aabb.center().x;
-    let left = center_x - width * 0.5;
-    let ratio = health.ratio().clamp(0.0, 1.0);
-    let fill_w = width * ratio;
-    let text = format!("{}/{}", health.current.max(0), health.max);
-
-    commands.spawn_session_scoped(
-        session_scope,
-        (
-            Sprite::from_color(
-                Color::srgba(0.02, 0.03, 0.05, 0.86),
-                BVec2::new(width + 5.0, height + 5.0),
-            ),
-            Transform::from_translation(world_to_bevy(
-                world,
-                ae::Vec2::new(center_x, y),
-                WORLD_Z_PLAYER + 12.0,
-            )),
-            Name::new(format!("Health bar bg: {name}")),
-            HealthOverlayVisual,
-        ),
-    );
-    if fill_w > 0.5 {
-        commands.spawn_session_scoped(
-            session_scope,
-            (
-                Sprite::from_color(fill_color, BVec2::new(fill_w, height)),
-                Transform::from_translation(world_to_bevy(
-                    world,
-                    ae::Vec2::new(left + fill_w * 0.5, y),
-                    WORLD_Z_PLAYER + 13.0,
-                )),
-                Name::new(format!("Health bar fill: {name}")),
-                HealthOverlayVisual,
-            ),
+            FeatureVisualKind::Breakable => (id, bounds, Color::srgba(1.00, 0.72, 0.24, 0.96)),
+            _ => continue,
+        };
+        bars.show(
+            key,
+            scope,
+            world,
+            name,
+            bounds,
+            Health {
+                current: view.hp_current,
+                max: view.hp_max,
+                invulnerable: Default::default(),
+            },
+            color,
         );
     }
-    commands.spawn_session_scoped(
-        session_scope,
-        (
-            Text2d::new(text),
-            TextFont {
-                font_size: FontSize::Px(11.0),
-                ..default()
-            },
+    bars.finish();
+}
+
+impl HealthBarProducts<'_, '_> {
+    #[allow(clippy::too_many_arguments)]
+    fn show(
+        &mut self,
+        key: HealthBarKey,
+        scope: SessionSpawnScope,
+        world: &ae::World,
+        name: &str,
+        bounds: ae::Aabb,
+        health: Health,
+        fill_color: Color,
+    ) {
+        if !self.shown.insert(key) {
+            return;
+        }
+        let width = bounds.width().max(56.0);
+        let height = 7.0;
+        let at = ae::Vec2::new(bounds.center().x, bounds.top() - 26.0);
+        let position = world_to_bevy(world, at, WORLD_Z_PLAYER + 12.0);
+        let fill_width = width * health.ratio().clamp(0.0, 1.0);
+        let background_size = BVec2::new(width + 5.0, height + 5.0);
+        let fill_size = BVec2::new(fill_width, height);
+        let fill_offset = Vec3::new((fill_width - width) * 0.5, 0.0, 1.0);
+        let fill_visibility = if fill_width > 0.5 { Visibility::Inherited } else { Visibility::Hidden };
+        let hp = [health.current.max(0), health.max];
+        let text = || format!("{}/{}", hp[0], hp[1]);
+
+        if let Some(&root) = self.retained.get(&key) {
+            if let Ok((mut bar, mut transform, mut background)) = self.bars.get_mut(root) {
+                if let (Ok((mut offset, mut fill, mut visible)), Ok(mut label)) =
+                    (self.fills.get_mut(bar.fill), self.labels.get_mut(bar.label))
+                {
+                    transform.set_if_neq(Transform::from_translation(position));
+                    offset.set_if_neq(Transform::from_translation(fill_offset));
+                    visible.set_if_neq(fill_visibility);
+                    if background.custom_size != Some(background_size) {
+                        background.custom_size = Some(background_size);
+                    }
+                    if fill.custom_size != Some(fill_size) || fill.color != fill_color {
+                        fill.custom_size = Some(fill_size);
+                        fill.color = fill_color;
+                    }
+                    if bar.hp != hp {
+                        label.0 = text();
+                        bar.hp = hp;
+                    }
+                    return;
+                }
+                self.commands.entity(root).try_despawn();
+            }
+        }
+
+        let scope = scope.in_room(Some(key.1));
+        let root = self.commands.spawn_session_scoped(scope, (
+            Sprite::from_color(Color::srgba(0.02, 0.03, 0.05, 0.86), background_size),
+            Transform::from_translation(position),
+            Name::new(format!("Health bar bg: {name}")),
+        )).id();
+        let fill = self.commands.spawn_session_scoped(scope, (
+            WorldSprite,
+            Sprite::from_color(fill_color, fill_size),
+            Transform::from_translation(fill_offset),
+            fill_visibility,
+            ChildOf(root),
+            Name::new(format!("Health bar fill: {name}")),
+        )).id();
+        let label = self.commands.spawn_session_scoped(scope, (
+            WorldText,
+            Text2d::new(text()),
+            TextFont { font_size: FontSize::Px(11.0), ..default() },
             TextColor(Color::srgba(0.96, 0.98, 1.0, 0.98)),
-            Transform::from_translation(world_to_bevy(
-                world,
-                ae::Vec2::new(center_x, y - 13.0),
-                WORLD_Z_PLAYER + 14.0,
-            )),
+            Transform::from_xyz(0.0, 13.0, 2.0),
+            ChildOf(root),
             Name::new(format!("Health label: {name}")),
-            HealthOverlayVisual,
-        ),
-    );
+        )).id();
+        self.commands.entity(root).insert(HealthOverlayVisual { fill, label, hp });
+        self.retained.insert(key, root);
+    }
+
+    fn finish(&mut self) {
+        self.retained.reconcile(&mut self.commands, |key| self.shown.contains(key));
+        self.shown.clear();
+    }
 }
 
 #[cfg(test)]
@@ -611,28 +625,26 @@ mod room_tests {
         assert_eq!(shown(&mut app), both, "each view draws its own room's boss");
     }
 
-    /// Each health bar is drawn in the live room of the body it measures
-    /// (view half, cut V2k): the room the body's sprite is stamped with.
-    /// Two live rooms of different sizes, a breakable in each at one
-    /// simulation position: each bar has its body's room and that room's
-    /// position. A body with no sprite, so no room, gets no bar.
     #[test]
-    fn each_health_bar_is_drawn_in_its_body_s_own_live_room() {
-        let world_of = |size: ae::Vec2| ae::World::new("bar room", size, ae::Vec2::new(40.0, 40.0), Vec::new());
+    fn health_bars_keep_their_parts_in_rooms_with_the_same_feature_id() {
+        let world_of = |size| ae::World::new("bar room", size, ae::Vec2::splat(40.0), Vec::new());
         let (big, small) = (ae::Vec2::new(800.0, 600.0), ae::Vec2::new(400.0, 300.0));
+        let (first, second) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
         let mut app = App::new();
-        insert_live_room_component(app.world_mut(), ambition_platformer2d_core::RoomGeometry(world_of(big)));
-        let second = LiveRoomInstance::ACTIVATION.next();
-        spawn_live_room(app.world_mut(), second, ambition_platformer2d_core::RoomGeometry(world_of(small)));
-        let at = ae::Vec2::new(100.0, 200.0);
+        insert_live_room_component(app.world_mut(), ae::RoomGeometry(world_of(big)));
+        spawn_live_room(app.world_mut(), second, ae::RoomGeometry(world_of(small)));
+        let view = |room, x, hp| {
+            let mut view = crate_at(ae::Vec2::new(x, 200.0));
+            view.room = Some(room);
+            view.hp_current = hp;
+            ("crate".to_string(), view)
+        };
         app.insert_resource(FeatureViewIndex::from_rows([
-            ("crate_home".to_string(), crate_at(at)),
-            ("crate_away".to_string(), crate_at(at)),
-            ("crate_nowhere".to_string(), crate_at(at)),
+            view(first, 100.0, 1),
+            view(second, 100.0, 2),
         ]));
-        for (id, room) in [("crate_home", LiveRoomInstance::ACTIVATION), ("crate_away", second)] {
-            app.world_mut()
-                .spawn((super::super::primitives::FeatureVisual { id: id.to_string() }, InRoomInstance(room)));
+        for room in [first, second] {
+            app.world_mut().spawn((FeatureVisual { id: "crate".into() }, InRoomInstance(room)));
         }
         let mut dev = ambition_dev_tools::DeveloperRuntimeState::default();
         dev.debug = true;
@@ -644,31 +656,37 @@ mod room_tests {
         app.init_resource::<BossRenderIndex>();
         app.init_resource::<ambition_sim_view::BossFrameIndex>();
         app.add_systems(Update, sync_health_overlays);
-        app.update();
 
-        let world = app.world_mut();
-        let mut q = world.query::<(&Name, &Transform, Option<&InRoomInstance>)>();
-        let mut bars: Vec<(String, Option<u32>, (i32, i32))> = q
-            .iter(world)
-            .filter(|(name, ..)| name.as_str().starts_with("Health bar bg: "))
-            .map(|(name, transform, stamp)| {
-                (
-                    name.as_str().trim_start_matches("Health bar bg: ").to_string(),
-                    stamp.map(|stamp| stamp.0.ordinal()),
-                    (transform.translation.x as i32, transform.translation.y as i32),
-                )
-            })
-            .collect();
-        bars.sort();
-        // The bar sits 26 px above the box top: y = 200 - 10 - 26 = 164.
-        let flipped = |size: ae::Vec2| ((100.0 - size.x * 0.5) as i32, (size.y * 0.5 - 164.0) as i32);
-        assert_eq!(
-            bars,
-            vec![
-                ("crate_away".to_string(), Some(second.ordinal()), flipped(small)),
-                ("crate_home".to_string(), Some(LiveRoomInstance::ACTIVATION.ordinal()), flipped(big)),
-            ],
-            "(body, room, position) of each bar: each must be placed by its body's live room and stamped with it"
-        );
+        let products = |world: &mut World| {
+            world.query::<(Entity, &InRoomInstance, &HealthOverlayVisual, &Transform)>()
+                .iter(world)
+                .map(|(root, room, parts, place)| {
+                    (room.0, ([root, parts.fill, parts.label], place.translation.truncate()))
+                })
+                .collect::<std::collections::BTreeMap<_, _>>()
+        };
+        app.update();
+        let before = products(app.world_mut());
+        assert_eq!(before.len(), 2);
+        assert_eq!(before[&first].1, ae::Vec2::new(-300.0, 136.0));
+        assert_eq!(before[&second].1, ae::Vec2::new(-100.0, -14.0));
+        assert_eq!(app.world().get::<Text2d>(before[&first].0[2]).unwrap().0, "1/2");
+        assert_eq!(app.world().get::<Text2d>(before[&second].0[2]).unwrap().0, "2/2");
+
+        app.insert_resource(FeatureViewIndex::from_rows([view(second, 130.0, 1)]));
+        app.update();
+        let after = products(app.world_mut());
+        assert_eq!(after.len(), 1);
+        assert!(before[&first].0.iter().all(|&part| app.world().get_entity(part).is_err()));
+        let ([root, fill, label], place) = after[&second];
+        assert_eq!([root, fill, label], before[&second].0);
+        assert_eq!(place, ae::Vec2::new(-70.0, -14.0));
+        assert_eq!(app.world().get::<Sprite>(fill).unwrap().custom_size, Some(Vec2::new(28.0, 7.0)));
+        assert_eq!(app.world().get::<Text2d>(label).unwrap().0, "1/2");
+
+        app.world_mut().resource_mut::<ambition_dev_tools::dev_tools::DeveloperTools>().show_health_bars = false;
+        app.update();
+        assert!(products(app.world_mut()).is_empty());
+        assert!([root, fill, label].iter().all(|&part| app.world().get_entity(part).is_err()));
     }
 }

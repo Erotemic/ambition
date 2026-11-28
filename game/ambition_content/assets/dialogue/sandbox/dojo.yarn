@@ -1,9 +1,9 @@
 title: ninja_duelist
 ---
-Duelist: Quiet. The Leader is meditating. Slam the door and I have to kill you. ...Good. You managed it. What do you want?
--> Heard you're working with pirates now.
+Duelist: The Leader is meditating. Try not to slam the door. What do you want?
+-> What work does your clan do?
     <<jump ninja_duelist__1>>
--> Any tips for the bird?
+-> What do you know about Badely?
     <<jump ninja_duelist__2>>
 -> Have you heard of Kagero?
     Duelist: The woman with the white scarf. Shadow Oni has never given her orders. Doubt she'd take any.
@@ -12,7 +12,7 @@ Duelist: Quiet. The Leader is meditating. Slam the door and I have to kill you. 
 
 title: ninja_duelist__1
 ---
-Duelist: Temporary. Bird first, pirates later. I can smell the cove from here.
+Duelist: Right now we're guarding a shipment for the Gate Authority. The Leader is waiting to hear from some employers in the Business Dimension. In the meantime, I have a watch to stand.
 -> Ask another question.
     <<jump ninja_duelist>>
 -> Carry on.
@@ -20,7 +20,7 @@ Duelist: Temporary. Bird first, pirates later. I can smell the cove from here.
 
 title: ninja_duelist__2
 ---
-Duelist: It steals voices. Wait for the gap after it calls, then go. If it starts sounding like you, stop listening.
+Duelist: He rides a burning shark better than anyone I've fought. Last time I watched the rail for boarders, he came up from underneath it.
 -> Ask another question.
     <<jump ninja_duelist>>
 -> Carry on.
@@ -28,10 +28,10 @@ Duelist: It steals voices. Wait for the gap after it calls, then go. If it start
 
 title: ninja_leader
 ---
-Shadow Oni: You came in without invitation. I have not decided whether that was nerve or skill. The Mockingbird stole one of our katas. It dies for that. The pirates happen to want the same bird.
--> Why team up with the pirates?
+Shadow Oni: You came in without invitation. I have not decided whether that was nerve or skill. I am Zorlack 65536, leader of the Shadow Clan. What brings you here?
+-> What work are you doing?
     <<jump ninja_leader__1>>
--> What's your grievance with the bird?
+-> What do you want to do in the Business Dimension?
     <<jump ninja_leader__2>>
 -> Where does the dojo stand on the cove?
     <<jump ninja_leader__3>>
@@ -42,7 +42,8 @@ Shadow Oni: You came in without invitation. I have not decided whether that was 
 
 title: ninja_leader__1
 ---
-Shadow Oni: The Admiral keeps the east side. We take the roofs. Nobody sings at anyone, nobody touches anyone else's weapons, and this arrangement ends with the bird.
+Shadow Oni: The Gate Authority hired us to guard a shipment. I have sent applications to employers in the Business Dimension, and while I wait for a reply, my clan and I need to earn a living.
+Shadow Oni: Badely is preparing a raid. I would prefer that you not carry news of our plans to the cove.
 -> Ask another question.
     <<jump ninja_leader>>
 -> Open the arena door.
@@ -50,7 +51,8 @@ Shadow Oni: The Admiral keeps the east side. We take the roofs. Nobody sings at 
 
 title: ninja_leader__2
 ---
-Shadow Oni: It watched one morning lesson. At dawn it came back, did the kata in our courtyard, then laughed in my voice. I want its beak.
+Shadow Oni: On my first visit, a man at the careers office asked me what sort of work I wanted. Nobody had ever asked me that before.
+Shadow Oni: I have led this clan for years. I am rather curious what else I might be good at. For the moment I would settle for an interview.
 -> Ask another question.
     <<jump ninja_leader>>
 -> Open the arena door.
@@ -58,7 +60,8 @@ Shadow Oni: It watched one morning lesson. At dawn it came back, did the kata in
 
 title: ninja_leader__3
 ---
-Shadow Oni: Tell the Admiral we hold the eastern thermals. Afterward he goes back to his cove. I go back to wishing he had stayed there.
+Shadow Oni: We made peace with the pirates generations ago. Badely sees an opportunity in the cargo, and we have agreed to protect it. I expect a difficult passage.
+Shadow Oni: He is an excellent captain. I have no wish to resume the wars over a consignment of freight.
 -> Ask another question.
     <<jump ninja_leader>>
 -> Open the arena door.
@@ -69,9 +72,9 @@ title: ninja_heavy
 Ninja Heavy: The Leader opens the far door. The heavy one closes it. Speak.
 -> Why do they call you the heavy one?
     <<jump ninja_heavy__1>>
--> Any advice for the bird?
+-> What do you do on a cargo ship?
     <<jump ninja_heavy__2>>
--> Why train with the pirates?
+-> Do you ever speak to the pirates?
     Ninja Heavy: I went to watch Bess load a cannon. She shouted at the powder until someone lit it.
     Ninja Heavy: Her crew lived. I learned something.
 -> Carry on.
@@ -87,7 +90,7 @@ Ninja Heavy: The Duelist is not there when you strike. The heavy one is there. I
 
 title: ninja_heavy__2
 ---
-Ninja Heavy: It can copy a voice. It can not copy a weight. Strike when it laughs.
+Ninja Heavy: I stand between the cargo and the boarders. The captain asked me to stand nearer the centre of the deck. Something about the ship's trim.
 -> Ask another question.
     <<jump ninja_heavy>>
 -> Carry on.

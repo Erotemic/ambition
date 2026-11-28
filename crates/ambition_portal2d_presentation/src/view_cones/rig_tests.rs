@@ -33,7 +33,7 @@ fn capture_room_bands(two_rooms: bool) -> Vec<Vec<usize>> {
     crate::one_live_room(&mut app, WORLD);
     app.insert_resource(Assets::<Image>::default())
         .insert_resource(Assets::<Mesh>::default())
-        .insert_resource(Assets::<ColorMaterial>::default())
+        .insert_resource(Assets::<PortalClipMaterial>::default())
         .insert_resource(crate::PortalEffectSelection {
             active: crate::PortalVisualEffect::ViewCones,
         })
@@ -138,7 +138,7 @@ fn two_rooms_with_eyes(eyes: &[(LiveRoomInstance, Option<Vec2>)]) -> App {
     crate::one_live_room(&mut app, WORLD);
     app.insert_resource(Assets::<Image>::default())
         .insert_resource(Assets::<Mesh>::default())
-        .insert_resource(Assets::<ColorMaterial>::default())
+        .insert_resource(Assets::<PortalClipMaterial>::default())
         .insert_resource(crate::PortalEffectSelection {
             active: crate::PortalVisualEffect::ViewCones,
         })
@@ -504,7 +504,7 @@ fn a_window_that_closed_when_the_viewer_crossed_is_the_far_pane() {
     crate::one_live_room(&mut app, WORLD);
     app.insert_resource(Assets::<Image>::default())
         .insert_resource(Assets::<Mesh>::default())
-        .insert_resource(Assets::<ColorMaterial>::default())
+        .insert_resource(Assets::<PortalClipMaterial>::default())
         .insert_resource(crate::PortalEffectSelection {
             active: crate::PortalVisualEffect::ViewCones,
         })
@@ -714,7 +714,15 @@ fn a_window_without_a_capture_lets_its_target_go() {
         let rigs: Vec<(bool, bool)> = app.world_mut().query::<(&PortalViewRig, &Camera, &RenderTarget)>()
             .iter(app.world())
             .filter(|(rig, ..)| rig.room() == room)
-            .map(|(_, camera, target)| (camera.is_active, matches!(target, RenderTarget::Image(_))))
+            .map(|(rig, camera, target)| {
+                let material = app.world().resource::<Assets<PortalClipMaterial>>().get(&rig.material).unwrap();
+                let image = match target {
+                    RenderTarget::Image(image) => image.handle.clone(),
+                    _ => Handle::default(),
+                };
+                assert_eq!(material.color_texture, image);
+                (camera.is_active, matches!(target, RenderTarget::Image(_)))
+            })
             .collect();
         (images, rigs.iter().filter(|(active, _)| *active).count(), rigs.iter().filter(|(_, held)| *held).count())
     };

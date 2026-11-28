@@ -26,7 +26,7 @@ and reviewing them is `docs/authoring/anti-llmism-style-guide.md`.
 | Freight and gate economics | Ines, Bram, Jory, Agnes, Bo Lindqvist, Reyes, Pulse | Rings move goods quickly but capacity, power, and customs constrain travel; ships still work | A delayed delivery someone genuinely depends on; a choice between gate and ship |
 | Passenger records and Castle Godwin | Ines, Okafor, the General, Fretjaw, Alice and the manifest clerk | Requests for names are surfacing from different offices; characters differ in how they handle them | Identify the requester, the person at risk, and the legal limits of sharing a list before any embassy storyline |
 | Gnu-ton's gravity works | Wen, Rahimi, Reyes | Work in the Science dimension can be dangerous; residents have partial, occupation-specific evidence | Connect field anomalies and power budgets to a real authored area, without declaring the station incident Gnu-ton's fault |
-| The Mockingbird and the ninja-pirate agreement | Admiral, Bess, Shadow Oni, the Duelist | The groups have a narrow common objective, different stakes, and little reason to trust each other | Resolve differences after the boss while preserving the cove treasure quest and dojo access |
+| Shipment security and piracy | Admiral, Bess, Zorlack 65536, the Duelist | The old wars are over; Roo raids freight arriving in PVN, and Zorlack is guarding a shipment while awaiting news of jobs in the Business Dimension | Develop their own ambitions and the commercial rivalry independently of the Mockingbird |
 | Kagero and Castle Godwin | Sato, Daichi, Hayashi, Duelist, Shadow Oni | Kagero is spoken of as independent of the village dojo; a few people have heard where she went | Optional recognition after her actual boss-fight appearance, keyed to a reliable event if one is authored |
 | The wrong-list raid and safer maps | Alice, Bob, Oiler, the clerk, the gate janitor | The wrong address has visible paperwork and human consequences; the cartographers protect routes ([level 1](level-1.md)) | Trace one document through the institutions; keep the creator's unfinished sentence unresolved |
 | A future friendship | (none in level 1) | Fia is not named in the intro: her full name is a later reveal, and the character may be reworked or cut ([level 1](level-1.md)) | Introduce Fia in person through repairs and trust, rather than an explanatory speech |
@@ -45,7 +45,7 @@ Expanded optional player choices, with existing entry node IDs intact, in:
   the cove;
 - `ninja_village.yarn` — couriers, tea house, students, and rank examination;
 - `orbital.yarn` — customs, engineering, survey work, and habitation;
-- `cove.yarn` and `dojo.yarn` — the two sides of the Mockingbird dispute;
+- `cove.yarn` and `dojo.yarn` — the two sides of the shipment rivalry (originally the Mockingbird dispute, superseded November 27);
 - `intro.yarn` — cartographers, Oiler, the janitor and manifest clerk;
 - `factions.yarn` — the General, Fretjaw and Captain Pulse.
 
@@ -59,7 +59,7 @@ whose original layout uses jump-to-subnode menus.
 
 1. Keep **the actual current quest transitions**: Ines's manifest return;
    Okafor's crate clearance and spur pass; Hayashi's rank award; Alice/Bob's
-   reading and survey; the General's clearance; the pirate Mockingbird result.
+   reading and survey; the General's clearance; the interim cove encounter result.
 2. Never present a **rumor as objective narration**. An NPC can be mistaken.
    Reconcile their claims with future authored events before those events
    become release content.
@@ -77,6 +77,25 @@ whose original layout uses jump-to-subnode menus.
 8. Maintain different voices. Preserve the theatrical pirates, aspirational
    ninja student, harried station workers, and Oiler's practical manner.
 
+## PVN revision — 2026-11-27
+
+The current shipment is an interim contract for Zorlack 65536, the final
+numbered leader of the Shadow Clan, while he waits for responses to job
+applications in the Business Dimension. Roo is a former Gate Authority
+recruit who settled in PVN after a severe crossing reaction and now raids
+freight arriving there. The exact origin, succession event, and potential
+future recovery remain open; the main-world dialogue retains the R. Badely
+name rather than revealing Roo's first name.
+
+The stolen song chest, shared pirate–ninja hunt and reconciliation after the
+Mockingbird are retired as plot premises. The boss sequence is to be redesigned
+rather than following *How to Kill a Mockingbird*. Do not invent a replacement
+plot or use the shipment as a mandatory boss quest. For now the existing boss,
+reward, and arena access remain mechanically unchanged; the journal and
+post-fight dialogue describe only the interim encounter. The old
+`pirate_treasure` quest key and `after_treasure` Yarn node IDs are retained for
+compatibility, not as evidence of a stolen chest story.
+
 ## Validation / future work
 
 - Run the existing all-sources Yarn compiler test after editing:
@@ -84,8 +103,9 @@ whose original layout uses jump-to-subnode menus.
 - Playtest **each pre-quest and post-quest branch** in Pirate Port, Ninja
   Village and Orbital Station; verify that new optional choices never set
   flags or delay the expected hand-in paths.
-- Visit the cove before and after defeating the Mockingbird. A defeated boss
-  must still expose the Admiral's reward dialogue.
+- Visit the cove before and after defeating the Mockingbird. Roo's personal
+  and shipment conversations must be available in either state; the defeated
+  boss still exposes the interim reward dialogue.
 - Check portrait, speaker attribution, option paging and controller navigation
   with the new option counts (also with split-screen co-op).
 - Review every added line against `anti-llmism-style-guide.md`: remove tidy

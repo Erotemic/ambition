@@ -15,7 +15,6 @@ use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
-use bevy::sprite_render::AlphaMode2d;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 
@@ -28,7 +27,7 @@ use ambition_portal2d::{find_portal, PlacedPortal, PortalChannel};
 use ambition_platformer2d_shared_tangle::camera_layers::PrivateCameraLayer;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
 
-use crate::{PortalCameraContinuityHostView, PortalObserverViews, PortalViewer, PortalViewers, PortalWorldFrame};
+use crate::{PortalCameraContinuityHostView, PortalClipMaterial, PortalObserverViews, PortalViewer, PortalViewers, PortalWorldFrame};
 
 /// Clear color of an offscreen capture: a dark tone shows through wherever the
 /// exit room has no geometry (rare — parallax usually fills it). Opaque windows
@@ -581,13 +580,7 @@ impl Default for PortalViewConeConfig {
 /// Marks a window mesh entity (the `Mesh2d` set into a portal's surface),
 /// disjoint from the capture-camera entity that carries [`PortalViewRig`].
 #[derive(Component)]
-#[require(PortalWindowSample)]
 pub struct PortalConeMesh;
-
-/// The visible half of the capture in texture coordinates.
-/// A texel is visible where the dot product of `(u, v, 1)` and this plane is positive.
-#[derive(Component, Clone, Copy, Default, PartialEq)]
-pub struct PortalWindowSample(pub Vec3);
 
 /// The window is drawn for this observer's camera alone (V1). Set on a
 /// window mesh while its room has the eyes of more than one observer: each
@@ -637,6 +630,7 @@ pub struct PortalViewRig {
     /// Size of the allocated target. Zero until the first capture.
     target_size: UVec2,
     mesh: Handle<Mesh>,
+    material: Handle<PortalClipMaterial>,
     cone: Entity,
     /// The capture its texture holds, where it was taken: what the window
     /// samples until the next one. `None` before the first.
@@ -937,7 +931,7 @@ use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
 pub struct ConeRigAssets<'w> {
     images: ResMut<'w, Assets<Image>>,
     meshes: ResMut<'w, Assets<Mesh>>,
-    materials: ResMut<'w, Assets<ColorMaterial>>,
+    materials: ResMut<'w, Assets<PortalClipMaterial>>,
 }
 
 fn capture_image(images: &mut Assets<Image>, size: UVec2) -> Handle<Image> {
@@ -947,6 +941,23 @@ fn capture_image(images: &mut Assets<Image>, size: UVec2) -> Handle<Image> {
     );
     target.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT;
     images.add(target)
+}
+
+/// Prepare the opaque window pipeline before the first capture.
+pub(crate) fn warm_the_window_material(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<PortalClipMaterial>>,
+) {
+    commands.spawn((
+        Mesh2d(meshes.add(placeholder_mesh())),
+        MeshMaterial2d(materials.add(PortalClipMaterial::window(
+            Color::WHITE, Handle::default(), Vec3::ZERO,
+        ))),
+        Transform::default(),
+        bevy::camera::visibility::NoFrustumCulling,
+        Name::new("Portal window material warm-up"),
+    ));
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -962,7 +973,6 @@ pub fn sync_portal_view_cones(
     time: Res<Time>,
     portals: Query<(Entity, &PlacedPortal)>,
     presented_time: Option<Res<crate::PortalPresentedTime>>,
-    cone_materials: Query<&MeshMaterial2d<ColorMaterial>, With<PortalConeMesh>>,
     mut rigs: Query<(
         Entity,
         &mut PortalViewRig,
@@ -972,7 +982,7 @@ pub fn sync_portal_view_cones(
         &mut RenderTarget,
         &mut RenderLayers,
     )>,
-    mut cones: Query<(&mut Transform, &mut PortalWindowSample), (With<PortalConeMesh>, Without<PortalViewRig>)>,
+    mut cones: Query<&mut Transform, (With<PortalConeMesh>, Without<PortalViewRig>)>,
     screen_density: GameplayScreenDensity,
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
@@ -1144,7 +1154,6 @@ pub fn sync_portal_view_cones(
             &windows_a_capture_may_see(all, &portal, &partner, room_band),
             room_band,
         ));
-        sync_cone_material_tint(&cone_materials, materials, rig.cone, config.tint);
 
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size, convention);
         // Which pane of the pair the viewer is in front of, before the window
@@ -1258,12 +1267,7 @@ pub fn sync_portal_view_cones(
                     };
                     if size != rig.target_size {
                         let image = capture_image(images, size);
-                        *target = RenderTarget::Image(ImageRenderTarget::from(image.clone()));
-                        if let Ok(handle) = cone_materials.get(rig.cone) {
-                            if let Some(mut material) = materials.get_mut(&handle.0) {
-                                material.texture = Some(image);
-                            }
-                        }
+                        *target = RenderTarget::Image(ImageRenderTarget::from(image));
                         rig.target_size = size;
                     }
                     active_captures += 1;
@@ -1292,9 +1296,18 @@ pub fn sync_portal_view_cones(
                 let anchor = mapped_view.map_or(uncropped_center, |view| view.center);
                 rig.parallax_anchor = frame.to_render(anchor, 0.0).truncate();
                 rig.parallax_visible_view = mapped_view.map(|view| view.size);
-                if let Ok((mut ctf, mut sample)) = cones.get_mut(rig.cone) {
+                if let RenderTarget::Image(image) = &*target {
+                    let draw = PortalClipMaterial::window(
+                        config.tint,
+                        image.handle.clone(),
+                        r.capture.visible_half(exit.frame.origin, exit.frame.normal),
+                    );
+                    if materials.get(&rig.material) != Some(&draw) {
+                        materials.insert(rig.material.id(), draw).ok();
+                    }
+                }
+                if let Ok(mut ctf) = cones.get_mut(rig.cone) {
                     ctf.translation = r.centroid;
-                    sample.set_if_neq(r.capture.visible_half(exit.frame.origin, exit.frame.normal));
                 }
             }
             None => {
@@ -1323,10 +1336,8 @@ pub fn sync_portal_view_cones(
             images.remove(image.handle.id());
         }
         *target = RenderTarget::None { size: UVec2::ONE };
-        if let Ok(handle) = cone_materials.get(rig.cone) {
-            if let Some(mut material) = materials.get_mut(&handle.0) {
-                material.texture = None;
-            }
+        if let Some(mut material) = materials.get_mut(&rig.material) {
+            material.color_texture = Handle::default();
         }
         rig.target_size = UVec2::ZERO;
         rig.captured = None;
@@ -1426,14 +1437,12 @@ pub fn sync_portal_view_cones(
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),
         });
-        let material = materials.add(ColorMaterial {
-            color: config.tint,
-            // Opaque: the window draws over whatever it is in front of, rather
-            // than ghosting it through.
-            alpha_mode: AlphaMode2d::Opaque,
-            texture: image.clone(),
-            ..default()
+        let visible_half = render.as_ref().map_or(Vec3::ZERO, |r| {
+            r.capture.visible_half(exit.frame.origin, exit.frame.normal)
         });
+        let material = materials.add(PortalClipMaterial::window(
+            config.tint, image.clone().unwrap_or_default(), visible_half,
+        ));
         let cone_tf = match &render {
             Some(r) => Transform::from_translation(r.centroid),
             None => Transform::from_translation(Vec3::new(0.0, 0.0, z)),
@@ -1441,15 +1450,12 @@ pub fn sync_portal_view_cones(
         let cone_entity = commands
             .spawn((
                 Mesh2d(mesh.clone()),
-                MeshMaterial2d(material),
+                MeshMaterial2d(material.clone()),
                 cone_tf,
                 // Always visible: a shut window is a mesh with no area
                 // ([`shut_window_mesh`]), never a hidden entity.
                 Visibility::Inherited,
                 PortalConeMesh,
-                render.as_ref().map_or(PortalWindowSample::default(), |r| {
-                    r.capture.visible_half(exit.frame.origin, exit.frame.normal)
-                }),
                 portal_window_render_layers(portal.channel),
                 // The window is of this live room: only a camera that frames
                 // the room draws it while two rooms are live.
@@ -1542,6 +1548,7 @@ pub fn sync_portal_view_cones(
                 shown,
                 target_size,
                 mesh,
+                material,
                 cone: cone_entity,
                 captured: render.as_ref().map(|r| r.capture),
                 pane_dominant,
@@ -1619,21 +1626,6 @@ fn windows_a_capture_may_see(
 
 /// `Shift+F8` requests a portal view-cone dump. Plain F8 remains the gameplay
 /// trace dump, so the two expensive diagnostics are explicit and independent.
-
-fn sync_cone_material_tint(
-    cone_materials: &Query<&MeshMaterial2d<ColorMaterial>, With<PortalConeMesh>>,
-    materials: &mut Assets<ColorMaterial>,
-    cone: Entity,
-    tint: Color,
-) {
-    let Ok(material_handle) = cone_materials.get(cone) else {
-        return;
-    };
-    let Some(mut material) = materials.get_mut(&material_handle.0) else {
-        return;
-    };
-    material.color = tint;
-}
 
 #[cfg(test)]
 mod rule_tests {

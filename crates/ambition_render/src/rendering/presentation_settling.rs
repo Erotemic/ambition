@@ -11,16 +11,20 @@
 //! [`PresentationSettling`] names each one, each frame, with the live room it
 //! is in, or none for what is the whole App's (a pipeline that compiles). A
 //! cover over one room lifts on a frame where nothing of that room and
-//! nothing global waits ([`PresentationSettling::pending_for`]): an
-//! unrelated live room's art does not keep it up. A system that knows of more
+//! nothing global waits ([`PresentationSettling::pending_for`]). The render
+//! cache gives new pipelines a short time to compile. Older work stays in
+//! the cache and can finish after the cover lifts. A system that knows of more
 //! (a room look that dresses the room's doors) adds to it in `Update` with
 //! [`PresentationSettling::hold_in`], before the covers read it
 //! ([`PresentationSettlingSet`]).
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
+use bevy::platform::{collections::HashMap, time::Instant};
 use bevy::prelude::*;
+use bevy::render::render_resource::{PipelineCache, PipelineDescriptor};
 
 use ambition_sprite_sheet::game_assets::GameAssets;
 
@@ -76,20 +80,80 @@ impl PresentationSettling {
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PresentationSettlingSet;
 
-/// How many render pipelines this App's render world has asked for and not
-/// yet built: shared between the main world and the render world by the
-/// `Arc`, as `AppGpuPreparedImages` is.
+/// The number of pipelines still in their initial compilation period.
+/// Shared between the main world and the render world.
 #[derive(Resource, Clone, Default, Debug)]
-pub struct RenderPipelinesWaiting(Arc<AtomicUsize>);
+pub struct RenderPipelineWarmup(Arc<AtomicUsize>);
 
-impl RenderPipelinesWaiting {
+impl RenderPipelineWarmup {
     pub fn count(&self) -> usize {
         self.0.load(Ordering::Relaxed)
     }
 }
 
-fn count_waiting_pipelines(cache: Res<bevy::render::render_resource::PipelineCache>, waiting: Res<RenderPipelinesWaiting>) {
-    waiting.0.store(cache.waiting_pipelines().count(), Ordering::Relaxed);
+/// The cache can retry an unavailable shader on every frame. Limit the time
+/// one continuous wait can delay a cover.
+const PIPELINE_WARMUP_GRACE: Duration = Duration::from_millis(250);
+
+#[derive(Default)]
+struct PipelineWaits {
+    previous: HashMap<usize, PipelineWait>,
+    current: HashMap<usize, PipelineWait>,
+}
+
+struct PipelineWait {
+    since: Instant,
+    reported: bool,
+}
+
+impl PipelineWaits {
+    fn sample(
+        &mut self,
+        now: Instant,
+        waiting: impl IntoIterator<Item = usize>,
+        mut report: impl FnMut(usize, Duration),
+    ) -> usize {
+        let mut count = 0;
+        for id in waiting {
+            let mut wait = self.previous.remove(&id).unwrap_or(PipelineWait {
+                since: now,
+                reported: false,
+            });
+            let elapsed = now.duration_since(wait.since);
+            if elapsed < PIPELINE_WARMUP_GRACE {
+                count += 1;
+            } else if !wait.reported {
+                report(id, elapsed);
+                wait.reported = true;
+            }
+            self.current.insert(id, wait);
+        }
+        self.previous.clear();
+        std::mem::swap(&mut self.previous, &mut self.current);
+        count
+    }
+}
+
+fn sample_pipeline_warmup(
+    cache: Res<PipelineCache>,
+    warmup: Res<RenderPipelineWarmup>,
+    mut waits: Local<PipelineWaits>,
+) {
+    let count = waits.sample(Instant::now(), cache.waiting_pipelines(), |id, elapsed| {
+        if let Some(pipeline) = cache.pipelines().nth(id) {
+            let label = match &pipeline.descriptor {
+                PipelineDescriptor::RenderPipelineDescriptor(desc) => desc.label.as_deref(),
+                PipelineDescriptor::ComputePipelineDescriptor(desc) => desc.label.as_deref(),
+            };
+            warn!(
+                "pipeline {id} ({}) still pending after {:.0} ms. Its cover warm-up period expired. State {:?}",
+                label.unwrap_or("unlabeled"),
+                elapsed.as_secs_f64() * 1000.0,
+                pipeline.state,
+            );
+        }
+    });
+    warmup.0.store(count, Ordering::Relaxed);
 }
 
 fn forget_last_frame(mut settling: ResMut<PresentationSettling>) {
@@ -104,9 +168,7 @@ fn hold_for_the_renderer(
     mut settling: ResMut<PresentationSettling>,
     assets: Option<Res<GameAssets>>,
     unclaimed: Option<Res<UnclaimedFeatureViews>>,
-    // The room of an undrawn view: its row says it.
-    views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
-    pipelines: Option<Res<RenderPipelinesWaiting>>,
+    pipelines: Option<Res<RenderPipelineWarmup>>,
     terrains: Query<(Entity, &RoomTerrain)>,
     // A door with art of its own (a room look's door) does not take its
     // theme's (`dress_themed_doors`): it is not waited on for it.
@@ -115,8 +177,7 @@ fn hold_for_the_renderer(
     rooms: LiveRooms,
 ) {
     if let Some(unclaimed) = unclaimed {
-        for id in unclaimed.ids() {
-            let room = views.as_deref().and_then(|views| views.get(id)).and_then(|view| view.room);
+        for (id, room) in unclaimed.iter() {
             settling.hold_in(room, format!("feature view {id}"));
         }
     }
@@ -152,16 +213,16 @@ pub struct PresentationSettlingPlugin;
 impl Plugin for PresentationSettlingPlugin {
     fn build(&self, app: &mut App) {
         use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
-        let waiting = RenderPipelinesWaiting::default();
+        let warmup = RenderPipelineWarmup::default();
         app.init_resource::<PresentationSettling>()
-            .insert_resource(waiting.clone())
+            .insert_resource(warmup.clone())
             .configure_sets(Update, PresentationSettlingSet.after(Platformer2dSimulationPhase::PresentationVisualSync))
             .add_systems(First, forget_last_frame)
             .add_systems(Update, hold_for_the_renderer.in_set(PresentationSettlingSet));
         if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
-            render_app.insert_resource(waiting).add_systems(
+            render_app.insert_resource(warmup).add_systems(
                 bevy::render::Render,
-                count_waiting_pipelines.after(bevy::render::RenderSystems::Render),
+                sample_pipeline_warmup.after(bevy::render::RenderSystems::Render),
             );
         }
     }
@@ -193,6 +254,21 @@ impl SettledLatch {
 mod tests {
     use super::*;
 
+    #[test]
+    fn an_old_pipeline_stops_holding_reveals_while_a_new_one_can_wait() {
+        let mut waits = PipelineWaits::default();
+        let start = Instant::now();
+        let later = start + PIPELINE_WARMUP_GRACE;
+        let mut expired = Vec::new();
+        let mut report = |id, _| expired.push(id);
+        assert_eq!(waits.sample(start, [1], &mut report), 1);
+        assert_eq!(waits.sample(later, [1, 2], &mut report), 1);
+        assert_eq!(waits.sample(later, [1], &mut report), 0);
+        assert_eq!(waits.sample(later, [], &mut report), 0);
+        assert_eq!(waits.sample(later, [1], &mut report), 1);
+        assert_eq!(expired, vec![1]);
+    }
+
     /// Review integration check (2026-10-19): a cover over one room waits on
     /// that room and on what is the whole App's, not on another live room.
     /// Control: a cover that cannot name its rooms waits on everything.
@@ -207,24 +283,36 @@ mod tests {
         assert_eq!(settling.pending_for(&[]).len(), 3, "control: a cover with no rooms waits on all");
     }
 
-    /// An undrawn feature view is held in the room its row names, and one
-    /// whose room cannot be told holds every cover. Poison: hold every view
-    /// as the whole App's.
     #[test]
-    fn an_undrawn_view_is_held_in_its_own_room() {
+    fn an_undrawn_copy_of_a_feature_holds_only_its_room_cover() {
+        use super::super::features::draw_unclaimed_feature_views;
+        use super::super::primitives::FeatureVisual;
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+
         let (here, there) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
         let mut app = App::new();
-        app.init_resource::<PresentationSettling>();
-        app.insert_resource(UnclaimedFeatureViews::of(&["a_there", "b_here", "c_nowhere"]));
+        app.add_plugins(PresentationSettlingPlugin);
+        app.init_resource::<UnclaimedFeatureViews>();
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
-            ("a_there".to_string(), actor_in(Some(there))),
-            ("b_here".to_string(), actor_in(Some(here))),
-            ("c_nowhere".to_string(), actor_in(None)),
+            ("shared_gate".to_string(), actor_in(Some(here))),
+            ("shared_gate".to_string(), actor_in(Some(there))),
         ]));
-        app.add_systems(Update, hold_for_the_renderer);
+        app.world_mut().spawn((
+            FeatureVisual { id: "shared_gate".into() },
+            InRoomInstance(here),
+        ));
+        app.add_systems(Update, draw_unclaimed_feature_views.before(PresentationSettlingSet));
         app.update();
         let settling = app.world().resource::<PresentationSettling>();
-        assert_eq!(settling.pending_for(&[here]), vec!["feature view b_here", "feature view c_nowhere"]);
+        assert!(settling.pending_for(&[here]).is_empty());
+        assert_eq!(settling.pending_for(&[there]), vec!["feature view shared_gate"]);
+
+        app.world_mut().spawn((
+            FeatureVisual { id: "shared_gate".into() },
+            InRoomInstance(there),
+        ));
+        app.update();
+        assert!(app.world().resource::<PresentationSettling>().is_empty());
     }
 
     fn actor_in(room: Option<LiveRoomInstance>) -> ambition_sim_view::FeatureView {

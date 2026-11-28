@@ -70,28 +70,28 @@
         ],
         auto_start: true,
     ),
-    // The cove's hoard was stolen by a mockingbird. The step order is the minimum
-    // sequence: the chest exists only when the bird is dead, so returning it to
-    // the admiral cannot come first. Talking to the admiral first does not match
-    // step 0, and the quest stays where it is.
+    // Interim cove encounter objective. The stolen-chest story has been retired;
+    // the fight will be redesigned separately. Preserve the existing completion
+    // order: defeat the boss, then speak to the admiral. Talking to him first
+    // does not match step 0, and the quest stays where it is.
     (
         id: "pirate_treasure",
-        title: "The Plundered Hoard",
-        summary: "A mockingbird looted the pirate cove. Bring the chest back.",
+        title: "Above the Cove",
+        summary: "Defeat the Mockingbird above the cove and speak to the Admiral.",
         steps: [
             (
-                description: "Hunt the mockingbird and reclaim the chest.",
+                description: "Defeat the Mockingbird.",
                 condition: BossDefeated("mockingbird"),
             ),
             (
-                description: "Return the treasure to the pirate admiral.",
+                description: "Report back to the pirate admiral.",
                 condition: FlagSet("npc_pirate_admiral_talked"),
             ),
         ],
         auto_start: true,
-        // The admiral pays out the hoard.
+        // Preserve the existing admiral reward until the encounter redesign.
         reward: Some((
-            banner: "TREASURE RETURNED — Admiral pays out the hoard",
+            banner: "COVE REWARD — Admiral pays out",
             items: [
                 (item: "healthcell", count: 3),
                 (item: "sparebattery", count: 2),

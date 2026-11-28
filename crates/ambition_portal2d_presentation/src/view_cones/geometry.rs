@@ -147,10 +147,10 @@ impl CaptureCameraFrame {
         ]
     }
 
-    pub(crate) fn visible_half(&self, origin: Vec2, inward: Vec2) -> PortalWindowSample {
+    pub(crate) fn visible_half(&self, origin: Vec2, inward: Vec2) -> Vec3 {
         let axis = Vec2::new(self.axis.dot(inward), self.down().dot(inward)) * self.size;
         let offset = (self.center - origin).dot(inward) - 0.5 * axis.element_sum();
-        PortalWindowSample(axis.extend(offset))
+        axis.extend(offset)
     }
 
     /// The axis-aligned bounds of the rect it frames, as `(min, max)`.

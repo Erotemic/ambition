@@ -19,11 +19,13 @@ title: dialogue_context
 
 title: hall_pirate_admiral
 ---
-Admiral: A visitor. Stand straight, landstrider. Habit. Four ships under me once. Now I command this plank and a length o' rope.
--> Were you a real admiral?
-    Admiral: Four ships. One mutiny. Lost the mutiny. Kept the hat.
--> Any orders?
-    Admiral: Aye. Keep walking. If we meet outside this hall, bring a cutlass or bring sense enough to run.
+Admiral: Ahoy! R. Badely, at your service. Provided you're not with the customs office.
+-> Were you always a pirate?
+    Admiral: No. Used to wear an Authority uniform. Much preferred the hat they gave me aboard ship.
+-> What makes a good captain?
+    Admiral: A crew that trusts ye when the wind changes. And enough sense to listen to the one who tells ye it's changing.
+-> What do you do for fun?
+    Admiral: Take a burning shark out past the headland, let the reins go slack and see how far we can ride the updraft. Beats sitting in a hall, don't it?
 ===
 
 title: hall_stochastic_parrot
@@ -245,7 +247,9 @@ title: hall_npc_ninja_shadow_oni_leader
 ---
 Zorlack: You came close without being invited. Once is enough.
 -> What do you lead?
-    Zorlack: They'll do exactly what I tell them. Ask the Duelist how long I take to decide.
+    Zorlack: The Shadow Clan. I am the sixty-five thousand five hundred and thirty-sixth Zorlack. The final name on our wall.
+-> What else would you like to do?
+    Zorlack: I am looking into work in the Business Dimension. The last application asked for a reference from my previous employer. I have only ever held this position.
 -> Do you know my weaknesses?
     Zorlack: I know where you leave your guard open. I have no reason to help you close it.
 ===

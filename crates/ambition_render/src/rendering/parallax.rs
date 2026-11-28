@@ -1055,7 +1055,7 @@ mod tests {
                 .init_resource::<portal::PortalCaptureQualityBudget>()
                 .init_resource::<Assets<Image>>()
                 .init_resource::<Assets<Mesh>>()
-                .init_resource::<Assets<ColorMaterial>>()
+                .init_resource::<Assets<portal::PortalClipMaterial>>()
                 .init_resource::<Time>()
                 .add_systems(
                     Update,
@@ -1151,7 +1151,7 @@ mod tests {
             .insert_resource(portal::PortalCaptureQualityBudget { max_active_captures: 8 })
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<Mesh>>()
-            .init_resource::<Assets<ColorMaterial>>()
+            .init_resource::<Assets<portal::PortalClipMaterial>>()
             .init_resource::<Time>()
             .add_systems(
                 Update,

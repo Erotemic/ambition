@@ -1106,6 +1106,9 @@ shared value preparation are sufficient until source proves otherwise.
    the play plane. Riders stay inside the cart. Parts and attachments use
    the body's plane and keep their own paint order. A body keeps its place
    when another body enters the view.
+   Bosses with whole-frame sprites use the same actor order as bosses
+   drawn from parts. Medium captures show GNU-ton in front of the Giant
+   GNU in 2D and side-on 2.5D.
 
    The card mode still uses 2D world preparation and composition. Shared
    placement and appearance products for all families, more portal effects,

@@ -3,6 +3,7 @@
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
+use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;
 use crate::rendering::primitives::{FeatureVisual, PlayerVisual};
 use ambition_sprite_sheet::boss::{self as sprites, BossAnimState, BossAnimator};
 use ambition_sprite_sheet::character::CharacterAnimator;
@@ -95,6 +96,7 @@ pub fn upgrade_boss_sprites(
         commands.entity(entity).try_insert((
             sprite,
             anchor,
+            BoundFeatureKind::new(view.kind, collision),
             BossAnimator::new(boss_asset).with_render_basis(render_size, anchor.0),
             sprites::BossDrawnCell::default(),
         ));

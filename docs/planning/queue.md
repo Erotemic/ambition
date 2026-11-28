@@ -1750,7 +1750,10 @@ before migrating them.
 
 **Next action:** SDK/demo P5 step 4 cut 2, delivery step 4 at the owner
 above: App-local selection, with rules bound at operation boundaries and no
-World lookups in every leaf helper. Delivery steps 1–3 landed 2026-11-27. A
+World lookups in every leaf helper. It was sized 2026-11-27 (mechanism
+proven; about 230 non-test demo call sites, mostly Smash and Mary-O
+helpers). It is one slice across all four demos: see the owner's sizing
+note. Delivery steps 1–3 landed 2026-11-27. A
 pack's publication now prepares each owner's product once from all of its
 changed schemas, and admits every affected product before it changes the
 selection. One refusal keeps the old pack, and the cast is prepared in a

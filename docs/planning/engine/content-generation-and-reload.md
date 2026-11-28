@@ -709,6 +709,38 @@ with the new rules selected beside the old music.
 Still open: step 4, the App-owned selection (`EmbeddedPack::current` is
 still process-wide).
 
+*Step 4 sized (2026-11-27), not landed.* A first cut was built and then
+withdrawn whole. Its mechanism worked:
+- `PackSelections`, an App resource, held each pack's selected generation.
+- A `SelectedPacks` system parameter read it at a system boundary.
+- `EmbeddedPack::selected_in(world)` read it with a World at hand.
+- The reload selected into the App, and `prepared()` stayed the
+  process-wide compiled source.
+- Its witness, `a_reload_in_one_app_leaves_another_apps_selection`, passed
+  with the 19 existing reload tests.
+
+The cost is in the consumers. Once the reload stops writing the static,
+every demo reader of a live schema (rules, text, forms) must read its App's
+selection, or that demo's live reload goes silently stale. No demo test
+reads a running reader after an edit; `every_schema_of_the_pack_reloads_between_sessions`
+checks only that each schema is watched.
+- The 17 row accessors have 337 call sites (about 230 outside tests).
+- Many sit in free helpers with no World, which must take the row from
+  their caller: Smash's `SmashStockChoice::of/all`, `set_occupant` (71
+  callers), `select_look` (60), `smash_limit` (22), the button-text
+  functions and `text::line` (42).
+- `mary_o_rules` alone has 133 call sites.
+- Sanic converted in about 40 edits: systems bind `SelectedPacks`, helpers
+  take `&SanicRules` or `&ShownText`, room builders take the prepared pack,
+  and tests read `sanic_rules_of(PACK.prepared())`.
+- Smash, Mary-O and versus remain, several hundred edits in demo code that
+  peers also edit.
+
+Landing it partially would leave the unconverted demos stale, and writing
+the static as well would be a second selection, so it was withdrawn. Take
+it as one slice with all four demos, and add the missing witness: a running
+demo reader sees an edit to a live schema.
+
 Preserve `only_live`, local timeline rebase, remote generation and shell
 preparation policy. This cut does not permit cast/catalog restatement inside
 a live session or lift the prepared-artifact serialization hold. Acceptance

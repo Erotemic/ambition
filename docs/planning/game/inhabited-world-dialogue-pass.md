@@ -397,3 +397,25 @@ and address-sharing choices are provisional. This pass changes two Bob
 response labels but retains their targets, all existing commands, all
 conditionals and all quest transitions. No placements or encounter
 outcomes are added.
+
+## Follow-up: optional conversations off the main route
+
+Give a few remote residents another question worth asking without making
+all of them give directions, secrets, or tasks. Preserve the short original
+exchanges, the local jokes, and the existing exits. Add optional topics to
+Mara, Anwen, Tom, and Sir Cumference on the Fantasy paths; the shepherd's
+repeat conversation; Primeval field researchers; the void gallery, elder,
+nursery and swallow; the Fizzuvius hermit; the isolated Math Town attractions;
+Lamplugh, Slipp, Tsuru and Moriyama; Pippin, Hum, and Pryce; the Clinker Flats
+residents; the guild clubman; and the unfinished world's Placeholder.
+
+The void elder and nursery provide individual memories without resolving the
+origin or fate of the void. The Fizzuvius hermit observes the springs and
+Curry measures them, without a new mint quest. Math Town's optional topics
+are everyday consequences of the existing mathematical jokes; Ivo describes
+the Koch construction more accurately. The new anecdotes are provisional,
+including the names given to stars and the travellers' personal histories.
+These topics use only the existing nodes: no new flags, items, rewards,
+encounter changes, or placements. Preserve the old choices in their original
+relative order. The map submodule is not available in this snapshot, so the
+placement assumptions are based on existing dialogue, not new map tests.

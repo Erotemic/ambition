@@ -504,6 +504,8 @@ title: valley_shepherd
     Shepherd: Forty-one. Forty-two. Don't stand there, you're putting me off.
     -> What can you see from up here?
         Shepherd: The whole valley. The mill, the Plough's chimney, the woods, the gate. Past the gate, nothing. The weather doesn't go through it either.
+    -> Does the dog ever come up here?
+        Shepherd: Sometimes she comes up with a stick. Leaves it on the wall where I keep the tally. I throw it back downhill and she brings it all the way round again.
     -> One of your sheep is in the sky. <<if verdict("world.flag_set", "hobford_sheep_clouded") == "satisfied">>
         Shepherd: I saw. That was forty-three.
         Shepherd: A fell sheep goes up when it goes. The fleece is too light to stay down without a sheep inside holding on.

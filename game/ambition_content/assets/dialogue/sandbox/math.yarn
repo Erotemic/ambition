@@ -434,6 +434,8 @@ Zeno Halfway: Good morning! Or afternoon. I set out for the reservoir at dawn. S
 -> Will you ever arrive?
     Zeno Halfway: In the limit, yes! The sign at the dam says so. I've read it from here. Through a telescope.
     Zeno Halfway: An arrow I fired at the reservoir in my youth is still in the air somewhere. We keep each other company.
+-> How do you get your letters?
+    Zeno Halfway: The postman has a map with all my stopping places marked. He says his pencil is getting blunt.
 -> Good luck.
     Zeno Halfway: Thank you. If you reach the reservoir, tell them I'm on my way.
 ===
@@ -448,6 +450,8 @@ Felix Kleinbottle: Mind your head. Or your feet. Down here it depends which way 
     Felix Kleinbottle: Press the other one, on the other side, to come back. It's the same switch. Don't think about it too long.
 -> Why "Kleinbottle"?
     Felix Kleinbottle: Family name. We used to make bottles with no inside. Hard to sell. You'd pour, and pour, and the bottle would agree with you.
+-> Do you ever get lost?
+    Felix Kleinbottle: I used to paint arrows on the walls. Came back from my lunch and found one pointing into my sandwich. Now I number the workings.
 -> I'll go and twist.
     Felix Kleinbottle: Lovely. Wave when you're upside down. I'll wave back. It'll look the same to both of us.
 ===
@@ -462,6 +466,8 @@ Brother Lucas: Welcome to the Tower. Mind the disks; they're gold and they're co
     Brother Lucas: Five hundred and fifty-five thousand and thirty-nine. It's on the wall. Every stroke is a move. The wall is very full.
 -> Can I move one?
     Brother Lucas: You can stand on them. Moving them is my job, and I'm in no hurry. I've written down the next three moves. I'd rather not have to start over.
+-> Do you work all night?
+    Brother Lucas: No. I mark where I am and put the lamp out. If the end of the world can wait eighteen quintillion moves, I dare say it can wait till breakfast.
 -> I'll leave you to it.
     Brother Lucas: Thank you. Now, where was I?
 ===
@@ -476,6 +482,8 @@ Farmer Fibbs: Mind the plots. Each one is the last two put together, and they do
     Farmer Fibbs: One, one, two, three, five, eight. Lay them side by side and draw a quarter-circle in each and you get a spiral, if you squint, and unroll it. My grandmother did it in a ring. Took the whole valley.
 -> What about the sunflowers?
     Farmer Fibbs: Seeds go in at the golden angle. Not my doing; they do it themselves. I asked one why once. It looked at me with about four hundred faces.
+-> What do you do with all the carrots?
+    Farmer Fibbs: Feed the rabbits. At first I planted one row for them and one for me. Now I buy mine in town.
 -> And the mites?
     Farmer Fibbs: They divide. Everything else here adds. They're the wrong kind of growth entirely. Mind your ankles past the hutch.
 ===
@@ -487,10 +495,12 @@ Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.
     Ivo: Groundskeeper. I trim the hedge, I sweep the leaves, I count the trees. The counting is the hard part.
     Ivo: Every tree is made of smaller trees. I counted to a thousand on one branch and it had only just started.
 -> Why is the hedge that shape?
-    Ivo: I started trimming it flat in the spring. Took a third off every edge and put a point on the middle. Then I did it again.
+    Ivo: I started trimming it flat in the spring. Replaced the middle third of each edge with two sides of a little triangle. Then I did it again.
     Ivo: Third iteration now. It's longer than the woods. It's still the same width. Nobody believes me.
 -> What's the bush at the far end?
     Ivo: The Mandelbrot. Don't prune it. Every bit you cut off has a little copy of the whole thing on it, and they all want watering.
+-> Have you ever finished trimming the hedge?
+    Ivo: Once. I put my shears down and went round the corner to admire it. There was another little corner just like the first one.
 -> I'll leave you to it.
     Ivo: Mind the slugs. They see dogs in everything.
 ===
@@ -506,6 +516,8 @@ Pierre de Fermette: Ah, a visitor. Have you brought a margin? A large one?
     Pierre de Fermette: One of us has the better proof. It is not the one with the pages.
 -> What's in the chest?
     Pierre de Fermette: A proof of Goldbach. It is wrong. I keep it to stay humble. Take it, if you like; there are collectors of wrong proofs, and they pay.
+-> Can I see one of your failed proofs?
+    Pierre de Fermette: Certainly. This one fails on the second line. I keep it at the front of my book because it saves me the trouble of doing it again.
 -> Goodbye.
     Pierre de Fermette: Write if you find a bigger margin. Not in the margin.
 ===
@@ -520,6 +532,8 @@ Johannes Kepplar: Mind the telescope. It's pointed at Mars. It is always pointed
     Johannes Kepplar: A planet sweeps out the same area every week. Fast near the sun, slow far away, and the slices come out equal. I have the figures somewhere. Give me a minute.
 -> Whose numbers are those?
     Johannes Kepplar: Tycho's. Twenty years of the best measurements anyone ever made, by a man with a brass nose and a tame elk. He left me the numbers. The elk went elsewhere.
+-> What do you do on a cloudy night?
+    Johannes Kepplar: Arithmetic. A clear night gives you a great deal of work to do on a cloudy one.
 -> Goodnight.
     Johannes Kepplar: Goodnight. Close the dome door behind you.
 ===

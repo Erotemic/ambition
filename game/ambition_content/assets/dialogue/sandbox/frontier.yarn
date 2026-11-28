@@ -255,6 +255,8 @@ title: frontier_yardmaster
 <<endif>>
 -> Where am I?
     Lou: Clinker Flats. The smelter town. Dry Dock's east along the line, past the railhead.
+-> Do people travel out from here?
+    Lou: Mostly for a day or two. One of the men went to the coast and sent me a postcard of a lovely clean beach. He was back on Monday, in the same filthy coat.
 -> ‹go›
 ===
 title: frontier_crane_driver
@@ -289,5 +291,7 @@ title: frontier_laundress
     Ida: The wind can't get in, the rent's low, and the soot's free.
 -> Who leaves clothes with you?
     Ida: Magda brings me a clean shirt before work and takes a clean one home after. I wash the dirty one. The works manager pays me by the piece and never asks why she needs two a day.
+-> Do you ever get the soot out?
+    Ida: Yes. There is a blue shirt in that basket. It was blue when it got here, and by goodness it will be blue when it leaves.
 -> ‹go›
 ===

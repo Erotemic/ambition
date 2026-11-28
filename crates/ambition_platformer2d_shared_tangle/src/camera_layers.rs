@@ -2,6 +2,10 @@
 
 use bevy::prelude::*;
 
+/// A surface that supplies mesh geometry before a renderer binds it.
+#[derive(Component, Default)]
+pub struct PlanarMeshSource;
+
 /// Render layer reserved for the front HUD camera; gameplay remains on layer 0.
 pub const FRONT_HUD_LAYER: usize = 1;
 

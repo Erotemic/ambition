@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
+use ambition_platformer2d_shared_tangle::camera_layers::PlanarMeshSource;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 #[cfg(feature = "portal_render")]
 use ambition_portal2d_presentation::{PortalCarryOrder, PortalConeMesh, PortalGlow};
@@ -30,7 +31,7 @@ use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, Worn
 use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
-use crate::rendering::planar_mesh::{PlanarMeshSource, PreparedPlanarMesh};
+use crate::rendering::planar_mesh::PreparedPlanarMesh;
 use crate::rendering::chain_skin::ChainEarth;
 use crate::rendering::terrain_skin::TerrainSkinMesh;
 

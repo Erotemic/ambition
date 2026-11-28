@@ -819,8 +819,12 @@ shared value preparation are sufficient until source proves otherwise.
    owns the effect. The card view also uses the authored shaders for
    the Puppy Slug dream, the Flying Spaghetti Monster's sauce, and the
    Mockingbird's flames. The space art retains its sprite materials as
-   the tint changes. An offscreen fixture shows all four effects in
-   2D and side-on 2.5D at Medium and High. In-game captures are pending.
+   the tint changes. The dream, sauce, and flames use one prepared quad
+   mesh. Portal carry reads the quad bounds before a 2D binding exists.
+   Sauce reads damage from its boss in the same live room. Flames read
+   the phase and health of each bird in its live room. Medium gameplay
+   captures check the three shaders in 2D, side-on 2.5D, and oblique
+   2.5D. An offscreen fixture checks the space art at Medium and High.
 
    Both renderers use the same damage flash and gate scanline shader on
    sheet-drawn actors and on rigged actors with a whole frame. The card

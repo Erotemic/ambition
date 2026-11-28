@@ -112,7 +112,7 @@ use ambition_sprite_sheet::character::rigged::PartDraw;
 use super::retained_entities::RetainedEntities;
 use super::supported_carry::{SlingSpan, SlingString};
 use super::actors::rigged::{
-    part_color, root_shows, BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation,
+    part_color, root_shows, BakedFrame, RiggedLocalSample, RiggedPresentation,
     RiggedPresentationOf,
 };
 use super::hit_flash::PresentedFlash;
@@ -672,30 +672,6 @@ fn flash_key(flash: PresentedFlash) -> [u8; 4] {
     [byte(flash.tint.x), byte(flash.tint.y), byte(flash.tint.z), byte(flash.intensity)]
 }
 
-/// The frame a composited root draws, as one picture: its cell of the atlas
-/// page, at the root's quad. `None` while the root does not draw a cell of
-/// its body's page (its page is fresh, or it is drawn part by part).
-fn composited_frame(
-    presentation: &RiggedPresentation,
-    atlas: &RiggedImpostorAtlas,
-    sprite: Option<&Sprite>,
-    anchor: Option<&bevy::sprite::Anchor>,
-    layouts: Option<&Assets<TextureAtlasLayout>>,
-) -> Option<BakedFrame> {
-    let impostor = presentation.impostor.as_ref()?;
-    let page = atlas.page(impostor)?;
-    let sprite = sprite.filter(|sprite| sprite.image == page.image)?;
-    let cell = sprite.texture_atlas.as_ref().filter(|cell| cell.index == impostor.cell as usize)?;
-    Some(BakedFrame {
-        image: page.image.clone(),
-        rect: layouts?.get(&cell.layout)?.textures.get(cell.index)?.as_rect(),
-        size: sprite.custom_size?,
-        anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
-        flip_x: sprite.flip_x,
-        flip_y: sprite.flip_y,
-    })
-}
-
 #[derive(Clone, Copy)]
 struct TextureQuad {
     rect: Rect,
@@ -1065,14 +1041,12 @@ pub(super) fn realize_card_bodies(
     owners: Query<(Entity, &RiggedPresentationOf, &RiggedPresentation, &RiggedLocalSample)>,
     roots: Query<
         (
-            &Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>,
+            &Transform, Option<&SeatedInVessel>,
             Option<&PresentedFlash>, Option<&MovingPlatformVisual>, Has<PropVisual>,
             (Option<&Visibility>, Option<&InheritedVisibility>, Has<ChildOf>),
         ),
         (Without<CardBody>, Without<CardPart>),
     >,
-    atlas: Option<Res<RiggedImpostorAtlas>>,
-    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     mut bodies: Query<(Entity, &mut CardBody, &mut Transform, &mut Visibility), Without<CardPart>>,
     mut cards: CardQuery,
     images: Option<Res<Assets<Image>>>,
@@ -1213,7 +1187,7 @@ pub(super) fn realize_card_bodies(
             // Spawned this frame: filled from the next.
             continue;
         };
-        let Ok((root, _, root_sprite, root_anchor, flash, _, prop, visibility)) = roots.get(of.0) else {
+        let Ok((root, _, flash, _, prop, visibility)) = roots.get(of.0) else {
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -1247,12 +1221,7 @@ pub(super) fn realize_card_bodies(
             continue;
         };
         let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
-        // A baked frame is one card at the root, drawn whole; so is a body
-        // the 2D view composites, as its cell (its fade is in the cell).
-        let composited = sample.parts().and_then(|_| {
-            composited_frame(presentation, atlas.as_deref()?, root_sprite, root_anchor, layouts.as_deref())
-        });
-        let baked = sample.baked.as_ref().or(composited.as_ref());
+        let baked = sample.baked.as_ref().or_else(|| presentation.composed_frame());
         if let Some(depths) = root_depths.as_deref_mut() {
             let front_part = sample.parts()
                 .filter(|_| baked.is_none())

@@ -2517,11 +2517,8 @@ fn a_baked_frame_is_one_card_at_the_root() {
     assert_eq!(shown(&mut app).0, sampled, "back to parts");
 }
 
-/// RV3: a body the 2D view composites (here every body is read as one image,
-/// as a flash or a fade asks) is one card of its cell in the card view,
-/// drawn whole: the cell carries the frame's fade, so the parts do not fade
-/// one by one. The shared flash overlay draws on the whole frame.
-/// A rig drawn directly has a silhouette over each part during a flash.
+/// A card can draw the compositor cell after the root sprite changes.
+/// A flash covers the whole cell or each part of a direct rig.
 #[cfg(feature = "card_view")]
 #[test]
 fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
@@ -2554,11 +2551,23 @@ fn a_rigged_body_flashes_its_parts_only_without_a_whole_frame() {
     assert_eq!(shown[0].base_color_texture.as_ref(), Some(&page), "the card draws the cell's page");
     assert_eq!(shown[0].base_color.alpha(), 1.0, "the cell carries the fade");
 
+    app.add_systems(
+        Update,
+        (move |mut sprites: Query<&mut Sprite>| {
+            let mut sprite = sprites.get_mut(root).unwrap();
+            sprite.image = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+            sprite.texture_atlas = None;
+        })
+            .run_if(bevy::ecs::schedule::common_conditions::run_once)
+            .after(RiggedDriveSet)
+            .before(realize_card_bodies),
+    );
     let cue = PresentedFlash { intensity: 0.75, tint: Vec3::new(1.0, 0.5, 0.0) };
     let color = Color::srgba_u8(120, 190, 240, 128);
     app.world_mut().entity_mut(root).insert(cue).get_mut::<Sprite>().unwrap().color = color;
     app.update();
     let shown = cards(&mut app);
+    assert!(!draws_impostor(&app, root, owner));
     assert_eq!(shown.len(), 1, "the shared overlay draws the flash");
     assert_eq!(shown[0].base_color_texture.as_ref(), Some(&page));
     assert_eq!(shown[0].base_color.to_srgba().to_u8_array(), color.to_srgba().to_u8_array());

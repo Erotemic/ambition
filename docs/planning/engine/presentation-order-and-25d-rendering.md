@@ -927,6 +927,9 @@ shared value preparation are sufficient until source proves otherwise.
    view samples a body at its own screen edge. A body keeps sprite slots
    when a 2D camera or the compositor needs them. Card draws and part
    readers can use the sample without sprite slots.
+   The compositor supplies the finished rig frame to the card renderer.
+   A test changes the 2D sprite after composition and checks that the card
+   still draws the atlas cell and its group fade.
 
    Card placement and paint order use separate values. Free bodies stay on
    the play plane. Riders stay inside the cart. Parts and attachments use

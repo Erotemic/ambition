@@ -239,8 +239,8 @@ use Rhai source through the same module contract. A script can supply entries
 of a linked module or declare its own module with `fn declare()`. Its records
 and requests use the same validation and rollback owners. The selected language
 and measurements are in [the scripting bake-off](scripting-language-bakeoff.md).
-The wasmi backend remains available for compiled modules. The comparison with
-a trusted native ABI on the same fixture is still open (M1).
+The wasmi backend remains available for compiled modules. The comparison with a trusted native ABI on the same fixture was measured on
+2026-11-28 (M1): wasmi and Rhai stay the loaded roads.
 
 ## Generation, hot reload and packaging
 

@@ -35,6 +35,64 @@ impl Backend for Engine {
     }
 }
 
+/// M1's native shared-library arm: the same sentry built as a cdylib behind
+/// a trusted C entry table (`native_sentry`). The host owns the output
+/// buffer and grows it once; the library is kept loaded as long as the
+/// backend, which pins the code a call runs.
+struct NativeLibrary {
+    _library: libloading::Library,
+    invoke: NativeInvoke,
+    out: std::cell::RefCell<Vec<u8>>,
+}
+
+type NativeInvoke = unsafe extern "C" fn(u32, u32, *const u8, u64, *mut u8, u64) -> u64;
+
+impl NativeLibrary {
+    fn load(path: &str) -> Result<Self, String> {
+        // SAFETY: a trusted library this repository builds; its entry table
+        // is checked by version before any entry is called.
+        unsafe {
+            let library = libloading::Library::new(path).map_err(|error| format!("{path}: {error}"))?;
+            let abi = library
+                .get::<extern "C" fn() -> u32>(b"amb_native_abi")
+                .map_err(|error| error.to_string())?;
+            if abi() != 1 {
+                return Err(format!("{path} has entry table version {}, not 1", abi()));
+            }
+            let invoke = *library.get::<NativeInvoke>(b"amb_native_invoke").map_err(|error| error.to_string())?;
+            Ok(Self { _library: library, invoke, out: std::cell::RefCell::new(vec![0; 4096]) })
+        }
+    }
+}
+
+impl Backend for NativeLibrary {
+    fn invoke(&self, module: u32, entry: u32, input: &[u8]) -> Vec<u8> {
+        let mut out = self.out.borrow_mut();
+        loop {
+            // SAFETY: both buffers are valid for the lengths passed.
+            let len = unsafe {
+                (self.invoke)(module, entry, input.as_ptr(), input.len() as u64, out.as_mut_ptr(), out.len() as u64)
+            };
+            assert_ne!(len, u64::MAX, "the native library faulted");
+            if len as usize <= out.len() {
+                return out[..len as usize].to_vec();
+            }
+            out.resize(len as usize, 0);
+        }
+    }
+}
+
+/// The game's loaded WebAssembly backend (wasmi, fuel, a new instance per
+/// call) running the game's own module file.
+struct Wasm(std::sync::Arc<ambition_extension_wasm::WasmModules>, u32);
+
+impl Backend for Wasm {
+    fn invoke(&self, _module: u32, entry: u32, input: &[u8]) -> Vec<u8> {
+        use ambition_extension_host::ModuleBackend;
+        self.0.invoke(self.1, entry, input).expect("the wasm module runs")
+    }
+}
+
 /// The binding alone: the script gives `inv` back unchanged. Its cost is the
 /// conversions every script backend here pays, not the language's.
 struct Identity(ModuleDescriptor);
@@ -243,8 +301,35 @@ fn main() {
     let luau_empty = LuauBackend::new("empty.luau", "return { turret = function(inv) end }", module.clone(), BUDGET)
         .expect("compiles");
 
+    let library_path = std::env::var("NATIVE_SENTRY").unwrap_or_else(|_| {
+        concat!(env!("CARGO_MANIFEST_DIR"), "/native_sentry/target/release/libnative_sentry.so").to_string()
+    });
+    let library = NativeLibrary::load(&library_path)
+        .map_err(|error| println!("(native library arm skipped: {error}; build native_sentry --release)"))
+        .ok();
+    let wasm_path = std::env::var("SENTRY_WASM").unwrap_or_else(|_| {
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm")
+            .to_string()
+    });
+    let wasm = std::fs::read(&wasm_path)
+        .map_err(|error| error.to_string())
+        .and_then(|bytes| ambition_extension_wasm::WasmModules::load(&bytes).map_err(|error| format!("{error:?}")))
+        .map(|(backend, _)| {
+            use ambition_extension_host::ModuleBackend;
+            let index = backend.module_index(&module.key).expect("the module file holds the sentry");
+            Wasm(backend, index)
+        })
+        .map_err(|error| println!("(wasm arm skipped: {wasm_path}: {error}; run scripts/regen/build_extension_modules.sh)"))
+        .ok();
+
     println!("== 1. equal outputs (2000 ticks, each backend carrying its own state)");
     let reference = run(&module, &native, 2000);
+    if let Some(library) = &library {
+        compare("native shared library", &module, &reference, &run(&module, library, 2000));
+    }
+    if let Some(wasm) = &wasm {
+        compare("wasm (wasmi)", &module, &reference, &run(&module, wasm, 2000));
+    }
     compare("rhai", &module, &reference, &run(&module, &rhai, 2000));
     compare("luau", &module, &reference, &run(&module, &luau, 2000));
     compare("engine rhai backend", &module, &reference, &run(&module, &engine_rhai, 2000));
@@ -262,6 +347,12 @@ fn main() {
         ("luau, fresh chunk each call", &luau_fresh),
     ] {
         println!("  {name:>30}: {:>8.0} ns", time(&module, backend, 2000, 10));
+    }
+    if let Some(library) = &library {
+        println!("  {:>30}: {:>8.0} ns", "native shared library", time(&module, library, 2000, 10));
+    }
+    if let Some(wasm) = &wasm {
+        println!("  {:>30}: {:>8.0} ns", "wasm (wasmi, instance per call)", time(&module, wasm, 2000, 10));
     }
 
     println!("\n== 3. diagnostics");

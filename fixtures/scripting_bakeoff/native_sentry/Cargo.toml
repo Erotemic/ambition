@@ -1,0 +1,23 @@
+# M1's native shared-library arm (extension-iteration-evidence.md): the
+# game's sentry module behind a trusted native C entry table, built as a
+# cdylib that the bake-off loads at run time. Its own workspace and target,
+# like the bake-off, so the engine build is untouched.
+#
+#   cargo build --release --manifest-path fixtures/scripting_bakeoff/native_sentry/Cargo.toml
+[workspace]
+
+[package]
+name = "native_sentry"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ambition_extension_sdk = { path = "../../../crates/ambition_extension_sdk" }
+ambition_content_modules = { path = "../../../game/ambition_content_modules" }
+
+[profile.release]
+debug = false

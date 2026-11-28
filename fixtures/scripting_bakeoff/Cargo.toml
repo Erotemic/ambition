@@ -33,6 +33,10 @@ ambition_content_modules = { path = "../../game/ambition_content_modules" }
 # The engine's Rhai backend, measured on the same invocations.
 ambition_extension_rhai = { path = "../../crates/ambition_extension_rhai" }
 ambition_extension_host = { path = "../../crates/ambition_extension_host" }
+# M1's other two arms: the loaded WebAssembly backend the game ships, and
+# the native shared-library arm (`native_sentry`), loaded at run time.
+ambition_extension_wasm = { path = "../../crates/ambition_extension_wasm" }
+libloading = "0.8"
 
 [profile.release]
 debug = false

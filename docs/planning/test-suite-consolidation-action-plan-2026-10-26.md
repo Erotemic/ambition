@@ -396,8 +396,45 @@ retraction controls, which this plan protects; they are not stale diagnostics.
 | Saved files reach the running game | the 5 of `edit_to_play_through_the_shell.rs` | the content watch not playing a saved file; boss tuning and boss art keys not reloading; a local timeline crossed instead of rebased; a script and its content publishing apart | boss tuning against boss art keys: two files of one catalog fragment, each with its own consumer | keep all |
 
 **Result:** 0 removals, 0 merges. Step 5's non-Smash half (the two-room,
-island-rewind and reload modules) is read. The hosted-Smash half waits on the
-music environment: a Smash match start waits for entry music on this VM.
+island-rewind and reload modules) is read.
+
+### Step 5 record: `smash_in_the_host.rs` (2026-11-28)
+
+79 tests (the 76 of the baseline and three since), 8,985 lines. Each test boots
+the shipped host and reaches Smash through its launcher row. As in the other
+records, no local break was run (no poison runs unless Jon asks). A merge was
+made only where the two tests make the **same call on the same input**, so
+the union of their assertions is exact by construction rather than by a
+measured overlap. A deletion was made only where every assertion is already
+pinned elsewhere.
+
+| Family | Tests | The defect each catches | Overlap examined | Disposition |
+|---|---:|---|---|---|
+| A. Select screen and lobby | 9 | the title row opening the select screen; a rematch finding the old roster, slots and START; two participants unable to pause; one stick moving every hand; keyboard and pad on separate fighters, in both card orders; the capture tool's documented taps; the touch prompt; a refusal shown instead of "ready" | the two card orders: the pad-first test exists because keyboard-first agrees with the stale assumption | keep all |
+| B. Seating and roster | 10 | a two-seat roster seating one body; adopted and spawned seats disagreeing; seating not frozen at decision; person against CPU, CPU first, CPU against CPU; a roster id that does not resolve; an unregistered component; bounded senses on a fighter; the stage's launch law missing from the brain's view | the three CPU arrangements are three seat orders | keep all |
+| C. Each fighter's own content | 13 | a fighter seated on the wrong body, frame data, move table, feel, weight, ranged move, pogo, damage unit or portrait frame | each names a different fact and its provenance | keep all |
+| D. Match lifecycle | 14 | exit as a no contest; the clock running during "3, 2, 1"; the exit row after settlement; a second match that never moves; a paused quit freezing the next match; a draw rebuilding its cast; the return countdown and winner card on a speculative verdict; the sudden-death card lasting one tick; quit to title reaching another game; a Smash fighter following the player into Ambition; Mary-O playing differently after Smash; the two unattended profiles | the rematch test (A) against `a_second_match_in_the_same_session_still_fights`: one pins reset fields and the other pins motion, and the second's doc says why both are needed. The two speculative tests guard different consumers | keep all |
+| E. Respawn and movement | 6 | respawn untouchability; recovery before landing; crawl after a respawn; quick forward smash travel; a dash-less fighter running and dash-attacking | none | keep all |
+| F. Shield and pad | 12 (was 13) | the guard raising and lowering; Special not raising a guard; a CPU guard; each pad button reaching its action; pad profile handed back on quit; one cue twice in a tick | `holding_shield_raises_a_guard_and_fires_no_authored_move` held the same key on the same fighter as `a_smash_fighters_shield_input_raises_and_lowers_their_guard` | **merged**: the raise/lower test now holds for the same 180-frame window and also asserts no authored move started |
+| G. Knockback law | 9 (was 12) | the up-tilt launch at 0% and 1427%; the 700% stale KO; the declared percent scale as the smallest passing value; the curve; weight; tip priority; fixed knockback; staleness; one percent pool across games | three pairs made the same call: `an_up_tilt_takes_a_grounded_fighter_off_the_floor` was `strike_at(0)` of the percent test; `a_fresh_jab_at_zero_percent_is_still_only_a_poke` was the curve's 0% cell (`jab_from_stage_centre` is `measure_cell` of that cell); `the_unrepaired_percent_curve_leaves_the_stock_standing` measured the sweep's two 1.0 cells | **merged** all three: the percent test asserts the 0% rise; the curve's 0% row asserts zero rage and the exact authored base; the sweep asserts zero rage in every cell and the 1.0-row premise |
+| Diagnostics | 2 (removed) | none: each printed a table and asserted only that two fighters were seated, which `a_two_participant_roster_actually_seats_two_bodies` pins | — | **deleted**, see below |
+
+The two deleted diagnostics (step 3's "superseded" role):
+- `report_the_factions_and_teams_a_seated_fighter_carries` asked whether
+  shots spare a same-faction fighter on another team, because projectiles
+  read only factions. That is closed: projectile emission carries
+  `MatchTeam`, and `enemy_projectile/tests.rs`
+  (`a_seated_fighters_shot_hits_a_same_faction_body_on_another_team`) asserts
+  it. Go there for diagnosis.
+- `report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it` asked
+  what a fighter with no move table swings on the stage. That is closed by
+  `smash_roster_movesets::the_match_gives_every_seat_a_kit_that_can_hit`,
+  which seats two peaceful rows with `smash_seating_melee` and asserts that
+  each kit can hit.
+
+**Result:** 79 → 73 tests and seven fewer hosted boots per run of the module
+(the unrepaired test booted twice), with no assertion lost. With this, step 5 has read
+every module it named.
 
 ## Protect these behaviors throughout the campaign
 

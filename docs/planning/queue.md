@@ -1345,9 +1345,9 @@ no duplicate Rust reader remains. Report edit-to-test time for the slice.
 **Owner:** [test consolidation action plan](test-suite-consolidation-action-plan-2026-10-26.md)
 and [test corpus evidence](test-corpus-static-audit-findings-2026-10-26.md).
 
-**Selected next action:** Step 5 of the action plan: a behavioural coverage
-matrix, starting with the hosted-Smash tests and the larger reload and
-two-room modules, before any active test is deleted. Steps 1 to 4 are done:
+**Selected next action:** keep the lanes green. Steps 1 to 5 of the action
+plan are done, so what is left is the reds the lanes find; each is recorded
+below with its cause. Steps 1 to 4:
 - step 1, the Smash setup is shared (2026-11-14);
 - step 2, the Versus setup is consolidated, its waits named by the fact each
   observes (2026-11-21);
@@ -1355,13 +1355,14 @@ two-room modules, before any active test is deleted. Steps 1 to 4 are done:
 - step 4, the repeated inputs of six modules are shared, with no test merged
   (2026-11-21, [record](test-suite-consolidation-action-plan-2026-10-26.md#step-4-consolidate-repeated-inputs-not-the-behaviors)).
 
-Step 5 has started: `two_players_two_live_rooms.rs` (71 tests) is read, with
-0 removals proposed ([record](test-suite-consolidation-action-plan-2026-10-26.md#step-5-record-two_players_two_live_roomsrs-2026-11-21)).
+Step 5 is read in full. `two_players_two_live_rooms.rs` (71 tests),
 `a_room_rewinds_alone.rs` (18 witnesses, 14 hand-run controls) and the three
-reload modules (27 tests) are read too, also with 0 removals. What remains of
-step 5 is the hosted-Smash half.
-On this VM the hosted-Smash half of step 5 waits on the music environment:
-a Smash match start waits for entry music. Use
+reload modules (27 tests) gave 0 removals ([record](test-suite-consolidation-action-plan-2026-10-26.md#step-5-record-two_players_two_live_roomsrs-2026-11-21)).
+The hosted-Smash half, `smash_in_the_host.rs`, went from 79 to 73 tests
+(2026-11-28, [record](test-suite-consolidation-action-plan-2026-10-26.md#step-5-record-smash_in_the_hostrs-2026-11-28)).
+Four tests that made the same call as a sibling were merged into it, and two
+print-only diagnostics whose questions are asserted elsewhere were deleted.
+No assertion was lost, and seven hosted boots are saved per run. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
@@ -1383,6 +1384,24 @@ now has `LegPhase::AirJump`: pressed and not yet lifted. It keeps the press
 and judges the second arc only once the body rises. The phase is checksum
 state only (`SnapshotCursor` writes `phase as u8`), so no codec layout
 changed. The vine test passes (lands at frame 139, where it failed at 137).
+
+**Music reds (found 2026-11-27, inherited; fixed 2026-11-28):** both
+fixtures were stale, and both cues were rendered and current.
+- `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`
+  read the playing track as soon as the route settled. A probe at that
+  moment showed the intent was already right: provider `smash`, the select
+  track, in the library. The track reached the transport 0.2 s
+  (wall clock) later, once its media had loaded. Until then the host's theme
+  plays, which is the intended handoff. The test now waits with its own
+  `settle_base_music` after each route change.
+- `two_players_two_live_rooms::a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room`
+  moved the harness-spawned boss into #1 but left its `Encounter` in no
+  room. Since `6d100f9d9`, a boss's music is published only through the
+  in-flight encounter attempt in the boss's own room. A probe showed the
+  boss awake (Intro) and the claim missing, so the fixture now stamps both,
+  as a room build does. The one-room control passed throughout.
+- The bank cue test went green once the missing `sfx` content family was
+  generated (`generate_library_content.py sfx --only-missing`).
 
 **Trailhead arch red (found 2026-11-20, inherited; fixed 2026-11-20):** `the_gate_network::the_jungles_arches_chain_along_the_trail`. The press measured the door from its centre point, and the arch is 146 px tall. Its centre stood 49 px above a traveller in the opening, so Ranger Brandvold won the press from 33 px away. He had rallied to a kiwi's fight at the arch (x 921, not his authored 744), and the arch never fired. A door is now measured from its long axis (`ambition_platformer2d_world::rooms::door_distance`). One function serves the press, the prompt, the reach observer and the door's own transition (`rooms/systems.rs`). That transition had its own centre-point copy, and changing only the other three made both sides refuse the press. The arch witness passes. Of the gate/route/door/interact/talk app_it filters, 68 pass, and the only other red is the one below.
 

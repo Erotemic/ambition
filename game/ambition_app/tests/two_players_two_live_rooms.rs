@@ -825,6 +825,15 @@ fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() 
             .map(|(entity, _)| entity)
             .expect("the boss reached the world");
         world.entity_mut(boss).insert(InRoomInstance(second));
+        // Its encounter goes with it, as a room build would place both: the
+        // fight's music is claimed by the encounter attempt in the boss's room.
+        let encounter = world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::encounter::Encounter)>()
+            .iter(world)
+            .find(|(_, encounter)| encounter.id == BOSS)
+            .map(|(entity, _)| entity)
+            .expect("the boss's encounter reached the world");
+        world.entity_mut(encounter).insert(InRoomInstance(second));
     }
     for _ in 0..15 {
         sim.step(base());

@@ -4662,181 +4662,6 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     );
 }
 
-/// AND WHAT DOES A FIGHTER WITH NO TABLE ACTUALLY SWING?
-///
-/// `smash_roster_movesets`'s kit census reads the CHARACTER, and four of the
-/// fourteen resolve to nothing there — Mary-O, Sanic, Alice and Bob author no
-/// moveset and no action set, because standing in a room and talking is what
-/// they were authored for. Read at the character, every one of their sixteen
-/// presses is silent.
-///
-/// that is not what a player gets, and the difference is the stage. The seat is
-/// armed on the way IN, by this experience's roster preparation
-/// (`smash_seating_melee`), so a report that stopped at the character would say
-/// four fighters cannot attack — which is false, and exactly the kind of
-/// true-measurement-wrong-conclusion this repo keeps paying for.
-///
-/// So this seats two of them for real and asks the LIVE body.
-#[test]
-fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
-    use ambition_platformer2d::entity_catalog::AttackDir::*;
-    use ambition_platformer2d::versus_match::MatchSeat;
-
-    let presses: [(
-        &str,
-        &str,
-        ambition_platformer2d::entity_catalog::AttackDir,
-        bool,
-    ); 16] = [
-        ("jab", "attack", Neutral, true),
-        ("ftilt", "attack", Forward, true),
-        ("utilt", "attack", Up, true),
-        ("dtilt", "attack", Down, true),
-        ("fsmash", "smash", Forward, true),
-        ("usmash", "smash", Up, true),
-        ("dsmash", "smash", Down, true),
-        ("nair", "attack", Neutral, false),
-        ("fair", "attack", Forward, false),
-        ("bair", "attack", Back, false),
-        ("uair", "attack", Up, false),
-        ("dair", "attack", Down, false),
-        ("nspecial", "special", Neutral, true),
-        ("sspecial", "special", Forward, true),
-        ("uspecial", "special", Up, true),
-        ("dspecial", "special", Down, true),
-    ];
-
-    let mut app = shell_host_app();
-    settle(&mut app);
-    launch_row(&mut app, "Smash Siblings");
-    settle(&mut app);
-    // Two of the four with no table of their own: a crossover protagonist and a
-    // Hall NPC, so the answer is not about one provider.
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
-            "mary_o_tall".to_string(),
-            "npc_alice".to_string(),
-        ]));
-    decide_a_solo_match(&mut app);
-    settle(&mut app);
-    for _ in 0..90 {
-        app.update();
-    }
-
-    // THE THIRD ROUTE: what does this experience hand a character that states
-    // no kit of its own? An empty seat below is then either a preparation that
-    // handed nothing over or one that did not reach the publisher.
-    eprintln!(
-        "[unarmed declaration] smash_seating_melee = {:?}",
-        ambition_demo_smash::smash_seating_melee()
-    );
-
-    let world = app.world_mut();
-    let mut query = world.query::<(
-        &MatchSeat,
-        &ambition_platformer2d::combat::moveset::ActorMoveset,
-        Option<&ambition_platformer2d::characters::brain::action_set::IdentityKit>,
-    )>();
-    let mut rows: Vec<(usize, String)> = query
-        .iter(world)
-        .map(|(seat, moveset, kit)| {
-            let mut resolved: Vec<String> = Vec::new();
-            for (label, base, dir, grounded) in &presses {
-                let id = moveset
-                    .0
-                    .move_for_directional_verb(base, *dir, *grounded)
-                    .map(|mv| mv.id.clone())
-                    .unwrap_or_else(|| "SILENT".to_string());
-                resolved.push(format!("{label}={id}"));
-            }
-            // THE SECOND ROUTE, and the report is wrong without it. A
-            // moveset is one road to a swing; the identity baseline's own melee
-            // is the other — the preset swipe an action set carries — and a body
-            // with an empty timeline table can still hit somebody through it.
-            // Reading only the first would report "this fighter cannot attack"
-            // off a measurement that never asked.
-            (
-                seat.0,
-                format!(
-                    "seat {} moves={:<3} innate={:?}\n {}",
-                    seat.0,
-                    moveset.0.moves.len(),
-                    kit.map(|kit| (
-                        kit.action_set.melee.is_some(),
-                        kit.action_set.ranged.is_some(),
-                        kit.action_set.special.is_some()
-                    )),
-                    resolved.join(" ")
-                ),
-            )
-        })
-        .collect();
-    rows.sort_by_key(|(seat, _)| *seat);
-    eprintln!(
-        "[unarmed on the stage]\n{}",
-        rows.iter()
-            .map(|(_, row)| row.as_str())
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
-    assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
-}
-
-/// melee and projectiles ask DIFFERENT QUESTIONS about who may be hit,
-/// and only one of them knows what a match is:
-///
-/// ```text
-///   melee        `targeting::team_allows_damage(attacker_team, victim_team)`
-///                — when both bodies are SEATED, the teams decide
-///   projectile   `damage_lands(firer_faction, victim_faction, ..)`
-///                — factions decide; `MatchTeam` appears nowhere in
-///                  `projectile/systems.rs`
-/// ```
-///
-/// So a stage that seats every fighter under ONE faction — which is what a
-/// crossover grid does, since a Hall NPC and a demo protagonist are not enemies
-/// of each other outside the match — gives melee a clean answer and leaves every
-/// shot spared as an ally.
-#[test]
-fn report_the_factions_and_teams_a_seated_fighter_carries() {
-    use ambition_platformer2d::versus_match::MatchSeat;
-
-    let mut app = shell_host_app();
-    settle(&mut app);
-    launch_row(&mut app, "Smash Siblings");
-    settle(&mut app);
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
-            "perfect_cellular_automaton".to_string(),
-            "goblin".to_string(),
-        ]));
-    decide_a_solo_match(&mut app);
-    settle(&mut app);
-    for _ in 0..90 {
-        app.update();
-    }
-
-    let world = app.world_mut();
-    let mut query = world.query::<(
-        &MatchSeat,
-        Option<&ambition_platformer2d::actor::ActorFaction>,
-        Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
-    )>();
-    let mut rows: Vec<(usize, String, String)> = query
-        .iter(world)
-        .map(|(seat, faction, team)| {
-            (
-                seat.0,
-                format!("{faction:?}"),
-                team.map_or("-".to_string(), |t| t.as_str().to_string()),
-            )
-        })
-        .collect();
-    rows.sort_by_key(|(seat, ..)| *seat);
-    eprintln!("[seat factions] {rows:?}");
-    assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
-}
-
 /// A FIGHTER WITH NO DASH STILL RUNS THE LENGTH OF THE STAGE.
 ///
 /// also remove everyone's ability to dash in smash. Dash should be an ability for
@@ -5124,7 +4949,8 @@ fn hold_until(app: &mut App, mut property: impl FnMut(&App) -> bool) -> Option<u
     None
 }
 
-/// THE PROBE. A SMASH FIGHTER'S SHIELD BUTTON RAISES THEIR GUARD.
+/// THE PROBE. A SMASH FIGHTER'S SHIELD BUTTON RAISES THEIR GUARD, starts no
+/// authored move, and lowers the guard on release.
 ///
 /// Every one of the fourteen smash fighters is granted `AbilitySet::shield` by `smash_fighter_kit()`,
 /// and thirteen of them throw an ordinary special, so thirteen fighters had their guard erased
@@ -5178,14 +5004,34 @@ fn a_smash_fighters_shield_input_raises_and_lowers_their_guard() {
         "the guard is up before anybody touched the shield button"
     );
 
-    // HOLD.
+    // HOLD, for long enough that a special fired by the shield press would
+    // have started: SHIELD CANNOT MASQUERADE AS SPECIAL either.
     Buttonlike::press(&SHIELD_KEY, app.world_mut());
-    let raised = hold_until(&mut app, |app| guard_is_up(app, body));
+    let mut raised: Option<usize> = None;
+    let mut played: Option<String> = None;
+    for update in 1..=180 {
+        app.update();
+        if raised.is_none() && guard_is_up(&app, body) {
+            raised = Some(update);
+        }
+        if played.is_none() {
+            played = app
+                .world()
+                .get::<ambition_platformer2d::combat::moveset::MovePlayback>(body)
+                .map(|playback| playback.spec.id.clone());
+        }
+    }
     assert!(
         raised.is_some(),
         "a smash fighter held the SHIELD button and no guard came up. Shield is \
          its own participant action — it is not a variant of Special, and it must \
          not depend on which special this body happens to carry"
+    );
+    assert_eq!(
+        played, None,
+        "holding SHIELD started an authored move. Shield holds a guard; it does \
+         not activate authored behaviour, and a shield that fires a special is \
+         the masquerade pointing the other way"
     );
 
     // RELEASE. A guard that cannot come down is a guard nobody can play around.
@@ -5201,7 +5047,8 @@ fn a_smash_fighters_shield_input_raises_and_lowers_their_guard() {
     );
 }
 
-/// SPECIAL CANNOT MASQUERADE AS SHIELD. (, half one)
+/// SPECIAL CANNOT MASQUERADE AS SHIELD. The other half is in
+/// `a_smash_fighters_shield_input_raises_and_lowers_their_guard`.
 ///
 /// Pressing Special must not raise a guard on a body whose special is not a
 /// shield move. Without this the fix could have been "keep the guard alive for
@@ -5247,42 +5094,6 @@ fn pressing_special_does_not_raise_a_guard_on_a_fighter_whose_special_is_not_one
          Special activates the authored special behaviour; a guard is the Shield \
          action's job, and a special that raises one by accident is exactly the \
          masquerade Jon named"
-    );
-}
-
-/// SHIELD CANNOT MASQUERADE AS SPECIAL. (, half two)
-///
-/// Holding the shield button raises a guard and starts NO authored move.
-#[test]
-fn holding_shield_raises_a_guard_and_fires_no_authored_move() {
-    use ambition_platformer2d::combat::moveset::MovePlayback;
-
-    let (mut app, body) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
-
-    Buttonlike::press(&SHIELD_KEY, app.world_mut());
-    let mut raised = false;
-    let mut played: Option<String> = None;
-    for _ in 0..180 {
-        app.update();
-        raised |= guard_is_up(&app, body);
-        if played.is_none() {
-            played = app
-                .world()
-                .get::<MovePlayback>(body)
-                .map(|playback| playback.spec.id.clone());
-        }
-    }
-    Buttonlike::release(&SHIELD_KEY, app.world_mut());
-
-    assert!(
-        raised,
-        "holding SHIELD raised no guard, so the other half of this claim is vacuous"
-    );
-    assert_eq!(
-        played, None,
-        "holding SHIELD started an authored move. Shield holds a guard; it does \
-         not activate authored behaviour, and a shield that fires a special is \
-         the masquerade pointing the other way"
     );
 }
 
@@ -6473,29 +6284,13 @@ mod launched {
         }
     }
 
-    /// asserts the BODY LEFT THE GROUND and gained height, not that a field
-    /// was set: a launch that is written and then eaten sets every field.
-    #[test]
-    fn an_up_tilt_takes_a_grounded_fighter_off_the_floor() {
-        let mut app = open_the_lobby();
-        let (attacker, victim) = two_seated_fighters(&mut app);
-        let launched =
-            strike_a_grounded_fighter(&mut app, attacker, victim, 0, Some(UP_TILT_LAUNCH_DIR));
-        assert!(
-            launched.left_the_ground,
-            "an authored up-launcher left a standing fighter standing — the \
-             launch is pointing into the floor"
-        );
-        assert!(
-            launched.peak_rise > 0.0,
-            "the victim left the ground without gaining any height ({:.2}px), so \
-             nothing about this reads as being launched UP",
-            launched.peak_rise
-        );
-    }
-
-    /// THE OTHER HALF OF THE REPORT, and the guard that would have caught
-    /// it. *"alice is at 1427% and Booul is hitting her, but she's not going
+    /// An up-tilt lifts a grounded fighter at 0%, and lifts them materially
+    /// further at 1427%. Both readings assert that the BODY LEFT THE GROUND and
+    /// gained height, not that a field was set: a launch that is written and
+    /// then eaten sets every field.
+    ///
+    /// The high-percent half is THE OTHER HALF OF THE REPORT, and the guard
+    /// that would have caught it. *"alice is at 1427% and Booul is hitting her, but she's not going
     /// anywhere."* The same move on the same fighter has to send them materially
     /// further at 1427% than at 0% — that is the whole percent meter.
     #[test]
@@ -6542,6 +6337,12 @@ mod launched {
              compared: {:.2}px at 0%, {:.2}px at 1427%",
             fresh.peak_rise,
             cooked.peak_rise
+        );
+        assert!(
+            fresh.peak_rise > 0.0,
+            "the victim left the ground at 0% without gaining any height \
+             ({:.2}px), so nothing about this reads as being launched UP",
+            fresh.peak_rise
         );
         assert!(
             cooked.peak_rise > fresh.peak_rise * 10.0,
@@ -7374,158 +7175,6 @@ mod ring_out {
         );
     }
 
-    /// ⭐⭐ **THE UNREPAIRED PERCENT CURVE DOES NOT CONVERT — THE PREMISE THE
-    /// SHIPPED MULTIPLIER RESTS ON.** Two cells, both at
-    /// `victim_percent_knockback_scale = 1.0`, the percent term exactly as first
-    /// written. Measured: 520.9px/s resolved, 246.4px of the 720px the stage
-    /// asks for, stock standing.
-    ///
-    /// ⇒ So this arm goes RED exactly when `1.0` starts ending the stock — the
-    /// one moment anybody needs to be told, because at that moment
-    /// Smash's `victim_percent_knockback_scale` is unearned and should return to
-    /// `1.0`. It is a premise guard, not a calibration step; the 7-scale sweep
-    /// picks the value.
-    ///
-    /// ⛔ IT RUNS AT 1.0 WITHOUT EDITING THE SHIPPED CONSTANT, deliberately.
-    /// Changing the number and the fixture together would make the result
-    /// unattributable to either.
-    ///
-    /// ⚠⚠ **THIS ARM SHIPPED INVERTED AND REDDENED MAIN — 2026-09-12.** It
-    /// asserted `kill.left_the_world`, the KO, while its own failure text and
-    /// closing parenthetical both described the opposite outcome. Cause: it was
-    /// written while the answer was still open, with a comment saying the
-    /// assertion existed "so the answer is RECORDED rather than printed and
-    /// lost", and never revisited once the measurement came in. **An `assert!`
-    /// cannot record whichever answer turns up; it asserts one.** A probe whose
-    /// two outcomes are both findings belongs in a `println!` with a passing
-    /// test, or it must pick the measured branch — as this now does.
-    ///
-    /// ⭐ **2026-10-18: IT WENT RED, AND SAID WHAT IT EXISTS TO SAY.** Smash
-    /// now declares `base_knockback_scale` (measured over the roster with
-    /// `ko_envelope feel`: every normal had left its attacker 9-16 frames
-    /// behind on hit), and with it the 700% stale jab converts at `1.0`. So
-    /// the percent scale returned to `1.0`, as the message below asks, and
-    /// this arm pins the new measured branch: the unrepaired percent curve
-    /// ends the stock.
-    ///
-    /// ⭐ **2026-10-18, LATER: RED AGAIN, THE OTHER WAY.** A launch now slows
-    /// at Ultimate's 0.051 u/f² (`launch_decay`, `match_rules.ron`) instead of
-    /// being held for all of hitstun and then braked hard, so at `1.0` the
-    /// 700% stale jab travels 247 px and the stock stands. The multiplier is
-    /// earned again (the sweep below picks 1.25); this arm pins that branch.
-    #[test]
-    fn the_unrepaired_percent_curve_leaves_the_stock_standing() {
-        let mut kill_cell = george_cell(JAB, 0, 700, true);
-        kill_cell.scale = Some(1.0);
-        let kill = {
-            let mut app = open_the_lobby();
-            measure_cell(&mut app, &kill_cell)
-        };
-        let mut poke_cell = george_cell(JAB, 0, 0, false);
-        poke_cell.scale = Some(1.0);
-        let poke = {
-            let mut app = open_the_lobby();
-            measure_cell(&mut app, &poke_cell)
-        };
-        println!(
-            "SCALE 1.00, RAGE PINNED TO ZERO\n  \
-             700% stale: launch {:?}px/s, KO {}, side {}, lateral {:.1} of {:.0}, \
-             body peak {:.1}px/s\n  \
-             0%   fresh: launch {:?}px/s, KO {}, body peak {:.1}px/s\n  \
-             attacker meter: {} / {} (both must be 0 or rage contaminated this)",
-            kill.resolved_launch,
-            kill.left_the_world,
-            kill.crossed_the_side_line,
-            kill.peak_lateral,
-            kill.lateral_needed,
-            kill.peak_body_speed,
-            poke.resolved_launch,
-            poke.left_the_world,
-            poke.peak_body_speed,
-            kill.attacker_damage_taken,
-            poke.attacker_damage_taken,
-        );
-        assert_eq!(
-            (kill.attacker_damage_taken, poke.attacker_damage_taken),
-            (0, 0),
-            "rage leaked into this reading, so it is not about the percent curve"
-        );
-        assert!(
-            !poke.left_the_world,
-            "a 0% jab killed at scale 1.0, so this cell cannot witness anything"
-        );
-        // ⇒ THE MEASURED FINDING, PINNED IN THE DIRECTION IT WAS MEASURED:
-        // under the launch decay a fully stale 700% jab at `1.0` leaves the
-        // stock standing, so Smash declares a percent multiplier.
-        assert!(
-            !kill.left_the_world,
-            "at scale 1.00 a fully stale 700% jab ENDED THE STOCK: the engine \
-             resolved {:?}px/s and the body travelled {:.1}px. The base scale \
-             carries the percent curve to a knockout again, so Smash's \
-             `victim_percent_knockback_scale` is unearned and should return to \
-             1.0 (the sweep below will say so too).",
-            kill.resolved_launch,
-            kill.peak_lateral,
-        );
-    }
-
-    /// THE OTHER END OF THE SAME CURVE, and the guard against paying for the
-    /// test above with low-percent lethality: a jab at 0% is a poke.
-    #[test]
-    fn a_fresh_jab_at_zero_percent_is_still_only_a_poke() {
-        let mut app = open_the_lobby();
-        let outcome = jab_from_stage_centre(&mut app, 0, false);
-        // ⛔⛔ **THE FIXTURE'S OWN HONESTY CHECK, AND IT IS NOT A TAUTOLOGY.**
-        // George's jab authors `knockback: 50.0` / `knockback_growth: 1.05`
-        // (`george_booul_moveset.rs`), and the launch law is
-        // `base + growth × scale × percent / weight` — so at percent 0 the
-        // growth term is zero WHATEVER the ruleset scale is, and the engine
-        // must resolve exactly the authored base.
-        //
-        // ⭐ This is the assertion that proves `resolved_launch` reads the
-        // ENGINE rather than the trajectory. The metric this fixture used to
-        // call a launch speed reported 446.4px/s for this very cell — nine
-        // times the real launch — because it was a maximum of `vel.length()`
-        // over a window with gravity in it. A reader that quietly never fired
-        // would report `None` here and every curve built on it would be
-        // vacuous, which is why the check is an equality and not a range.
-        // The premise the launch assertion rests on, checked first so a rage
-        // leak reports itself as a rage leak rather than as a wrong curve.
-        assert_eq!(
-            outcome.attacker_damage_taken, 0,
-            "the attacker carried {}% at the moment of the strike, so rage \
-             multiplied this launch by {:.3} and the reading is not about the \
-             percent curve at all.",
-            outcome.attacker_damage_taken,
-            1.0 + 0.004 * outcome.attacker_damage_taken as f32,
-        );
-        // At 0% the launch is the authored base times the stage's base scale,
-        // whatever the percent scale is.
-        let base_scale = ambition_demo_smash::smash_combat_rules()
-            .base_knockback_scale
-            .unwrap_or(1.0);
-        assert_eq!(
-            outcome.resolved_launch.map(|v| (v * 1000.0).round() / 1000.0),
-            Some(((50.0 * base_scale) * 1000.0).round() / 1000.0),
-            "the engine resolved this 0% jab to {:?}, not the authored base of \
-             50.0px/s times the stage's base scale. `None` means the fixture's `HitEvent` reader never fired \
-             and every resolved-launch reading in this module is vacuous; a \
-             value near 446 means it captured the body's peak TRAJECTORY speed \
-             again instead of the launch. Body peak this run: {:.1}px/s.",
-            outcome.resolved_launch,
-            outcome.peak_body_speed,
-        );
-        assert!(
-            !outcome.left_the_world,
-            "a jab on a 0% fighter at stage centre killed him ({:.1}px/s body \
-             peak, {:.1}px travelled). Whatever repairs the high-percent curve \
-             must contribute EXACTLY ZERO at zero percent — that is what makes \
-             it a percent term rather than a knockback buff.",
-            outcome.peak_body_speed,
-            outcome.peak_lateral
-        );
-    }
-
     /// A George mirror cell, since most of the matrix is one.
     fn george_cell(move_id: &'static str, volume: usize, percent: i32, stale: bool) -> Cell {
         Cell {
@@ -7562,6 +7211,8 @@ mod ring_out {
         let candidates = [1.0f32, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5];
         let mut rows: Vec<String> = Vec::new();
         let mut smallest_passing: Option<f32> = None;
+        let mut rage_leaks: Vec<(f32, i32, i32)> = Vec::new();
+        let mut unrepaired: Option<(bool, bool)> = None;
         for scale in candidates {
             let mut kill_cell = george_cell(JAB, 0, 700, true);
             kill_cell.scale = Some(scale);
@@ -7588,6 +7239,12 @@ mod ring_out {
                 if poke.left_the_world { "KO" } else { "poke" },
                 poke.resolved_launch.unwrap_or(f32::NAN),
             ));
+            if (kill.attacker_damage_taken, poke.attacker_damage_taken) != (0, 0) {
+                rage_leaks.push((scale, kill.attacker_damage_taken, poke.attacker_damage_taken));
+            }
+            if scale == 1.0 {
+                unrepaired = Some((kill.left_the_world, poke.left_the_world));
+            }
             // ⭐ THE STAGE'S OWN VERDICT. A knockout is a knockout, through
             // whichever of the four blast boundaries the launch reaches: this
             // gate used to demand a SIDE exit and so rejected real kills from a
@@ -7600,6 +7257,32 @@ mod ring_out {
         }
         let table = rows.join("\n");
         println!("PERCENT-SCALE SWEEP (fresh attacker, stage centre, neutral input)\n{table}");
+        assert!(
+            rage_leaks.is_empty(),
+            "rage leaked into these readings (scale, 700% attacker meter, 0% \
+             attacker meter), so they are not about the percent curve: \
+             {rage_leaks:?}\n{table}"
+        );
+        // ⭐⭐ THE PREMISE THE SHIPPED MULTIPLIER RESTS ON: at `1.0`, the percent
+        // term exactly as first written, a fully stale 700% jab leaves the
+        // stock standing (under `launch_decay` it travels about 247 px), and a
+        // 0% jab is a poke, so the 1.0 row can witness anything at all. The
+        // 1.0 row goes RED exactly when `1.0` starts ending the stock, the one
+        // moment anybody needs telling: the multiplier is then unearned.
+        let (kill_at_one, poke_at_one) =
+            unrepaired.expect("the sweep measures the unrepaired scale 1.0");
+        assert!(
+            !poke_at_one,
+            "a 0% jab killed at scale 1.0, so the 1.0 row cannot witness \
+             anything.\n{table}"
+        );
+        assert!(
+            !kill_at_one,
+            "at scale 1.00 a fully stale 700% jab ENDED THE STOCK. The base \
+             scale carries the percent curve to a knockout again, so Smash's \
+             `victim_percent_knockback_scale` is unearned and should return to \
+             1.0.\n{table}"
+        );
         assert_eq!(
             smallest_passing,
             ambition_demo_smash::smash_combat_rules().victim_percent_knockback_scale,
@@ -7654,9 +7337,47 @@ mod ring_out {
             );
             last = launch;
             if percent == 0 {
+                // The premise the curve rests on, checked first so a rage
+                // leak reports itself as a rage leak rather than as a wrong
+                // curve.
+                assert_eq!(
+                    outcome.attacker_damage_taken, 0,
+                    "the attacker carried {}% at the moment of the strike, so \
+                     rage multiplied this launch by {:.3} and the reading is not \
+                     about the percent curve at all.",
+                    outcome.attacker_damage_taken,
+                    1.0 + 0.004 * outcome.attacker_damage_taken as f32,
+                );
+                // ⛔⛔ THE FIXTURE'S OWN HONESTY CHECK, AND IT IS NOT A
+                // TAUTOLOGY. George's jab authors `knockback: 50.0` /
+                // `knockback_growth: 1.05`, and the launch law is
+                // `base + growth × scale × percent / weight`, so at 0% the
+                // growth term is zero whatever the percent scale is, and the
+                // engine must resolve exactly the authored base times the
+                // stage's base scale. It proves `resolved_launch` reads the
+                // ENGINE rather than the trajectory: a trajectory maximum read
+                // 446.4px/s for this cell, nine times the real launch. It is an
+                // equality, not a range, because a reader that never fired
+                // would make every curve built on it vacuous.
+                let base_scale = ambition_demo_smash::smash_combat_rules()
+                    .base_knockback_scale
+                    .unwrap_or(1.0);
+                assert_eq!(
+                    (launch * 1000.0).round() / 1000.0,
+                    ((50.0 * base_scale) * 1000.0).round() / 1000.0,
+                    "the engine resolved this 0% jab to {launch}, not the \
+                     authored base of 50.0px/s times the stage's base scale. A \
+                     value near 446 means the fixture captured the body's peak \
+                     TRAJECTORY speed instead of the launch. Body peak this run: \
+                     {:.1}px/s.",
+                    outcome.peak_body_speed,
+                );
                 // (A) — and it is an OUTCOME assertion, not an arithmetic one:
                 // the resolver test pins the exact zero, this pins that zero
-                // percent is survivable in the real simulation.
+                // percent is survivable in the real simulation. Whatever
+                // repairs the high-percent curve must contribute EXACTLY ZERO
+                // here: that is what makes it a percent term rather than a
+                // knockback buff.
                 assert!(
                     !outcome.left_the_world,
                     "a 0% jab killed from stage centre.\n{}",

@@ -3,118 +3,130 @@ title: automaton_busy_beaver
 <<present_speaker "npc_busy_beaver">>
 <<if verdict("world.flag_set", "automaton_busy_beaver_met") == "satisfied">>
     Busy Beaver: Block. Block. Block. Don't count them, you'll only fall behind.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "automaton_busy_beaver_met") == "not_satisfied">>
     <<command "world.set_flag" "automaton_busy_beaver_met" true>>
     Busy Beaver: Mind the block. That one's load-bearing. They're all load-bearing.
-    -> What are you building?
-        Busy Beaver: Stairs. Then whatever the stairs are for. Then more stairs.
-        Busy Beaver: The chest on top is for whoever gets there first. I keep not getting there. I keep adding a step.
-    -> Aren't you in Math Town?
-        Busy Beaver: Oh, the gate cradle! Did they ever get the replacement bracket?
-        Busy Beaver: Here I've got five states and a tape. I'm trying to run for as many steps as I can and still halt.
-    -> When will you stop?
-        Busy Beaver: For five states, the record is 47,176,870 steps. Turns out proving that nobody could halt later was a much longer job.
-        Busy Beaver: For six, nobody knows. I like those odds.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> What are you building?
+    Busy Beaver: Stairs. Then whatever the stairs are for. Then more stairs.
+    Busy Beaver: The chest on top is for whoever gets there first. I keep not getting there. I keep adding a step.
+-> Aren't you in Math Town?
+    Busy Beaver: Oh, the gate cradle! Did they ever get the replacement bracket?
+    Busy Beaver: Here I've got five states and a tape. I'm trying to run for as many steps as I can and still halt.
+-> When will you stop?
+    Busy Beaver: For five states, the record is 47,176,870 steps. Turns out proving that nobody could halt later was a much longer job.
+    Busy Beaver: Six next. I've got a fresh tape.
+-> ‹go›
 ===
 title: automaton_moore
 ---
 <<present_speaker "npc_automaton_neighbour_moore">>
 <<if verdict("world.flag_set", "automaton_moore_met") == "satisfied">>
     Neighbour Moore: Still here. So is the block. So are you, for now.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "automaton_moore_met") == "not_satisfied">>
     <<command "world.set_flag" "automaton_moore_met" true>>
     Neighbour Moore: Evening. You're standing in my neighbourhood. That's fine. Everybody is in somebody's.
-    -> What is this place?
-        Neighbour Moore: The Life field. Every cell looks at its eight neighbours and decides.
-        Neighbour Moore: Two or three living ones around you, and you stay. Exactly three around an empty cell, and something's born there. Any other count, and you're gone by the next generation.
-    -> What's that square?
-        Neighbour Moore: The block. Four cells, each with three live neighbours. It hasn't changed since the first generation.
-        Neighbour Moore: I moved in beside it after a glider went straight through my old neighbourhood.
-    -> How do I get across?
-        Neighbour Moore: Ride a glider. Five cells that keep changing shape and then returning to the same shape a little farther along.
-        Neighbour Moore: Every four generations it's moved one cell on the diagonal. Stand on it and you move too.
-        Neighbour Moore: And keep clear of the spaceships. The next one should pass in a moment. Wait here until it's gone.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump automaton_moore__topics>>
+===
+
+title: automaton_moore__topics
+---
+-> What is this place?
+    Neighbour Moore: The Life field. Every cell looks at its eight neighbours and decides.
+    Neighbour Moore: Two or three living ones around you, and you stay. Exactly three around an empty cell, and something's born there. Any other count, and you're gone by the next generation.
+    <<jump automaton_moore__topics>>
+-> What's that square?
+    Neighbour Moore: The block. Four cells, each with three live neighbours. It hasn't changed since the first generation.
+    Neighbour Moore: I moved in beside it after a glider went straight through my old neighbourhood.
+    <<jump automaton_moore__topics>>
+-> How do I get across?
+    Neighbour Moore: Ride a glider. Five cells that keep changing shape and then returning to the same shape a little farther along.
+    Neighbour Moore: Every four generations it's moved one cell on the diagonal. Stand on it and you move too.
+    Neighbour Moore: And keep clear of the spaceships. The next one should pass in a moment. Wait here until it's gone.
+    <<jump automaton_moore__topics>>
+-> ‹go›
 ===
 title: automaton_head
 ---
 <<present_speaker "npc_automaton_head">>
 <<if verdict("world.flag_set", "automaton_head_met") == "satisfied">>
     The Head: Read. Write. Move. Change state. Where were we? Step 47,176,870. Halted.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "automaton_head_met") == "not_satisfied">>
     <<command "world.set_flag" "automaton_head_met" true>>
     The Head: Halted! Finally halted. Do you know how long I've wanted to say that?
-    -> Who are you?
-        The Head: The head. The part of the machine that does anything. The tape remembers, the table decides, and I go back and forth.
-        The Head: I read the cell under me, write a one or a zero, move one cell left or right, and change state. That is the whole of my education.
-    -> What is the table on the wall?
-        The Head: Five states, A to E. Two entries each: what to do on a zero, what to do on a one. Ten rules.
-        The Head: Ten rules, and it runs for 47,176,870 steps, and leaves 4,098 ones on the tape. Then the rule for E on a zero says: halt.
-    -> How do you know it stops?
-        The Head: The five-state running-time record was proved in 2024. They had to rule out every machine that might halt later.
-        The Head: Every machine of five states under these rules, starting on a blank tape, that ever stops has stopped by then. I'm the one that took the longest.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump automaton_head__topics>>
+===
+
+title: automaton_head__topics
+---
+-> Who are you?
+    The Head: The head. The part of the machine that does anything. The tape remembers, the table decides, and I go back and forth.
+    The Head: I read the cell under me, write a one or a zero, move one cell left or right, and change state. That is the whole of my education.
+    <<jump automaton_head__topics>>
+-> What is the table on the wall?
+    The Head: Five states, A to E. Two entries each: what to do on a zero, what to do on a one. Ten rules.
+    The Head: Ten rules, and it runs for 47,176,870 steps, and leaves 4,098 ones on the tape. Then the rule for E on a zero says: halt.
+    <<jump automaton_head__topics>>
+-> How do you know no other five-state machine halts later?
+    The Head: The five-state running-time record was proved in 2024. They had to rule out every machine that might halt later.
+    The Head: Every machine of five states under these rules, starting on a blank tape, that ever stops has stopped by then. I'm the one that took the longest.
+    <<jump automaton_head__topics>>
+-> ‹go›
 ===
 title: automaton_pca
 ---
 <<present_speaker "perfect_cellular_automaton">>
 <<if verdict("world.flag_set", "automaton_pca_met") == "satisfied">>
-    Perfect Cell-ular Automaton: Back already? Wonderful. Shall we get straight to the fighting?
+    Perfect Cell-ular Automaton: Oh, excellent. I was beginning to think nobody would interrupt my afternoon.
 <<else>>
     <<command "world.set_flag" "automaton_pca_met" true>>
-    Perfect Cell-ular Automaton: Welcome to my arena. I built it right on the Life field. Do you like the crowd? Impeccable timing.
-    Perfect Cell-ular Automaton: I'm the Perfect Cellular Automaton. You may call me Perfect.
+    Perfect Cell-ular Automaton: Welcome to my arena. I built it right on the Life field. Have a look at the audience. The formation on the left is particularly lovely.
+    Perfect Cell-ular Automaton: I'm the Perfect Cellular Automaton. Perfect will do.
 <<endif>>
 <<jump automaton_pca__ring>>
 ===
 title: automaton_pca__ring
 ---
 -> What is the failure log?
-    Perfect Cell-ular Automaton: My guest book. I was going to have the results engraved, but the engraver complained about doing the same line over and over.
+    Perfect Cell-ular Automaton: My guest book. I asked for a column in which to record my losses. The engraver suggested leaving it off.
     <<jump automaton_pca__ring>>
 -> What's on the big screen?
     Perfect Cell-ular Automaton: A Gosper glider gun, 1970. One glider every thirty generations, indefinitely. Elegant, isn't it?
     Perfect Cell-ular Automaton: I've always found thirty generations a rather leisurely pace.
     <<jump automaton_pca__ring>>
 -> Who is that on the gallery?
-    Perfect Cell-ular Automaton: The Imperfect Cellular Automaton. Charming creature. I offered to demonstrate my technique. We got as far as the demonstration of standing still.
+    Perfect Cell-ular Automaton: The Imperfect Cellular Automaton. Charming creature. I offered to show him how to dodge a glider. He dodged the demonstration.
     <<jump automaton_pca__ring>>
 -> Let's fight.
-    Perfect Cell-ular Automaton: Splendid. Do try to surprise me.
+    Perfect Cell-ular Automaton: Splendid! I do hope you have something I haven't seen.
     <<music "glider_gun">>
     <<challenge>>
 -> ‹go›
-    Perfect Cell-ular Automaton: Run along. The rule will still be running when you come back.
+    Perfect Cell-ular Automaton: Very well. I shall have to amuse myself.
 ===
 title: automaton_imperfect
 ---
 <<present_speaker "imperfect_cellular_automaton">>
 <<if verdict("world.flag_set", "automaton_imperfect_met") == "satisfied">>
     Imperfect Cellular Automaton: Still not looking at the log? Good. Neither am I.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "automaton_imperfect_met") == "not_satisfied">>
     <<command "world.set_flag" "automaton_imperfect_met" true>>
     Imperfect Cellular Automaton: Don't read the log. The third row. And the fifth. Just don't read the log.
-    -> You lost to Perfect?
-        Imperfect Cellular Automaton: I lost to myself. Perfect just stood there. One of my cells was late, its neighbours copied it, and eight generations later I was a different pattern.
-        Imperfect Cellular Automaton: One cell per generation. I could watch it coming across the row and I still couldn't stop it.
-    -> Why do you stay?
-        Imperfect Cellular Automaton: Somebody has to cheer for the challengers. The stands won't. They're all on the rule's side.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> What happened in those matches?
+    Imperfect Cellular Automaton: I lost to myself. Perfect just stood there. One of my cells was late, its neighbours copied it, and eight generations later I was a different pattern.
+    Imperfect Cellular Automaton: One cell per generation. I could watch it coming across the row and I still couldn't stop it.
+-> Why do you stay?
+    Imperfect Cellular Automaton: Somebody has to cheer for the challengers. The stands won't. They're all on the rule's side.
+-> ‹go›
 ===

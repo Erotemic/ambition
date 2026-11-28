@@ -54,9 +54,9 @@ pub use horizon::{
     adopt_pinned_lifecycle_baselines,
 };
 pub use markers::{
-    BodyCustodySettled, CustodyDurability, FeatureSimEntity, InCustodyOf, LoadingZoneVisual,
+    AnimatedWorldSpriteTint, BodyCustodySettled, CustodyDurability, FeatureSimEntity, InCustodyOf, LoadingZoneVisual,
     ModeScopedEntity,
-    PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual, custody_closure,
+    PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual, WorldSprite, custody_closure,
 };
 pub use mode_visit::{Arrival, ModeVisit};
 pub use object_occurrence::{BrokenCommitted, CollectedCommitted, DefeatCommitted, ObjectOccurrence, ObjectPublished, PreparedObjectOccurrences, ensure_object_occurrence};

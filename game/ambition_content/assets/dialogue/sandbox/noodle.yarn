@@ -18,7 +18,7 @@ Duckling: Ah. A new arrival. Stand still, I am counting you.
     Duckling: I asked the hat seller where people had learned to wear them. He said his customers were teaching each other. Have you seen anyone put one on before they came through the gate?
 -> Do you believe in Him?
     Duckling: I came to study the spread of religious practices. I did buy a colander, but I have it in my room with the rest of my samples.
-    Duckling: I wore it to supper once. I wanted to see what people would say.
+    Duckling: I wore it to supper once. Nobody asked about it until I took it off.
 -> Where do the roads go?
     Duckling: West is the Pilgrims' Way: through the wheat, up the stair, to the temple's door. Everyone goes west.
     Duckling: East is the market, then the springs, then Mount Fizzuvius. Nobody goes east twice. The soda stings.
@@ -32,7 +32,7 @@ Marie Curry: Sit. The udon is ready. The curry is nearly ready. Do not touch the
     Marie Curry: Carbonated water. The gas dissolves in the water and some of it forms carbonic acid. The mountain makes the gas, and the springs carry it up.
     Marie Curry: The springs will sting you and throw you out. Don't try to swim across the crater.
 -> Why does it erupt?
-    Marie Curry: A nucleation event. The gas waits for a rough surface to form bubbles on. A mint is very rough, at a small scale.
+    Marie Curry: Nucleation. Look at the bubbles on the side of your glass. They form on little scratches in it. A mint gives them a great many places to form at once.
     Marie Curry: A thousand years ago someone dropped a mint in the vent. Someone else took it out. The mountain has been calm since. I have checked.
 -> Why curry, in a temple town?
     Marie Curry: My first winter here I couldn't get the spices. A merchant at the market was willing to order some for me. Now half the temple comes down on Thursdays.
@@ -50,5 +50,7 @@ Weird Hermit: Stop. Do you have mints?
 -> What is up the mountain?
     Weird Hermit: Rock candy, and the soda running down through it. At the top, the crater, and the lake, and the corks that float on it.
     Weird Hermit: And the Mint. They left it up there on the rim, where the mountain can see it and be calm. Do not put it back in.
+-> Does anyone visit you up here?
+    Weird Hermit: Curry. She counts the bubbles with her watch. I count the gaps between them. We disagree about where to start.
 -> Goodbye.
 ===

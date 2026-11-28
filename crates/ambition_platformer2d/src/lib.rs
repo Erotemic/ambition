@@ -801,12 +801,17 @@ pub mod content {
                 carried: self.carried,
             });
             // The definitions read their body scale, hurtboxes and rig from
-            // the sheets, so a sheet edit states the cast again too. Each
-            // restater stages the whole cast, so one is enough.
+            // the sheets, so a sheet edit states the cast again too: admitted
+            // first, and kept as it was when it refuses.
             if let Some(restater) = reload.restated.first() {
-                let (restate, embedded) = (restater.restate.clone(), self.pack);
-                sprite_reload::restate_with_the_sheets(app, format!("the cast of `{}`", pack.id.0), move |world| restate(world, &embedded.prepared()),
-                );
+                let (prepare, embedded) = (restater.prepare.clone(), self.pack);
+                sprite_reload::restate_with_the_sheets(app, format!("the cast of `{}`", pack.id.0), move |world| {
+                    let selected = embedded.prepared();
+                    match prepare(world, &selected) {
+                        Ok(commit) => commit(world, &selected),
+                        Err(why) => bevy::log::error!("the sheet edit keeps the cast of `{}`: {why}", selected.id.0),
+                    }
+                });
             }
             app.add_plugins(reload);
         }

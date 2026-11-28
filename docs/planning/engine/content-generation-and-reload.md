@@ -681,6 +681,66 @@ No runtime saving is claimed until the relevant caller path is measured.
    selected rules, catalogs, session identity or rollback baseline. Retained
    old-generation rows remain valid until their last reader retires.
 
+**Steps 1–3 landed 2026-11-27** (`content/live_reload.rs`):
+- A `Restater` is now one owner's product: the schemas it reads, and a
+  read-only `prepare` that admits the product from the candidate and returns
+  an infallible `Commit`.
+- The publication prepares every affected owner of a pack first, each once,
+  however many of its schemas changed. Audio is one product from both
+  registries, and the cast one from all three families.
+- Only when all of them admit is the pack selected, each commit run with
+  that generation, and the publication counted. One refusal keeps the old
+  pack and every product, drops the candidate, and names the owner in the
+  watch's refusal.
+- Rows shared with other providers are admitted on a private copy of their
+  catalog (`on_a_copy`; prop sheets through `admit_prop_sheet_rows` and
+  `commit_prop_sheet_rows`). The cast stages into a revision of its own
+  (`StagedCastRevision::stage`) and is admitted by
+  `admit_revision_with_catalog`, so it neither drains nor replaces the
+  shared staging resource.
+- Two packs published in one frame commit in turn, so the second admits
+  against the first's rows.
+
+Witness: `a_refused_owner_keeps_the_whole_publication_out`. One save edits
+the rules and the music, and the new track takes the host provider's id for
+another recording. Before the change the edit was counted as published,
+with the new rules selected beside the old music.
+
+Still open: step 4, the App-owned selection (`EmbeddedPack::current` is
+still process-wide).
+
+*Step 4 sized (2026-11-27), not landed.* A first cut was built and then
+withdrawn whole. Its mechanism worked:
+- `PackSelections`, an App resource, held each pack's selected generation.
+- A `SelectedPacks` system parameter read it at a system boundary.
+- `EmbeddedPack::selected_in(world)` read it with a World at hand.
+- The reload selected into the App, and `prepared()` stayed the
+  process-wide compiled source.
+- Its witness, `a_reload_in_one_app_leaves_another_apps_selection`, passed
+  with the 19 existing reload tests.
+
+The cost is in the consumers. Once the reload stops writing the static,
+every demo reader of a live schema (rules, text, forms) must read its App's
+selection, or that demo's live reload goes silently stale. No demo test
+reads a running reader after an edit; `every_schema_of_the_pack_reloads_between_sessions`
+checks only that each schema is watched.
+- The 17 row accessors have 337 call sites (about 230 outside tests).
+- Many sit in free helpers with no World, which must take the row from
+  their caller: Smash's `SmashStockChoice::of/all`, `set_occupant` (71
+  callers), `select_look` (60), `smash_limit` (22), the button-text
+  functions and `text::line` (42).
+- `mary_o_rules` alone has 133 call sites.
+- Sanic converted in about 40 edits: systems bind `SelectedPacks`, helpers
+  take `&SanicRules` or `&ShownText`, room builders take the prepared pack,
+  and tests read `sanic_rules_of(PACK.prepared())`.
+- Smash, Mary-O and versus remain, several hundred edits in demo code that
+  peers also edit.
+
+Landing it partially would leave the unconverted demos stale, and writing
+the static as well would be a second selection, so it was withdrawn. Take
+it as one slice with all four demos, and add the missing witness: a running
+demo reader sees an edit to a live schema.
+
 Preserve `only_live`, local timeline rebase, remote generation and shell
 preparation policy. This cut does not permit cast/catalog restatement inside
 a live session or lift the prepared-artifact serialization hold. Acceptance

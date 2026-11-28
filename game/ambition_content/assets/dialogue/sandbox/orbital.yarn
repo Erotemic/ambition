@@ -29,20 +29,22 @@ title: station_okafor
     -> Clear the crate.
         <<command "world.set_flag" "orbital_consignment_cleared" true>>
         <<command "world.set_flag" "orbital_spur_pass" true>>
-        Officer Okafor: Stamped. The pen opens and the lane to the bay with it. One more thing: Hamid needs someone in the damaged spur who does not breathe. I put a pass on the hatch.
+        Officer Okafor: Stamped. The pen and the lane to the bay are open. Hamid needs someone who does not breathe in the damaged spur. I put a pass on the hatch.
     -> Not yet.
 <<elseif verdict("world.flag_set", "orbital_manifest_signed") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "orbital_consignment_query") == "satisfied">>
     Officer Okafor: Still need a count I can stamp. Surveyor's Office, Math town. Ask for Canter.
     -> Where is the Math town?
-        Officer Okafor: Through the ring and up the stairs from its gate hall. The office is on the second terrace.
+        Officer Okafor: Dial TANGENT. Go up the stairs from the gate hall; the office is on the second terrace.
+        <<command "world.set_flag" "gate.known.TANGENT" true>>
     -> ‹step away›
 <<elseif verdict("world.flag_set", "orbital_consignment_query") == "not_satisfied">>
-    Officer Okafor: Customs. Crate 0447 in my pen is survey lenses from the Math town, for the Remainder. The manifest gives the count as "aleph-null". I cannot clear an infinite crate.
+    Officer Okafor: Customs. Crate 0447, survey lenses from Math Town for the Remainder. Quantity: "aleph-null". I cannot clear an infinite crate.
     -> I can ask the sender.
         <<command "world.set_flag" "orbital_consignment_query" true>>
-        Officer Okafor: Surveyor's Office, Math town. Bring me a number I can stamp.
+        Officer Okafor: Surveyor's Office, Math town. The gate address is TANGENT. Bring me a number I can stamp.
+        <<command "world.set_flag" "gate.known.TANGENT" true>>
     -> Why so careful?
         Officer Okafor: Seed stock, spores, mail with ideas in it. The ring moves anything. Somebody has to look first.
     -> Who reads the arrival records?
@@ -65,8 +67,8 @@ title: station_reyes
 <<elseif verdict("world.flag_set", "orbital_consignment_cleared") == "not_satisfied">>
     Captain Reyes: That pen on the gate deck holds my lenses. Without them the survey is blind.
     -> What do you haul?
-        Captain Reyes: Whatever the ring brings that has to go where no ring is. Moons, mines, the slow places.
-    -> Why not put a ring on the moon?
+        Captain Reyes: Whatever the ring brings that has to go farther than the ring. Moons, mines, the slow places. The survey moon doesn't have one at all.
+    -> Could you deliver the cargo by gate instead?
         Captain Reyes: It would need its own power plant and a crew to keep the gate running. We've only got a few people on that moon. I'm cheaper.
     -> What's the work out beyond the rings?
         Captain Reyes: Two weeks out, two back. We bring batteries, food, water. They send us rocks in labeled bags.
@@ -82,6 +84,7 @@ title: station_lindqvist
 Bo Lindqvist: Ring throughput is down a third since they doubled the passenger slots. Freight waits. I wait.
 -> Why passengers first?
     Bo Lindqvist: The Authority added the evening passenger service. I've asked them to give me back the freight slot on Thursdays.
+    Bo Lindqvist: They asked me how many tonnes were waiting. I weighed the lot. Now they want a count of the individual consignments.
 -> Need a hand?
     Bo Lindqvist: Not unless you can lift a container. ...You can? Huh. Union says no.
 -> Can freight go another way?
@@ -96,7 +99,7 @@ title: station_rahimi
 ---
 <<if verdict("world.flag_set", "switch_orbital_spur_breaker_used") == "satisfied">>
     Hamid Rahimi: Power is back in the spur. The crawlers went quiet when the breaker closed. I owe you.
-    -> What broke them?
+    -> What went wrong with the crawlers?
         Hamid Rahimi: Their orders. "Repair anything damaged." The storm damaged everything. They kept cutting.
     -> Is the rest of the station all right?
         Hamid Rahimi: Better than yesterday. The gravity-works people want their instruments back now. They can collect them themselves.
@@ -130,6 +133,7 @@ Gus Pell: First time through the ring? People climb that ladder green. Crackers 
     Gus Pell: A robot. Lucky. Some folks lose a day to it. Some just lose breakfast.
 -> What's cooking?
     Gus Pell: Greens from the racks, and whatever came through the gate this morning. Today, beans.
+    Gus Pell: Mina down in Eureka wants another tin of lentils. I can send her those without borrowing the lab's cold box.
 -> Who lives here?
     Gus Pell: Mechanics, pilots, customs, a botanist who talks to the lettuce. Most stay for a few months.
     Gus Pell: Some go home every night now. I still set their place at breakfast by accident.
@@ -143,9 +147,9 @@ Wen Liang: I tuned this station's first stable ring. The first link held three s
     Wen Liang: We can hold the link for a lot less power than the old design took. The hard part now is finding a crew to look after it.
 -> Do you miss the work?
     Wen Liang: Sometimes. Hamid lets me watch when they do the calibration. I can usually tell if the gate is out of tune by ear.
--> Ever worked with Gnu-ton?
-    Wen Liang: He sent me a plan for a gravity test. I asked where the shutoff was. He sent me a longer plan.
-    Wen Liang: I've still got it on my desk.
+-> Have you worked with Gnu-ton?
+    Wen Liang: He sent me a plan for a gravity test. I asked where the shutoff was. He sent me a diagram of the control circuit.
+    Wen Liang: I know how it works. I want somebody outside the room to be able to turn it off.
 -> How many dimensions are there?
     Wen Liang: The registries list seventeen known dimensions. Math Town sent over a question about two of the entries.
     Wen Liang: I sent measurements back. Now they've asked for more.
@@ -160,8 +164,8 @@ Neil onGras Turfson: Well, actually, that blue line on the edge is all the air t
 -> Do you ever go down there?
     Neil onGras Turfson: Every leave. I take my shoes off on the first bit of grass I see. Last time it rained on me and I stayed outside till they called.
 -> Do you know Will Force?
-    Neil onGras Turfson: The horse on QED-TV? I call in from this window when he gets the sky wrong. Well, actually, he rarely gets it wrong. I call in anyway. The audience likes it.
-    Neil onGras Turfson: Last month he said the station "floats". It falls. It falls all the time, and it moves sideways fast enough that it keeps missing the ground. He thanked me on air and then asked if I had a comb.
+    Neil onGras Turfson: The horse on QED-TV? I call in when he gets the sky wrong. Well, actually, he rarely gets it wrong. I call in anyway.
+    Neil onGras Turfson: Last month he said the station "floats". It is falling, but moving sideways fast enough to miss the ground. He thanked me and asked if I had a comb.
 -> What's beyond this orbit?
     Neil onGras Turfson: Remainder goes out surveying. I work the observation window. You should ask the captain where she's been.
 -> ‹step away›
@@ -189,7 +193,9 @@ Hortensia Pippin: Mind the apples. They fall up here. I've been picking this orc
 -> Why is that tree upside down?
     Hortensia Pippin: That one grew toward the light from the planet. The rest grew toward the lamps. I keep asking the engineers to leave the lamps in one place.
 -> Do you know GNU-ton?
-    Hortensia Pippin: He planted the first tree. Sat under it, waiting for an apple to fall on his head. Took him a week to think of looking up. Now he won't stop lecturing about it.
+    Hortensia Pippin: He planted the first tree. Sat under it for a week waiting for an apple to fall on his head. I had to tell him to look up. He used to help me with the harvest.
+-> Do you make anything with the apples?
+    Hortensia Pippin: Pies. I take a basket down to the galley. Pell has a nice ordinary oven, and I have had enough of trying to get a lid to stay on a pie up here.
 -> I'll let you work.
     Hortensia Pippin: Take one from the crate. Hold it tight. If you let go, it's the ceiling's.
 ===

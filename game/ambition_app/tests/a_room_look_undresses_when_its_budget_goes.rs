@@ -14,6 +14,7 @@
 use ambition_content::presentation::room_look::{RoomSkinMaterial, RoomStateMaterial};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::render::rendering::label_layout::{StaticWorldLabel, WorldLabel};
+use ambition_platformer2d::render::rendering::planar_mesh::PreparedPlanarMesh;
 use ambition_platformer2d::render::rendering::terrain_skin::TerrainSkinMesh;
 use ambition_platformer2d::render::rendering::{EntityArt, LoadingZoneVisual};
 use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
@@ -38,9 +39,9 @@ struct Dress {
 fn dress(app: &mut App) -> Dress {
     let world = app.world_mut();
     let pieces = world.query_filtered::<(), With<MeshMaterial2d<RoomStateMaterial>>>().iter(world).count();
-    let shaded_skins = world.query_filtered::<(), With<MeshMaterial2d<RoomSkinMaterial>>>().iter(world).count();
+    let shaded_skins = world.query_filtered::<(), With<PreparedPlanarMesh<RoomSkinMaterial>>>().iter(world).count();
     let plain_skins = world
-        .query_filtered::<&TerrainSkinMesh, With<MeshMaterial2d<ColorMaterial>>>()
+        .query_filtered::<&TerrainSkinMesh, With<PreparedPlanarMesh<ColorMaterial>>>()
         .iter(world)
         .filter(|mesh| matches!(mesh.theme.key(), "hub_clean" | "hub_corrupt"))
         .count();

@@ -3,41 +3,39 @@ title: neural_grandmother
 <<present_speaker "npc_neural_grandmother_cell">>
 <<if verdict("world.flag_set", "neural_grandmother_met") == "satisfied">>
     Grandmother: There you are again! Every time, I light right up.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "neural_grandmother_met") == "not_satisfied">>
     <<command "world.set_flag" "neural_grandmother_met" true>>
     Grandmother: There you are! Come here, let me look at you.
     Grandmother: You've grown. You've grown antennae. No matter. It's you.
-    -> I think you have me confused with someone.
-        Grandmother: Nonsense. I've seen you in profile and from the front. The cells I listen to keep telling me it's you, however you turn.
-        Grandmother: Look at me. All lit up.
-    -> Where am I?
-        Grandmother: The Callosum, dear. The bridge between the two halves. The living half is west, where I grew.
-        Grandmother: The east half was built. They're nice enough over there. One of them asked me for a photograph of you. I told him you were much nicer in person.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> I don't think I'm who you think I am.
+    Grandmother: Nonsense. I've seen you in profile and from the front. The cells I listen to keep telling me it's you, however you turn.
+    Grandmother: Look at me. All lit up.
+-> Where am I?
+    Grandmother: The Callosum, dear. The bridge between the two halves. The living half is west, where I grew.
+    Grandmother: The east half was built. They're nice enough over there. One of them asked me for a photograph of you. I told him you were much nicer in person.
+-> ‹go›
 ===
 title: neural_hebb
 ---
 <<present_speaker "npc_neural_hebb">>
 <<if verdict("world.flag_set", "neural_hebb_met") == "satisfied">>
-    Donna: Every time you walk past, I think of that lamp. It worked.
-    -> ‹go›
+    Donna: Oh, hello. I have been keeping notes on that lamp.
 <<elseif verdict("world.flag_set", "neural_hebb_met") == "not_satisfied">>
     <<command "world.set_flag" "neural_hebb_met" true>>
-    Donna: Hold still. You and that bulb just lit up at the same moment.
-    Donna: There. I think the connection is a little stronger. Walk past again and let's see whether that bulb lights.
-    -> What do you do here?
-        Donna: I study how activity changes connections. When those two cells fire together over and over, this connection gets stronger.
-        Donna: I need to try it a few more times with that lamp. I'm going to write down how much the response changes.
-    -> What are the purple clouds?
-        Donna: Intrusive thoughts. They keep turning up when I'm trying to work. I was halfway through testing a new connection when one of them knocked the bulb off the stand.
-    -> ‹go›
+    Donna: Hold still. Two cells just fired at the same moment.
+    Donna: I think the connection is a little stronger. I want to repeat the test and measure the response.
 <<else>>
     <<stop>>
 <<endif>>
+-> How can you tell the connection is stronger?
+    Donna: Watch the needle when I stimulate this cell. That's the response from its neighbour. If I get them firing together often enough, the response gets larger.
+    Donna: Could you tell me the reading? I can't see the scale from this side.
+-> What are the purple clouds?
+    Donna: Intrusive thoughts. One knocked the bulb off the stand halfway through my experiment.
+-> ‹go›
 ===
 title: neural_perceptron
 ---
@@ -49,7 +47,7 @@ Percy: QUESTION?
     Percy: ...
     Percy: LAMP ON, DOOR CLOSED: YES. LAMP OFF, DOOR OPEN: YES.
     Percy: ...
-    Percy: I cannot separate the YES cases from the NO cases with one straight line. Please submit a different question.
+    Percy: CANNOT SEPARATE YES FROM NO WITH ONE LINE. PLEASE ADD A LAYER.
 -> Who made you?
     Percy: A man with a camera and a board of wires, in nineteen fifty-eight. The papers said I would walk and talk one day.
     Percy: I do not walk.
@@ -65,6 +63,10 @@ Echo: Welcome to the Echo Chamber! Say anything.
 -> I think you're wrong.
     Echo: You think I'm wrong!
     Echo: So true. We all think I'm wrong. Isn't it wonderful to agree?
+    -> What did I just say?
+        Echo: You think I'm wrong!
+    -> No, I mean we disagree.
+        Echo: We disagree! Look, everyone's saying it.
 -> ‹say nothing›
     Echo: ...
     Echo: Silence! So brave. In here, we love silence.

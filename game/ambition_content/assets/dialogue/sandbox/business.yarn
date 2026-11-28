@@ -3,23 +3,21 @@ title: business_dirk
 <<present_speaker "npc_business_dirk_quarterly">>
 <<if verdict("world.flag_set", "business_dirk_met") == "satisfied">>
     Dirk: Still on the call. Hour nine. We're aligning.
-    -> Who's on the other end?
-        Dirk: The board. Or my mother. Either way it's a quarterly review.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "business_dirk_met") == "not_satisfied">>
     <<command "world.set_flag" "business_dirk_met" true>>
     Dirk: No. No. Let's take this offline.
-    Dirk: Sorry. Dirk Quarterly. You're with...?
-    -> I came through the gate.
-        Dirk: Inbound talent. Love it. My people will circle back to your people.
-        Dirk: A word of advice, free of charge, this once: directions in Capital are licensed. Give someone a copy of your map without permission and they'll arrest you for it.
-    -> Who's the statue?
-        Dirk: The Founder. Started with nothing but a briefcase and a small loan.
-        Dirk: The size of the loan is proprietary.
-    -> ‹go›
+    Dirk: Sorry. Dirk Quarterly. What can I do for you?
 <<else>>
     <<stop>>
 <<endif>>
+-> Are directions licensed here?
+    Dirk: Yes. A word of advice, free of charge, this once: give someone a copy of your own map without a distribution licence and they'll arrest you for it.
+-> Who's the statue?
+    Dirk: The Founder. Started with nothing but a briefcase and a small loan.
+    Dirk: The size of the loan is proprietary.
+-> Who's on the other end?
+    Dirk: The board. Or my mother. Either way it's a quarterly review.
+-> ‹go›
 ===
 title: business_solly
 ---
@@ -27,39 +25,37 @@ title: business_solly
 <<if verdict("world.flag_set", "business_solly_met") == "satisfied">>
     Solly: Still here. They offered us a pizza party.
     Solly: We asked for the pizza in writing.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "business_solly_met") == "not_satisfied">>
     <<command "world.set_flag" "business_solly_met" true>>
     Solly: Morning. You're not crossing the line, are you?
-    -> What's the strike about?
-        Solly: Records & Processing pays us by the form. Last year they made every form twice as long.
-        Solly: Same pay, twice the boxes. So we stopped filling in boxes.
-    -> Who is Local 17?
-        Solly: The records clerks. Sixty of us out here, and Marguerite, who's still inside processing our strike notices.
-        Solly: Somebody has to. She says it's the fastest the forms have moved in years.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> What's the strike about?
+    Solly: Records & Processing pays us by the form. Last year they made every form twice as long.
+    Solly: Same pay, twice the boxes. So we stopped filling in boxes.
+-> Who is Local 17?
+    Solly: The records clerks. Sixty of us out here, and Marguerite, who's still inside processing our strike notices.
+    Solly: Somebody has to. She says it's the fastest the forms have moved in years.
+-> ‹go›
 ===
 title: business_barista
 ---
 <<present_speaker "npc_business_barista">>
 <<if verdict("world.flag_set", "business_barista_met") == "satisfied">>
     Ines: Back again. The table by the window has been pitching the same app since Tuesday.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "business_barista_met") == "not_satisfied">>
     <<command "world.set_flag" "business_barista_met" true>>
     Ines: Welcome to The Bottom Line. What can I get you?
-    -> A coffee.
-        Ines: Two coins, and the licence fee on the cup.
-        Ines: The shape of the cup is patented. I pour into it anyway.
-    -> Is it always this busy?
-        Ines: Everyone at the tables is pitching everyone else. Nobody has bought anything in years. They just keep refilling.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> How much is a coffee?
+    Ines: Two coins, and the licence fee on the cup.
+    Ines: The shape of the cup is patented. I pour into it anyway.
+-> Is it always this busy?
+    Ines: Two at that table are trying to sell each other the same app. I come round every hour to ask if they want more coffee. Best table in the shop.
+-> ‹go›
 ===
 title: quison
 ---
@@ -74,72 +70,93 @@ title: business_clerk
 <<present_speaker "npc_business_records_clerk">>
 <<if verdict("world.flag_set", "business_clerk_met") == "satisfied">>
     Marguerite: Number five. Not you. Sit down.
-    -> What happens to the shredded forms?
-        Marguerite: They're filed. Under S.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "business_clerk_met") == "not_satisfied">>
     <<command "world.set_flag" "business_clerk_met" true>>
     Marguerite: Take a number. We're on number four.
-    -> What is this place?
-        Marguerite: Records & Processing. Every form in Capital comes through here. It gets stamped and goes back out to be filled in again.
-        Marguerite: Mind the shredder by the stairs. It doesn't read the forms either.
-    -> Can I draw my own map?
-        Marguerite: You'd need a cartographer's licence. Sharing it is a separate offence if you're not authorised to distribute directions. I can give you the application, if you have an afternoon.
-    -> What are you working on?
-        Marguerite: Form 27-B. I started it eleven years ago. It's nearly done.
-        Marguerite: Every spring someone sends it back for a signature from the person who sent it back.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump business_clerk__topics>>
+===
+
+title: business_clerk__topics
+---
+-> What do you process here?
+    Marguerite: Records & Processing. Original in the left tray, duplicate in the right. If they match I can stamp them both.
+    Marguerite: Mind the shredder by the stairs. We've been waiting for a replacement lid.
+    <<jump business_clerk__topics>>
+-> Can I draw my own map?
+    Marguerite: You'd need a cartographer's licence.
+    Marguerite: Did you want to keep the map or give it to somebody?
+    -> Keep it.
+        Marguerite: Just the one licence, then.
+    -> Give it to a friend.
+        Marguerite: Separate distribution licence. Even if your friend is a cartographer.
+    -> Never mind.
+        Marguerite: I thought as much.
+    <<jump business_clerk__topics>>
+-> What are you working on?
+    Marguerite: Form 27-B. I started it eleven years ago. It's nearly done.
+    Marguerite: Every spring someone sends it back for a signature from the person who sent it back.
+    <<jump business_clerk__topics>>
+-> What happens to the shredded forms?
+    Marguerite: They're filed. Under S.
+    <<jump business_clerk__topics>>
+-> ‹go›
 ===
 title: business_professor
 ---
 <<present_speaker "npc_business_professor">>
 <<if verdict("world.flag_set", "business_professor_met") == "satisfied">>
     Gail: Back for the second lecture? It's the first one again, louder.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "business_professor_met") == "not_satisfied">>
     <<command "world.set_flag" "business_professor_met" true>>
     Gail: Sit anywhere with a desk. Today's lecture is Synergy.
-    -> What is synergy?
-        Gail: Two departments do the work of three and are paid as one. The difference is synergy.
-        Gail: It's on the exam.
-    -> Who is in the armour at the back?
-        Gail: Mr. Zorlack. He asked for a class on personnel management. I gave him my old course materials, and he has been bringing me questions from his work back home.
-        Gail: I had to look up what a quarterdeck was.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> What is synergy?
+    Gail: Two departments do the work of three and are paid as one. The difference is synergy.
+    Gail: It's on the exam.
+-> Who is in the armour at the back?
+    Gail: Mr. Zorlack. He asked for a class on personnel management. I gave him my old course materials, and he has been bringing me questions from his work back home.
+    Gail: I had to look up what a quarterdeck was.
+-> ‹go›
 ===
 title: business_zorlack
 ---
 <<present_speaker "npc_ninja_shadow_oni_leader">>
 <<if verdict("world.flag_set", "business_zorlack_met") == "satisfied">>
     Zorlack: Still no interview. I checked my mailbox before I came to class.
-    -> What about the clan?
-        Zorlack: We have work guarding a shipment in PVN. I intend to complete the contract while I wait for a reply.
-    -> How are the classes going?
-        Zorlack: We are studying the allocation of resources. I asked if we could use an actual watch roster for the exercise. The professor gave me a spreadsheet.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "business_zorlack_met") == "not_satisfied">>
     <<command "world.set_flag" "business_zorlack_met" true>>
     Zorlack: You are not the recruiter. Good. I have rehearsed for the recruiter, and not for you.
-    -> What are you doing here?
-        Zorlack: Synergy 101. Sixty-five thousand five hundred and thirty-five Zorlacks led the clan before me, and none of them took a class.
-        Zorlack: The wall at home has a place for each of us. Mine is the last one. Nobody has told me what comes after the wall.
-        Zorlack: I thought I might find some other work. I came here to find out what qualifications I need.
-    -> What jobs have you applied for?
-        Zorlack: Management. The last application asked for the number of people who report to me. I entered the whole clan. The form only accepted two digits.
-    -> What is your clan doing while you study?
-        Zorlack: We have been hired to guard a shipment. I have a good duelist who can organize the watches while I attend class. I go back when I am needed.
-    -> Why the armour?
-        Zorlack: The careers office asked the same. Their dress code says: bring your whole self, in a navy suit.
-        Zorlack: This armour belonged to my grandfather. I polished it for the interview. I will purchase a suit if they insist.
-        Zorlack: I have not been given an interview.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump business_zorlack__topics>>
+===
+
+title: business_zorlack__topics
+---
+-> Why did you come to the college?
+    Zorlack: Synergy 101. Sixty-five thousand five hundred and thirty-five Zorlacks led the clan before me, and none of them took a class.
+    Zorlack: The wall at home has a place for each of us. Mine is the last one. Nobody has told me what comes after the wall.
+    Zorlack: I have a very good record as a clan leader. The careers office tells me I should put it on one page.
+    <<jump business_zorlack__topics>>
+-> What jobs have you applied for?
+    Zorlack: Management. The last application asked for the number of people who report to me. I entered the whole clan. The form only accepted two digits.
+    <<jump business_zorlack__topics>>
+-> What is your clan doing while you study?
+    Zorlack: We have been hired to guard a shipment. I have a good duelist who can organize the watches while I attend class. I go back when I am needed.
+    <<jump business_zorlack__topics>>
+-> Why wear armour to the college?
+    Zorlack: The careers office asked the same. Their dress code says: bring your whole self, in a navy suit.
+    Zorlack: This armour belonged to my grandfather. I had it polished. I will purchase a suit if they insist.
+    Zorlack: I have not been given an interview.
+    <<jump business_zorlack__topics>>
+-> How are the classes going?
+    Zorlack: We are studying the allocation of resources. I asked if we could use an actual watch roster for the exercise. The professor gave me a spreadsheet.
+    <<jump business_zorlack__topics>>
+-> ‹go›
 ===

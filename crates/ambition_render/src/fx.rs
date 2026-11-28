@@ -13,7 +13,8 @@ use std::f32::consts::TAU;
 
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, LiveRoomOf, LiveRooms, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, AnimatedWorldSpriteTint, LiveRoomOf, LiveRooms, SessionSpawnScope,
+    SpawnSessionScopedExt,
 };
 use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
 use ambition_sprite_sheet::character::CharacterAnimator;
@@ -66,6 +67,7 @@ fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
 }
 
 #[derive(Component)]
+#[require(AnimatedWorldSpriteTint)]
 pub struct ParticleVisual {
     kind: ParticleKind,
     pos: ae::Vec2,
@@ -913,6 +915,7 @@ fn screen_angle(world_dir: ae::Vec2) -> f32 {
 
 /// A column of light from `base` along `toward`. See [`VfxMessage::Beam`].
 #[derive(Component)]
+#[require(AnimatedWorldSpriteTint)]
 pub struct BeamVisual {
     base: ae::Vec2,
     toward: ae::Vec2,

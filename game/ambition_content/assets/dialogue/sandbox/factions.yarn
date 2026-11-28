@@ -20,7 +20,7 @@ Fretjaw: Jump the tables if you want. Duck by the bar. Bleed on floor, buy a rou
 
 title: goblin_cantina_chieftain__2
 ---
-Fretjaw: Walls cost money. Pit was already here. Also the floor gets beer on it. You learn fast on beer.
+Fretjaw: Pit was here. Fretjaw put bar beside pit. Goblins jump out, get thirsty, buy beer. Good spot for bar.
 -> Ask another question.
     <<jump goblin_cantina_chieftain>>
 -> Walk away.
@@ -110,7 +110,7 @@ Captain Pulse: We moor up here because the lower current tears anchors loose. Up
 
 title: tech_bros_disruptor
 ---
-Chadwick III: Welcome to the basement! We're not failing — we're SUBTERRANEAN. Premium iteration depth. We've vertically integrated gravity into the runway. Very capital-efficient.
+Chadwick III: We're not failing — we're SUBTERRANEAN. We got an amazing rate per square metre down here.
 -> What is this place pivoting toward?
     <<jump tech_bros_disruptor__1>>
 -> Why does the boardroom face up?
@@ -120,7 +120,7 @@ Chadwick III: Welcome to the basement! We're not failing — we're SUBTERRANEAN.
 
 title: tech_bros_disruptor__1
 ---
-Chadwick III: Disruption-as-a-service, friend. We disrupt anything that holds still long enough. Our roadmap is a slope. Our slope is the roadmap. Both are pivots. That's a flywheel.
+Chadwick III: Disruption-as-a-service. We used to do freight. Then we realized the real money was in charging other people for access to the freight lift.
 -> Ask another question.
     <<jump tech_bros_disruptor>>
 -> Touch grass.
@@ -128,7 +128,7 @@ Chadwick III: Disruption-as-a-service, friend. We disrupt anything that holds st
 
 title: tech_bros_disruptor__2
 ---
-Chadwick III: The boardroom faces up because vision is a direction. Looking down is for accountants. We do not look down. We are the down. It's category-defining.
+Chadwick III: We cut costs by fifty percent when we moved in. All we had to do was nail the furniture to the ceiling. The board loves it.
 -> Ask another question.
     <<jump tech_bros_disruptor>>
 -> Touch grass.

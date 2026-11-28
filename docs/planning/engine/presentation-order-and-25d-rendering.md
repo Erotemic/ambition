@@ -861,6 +861,40 @@ shared value preparation are sufficient until source proves otherwise.
    An Ultra fixture checks additive light and blended colors in 2D,
    side-on 2.5D, and oblique 2.5D.
 
+   Chain fills and room terrain use the same mesh preparation. A room
+   keeps its terrain meshes when the quality setting changes their material.
+   The 2D bindings are present only when an active 2D camera needs them.
+   A Medium fixture checks chain fill and textured terrain in 2D,
+   side-on 2.5D, and oblique 2.5D. It checks camera switching with the
+   same mesh handles.
+
+   Particles, procedural beams, and physics debris use the shared world
+   sprite path. Their cards keep the same material during a fade.
+   Medium captures of Mine Pocket show dust and moving fragments in 2D,
+   side-on 2.5D, and oblique 2.5D at the same simulation tick.
+
+   The Clockwork Warden's hazard column uses the shared world sprite path.
+   Medium captures in the basement arena show the yellow warning at tick
+   345, the red strike at tick 435, and the clear lane at tick 480.
+
+   The daylight veil and lamp glow use prepared meshes. The translucent
+   fallback uses the same world sprite path. Medium night captures in Math
+   Town check the veil in 2D and side-on 2.5D.
+
+   Daylight reads the room of each logical view. Its lamp sample covers the
+   combined output bounds and uses light sources from that room. The view
+   hides its veil when the light is neutral. The two-view test checks lamp
+   isolation and veil removal when an observer goes away. A Medium
+   comparison capture shows the same night light in the 2D main view and
+   the 2.5D inset.
+
+   Indoor darkness uses the light settings and light sources of each
+   view's live room. Low and Medium center the light on the participant
+   that the view follows, or the nearest participant in that room. High
+   and Ultra share a light map across the outputs of that view. The
+   two-view test checks overlapping rooms, a quality change, and veil
+   removal on entry to a lit room.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

@@ -13,6 +13,7 @@ Erdish: My mind is open.
     Erdish: Almost.
 -> Did you climb in through the window?
     Erdish: Yes. Emmy says I mustn't do it again.
+    Erdish: She has my cup. I left the other one at Hylbert's. There is a proof on a napkin under it, if the napkin is still there.
 -> Are you waiting for someone?
     Erdish: I had a question for you. I've forgotten what it was.
     Erdish: I'll find you when it comes back.
@@ -112,7 +113,7 @@ Olivia: Yes?
     Olivia: People call me that.
 -> Can the gate take me home?
     Olivia: Where's home?
-    Olivia: If you don't know the address, I can't give you the route.
+    Olivia: If you mean the public hub, every working terminal posts LEGAL. TESTING is on the Concourse's list. Otherwise I'd need to know which gate you mean.
 -> Never mind.
     Olivia: All right.
 ===
@@ -126,8 +127,8 @@ Gottfried Leib-Knives: Stay back. Blade's sharp.
     Gottfried Leib-Knives: Where the tip lands at each step. I'm measuring the rate of change.
     Gottfried Leib-Knives: If you want to watch, stand behind me.
 -> Have you heard of Gnu-ton?
-    Gottfried Leib-Knives: He's the one with the gravity works at the station, isn't he?
-    Gottfried Leib-Knives: I heard he fights from a giant's shoulders. I wouldn't know where to stand.
+    Gottfried Leib-Knives: The gravity works are out on the trail past the orchard. People at the institute should know more about what he's doing now.
+    Gottfried Leib-Knives: I fenced with him once. Very good blade. I asked if we could finish the bout with the floor in its usual place.
 -> I'll leave you to it.
     Gottfried Leib-Knives: Much obliged.
 ===
@@ -160,6 +161,8 @@ Emmy Ethereal: Sit wherever you like. Except there. Erdish has taken over that t
     Emmy Ethereal: The short version? If the rules don't change with time, you get conservation of energy.
 -> Does Erdish always come in through the window?
     Emmy Ethereal: Only when I forget to lock it.
+-> Does he ever order anything?
+    Emmy Ethereal: Coffee. He has a cup here and another one over at the hotel. Davy keeps bringing the wrong one back. I know because neither of them has a handle anymore.
 -> I'll find a seat.
     Emmy Ethereal: If you want lunch, order before I close the kitchen.
 ===
@@ -218,8 +221,9 @@ Davy Hylbert: Sorry, we're full tonight.
     Davy Hylbert: Move everyone from room one to two, two to three, and so on. First room's free.
     Davy Hylbert: Don't ask me to do that here. People have unpacked.
 -> What's wrong with the spectral wing?
-    Davy Hylbert: A guest in room one slammed his door and a lamp fell off the wall in room thirty. The ghosts started coming through the ceiling soon after that.
-    Davy Hylbert: I've been working on increasing the spectral gap. Gram Reaper has been very little help.
+    Davy Hylbert: A guest slammed his door and a lamp fell off the wall in the closed wing. Gram Reaper was in the corridor. I have asked him not to encourage it.
+    Davy Hylbert: I'm trying to increase the spectral gap. Gram Reaper takes an interest whenever two of the troublesome modes are nearly equal.
+    Davy Hylbert: Furrier wants to take readings in the closed wing. I told him to start on this side of the wall. I am not giving him a key yet.
 -> Why's the observatory still lit?
     Davy Hylbert: Hypatia's up there. Something moving near the station, she says.
     Davy Hylbert: I brought her dinner yesterday. She'd forgotten to eat.
@@ -403,6 +407,7 @@ Furrier: The corridor goes on for ever and the heating does not. Shut the door b
     Furrier: I sent Heisenberg my room number in the morning. By the time he got here I'd been moved again.
 -> Why are you staying here?
     Furrier: A conference on heat. I have been trying to persuade Hylbert to let me take temperature readings in the spectral wing.
+    Furrier: He says I can take them in the corridor instead. Fine. I will need him to stop moving the room numbers while I take them.
 -> Stay warm.
     Furrier: Shut the door, please.
 ===
@@ -429,6 +434,8 @@ Zeno Halfway: Good morning! Or afternoon. I set out for the reservoir at dawn. S
 -> Will you ever arrive?
     Zeno Halfway: In the limit, yes! The sign at the dam says so. I've read it from here. Through a telescope.
     Zeno Halfway: An arrow I fired at the reservoir in my youth is still in the air somewhere. We keep each other company.
+-> How do you get your letters?
+    Zeno Halfway: The postman has a map with all my stopping places marked. He says his pencil is getting blunt.
 -> Good luck.
     Zeno Halfway: Thank you. If you reach the reservoir, tell them I'm on my way.
 ===
@@ -439,10 +446,12 @@ Felix Kleinbottle: Mind your head. Or your feet. Down here it depends which way 
 -> What do you mine?
     Felix Kleinbottle: The seam. It's got one side, which is a great saving. You dig along it, you come back along it, and you never once had to go round.
 -> What is the half twist?
-    Felix Kleinbottle: The far end. Press it and the mine turns over. The floor's the ceiling, the ceiling's the floor, and the coins on the ceiling are suddenly underfoot.
+    Felix Kleinbottle: At the far end. Press it and the mine turns over. The coins on the ceiling will be underfoot.
     Felix Kleinbottle: Press the other one, on the other side, to come back. It's the same switch. Don't think about it too long.
 -> Why "Kleinbottle"?
     Felix Kleinbottle: Family name. We used to make bottles with no inside. Hard to sell. You'd pour, and pour, and the bottle would agree with you.
+-> Do you ever get lost?
+    Felix Kleinbottle: I used to paint arrows on the walls. Came back from my lunch and found one pointing into my sandwich. Now I number the workings.
 -> I'll go and twist.
     Felix Kleinbottle: Lovely. Wave when you're upside down. I'll wave back. It'll look the same to both of us.
 ===
@@ -457,6 +466,8 @@ Brother Lucas: Welcome to the Tower. Mind the disks; they're gold and they're co
     Brother Lucas: Five hundred and fifty-five thousand and thirty-nine. It's on the wall. Every stroke is a move. The wall is very full.
 -> Can I move one?
     Brother Lucas: You can stand on them. Moving them is my job, and I'm in no hurry. I've written down the next three moves. I'd rather not have to start over.
+-> Do you work all night?
+    Brother Lucas: No. I mark where I am and put the lamp out. If the end of the world can wait eighteen quintillion moves, I dare say it can wait till breakfast.
 -> I'll leave you to it.
     Brother Lucas: Thank you. Now, where was I?
 ===
@@ -471,6 +482,8 @@ Farmer Fibbs: Mind the plots. Each one is the last two put together, and they do
     Farmer Fibbs: One, one, two, three, five, eight. Lay them side by side and draw a quarter-circle in each and you get a spiral, if you squint, and unroll it. My grandmother did it in a ring. Took the whole valley.
 -> What about the sunflowers?
     Farmer Fibbs: Seeds go in at the golden angle. Not my doing; they do it themselves. I asked one why once. It looked at me with about four hundred faces.
+-> What do you do with all the carrots?
+    Farmer Fibbs: Feed the rabbits. At first I planted one row for them and one for me. Now I buy mine in town.
 -> And the mites?
     Farmer Fibbs: They divide. Everything else here adds. They're the wrong kind of growth entirely. Mind your ankles past the hutch.
 ===
@@ -482,10 +495,12 @@ Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.
     Ivo: Groundskeeper. I trim the hedge, I sweep the leaves, I count the trees. The counting is the hard part.
     Ivo: Every tree is made of smaller trees. I counted to a thousand on one branch and it had only just started.
 -> Why is the hedge that shape?
-    Ivo: I started trimming it flat in the spring. Took a third off every edge and put a point on the middle. Then I did it again.
+    Ivo: I started trimming it flat in the spring. Replaced the middle third of each edge with two sides of a little triangle. Then I did it again.
     Ivo: Third iteration now. It's longer than the woods. It's still the same width. Nobody believes me.
 -> What's the bush at the far end?
     Ivo: The Mandelbrot. Don't prune it. Every bit you cut off has a little copy of the whole thing on it, and they all want watering.
+-> Have you ever finished trimming the hedge?
+    Ivo: Once. I put my shears down and went round the corner to admire it. There was another little corner just like the first one.
 -> I'll leave you to it.
     Ivo: Mind the slugs. They see dogs in everything.
 ===
@@ -501,6 +516,8 @@ Pierre de Fermette: Ah, a visitor. Have you brought a margin? A large one?
     Pierre de Fermette: One of us has the better proof. It is not the one with the pages.
 -> What's in the chest?
     Pierre de Fermette: A proof of Goldbach. It is wrong. I keep it to stay humble. Take it, if you like; there are collectors of wrong proofs, and they pay.
+-> Can I see one of your failed proofs?
+    Pierre de Fermette: Certainly. This one fails on the second line. I keep it at the front of my book because it saves me the trouble of doing it again.
 -> Goodbye.
     Pierre de Fermette: Write if you find a bigger margin. Not in the margin.
 ===
@@ -515,6 +532,8 @@ Johannes Kepplar: Mind the telescope. It's pointed at Mars. It is always pointed
     Johannes Kepplar: A planet sweeps out the same area every week. Fast near the sun, slow far away, and the slices come out equal. I have the figures somewhere. Give me a minute.
 -> Whose numbers are those?
     Johannes Kepplar: Tycho's. Twenty years of the best measurements anyone ever made, by a man with a brass nose and a tame elk. He left me the numbers. The elk went elsewhere.
+-> What do you do on a cloudy night?
+    Johannes Kepplar: Arithmetic. A clear night gives you a great deal of work to do on a cloudy one.
 -> Goodnight.
     Johannes Kepplar: Goodnight. Close the dome door behind you.
 ===

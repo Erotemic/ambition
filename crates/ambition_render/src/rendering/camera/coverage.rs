@@ -9,7 +9,6 @@ use bevy::prelude::{
     Query, Rect, Res, Transform, UVec2, Vec2, Vec3, With,
 };
 
-#[cfg(any(feature = "card_view", feature = "portal_render"))]
 use super::PresentedViewFrame;
 use super::PresentedViewFrames;
 #[cfg(feature = "card_view")]
@@ -85,9 +84,7 @@ impl OutputFootprint {
 
 pub(in crate::rendering) struct GameplayCoverage<'a> {
     pub source: Entity,
-    #[cfg(feature = "portal_render")]
     pub observer: Entity,
-    #[cfg(feature = "portal_render")]
     pub frame: &'a PresentedViewFrame,
     pub layers: Option<&'a RenderLayers>,
     pub plane: Option<OutputFootprint>,
@@ -97,7 +94,7 @@ pub(in crate::rendering) struct GameplayCoverage<'a> {
 /// The play plane shown by each gameplay output. The card output uses the
 /// same scene mask as its plane source and has its own footprint.
 #[derive(SystemParam)]
-pub(in crate::rendering) struct GameplayOutputs<'w, 's> {
+pub struct GameplayOutputs<'w, 's> {
     frames: Option<Res<'w, PresentedViewFrames>>,
     views: Query<'w, 's, (Entity, &'static LocalViewId), With<LocalView>>,
     cameras: Query<
@@ -120,7 +117,7 @@ pub(in crate::rendering) struct GameplayOutputs<'w, 's> {
 }
 
 impl GameplayOutputs<'_, '_> {
-    pub fn coverage(&self) -> impl Iterator<Item = GameplayCoverage<'_>> {
+    pub(in crate::rendering) fn coverage(&self) -> impl Iterator<Item = GameplayCoverage<'_>> {
         let on_hand = ViewsOnHand::survey(self.views.iter().map(|(view, _)| view));
         self.cameras.iter().filter_map(
             move |(source, camera, target, projection, place, link, layers, replaced)| {
@@ -130,9 +127,8 @@ impl GameplayOutputs<'_, '_> {
                     return None;
                 }
                 let observer = on_hand.presented_by(link.copied())?;
+                let (_, _view_id) = self.views.get(observer).ok()?;
                 let frame = self.frames.as_deref()?.of(observer)?;
-                #[cfg(not(any(feature = "card_view", feature = "portal_render")))]
-                let _ = frame;
                 let Projection::Orthographic(projection) = projection else {
                     return None;
                 };
@@ -148,7 +144,7 @@ impl GameplayOutputs<'_, '_> {
                     }
                     Some(settings)
                         if settings.mode == CardViewMode::Inset
-                            && *self.views.get(observer).ok()?.1 == LocalViewId::FIRST =>
+                            && *_view_id == LocalViewId::FIRST =>
                     {
                         let inset = settings.inset_size(pixels).and_then(|size| {
                             card_footprint(settings, frame, size, factor)
@@ -159,9 +155,7 @@ impl GameplayOutputs<'_, '_> {
                 };
                 Some(GameplayCoverage {
                     source,
-                    #[cfg(feature = "portal_render")]
                     observer,
-                    #[cfg(feature = "portal_render")]
                     frame,
                     layers,
                     plane,
@@ -169,6 +163,20 @@ impl GameplayOutputs<'_, '_> {
                 })
             },
         )
+    }
+
+    /// The world rectangle covered by all outputs of each observer.
+    pub(in crate::rendering) fn view_bounds(&self) -> std::collections::BTreeMap<Entity, (&PresentedViewFrame, Rect)> {
+        let mut views = std::collections::BTreeMap::<Entity, (&PresentedViewFrame, Rect)>::new();
+        for output in self.coverage() {
+            for footprint in output.plane.iter().chain(output.cards.iter()) {
+                let bounds = footprint.bounds(Vec2::X);
+                views.entry(output.observer)
+                    .and_modify(|(_, old)| *old = old.union(bounds))
+                    .or_insert((output.frame, bounds));
+            }
+        }
+        views
     }
 }
 

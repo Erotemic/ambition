@@ -1748,15 +1748,18 @@ the new `body_contact` requests. The plant is a brain
 and pose customer, not a contact rule. Recheck which customers are still native
 before migrating them.
 
-**Next action (source `f41218979625`, 2026-11-21):** complete SDK/demo P5
-step 4 cut 2 at the owner above. A valid pack can fail App audio/cast
-composition after its rules are already selected and still report published.
-Prepare each owner product once from all of its changed input schemas;
-admit all affected values before changing selection. Extract private cast
-preparation, then publish products and App-local selection under the existing
-boundary. Bind rules at operation boundaries, without World lookups in every
-leaf helper. This selects the concrete SDK coherence defect, not all open
-migrations in the older runtime-authoring audit.
+**Next action:** SDK/demo P5 step 4 cut 2, delivery step 4 at the owner
+above: App-local selection, with rules bound at operation boundaries and no
+World lookups in every leaf helper. It was sized 2026-11-27 (mechanism
+proven; about 230 non-test demo call sites, mostly Smash and Mary-O
+helpers). It is one slice across all four demos: see the owner's sizing
+note. Delivery steps 1–3 landed 2026-11-27. A
+pack's publication now prepares each owner's product once from all of its
+changed schemas, and admits every affected product before it changes the
+selection. One refusal keeps the old pack, and the cast is prepared in a
+private revision. See the owner's receipt. This selects the concrete SDK
+coherence defect, not all open migrations in the older runtime-authoring
+audit.
 
 **Acceptance:** a foreign-audio collision plus a rules edit leaves the old
 pack and all affected products selected, with one refusal and no published

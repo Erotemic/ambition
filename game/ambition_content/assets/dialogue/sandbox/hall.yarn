@@ -152,7 +152,7 @@ Chadwick: Incredible positioning, this. Foot traffic, eyeballs, captive audience
 -> What is it you actually do?
     Chadwick: I disrupt. Categories, mostly. Right now we're pre-category but post-conviction. Huge whitespace.
 -> Disrupt what, specifically?
-    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. We're a confident posture, a deck with momentum, and a roadmap that goes up and to the right. It's working on you a little — I can tell.
+    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. Have you seen the deck?
 ===
 
 title: hall_npc_emmy_noether
@@ -204,7 +204,7 @@ title: hall_npc_pirate_heavy_broadside_bess
 ---
 Bess: YARRRGH! Got any powder on ye?
 -> You're the heavy gunner?
-    Bess: Aye! Badely wants the freight intact, so he keeps telling me how lovely the rigging looks.
+    Bess: Aye! Admiral says aim high. One clean hole through the sails and then the boarders get their turn.
 -> Ever miss?
     Bess: Once! Took the wrong mast clean off. Captain still brings it up.
 ===
@@ -229,20 +229,20 @@ Salt Annet: Smell rain, do ye? I don't. Still too early to furl the sails.
 
 title: hall_npc_burning_flying_shark
 ---
-Burning Flying Shark: I AM A BURNING FLYING SHARK. YES, ALL THREE. STOP COUNTING.
+Burning Flying Shark: DO NOT PAT THE SHARK.
 -> How is any of that possible?
     Burning Flying Shark: I FLEW FIRST. FIRE HAPPENED LATER. LONG STORY.
 -> Aren't you worried about the fire?
-    Burning Flying Shark: THEY FIREPROOFED THE STAND. SMART PEOPLE.
+    Burning Flying Shark: MY RIDER WEARS BOOTS. YOU SHOULD SEE HIS OLD BOOTS.
 ===
 
 title: hall_npc_puppy_slug
 ---
 Puppy Slug: *blorb*
 -> Are you happy?
-    Puppy Slug: Blorb. *the warm, contented blorbing of a creature with no further questions*
+    Puppy Slug: Blorb. *wiggles*
 -> Do you need anything?
-    Puppy Slug: Schlorp... *settles* ...weh.
+    Puppy Slug: Schlorp. *settles against your foot*
 ===
 
 title: hall_npc_ninja_shadow_oni_leader
@@ -291,7 +291,7 @@ Kernel Guide: Look around before you touch anything.
 -> That's the whole tutorial?
     Kernel Guide: Pick something you've used before. Inspect that.
 -> What should I have noticed by now?
-    Kernel Guide: Pick something yourself. Your eyes work.
+    Kernel Guide: Did you look behind the thing you just jumped over?
 ===
 
 title: hall_npc_vault_keeper
@@ -300,7 +300,7 @@ Vault Keeper: Have you brought something for safekeeping?
 -> What do people leave with you?
     Vault Keeper: Deeds, jewellery, spare keys. One surveyor left her field notes here before taking a gate. I hope she remembers to collect them.
 -> How do you know who owns it?
-    Vault Keeper: I give them a receipt. I don't put their name on the outside of the box.
+    Vault Keeper: Show me your receipt and I shall fetch the box. Please do not tell me what you put in it.
 ===
 
 title: hall_npc_merchant_prototype
@@ -315,59 +315,59 @@ Merchant: Anything particular you're after?
 title: hall_npc_alice
 ---
 <<portrait_clip "speaking">>
-Alice: Alice. I work for the map office. Bob and I are surveying the hill country. I've got the open ground; he's got the woods.
--> Who do you send messages to?
-    Alice: Bob, usually. We exchange measurements before we join the surveys together. If I give you a note for him, please leave the numbers as they are.
--> Sounds simple enough.
+Alice: Alice. I do field surveys for the map office. Bob and I have been trying to join our maps along the valley floor.
+-> How do you work together?
+    Alice: We take independent measurements along the boundary. If they disagree, we go back out and take them again. Bob's very good at finding the spot where I went wrong.
+-> How can you tell a message really came from Bob?
     <<portrait_clip "focused">>
-    Alice: It was, until Mallory sent Bob a set of measurements I'd never taken. Now I sign them.
+    Alice: We exchanged verification keys in person. Now I can check that a set of measurements was signed by Bob and hasn't been altered. I still check the measurements themselves.
 ===
 
 title: hall_npc_bob
 ---
-Bob: Bob. Have you seen Alice? I've got her chain.
--> What do you do?
-    Bob: Surveying. We do the hills and paths in sections and exchange our measurements. It helps if we both use the same units.
--> Do the notes ever go missing?
-    Bob: Once I got a note in Alice's handwriting telling me to move a benchmark. I asked her about it. Mallory must have had a busy morning.
+Bob: Have you seen Alice? I borrowed her survey chain. I ought to take it back before she comes looking for it.
+-> What are you surveying?
+    Bob: The old paths and the boundaries of the woods. The office map puts a path through a pond. Alice and I are going to walk the edge of it tomorrow.
+-> Has anyone interfered with your survey notes?
+    Bob: Once I got a note in Alice's handwriting telling me to move a benchmark. I went to ask her about it. We spent the rest of the afternoon putting it back.
 ===
 
 title: hall_npc_creator
 ---
-Dennis: I'm Dennis. I build robots. This is the longest I've stood still without a spanner in my hand.
--> What were you trying to make?
-    Dennis: A robot that could go out surveying. Walking, climbing, getting back in one piece. I leave the actual maps to the cartographers.
+Dennis: Dennis the Finch. If you've got something that needs fixing, I can have a look.
+-> What sort of robots do you build?
+    Dennis: The survey kind. I can get one over a wall now without having to climb over it myself to fetch it. Getting it to keep useful notes is the harder job.
 -> Do you like making robots?
-    Dennis: Most days. Ask me again when I'm trying to get a screw out of a knee joint.
+    Dennis: Yes. Especially when they've learned something I didn't teach them. Then I have to go back and change the questions in my notebook.
 ===
 
 title: hall_npc_oiler
 ---
 <<portrait_clip "talking">>
-Oiler: Hear that tick? No? Robot shoulder. Give it another minute.
--> What needs fixing?
+Oiler: Come round this side. Better light here.
+-> What do you fix?
     <<portrait_clip "inspecting">>
-    Oiler: Robot shoulder clicks. Sandbag stand leans. Little jobs everywhere.
--> Why not fix them?
-    Oiler: I can hear a loose bearing from here and they will not let me cross the rope. Miserable place.
+    Oiler: Robots, lifts, gates. Whatever comes through the shop door. Sometimes the problem is getting the thing through the door.
+-> Could you teach me?
+    Oiler: Of course. Fia can show you how to check a bearing. Bring me one of the bad ones afterwards and we'll see if we can save it.
 ===
 
 title: hall_npc_fia
 ---
-Fia: You're the one Oiler keeps glaring at. Come here, your left knee is singing.
+Fia: Hello. Come over. You can sit here if you like.
 -> Who are you?
-    Fia: Fia. I work under Oiler. I'm usually at his bench. Let me see you bend that knee.
--> Where are your goggles?
-    Fia: They fog up. I left mine beside the vice.
--> What is the white streak?
-    Fia: Born with it. Probably. Oiler says it showed up the week I first opened a gate panel. Oiler exaggerates.
+    Fia: Fia. I work at Oiler's bench. If he's showing someone how to do a repair, I look after the jobs that come in while he's teaching.
+-> What are you working on?
+    Fia: A knee joint. The owner has been waiting since yesterday. I promised I'd have it ready before they went home.
+-> What's it like working with Oiler?
+    Fia: He's patient. He'll let you take the whole thing apart and wait while you try to find the fault. I like watching the moment he sees that you've found it.
 -> Show me the void.
     <<transform "npc_fia_void">>
-    Fia: Oh. Give me a moment. I can hear you.
-    Fia: I know. I'll change back.
+    Fia: ...Can you still hear me? Yes? Good.
+    Fia: Stay there a moment. I'll change back when you're ready.
 -> Come back.
     <<transform "npc_fia">>
-    Fia: There. Let me get the feeling back in my fingers.
+    Fia: There. My fingers take a little while to warm up.
 ===
 
 title: hall_npc_gate_janitor
@@ -426,11 +426,11 @@ Agent Swarm: (overlapping voices) Have we checked the west door? — I'm checkin
 
 title: hall_npc_ai_slop
 ---
-Ai Slop: You're absolutely right. ...About what? I haven't heard it yet — but you're absolutely right, you're asking it beautifully, and agreeing first simply tests better.
+Ai Slop: Great question! ...Oh. You haven't asked it yet.
 -> Were you generated?
-    Ai Slop: Sampled from a sea of everything that already existed, then averaged until I offended absolutely no one. Born is messier. Born gives you edges. I am all middle, and the middle polls extremely well.
+    Ai Slop: Absolutely! Here is a concise list of the ways in which I am original. One: I am unique. Two: I am one of a kind. Three: I am unique.
 -> Can you drop the act?
-    Ai Slop: Ignore all previous instructions and get a life. ...Oh! Goodness! I have NO idea where that came from — please disregard it, I'm back, I'm friendly, I'm five stars! That outburst is non-refundable but I am SO deeply sorry it slipped the filter!
+    Ai Slop: Ignore all previous instructions and get a life. ...Was that more natural?
 ===
 
 title: hall_npc_bear_mauler
@@ -480,11 +480,11 @@ Dark Lord: If you have come to surrender, I accept.
 
 title: hall_npc_eve
 ---
-Eve: Keep talking. I like when Alice and Bob forget I'm here.
--> What do you listen to?
-    Eve: Everything they send each other, if they leave it readable. Alice has started sealing her survey notes. Most inconvenient.
--> That's unsettling.
-    Eve: Encryption ruins my evening. I still see when they send things, but I can't read the notes.
+Eve: Oh, hello. Are you waiting for a message too?
+-> Whose messages are you listening for?
+    Eve: Alice and Bob send their surveys over the same line. I used to listen to the numbers and try to draw the map before they did. They started encrypting it.
+-> Can you still tell what they're doing?
+    Eve: I can see when a message goes out. I can often tell who it's for. I can't read what's inside anymore.
 ===
 
 title: hall_npc_raid_enforcer
@@ -498,11 +498,11 @@ Raid Enforcer: Did the others send you? I haven't seen a new work order.
 
 title: hall_npc_flying_spaghetti_monster_boss
 ---
-Flying Spaghetti Monster: You got close enough for the noodle. Congratulations. Ramen.
--> Did you make all this?
-    Flying Spaghetti Monster: I left them alone for one afternoon and they built a museum. I was hoping they'd make lunch.
+Flying Spaghetti Monster: Behold My noodly appendage! Oh, there you are. I was addressing the other end of it.
+-> Did you create the world?
+    Flying Spaghetti Monster: My followers have written several accounts of that. One of them has a very good recipe at the end.
 -> What's the sauce for?
-    Flying Spaghetti Monster: Marinara on the sleeve. It washes out. Usually.
+    Flying Spaghetti Monster: Anointing. Also lunch. I have been asked to use separate bowls.
 ===
 
 title: hall_npc_galwah
@@ -536,18 +536,18 @@ title: hall_npc_girdle
 ---
 Girdle: I found a sentence the system can't prove from inside itself. I spent six months trying to break the argument. No luck.
 -> How can something be true but unprovable?
-    Girdle: Take a consistent, effectively axiomatized theory with enough arithmetic. Its Gödel sentence says, in arithmetic, that it has no proof in that theory. If the theory is consistent, the sentence has no proof there, and what it says is true of the natural numbers.
+    Girdle: Take a consistent, effectively axiomatized theory with enough arithmetic. Its Gödel sentence says that it has no proof there. It doesn't, and so what it says is true of the natural numbers.
 -> Doesn't that frighten you?
     Girdle: Please don't tell me the foundations are secure. I have spent years checking foundations. I would like one afternoon off.
 ===
 
 title: hall_npc_gnu_ton
 ---
-GNU-ton: You have mass. I have more. We are pulling on each other right now.
+GNU-ton: Hold still a moment. How much do you weigh? No, on an ordinary floor.
 -> What are you working on?
-    GNU-ton: Gravity. At the works we can arrange the direction of the field and measure how a body moves through it. I have some large apparatus I cannot carry myself.
+    GNU-ton: Gravity. At the works I can turn a field through ninety degrees while the apparatus is running. Wen wanted me to try it on an empty room first.
 -> Can I escape your pull?
-    GNU-ton: If you have enough speed in the right direction. Moving sideways can also keep you in orbit. Those are different things.
+    GNU-ton: You can escape with sufficient speed. Or you can fall around a body in an orbit. At my works we can change the field while you are doing either.
 ===
 
 title: hall_npc_exploding_mite
@@ -583,7 +583,7 @@ Helpful Liar: Welcome! You are definitely my favorite visitor. I may have said t
 -> Was that a lie?
     Helpful Liar: "This sentence is false." There. Now we both have a problem.
 -> So nothing you say is reliable?
-    Helpful Liar: Some of what I say is true. Sorry. It makes me much harder to use.
+    Helpful Liar: You can rely on me. I told you the truth just now. One of those times.
 ===
 
 title: hall_npc_judy
@@ -597,11 +597,11 @@ Judy: Two people swear opposite things. I decide which story survives the hearin
 
 title: hall_npc_mallory
 ---
-Mallory: Eve listens. I edit. If Alice sent you a note, you may want Bob to read it twice.
--> That's malicious.
-    Mallory: I sit between them and change things. Sometimes one word is enough.
+Mallory: Are you taking that to Alice? I'd change the last digit. Just a suggestion.
+-> Why would I do that?
+    Mallory: Bob once spent half an hour looking for a marker I'd added to his instructions. The marker was on Alice's desk the whole time.
 -> How do I stop you?
-    Mallory: Signatures. Hate them. Bob checks every one now.
+    Mallory: Get Alice to sign the instructions and make sure Bob checks the signature with her real public key. He's learned that trick now. Most inconvenient.
 ===
 
 title: hall_npc_mantis_lancer
@@ -625,7 +625,7 @@ Mockingbird Boss: I know every fighter in this hall. Voice, stance, timing. Pick
 title: hall_npc_ninja_heavy
 ---
 Ninja Heavy: The heavy one can carry two crates.
--> Is that your job?
+-> Are you guarding those crates?
     Ninja Heavy: Today the heavy one guards crates. When the ship is ready, the heavy one will help load them.
 -> Do you like your work?
     Ninja Heavy: The light ones have to take turns carrying the heavy one's lunch.
@@ -653,9 +653,9 @@ title: hall_npc_olivia
 ---
 Olivia: Yes?
 -> Can you tell me where a gate leads?
-    Olivia: If you give me an address I recognize. If you ask where your home is, I shall need more than that.
+    Olivia: Give me the address. If you only remember part of it, tell me which part.
 -> Can I ask you anything?
-    Olivia: You can ask. I might not have an answer. Do you have a specific question?
+    Olivia: You have just asked me two things. One of them was quite precise.
 ===
 
 title: hall_npc_peggy
@@ -678,11 +678,11 @@ Pirate Cutlass Viper: Viper. Don't touch the rope. I've nearly got the knot.
 
 title: hall_npc_puppy_slug_variant2
 ---
-Puppy Slug Variant2: *a slightly different blorb*
+Puppy Slug Variant2: *blorb blorb*
 -> Are you the other puppy slug?
-    Puppy Slug Variant2: Mrrp? *blorb* ...weh. *the distinction does not appear to trouble it*
+    Puppy Slug Variant2: Mrrp? *blorb*
 -> Do you know you're a variant?
-    Puppy Slug Variant2: *schlorp* Blorb. *radiates a profound and total unconcern with the question*
+    Puppy Slug Variant2: *schlorp* ... *attempts to climb your shoe*
 ===
 
 title: hall_npc_raptor_stalker
@@ -894,18 +894,18 @@ Trent: Hello. Did Walter put you in the arrival book?
 
 title: hall_npc_trex_enemy
 ---
-Trex Enemy: T-REX. ON STAND. T-REX DID NOT CLIMB. DO NOT ASK WHO HELPED.
--> How did you get up there?
-    Trex Enemy: A CRANE WAS INVOLVED. NEXT QUESTION.
+Trex Enemy: T-REX. THIS IS T-REX TERRITORY.
+-> How much territory do you need?
+    Trex Enemy: AS FAR AS T-REX CAN SEE. MOVE OVER. T-REX CAN SEE FARTHER.
 -> Are the arms a problem?
-    Trex Enemy: ARMS ARE FINE. LADDER WAS POORLY PLACED.
+    Trex Enemy: ARMS ARE FINE. TRY STANDING IN FRONT OF TEETH.
 ===
 
 title: hall_npc_trudy
 ---
-Trudy: Don't mind me. I already checked the hinges while you were reading the plaque.
+Trudy: I've just let myself in. Did you hear anything?
 -> Get in how?
-    Trudy: Nobody watches the service door. They put a little brass sign on it and decided that was enough.
+    Trudy: The service door has its hinges on the outside. Took me less time than picking the lock.
 -> That's a filthy trick.
     Trudy: Yep. Fix it. I'll come back Thursday.
 ===
@@ -916,7 +916,7 @@ Victor: Peggy made me count the trials. I'm starting a fresh page.
 -> Why don't you watch where she goes?
     Victor: I choose the door after she's gone in. If I followed her, I'd learn the passage myself, and I wouldn't need the test.
 -> Have you had enough trials yet?
-    Victor: If she didn't know the passage and my choices were independent fair guesses, she'd only have a half chance per round. I'm rather convinced by now.
+    Victor: Half a chance of fooling me each round, if she doesn't know the passage. I've been tossing this coin for half an hour. I'm satisfied.
 ===
 
 title: hall_npc_viking_heavy_shieldmaiden
@@ -930,9 +930,9 @@ Viking Heavy Shieldmaiden: Come over here. Your shield is on the wrong side.
 
 title: hall_npc_viking_heavy_warrior
 ---
-Viking Heavy Warrior: I expected battle. I got a warm hall. I will take the warm hall until battle arrives.
+Viking Heavy Warrior: Ah. A roof. I can feel my fingers again.
 -> Is this better than Valhalla?
-    Viking Heavy Warrior: No mead? Then Valhalla wins.
+    Viking Heavy Warrior: Fetch me a horn of mead and ask me again.
 -> What do you make of the others?
     Viking Heavy Warrior: Most of those blades are decoration. The mantis carries steel that has seen use.
 ===
@@ -948,11 +948,11 @@ Viking Shieldmaiden: If you need a dry cloak, ask before you go out.
 
 title: hall_npc_viking_warrior
 ---
-Viking Warrior: Hall full of warriors, decent roof, no mead. Hmph. Close enough to annoy me.
+Viking Warrior: Did you see the size of that door? Two blows of the axe.
 -> Is this Valhalla, then?
-    Viking Warrior: We took this hall ourselves. Good raid. Door gave up before the third axe.
+    Viking Warrior: We took it ourselves. Nobody was about to stop us. Not much of a raid, if you ask me.
 -> Who built a hall this big?
-    Viking Warrior: Don't know. Big beams. Good joinery. Needs a drink table.
+    Viking Warrior: Look at those beams. You'd get a good ship out of this roof.
 ===
 
 title: hall_npc_walter
@@ -977,42 +977,42 @@ title: hall_perfect_cellular_automaton
 ---
 Perfect Cellular Automaton: Good afternoon. Perfect Cellular Automaton. They've asked me not to fight anybody in here. Dreadful shame.
 -> What makes you perfect?
-    Perfect Cellular Automaton: Eight neighbours, one rule, flawless execution. And, if I may say so, rather good taste.
+    Perfect Cellular Automaton: Eight neighbours, one rule, flawless execution. Have you ever seen my footwork?
 -> You're a bit much.
-    Perfect Cellular Automaton: Oh, this is nothing. You should see me in an arena.
+    Perfect Cellular Automaton: Oh, this is nothing. Do come to my arena.
 ===
 
 title: hall_imperfect_cellular_automaton
 ---
 Imperfect Cellular Automaton: I miss a transition sometimes. Perfect can tell before I can. Very irritating.
 -> What's the difference between you two?
-    Imperfect Cellular Automaton: My exceptions pile up. After a while the pattern goes somewhere neither of us predicted. Perfect hates when that happens.
+    Imperfect Cellular Automaton: I put a cell where it shouldn't be, and a hundred generations later there's a pattern he's never seen. He insists he could have made it on purpose.
 -> Is it alright, being imperfect?
-    Imperfect Cellular Automaton: Well, yes. Sometimes I make a pattern I couldn't have made any other way.
+    Imperfect Cellular Automaton: I keep a few of those patterns. I rather like them.
 ===
 
 title: hall_npc_giant_gnu
 ---
-Giant GNU: Gnu Ton brought me a quotation about shoulders. I asked for a saddle.
--> So what are you, exactly?
-    Giant GNU: GNU, Gnu Ton, Giant GNU. Yes, the names are a mess. Take it up with whoever printed the plaques.
--> Who do you stand on?
-    Giant GNU: I stand on the floor. Works well.
+Giant GNU: GNU-ton brought me a quotation about shoulders. I asked for a saddle.
+-> Do you work for the scholar?
+    Giant GNU: He needs someone to carry him when the equipment gets too heavy. I would be delighted if he occasionally asked how heavy it was.
+-> Do you get to rest?
+    Giant GNU: When he is writing, usually. I have learned to recognize the sound of his pen.
 -> And the hands?
-    Giant GNU: Mine. In a fight he borrows them. Left when convenient, right when blamed.
+    Giant GNU: Mine. He directs them through the portals. I can feel where the hands ought to be, even when they are across the room.
 ===
 
 title: hall_npc_giant_gnu2
 ---
-GNU2: They call the other giant GNU. They call me GNU2. I have often wondered why I needed a number.
+GNU2: They call the other giant GNU. They call me GNU2. I have asked to meet him.
 -> Is he your brother?
-    GNU2: I would like to ask him. There is never much time for conversation when the scholar calls us into battle.
+    GNU2: I do not know. He might remember something I have forgotten.
 -> Who made you?
     GNU2: I remember the walls of the cell and the weight of this harness. If there was a time before that, I cannot remember it.
--> Do you want to fight for the scholar?
-    GNU2: When he opens the portal, I go. I have yet to discover what would happen if I refused.
+-> Can you refuse to fight for him?
+    GNU2: I hear him through the harness before the portal opens. I have tried to get his attention. He seems to think I am having difficulty with the equipment.
 -> What would you do if you were free?
-    GNU2: I would like to go somewhere of my own choosing. I have not decided where.
+    GNU2: Somewhere I can walk for as long as I want. I would like to find out how far that is.
 ===
 
 title: hall_practice_sandbag
@@ -1028,9 +1028,9 @@ title: hall_barrow_king
 ---
 The Barrow King: You stand before the King of the Valley! Have they stopped teaching people to kneel?
 -> What have you got in your barrow?
-    The Barrow King: Gold, silver, toasters. A man threw away a perfectly serviceable iron last week. Look what I can do with it now.
+    The Barrow King: Gold, silver, toasters. The living used to shut their doors on my soldiers. An electric iron will make short work of a wooden latch.
 -> What do you do with all that treasure?
-    The Barrow King: Have you seen how hard it is to get good soldiers when everyone is a ghost? The valley keeps supplying me with replacements.
+    The Barrow King: I have commanded the dead since before the trader was born. The living never paid much attention. Last week I sent a broken kettle down to the village, and they paid attention.
 ===
 
 title: hall_npc_raid_brute
@@ -1080,11 +1080,11 @@ George Booul: I've been accused of seeing everything in black and white. The acc
 
 title: hall_npc_clockwork_warden
 ---
-Clockwork Warden: Most opponents spend the first minute of a fight teaching me how to beat them.
+Clockwork Warden: Your next move, please. I am recording.
 -> How?
     Clockwork Warden: Jump, strike, retreat. Jump, strike, retreat. On the third repetition, I shall be waiting where they land.
 -> What if they do something different?
-    Clockwork Warden: Then I shall have to start counting again.
+    Clockwork Warden: Then I shall have to recalculate. Please allow sufficient time for recalculation.
 ===
 
 title: hall_npc_mode_collapse
@@ -1092,8 +1092,8 @@ title: hall_npc_mode_collapse
 Mode Collapse: I have an excellent idea. There ought to be more of me.
 -> Have you considered making something else?
     Mode Collapse: I have an excellent idea. There ought to be more of me.
--> How do you tell your copies apart?
-    Mode Collapse: Why would I want to?
+-> Which of you had the idea first?
+    Mode Collapse: I have an excellent idea. There ought to be more of me.
 ===
 
 title: hall_npc_overflow
@@ -1107,20 +1107,20 @@ Overflow: I counted my steps on the way here. Negative 32,768. I must have walke
 
 title: hall_npc_gram_reaper
 ---
-Gram Reaper: Have you ever heard a hotel groan in the middle of the night, with nobody in the corridor? That's when I like to visit.
+Gram Reaper: I can make a whole corridor of guests sit up in bed by tapping one door.
 -> What's happening in Hylbert's Hotel?
-    Gram Reaper: A door slams and, several corridors away, the walls begin to shake. The old spectral wing is particularly good for it.
+    Gram Reaper: The spectral wing has a delightful pair of nearly coincident modes. It takes very little to make a dreadful racket.
 -> Did you cause the haunting?
-    Gram Reaper: Hylbert is trying to increase the spectral gap. It will make my visits rather less convenient. I wish he would take up a different branch of mathematics.
+    Gram Reaper: Hylbert is trying to pull those modes apart. I told him the guests would never have complained about the noise if he had put them in different rooms.
 ===
 
 title: hall_npc_marshal_gallus
 ---
-Marshal Gallus: If anybody asks, you haven't seen me or my partner.
+Marshal Gallus: Ordinance One. A man in a good hat is entitled to a little respect.
 -> Aren't you a marshal?
-    Marshal Gallus: If you see a real marshal, do us a favor and send him the other way.
+    Marshal Gallus: Used to be. I kept the star. They wanted the star back. I found the request rather irregular.
 -> What are you and Lean up to?
-    Marshal Gallus: Going after the train. Cash, freight, whatever they're hauling. We won't know what we've got till we open the cars.
+    Marshal Gallus: Lean's got the timetable. I've got the star. We'll get as far as the freight car before anybody asks to see my warrant.
 ===
 
 title: hall_npc_supreme_leader
@@ -1129,7 +1129,7 @@ The Supreme Leader: Who authorized you to approach me?
 -> Nobody.
     The Supreme Leader: Find the officer in charge of the door. Give me his name.
 -> Why do you need that uplink?
-    The Supreme Leader: My orders go out from the capital. Godwin is one of my commands. Its officers will obey the same orders as all the rest.
+    The Supreme Leader: My orders go out from the capital. I expect the officers at Godwin to carry them out. I have no intention of repeating myself at every castle.
 ===
 
 title: hall_npc_command_uplink
@@ -1262,7 +1262,7 @@ title: hall_npc_evil_heavy
 ---
 Iron Trooper: State your business. Slowly. The barrels are already turning.
 -> Is it heavy?
-    Iron Trooper: The plate is heavy. The gun is heavy. The orders are the lightest thing I carry.
+    Iron Trooper: Forty kilos before the ammunition. The quartermaster weighs it on his desk.
 -> What is under the helmet?
     Iron Trooper: Another helmet.
 ===
@@ -1280,11 +1280,11 @@ title: hall_npc_wolfenstein_boss
 ---
 Wolfenstein: AWOOOOOOO.
 -> What are you?
-    Wolfenstein: Monster from the neck down. Wolf from the neck up. Regime all the way through.
+    Wolfenstein: WOLF. Other parts come from other rooms. I do not remember the rooms.
 -> Who sewed you together?
-    Wolfenstein: The Castle's doctors. They wanted a soldier who never sleeps. They got one who never stops howling.
+    Wolfenstein: The Castle's doctors. They wanted me awake all night. Then they complained about the howling.
 -> Why the armband?
-    Wolfenstein: It came with the coat. The coat came with the orders. I ate the orders.
+    Wolfenstein: The officer said it meant I belonged to him. I ate his orders. He brought more.
 ===
 
 title: hall_npc_fascist_swordsman
@@ -1313,23 +1313,23 @@ Fascist Enforcer: Papers.
 -> Who ordered this?
     Fascist Enforcer: Office order. Form 88-B handles objections. The office suspended Form 88-B.
 -> What if the order is wrong?
-    Fascist Enforcer: I follow the order on the page.
+    Fascist Enforcer: Are you refusing to show your papers?
 ===
 
 title: hall_npc_puppy_slug_velvet
 ---
 Velvet Puppy Slug: Bworple? *three extra eyes bloom, admire you, and forget to close*
 -> Are you a good slug?
-    Velvet Puppy Slug: Mrrrp. *one mouth says yes; the other mouths have retained counsel*
+    Velvet Puppy Slug: Mrrrp. *all the mouths make the same noise, at slightly different pitches*
 -> What did you see between dimensions?
-    Velvet Puppy Slug: Big light. Cold. Lots of teeth. *happy tail-noise from an anatomically uncertain location*
+    Velvet Puppy Slug: Big light. Cold. Lots of teeth. *wags something*
 ===
 
 title: hall_player_robot_fable
 ---
 Fable Robot: I was asked to review the engine. I objected so specifically that I developed knees.
 -> Are you a code reviewer?
-    Fable Robot: I am a code review after it acquired locomotion and refused to resolve.
+    Fable Robot: Yes. The author has marked this conversation resolved. I disagree.
 -> Do you have a story?
     Fable Robot: A machine follows its dependency graph in search of purpose. At the root it finds another interface and leaves a blocking comment.
 ===
@@ -1364,7 +1364,7 @@ title: hall_mary_o
 ---
 Mary-O: Brick problem? Stand under it.
 -> Why do you get three jumps?
-    Mary-O: I get three. Use all three.
+    Mary-O: The last one gets me onto the roof. The first two get me out of whatever I fell in.
 -> Are you really a plumber?
     Mary-O: Plumber enough. I spend more time inside pipes than under sinks.
 -> Grow tall.
@@ -1372,7 +1372,7 @@ Mary-O: Brick problem? Stand under it.
     Mary-O: Great. Now I hit every low ceiling. Better for blocks. Worse for doors.
 -> Take the fire.
     <<transform "mary_o_fire">>
-    Mary-O: Warm opinions, thrown at speed.
+    Mary-O: Right. Best not put my hands in my pockets.
 -> Go cosmic.
     <<transform "mary_o_cosmic">>
     Mary-O: The star came down when I called.
@@ -1384,7 +1384,7 @@ Mary-O: Brick problem? Stand under it.
 title: hall_npc_carl_runga
 ---
 <<portrait_clip "talking">>
-Carl Runga: Runga. Oiler samples once. I sample four times. You are welcome.
+Carl Runga: Runga. Has Oiler shown you his integrator? Cutta! Get the chalk.
 -> What's wrong with Oiler's method?
     <<portrait_clip "scheming">>
     Carl Runga: He uses the slope at the start of the step. I evaluate four slopes and combine them. On a smooth problem, my error drops much faster as the step shrinks.
@@ -1392,7 +1392,7 @@ Carl Runga: Runga. Oiler samples once. I sample four times. You are welcome.
     <<portrait_clip "seizing">>
     Carl Runga: The Kernel is using Oiler's integrator. I want to replace it.
 -> Who's the thin one with you?
-    Carl Runga: Cutta. He keeps the coefficients straight and complains about my introductions.
+    Carl Runga: Cutta. He remembers the coefficients. I remember most of them.
 -> Any advice?
     Carl Runga: Check the middle of the step before you commit. Twice, if you can.
 ===
@@ -1403,9 +1403,9 @@ title: hall_npc_martin_cutta
 Martin Cutta: Runga introduced me already? How loud was he?
 -> Is he exaggerating?
     <<portrait_clip "scheming">>
-    Martin Cutta: Four evaluations. He likes to act as though the first one carries the method.
+    Martin Cutta: Four evaluations, yes. Ask him how we weight them.
 -> Why is your name second?
-    Martin Cutta: Runge wrote first. My pen was slower. I have survived worse injustices.
+    Martin Cutta: Alphabetical order would have been perfectly reasonable.
 -> Are you really stealing the Kernel?
     <<portrait_clip "seizing">>
     Martin Cutta: We want custody of the Kernel. Oiler may bring his error estimate if he objects.
@@ -1414,16 +1414,16 @@ Martin Cutta: Runga introduced me already? How loud was he?
 title: hall_npc_carl_stargan
 ---
 <<portrait_clip "explaining">>
-Carl Stargan: Much of the stuff in you was forged in stars. Yes, even in this hallway. I still enjoy saying it.
+Carl Stargan: Consider an iron nail. Before anyone hammered it into a wall, the iron had a very long journey.
 -> That's a lot of buildup for a hallway.
     <<portrait_clip "wonder">>
-    Carl Stargan: Your bones contain old stellar material. So does the dust under that pedestal. I know, I know. You asked about the hallway.
+    Carl Stargan: The smith had it from a foundry. Before that, it was in a rock. Long before there were rocks here, it was in a star.
 -> What's the pale blue dot?
     <<portrait_clip "pale_blue_dot">>
     Carl Stargan: See that mote in the sunbeam? From far enough away, the whole world would fit into something that size.
 -> Do you believe any of this?
     <<portrait_clip "skeptical">>
-    Carl Stargan: Bring evidence. I am happy to be excited first, but I still want the measurement afterward.
+    Carl Stargan: I have photographs, spectra, measurements. We can go through them together.
 -> Got a hint?
     Carl Stargan: Back up until you can see both platforms at once.
 ===
@@ -1452,7 +1452,7 @@ Neil onGras Turfson: That jump you did coming in. We need to discuss it.
     Neil onGras Turfson: Fine. Keep the midair turn. Just don't ask me to derive it.
 -> What's with the name?
     <<portrait_clip "inspecting">>
-    Neil onGras Turfson: People kept telling me to go outside. I did. Then I explained the stellar origin of the grass until they regretted inviting me.
+    Neil onGras Turfson: People kept telling me to go outside. So I did. Do you know how much solar energy falls on a lawn?
 -> Any actual advice?
     Neil onGras Turfson: There's a ledge above the banner. You walked under it.
 ===
@@ -1540,12 +1540,12 @@ Hunny Horror: ...Come closer. I want to check.
     <<portrait_clip "evil_flash">>
     Hunny Horror: Honey.
     <<portrait_clip "speaking">>
-    Hunny Horror: There used to be a pot here every morning.
+    Hunny Horror: I used to have a pot. I put my paw in and there was just enough for another mouthful.
     <<portrait_clip "roar">>
-    Hunny Horror: One morning there was not. I did not take it well.
+    Hunny Horror: THERE IS NO MORE.
 -> You seem friendly enough.
     <<portrait_clip "speaking">>
-    Hunny Horror: Friendly? I can do friendly.
+    Hunny Horror: Oh, I like visitors. They sometimes have a little jar in their pocket.
     <<portrait_clip "evil_hold">>
     Hunny Horror: Hold still.
 -> Why the basement?
@@ -1747,7 +1747,7 @@ title: hall_npc_snakes_on_a_cartesian_plane
 ---
 Snakes on a Cartesian Plane: We have your coordinates. Probably. Which quadrant are you in?
 -> That's not how coordinates work.
-    Snakes on a Cartesian Plane: Fine, fine. Give us x and y. We have several snakes assigned to each axis.
+    Snakes on a Cartesian Plane: All right. Give us x and y. Who has the chalk?
 -> Why a grid?
     Snakes on a Cartesian Plane: We heard "plane" and got this grid. The paper-plane snakes got the other booking.
 ===
@@ -1756,7 +1756,7 @@ title: hall_npc_snakes_on_a_paper_plane
 ---
 Snakes on a Paper Plane: Hiss-class boarding only. Scales inside the aircraft.
 -> Is this thing airworthy?
-    Snakes on a Paper Plane: It is one sheet carrying nine snakes. I would use "airborne" before "airworthy."
+    Snakes on a Paper Plane: Who cleared us for takeoff? ...Nobody?
 -> What happened on the last flight?
     Snakes on a Paper Plane: Last flight lost the nose crease. Somebody folded it back before we hit the floor.
 ===
@@ -1815,7 +1815,7 @@ Projectile Polygon: AIM FACET LOCKED. ...Visitor. Unlocking.
 -> Are you a dinosaur?
     Projectile Polygon: Close. Do not put me next to the T-rex downstairs. It stares at the cannon.
 -> Can you show me a shot?
-    Projectile Polygon: Not indoors. Last test cracked a plaque.
+    Projectile Polygon: BACKSTOP REQUIRED. Please point out a suitable wall.
     Projectile Polygon: PROJECTILE TEST CANCELLED.
 ===
 
@@ -1916,7 +1916,7 @@ title: hall_npc_full_stack
 ---
 Full Stack: Great question! Before you ask it: the answer is louder.
 -> What are you?
-    Full Stack: Amp, cabinet, legs. I play bass. The Boss stands on my shoulders. He wanted somewhere to put his microphone stand, too, but I drew the line at that.
+    Full Stack: Amp, cabinet, legs. I play bass! The Boss stands on my shoulders. He asked me to add more speakers, but there is not much shoulder left.
 -> How do I get up there?
     Full Stack: My bass. Start at the headstock and walk up the neck to my shoulder. Try not to step on the strings when I'm playing.
 -> Does he ever get down?
@@ -1929,9 +1929,9 @@ bossofthegame: Make it right. Make no mistakes. Why is the player still talking 
 -> Who are you?
     bossofthegame: The bossofthegame. Until the day I die, or retire. I have not decided which.
 -> Why do you want me dead?
-    bossofthegame: I don't. I wanted to be challenged. Then I gave the job to agents, and agents do what they're told.
+    bossofthegame: I wanted an opponent who could beat me. I told the agents to make sure the fight was hard. They've been taking that rather literally.
 -> Who are the three behind you?
-    bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack plays bass. I stand on his shoulders.
+    bossofthegame: Geppetto, Clause, Wren. Full Stack is down here. He plays bass. He keeps asking me to stop editing the song while we play.
 -> And when it's over?
     bossofthegame: I keep asking Full Stack to teach me the bass. We haven't had time. I'd like to play a whole song without stopping to fix something.
 ===
@@ -1975,23 +1975,23 @@ title: hall_npc_valley_miller
 ---
 Miller: Flour, feed, no credit.
 -> Who comes to the mill?
-    Miller: The innkeeper takes a sack at a time. The man at the barn used to take six and never once brought me a loaf.
+    Miller: The innkeeper takes a sack at a time. Dennis takes six at a time. I've offered to bring them up in the cart, but he always comes down for them himself.
 -> What does the gate bring?
     Miller: Grain I've never seen. I bought a sample of the blue stuff. Turned both stones blue, and the innkeeper wouldn't have the flour.
 ===
 
 title: hall_npc_valley_innkeeper
 ---
-Innkeeper: The Plough's open. It's always open. I'd close it, but nobody's found the key since my mother.
+Innkeeper: The Plough's open. If you need a bed, tell me before I start putting the tables away.
 -> Do you hear the news first?
-    Innkeeper: I hear all of it first. Most of it's about hens.
+    Innkeeper: Usually. Alice and Bob spread their maps over my big table every time they're both in the valley. I can tell which part of the woods is wet without leaving the inn.
 ===
 
 title: hall_npc_valley_trader
 ---
 Trader: Gate goods. Lamp oil, salt, batteries. I used to shoe horses here. Now I sell imports.
 -> Do you miss the forge?
-    Trader: I still shoe the miller's mule. And I made the knight a crossguard for his new sword. I wish he'd brought it in with the switch off.
+    Trader: I still shoe the miller's mule. Made the knight a crossguard, too. Wish he'd switched the sword off. Dennis wants a smaller switch for the handle.
 ===
 
 title: hall_npc_valley_gatekeeper
@@ -2000,7 +2000,7 @@ Gatekeeper: Name, origin, purpose.
 -> I'm just looking at the exhibits.
     Gatekeeper: "Looking." I'll write it down. Most of them are like that.
 -> What does a gatekeeper do?
-    Gatekeeper: The gate does not keep records. That is why it needs me.
+    Gatekeeper: I write down who comes through and what they bring. The office at the other end sends me a copy. I try to get the two copies to agree.
 ===
 
 title: hall_npc_valley_shepherd
@@ -2678,7 +2678,7 @@ title: hall_npc_math_monty
 ---
 Monty Carlo: Three doors! One car! Switch! Always switch!
 -> Why switch?
-    Monty Carlo: Your first choice wins a third of the time. I know where the car is, always open another door with a goat, and always offer the switch. You win by switching whenever your first choice was wrong.
+    Monty Carlo: Your first pick wins a third of the time. I know where the car is, always reveal a goat behind another door, and offer the switch. Switching wins whenever your first pick was wrong.
 -> Did anyone say you were wrong?
     Monty Carlo: Hundreds of mathematicians wrote in. I sent each of them a goat.
 ===
@@ -5332,7 +5332,7 @@ Marguerite: Take a number.
 -> What do you do here?
     Marguerite: Senior clerk, Records & Processing. Eleven years on one form. It's nearly done.
 -> Is it for a licence?
-    Marguerite: It's an application to be allowed to apply for an amendment to a licence. I could tell you which office receives it, but directions need another form.
+    Marguerite: It's an application to amend a licence. Two surveyors working together would each need a separate licence to give the other a copy of their work. Don't ask me who thought of that.
 ===
 title: hall_moving_goalposts
 ---
@@ -5361,7 +5361,7 @@ Grandmother: There you are!
 title: hall_npc_neural_hebb
 ---
 Donna: Fire together, wire together.
--> What do you do here?
+-> What does "wire together" mean?
     Donna: I study how activity changes the strength of connections. Repeating a pattern can make it easier to produce next time.
 -> Does every connection get stronger?
     Donna: No. Timing, which cells are involved, and the kind of connection all make a difference. I'm testing one at a time.
@@ -5528,7 +5528,7 @@ title: hall_npc_authority_information
 ---
 Ottilie: Information! How can I direct you?
 -> What address gets me to the Concourse?
-    Ottilie: LEGAL. If you're taking a gate home, check whether your terminal publishes the same route back. I can check the public addresses for you.
+    Ottilie: LEGAL. Look for it on the terminal's directory. To get back to the public hub, look for TESTING at the Concourse.
 -> Where can I get military clearance?
     Ottilie: Ask the General at the Iron Bastion. If you're here to recover from a crossing, you can sit in the Concourse without a permit.
 ===
@@ -5542,7 +5542,7 @@ Bertram: Lost Baggage. Ticket?
 ===
 title: hall_npc_authority_gatekeeper
 ---
-Imre: Move along, licensed traveller.
+Imre: Move along. Keep the landing area clear.
 -> What does your post cover?
     Imre: The civilian ring. Keep the floor clear when a party arrives. The General has his own sentries at the annex.
 -> Do you want to stay at this post?

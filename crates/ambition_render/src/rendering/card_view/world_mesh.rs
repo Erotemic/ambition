@@ -30,7 +30,7 @@ use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, Worn
 use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
-use crate::folded_mesh::{FoldedMesh, PreparedPlanarMesh};
+use crate::rendering::planar_mesh::{PlanarMeshSource, PreparedPlanarMesh};
 use crate::rendering::chain_skin::ChainEarth;
 use crate::rendering::terrain_skin::TerrainSkinMesh;
 use crate::rendering::unauthored_volumes::UnauthoredVolumeVisual;
@@ -333,8 +333,8 @@ fn realize_color_meshes(
         ),
         (
             Or<(
-                With<ChainEarth>, With<TerrainSkinMesh>, With<UnauthoredVolumeVisual>,
                 With<PreparedPlanarMesh<ColorMaterial>>,
+                (With<UnauthoredVolumeVisual>, Without<PlanarMeshSource>),
             )>,
             Without<CardWorldMesh>,
         ),
@@ -451,7 +451,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
             Without<CardWorldMesh>,
             Or<(
                 With<PreparedPlanarMesh<M>>,
-                (With<Mesh2d>, With<MeshMaterial2d<M>>, Without<FoldedMesh>),
+                (With<Mesh2d>, With<MeshMaterial2d<M>>, Without<PlanarMeshSource>),
             )>,
         ),
     >,
@@ -581,8 +581,7 @@ mod tests {
             ..default()
         });
         let terrain = |z: f32| (
-            Mesh2d(mesh.clone()),
-            MeshMaterial2d(skin.clone()),
+            PreparedPlanarMesh { mesh: mesh.clone(), material: skin.clone() },
             Transform::from_xyz(0.0, 0.0, z),
             GlobalTransform::from_translation(Vec3::new(40.0, -12.0, 7.0 + z)),
             TerrainSkinMesh {
@@ -606,7 +605,7 @@ mod tests {
         app.update();
         let drawn = shown(app.world_mut());
         assert_eq!(drawn.len(), 4);
-        let earth_mesh = &app.world().get::<Mesh2d>(earth).unwrap().0;
+        let earth_mesh = &app.world().get::<PreparedPlanarMesh<ColorMaterial>>(earth).unwrap().mesh;
         assert_eq!(&drawn[&earth].0, earth_mesh);
         assert_eq!(drawn[&earth].1, Vec3::Z * (TERRAIN_DEPTH - EARTH_BEHIND_SKIN));
         assert_eq!(drawn[&fill], (mesh.clone(), Vec3::new(40.0, -12.0, TERRAIN_DEPTH + 0.005)));

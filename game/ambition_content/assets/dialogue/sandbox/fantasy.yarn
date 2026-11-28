@@ -2,12 +2,18 @@ title: fantasy_trail_keeper
 ---
 Mara: The stones are still firm along the ridge. When the wind comes up, wait in the old shelter.
 Mara: I used to bring Dennis his mail. The climb took him ten minutes less than it took anybody else.
+-> Did Dennis like living up here?
+    Mara: He used to come out with a cup of tea when I brought the post. Then he'd put a stone on the letters and forget them. I'd bring him another bundle the next week and the first lot would still be on the wall.
+-> I'll keep walking.
 ===
 
 title: fantasy_wayfarer
 ---
 Anwen: I'm taking two wheels of cheese to Brackenford. One of them may still be whole when I get there.
 Anwen: The road down is easy to miss in cloud. Follow it past the first stand of pines.
+-> Do you make the journey often?
+    Anwen: Most weeks. I know where the rain starts before I can see it. It's the way back with an empty basket that I like.
+-> Safe travels.
 ===
 
 title: fantasy_broker
@@ -20,10 +26,17 @@ title: fantasy_cooper
 ---
 Tom: If you hear knocking, it's me putting hoops on a barrel. If you hear a bell, that's the goat in the old watch.
 Tom: If he gets at that stack of hoops again, call me. I've only just got them in order.
+-> How did the goat get up there?
+    Tom: I left a ladder out for the roofers. I took it down again. I'm not sure he ever noticed.
+-> I'll let you work.
 ===
 
 title: fantasy_knight
 ---
 Sir Cumference: I came from Math Town. I carry packages over the pass, or go up after anyone who's got themselves lost.
 Sir Cumference: The wizard and I have been comparing spells. He gets quite cross when I ask to see his derivation.
+-> Can you show me a mathematical spell?
+    Sir Cumference: Pick a stone and throw it. I can tell you where it'll land. The wizard can make it land somewhere else.
+    Sir Cumference: We practise a little way apart.
+-> Good luck on the road.
 ===

@@ -163,6 +163,7 @@ pub(crate) mod slash_visuals;
 mod emitted_trails;
 mod unauthored_volumes;
 pub mod view_isolation;
+pub mod planar_mesh;
 mod wielded_item_visuals;
 mod supported_carry;
 pub mod worn_gear_visuals;

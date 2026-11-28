@@ -1,7 +1,7 @@
 //! The light of the time of day: a veil over the world of a sunlit room.
 //!
-//! One rectangle follows the gameplay camera above the world (the play, the
-//! parallax foreground and the effects) and under the UI. It MULTIPLIES what
+//! One veil for each view covers the world above the foreground and effects
+//! and below the UI. It MULTIPLIES what
 //! is under it by the light of the hour: white by day, gold in the morning,
 //! amber and violet at dusk, moonlit blue at night. A multiply keeps a shadow
 //! dark and a lit wall the brightest thing in view; the translucent sprite it
@@ -25,7 +25,10 @@
 //! summed per pixel ([`super::lamps`]); at Ultra their light stops at the
 //! room's solid ground. Lower tiers keep the hour's colour.
 
+use std::collections::HashMap;
+
 use bevy::{
+    ecs::system::SystemParam,
     mesh::MeshVertexBufferLayoutRef,
     prelude::*,
     reflect::TypePath,
@@ -34,18 +37,22 @@ use bevy::{
         SpecializedMeshPipelineError,
     },
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin},
 };
 
 use ambition_persistence::settings::{DarknessQuality, ResolvedVisualQuality};
-use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_shared_tangle::gameplay_presentation::CastsLight;
-use ambition_platformer2d_world::rooms::LiveRoomSpecs;
+use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
+use ambition_sim_view::PresentedForView;
 use ambition_sprite_sheet::game_assets::ParallaxTheme;
 
+use super::camera::coverage::GameplayOutputs;
 use super::darkness::{room_lamps, GridKey, Lamp, RoomShadows};
 use super::lamps::{pack, reach_image, LampsPlugin, LampsUniform, ReachWrites};
+use super::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
+use super::view_isolation::lighting_layers;
+use super::AnimatedWorldSpriteTint;
 
 /// Over the world and the parallax foreground (`FOREGROUND_PARALLAX_Z`), under the UI.
 pub const DAYLIGHT_VEIL_Z: f32 = 60.0;
@@ -224,18 +231,11 @@ impl Material2d for LampGlowMaterial {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct LampGlow;
 
-/// The veil's mesh and material, where a 2D material can be built, the
-/// lamps' reach texture and their glow's material.
-#[derive(Resource, Clone)]
-pub struct DaylightVeilAssets {
-    mesh: Handle<Mesh>,
-    material: Handle<DaylightMaterial>,
-    reach: Handle<Image>,
-    glow: Handle<LampGlowMaterial>,
-}
+/// The shared daylight geometry.
+#[derive(Resource)]
+struct DaylightMesh(Handle<Mesh>);
 
-/// Installs the multiplying veil's material. Without it (no renderer, Android)
-/// the veil is a translucent sprite.
+/// Installs the multiplying veil's material. Android uses a translucent sprite.
 pub struct DaylightPlugin;
 
 impl Plugin for DaylightPlugin {
@@ -249,32 +249,149 @@ impl Plugin for DaylightPlugin {
             app.add_plugins(LampsPlugin);
         }
         app.add_plugins((Material2dPlugin::<DaylightMaterial>::default(), Material2dPlugin::<LampGlowMaterial>::default()));
+        install_planar_mesh_2d::<DaylightMaterial>(app);
+        install_planar_mesh_2d::<LampGlowMaterial>(app);
         let world = app.world_mut();
-        let Some(reach) = world.get_resource_mut::<Assets<Image>>().map(|mut images| images.add(reach_image())) else {
-            return;
-        };
-        let Some(material) = world.get_resource_mut::<Assets<DaylightMaterial>>().map(|mut materials| {
-            materials.add(DaylightMaterial { light: Vec4::ONE, lamps: LampsUniform::default(), reach: Some(reach.clone()) })
-        }) else {
-            return;
-        };
-        let Some(mesh) = world
-            .get_resource_mut::<Assets<Mesh>>()
-            .map(|mut meshes| meshes.add(Rectangle::new(VEIL_SIZE, VEIL_SIZE)))
-        else {
-            return;
-        };
-        let Some(glow) = world
-            .get_resource_mut::<Assets<LampGlowMaterial>>()
-            .map(|mut materials| materials.add(LampGlowMaterial { glow: Vec4::ZERO, lamps: LampsUniform::default() }))
-        else {
-            return;
-        };
-        app.insert_resource(DaylightVeilAssets { mesh, material, reach, glow });
+        if let Some(mut meshes) = world.get_resource_mut::<Assets<Mesh>>() {
+            let mesh = meshes.add(Rectangle::new(VEIL_SIZE, VEIL_SIZE));
+            world.insert_resource(DaylightMesh(mesh));
+        }
     }
 }
 
-/// Put the veil over the camera's view in the light of the hour.
+#[derive(PartialEq)]
+struct LampSample {
+    bounds: Rect,
+    lamps: Vec<Lamp>,
+    room: LiveRoomInstance,
+    shadows: Option<GridKey>,
+}
+
+struct DaylightShading {
+    veil: Handle<DaylightMaterial>,
+    glow: Handle<LampGlowMaterial>,
+    reach: Handle<Image>,
+    glow_entity: Entity,
+    last: Option<LampSample>,
+    lamps: LampsUniform,
+    solid: Option<RoomShadows>,
+}
+
+struct DaylightForView {
+    veil: Entity,
+    shading: Option<DaylightShading>,
+}
+
+/// Retained daylight for the local views.
+#[derive(Default)]
+pub struct ViewDaylight(HashMap<Entity, DaylightForView>);
+
+/// Assets that realize daylight with a shader.
+#[derive(SystemParam)]
+pub struct DaylightAssets<'w> {
+    mesh: Option<Res<'w, DaylightMesh>>,
+    images: Option<ResMut<'w, Assets<Image>>>,
+    veils: Option<ResMut<'w, Assets<DaylightMaterial>>>,
+    glows: Option<ResMut<'w, Assets<LampGlowMaterial>>>,
+    writes: Option<ResMut<'w, ReachWrites>>,
+}
+
+impl DaylightAssets<'_> {
+    fn spawn(
+        &mut self, commands: &mut Commands, view: Entity, center: Vec2, tint: Color,
+    ) -> DaylightForView {
+        let mut veil = commands.spawn((
+            DaylightVeil,
+            PresentedForView(view),
+            lighting_layers(),
+            Transform::from_translation(center.extend(DAYLIGHT_VEIL_Z)),
+            Name::new("Daylight veil"),
+        ));
+        let veil_entity = veil.id();
+        let (Some(mesh), Some(images), Some(veils), Some(glows)) = (
+            self.mesh.as_deref(), self.images.as_deref_mut(),
+            self.veils.as_deref_mut(), self.glows.as_deref_mut(),
+        ) else {
+            veil.insert((Sprite::from_color(tint, Vec2::splat(VEIL_SIZE)), AnimatedWorldSpriteTint));
+            return DaylightForView { veil: veil_entity, shading: None };
+        };
+
+        let reach = images.add(reach_image());
+        let material = veils.add(DaylightMaterial {
+            light: Vec4::ONE, lamps: LampsUniform::default(), reach: Some(reach.clone()),
+        });
+        let glow = glows.add(LampGlowMaterial { glow: Vec4::ZERO, lamps: LampsUniform::default() });
+        veil.insert(PreparedPlanarMesh { mesh: mesh.0.clone(), material: material.clone() });
+        let glow_entity = commands.spawn((
+            LampGlow,
+            ChildOf(veil_entity),
+            lighting_layers(),
+            PreparedPlanarMesh { mesh: mesh.0.clone(), material: glow.clone() },
+            Transform::from_xyz(0.0, 0.0, 0.25),
+            Visibility::Hidden,
+            Name::new("Lamp glow"),
+        )).id();
+        DaylightForView {
+            veil: veil_entity,
+            shading: Some(DaylightShading {
+                veil: material, glow, reach, glow_entity, last: None,
+                lamps: LampsUniform::default(), solid: None,
+            }),
+        }
+    }
+
+    fn write(&mut self, shading: &DaylightShading, light: Vec4, glow: Vec4, lamps: LampsUniform) {
+        if let Some(veils) = self.veils.as_deref_mut() {
+            if veils.get(&shading.veil).is_some_and(|m| m.light != light || m.lamps != lamps) {
+                if let Some(mut material) = veils.get_mut(&shading.veil) {
+                    material.light = light;
+                    material.lamps = lamps.clone();
+                }
+            }
+        }
+        if let Some(glows) = self.glows.as_deref_mut() {
+            if glows.get(&shading.glow).is_some_and(|m| m.glow != glow || m.lamps != lamps) {
+                if let Some(mut material) = glows.get_mut(&shading.glow) {
+                    material.glow = glow;
+                    material.lamps = lamps;
+                }
+            }
+        }
+    }
+}
+
+impl DaylightShading {
+    fn sample_lamps(
+        &mut self,
+        room: LiveRoomInstance,
+        spec: &RoomSpec,
+        bounds: Rect,
+        shadowed: bool,
+        moving: impl Iterator<Item = Lamp>,
+        writes: Option<&mut ReachWrites>,
+    ) {
+        if shadowed {
+            RoomShadows::keep_for(&mut self.solid, spec);
+        }
+        let shadows = self.solid.as_ref().filter(|_| shadowed);
+        let mut lamps = room_lamps(spec);
+        let room_count = lamps.len();
+        lamps.extend(moving);
+        let sample = LampSample { bounds, lamps, room, shadows: shadows.map(|grid| grid.key().clone()) };
+        if self.last.as_ref() == Some(&sample) {
+            return;
+        }
+        let reaches = shadows.map(|grid| grid.reaches(&sample.lamps[room_count..]));
+        let (lamps, rows) = pack(&sample.lamps, reaches.as_deref(), bounds.center(), bounds.size() * LAMP_MARGIN);
+        if let (Some(rows), Some(writes)) = (rows, writes) {
+            writes.0.insert(self.reach.id(), rows);
+        }
+        self.last = Some(sample);
+        self.lamps = lamps;
+    }
+}
+
+/// Light each observer's room once for its gameplay outputs.
 #[allow(clippy::too_many_arguments)]
 pub fn light_the_world(
     mut commands: Commands,
@@ -282,152 +399,88 @@ pub fn light_the_world(
     clock: Option<Res<ambition_time::DayClock>>,
     cycle: Option<Res<ambition_time::DayCycle>>,
     rooms: Option<LiveRoomSpecs>,
-    primary: Option<PrimaryLiveRoom>,
-    cameras: Query<(&Transform, Option<&Projection>), (With<MainCamera>, Without<DaylightVeil>)>,
-    mut veils: Query<(&mut Transform, Option<&mut Sprite>), (With<DaylightVeil>, Without<LampGlow>)>,
-    veil_assets: Option<Res<DaylightVeilAssets>>,
-    (mut materials, mut glow_materials, mut glows): (
-        Option<ResMut<Assets<DaylightMaterial>>>,
-        Option<ResMut<Assets<LampGlowMaterial>>>,
-        Query<&mut Transform, (With<LampGlow>, Without<DaylightVeil>, Without<MainCamera>)>,
-    ),
-    (mut writes, quality): (Option<ResMut<ReachWrites>>, Option<Res<ResolvedVisualQuality>>),
-    casters: Query<(&GlobalTransform, &CastsLight, &InheritedVisibility)>,
-    // What the lamps were last gathered from, and what they gave: a still
-    // frame gathers nothing.
-    (mut drawn, mut last): (Local<Option<(Vec2, Vec2, Vec<Lamp>, Option<GridKey>)>>, Local<LampsUniform>),
-    // The sunlit room's solid ground, at Ultra.
-    mut solid: Local<Option<RoomShadows>>,
+    outputs: GameplayOutputs,
+    quality: Option<Res<ResolvedVisualQuality>>,
+    mut assets: DaylightAssets,
+    casters: Query<(Entity, &GlobalTransform, &CastsLight, &InheritedVisibility)>,
+    live: LiveRooms,
+    mut veils: Query<(&mut Transform, &mut Visibility, Option<&mut Sprite>), (With<DaylightVeil>, Without<LampGlow>, Without<Camera2d>)>,
+    mut glows: Query<&mut Visibility, (With<LampGlow>, Without<DaylightVeil>)>,
+    mut retained: Local<ViewDaylight>,
 ) {
-    let Some(style) = style else {
+    let active = style.as_deref().zip(clock.as_deref()).zip(cycle.as_deref())
+        .filter(|((_, clock), _)| clock.day > 0);
+    let views = if active.is_some() && rooms.is_some() { outputs.view_bounds() } else { Default::default() };
+    retained.0.retain(|view, slot| {
+        let keep = views.contains_key(view) && veils.contains(slot.veil)
+            && slot.shading.as_ref().is_none_or(|s| glows.contains(s.glow_entity));
+        if !keep {
+            commands.entity(slot.veil).try_despawn();
+        }
+        keep
+    });
+    let (Some(((style, clock), cycle)), Some(rooms)) = (active, rooms) else {
         return;
     };
     let quality = quality.map_or(DarknessQuality::default(), |q| q.budget.glow.darkness);
     let lamps_drawn = matches!(quality, DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap);
-    let mut room_lights: Option<Vec<Lamp>> = None;
-    let target = match (clock.as_deref(), cycle.as_deref(), rooms, primary) {
-        (Some(clock), Some(cycle), Some(rooms), Some(primary)) if clock.day > 0 => {
-            let spec = rooms.definition_named(primary.get()).map(|definition| rooms.rooms().spec(definition));
-            // The place is sunlit, not its background: the room's own theme.
-            let sunlit = spec.filter(|spec| {
-                ParallaxTheme::named_by_room_metadata(&spec.metadata).is_some_and(|theme| style.sunlit.contains(&theme))
-            });
-            match sunlit {
-                Some(spec) => {
-                    if lamps_drawn {
-                        if quality == DarknessQuality::ShadowedLightMap {
-                            RoomShadows::keep_for(&mut solid, spec);
-                        }
-                        room_lights = Some(room_lamps(spec));
-                    }
-                    style.light_at(clock.hour(cycle))
-                }
-                None => Color::NONE,
-            }
-        }
-        _ => Color::NONE,
-    };
-    let Some((camera, projection)) = cameras.iter().next() else {
-        return;
-    };
-    let light = multiplier(target);
-    // The lamps in view, when the hour is dark enough to show them.
-    let mut lamps = LampsUniform::default();
-    if let (Some(room_lights), Some(assets), true) =
-        (room_lights, veil_assets.as_deref(), light.red.min(light.green).min(light.blue) < DAY_BRIGHT)
-    {
-        let view = match projection {
-            Some(Projection::Orthographic(o)) => o.area.size(),
-            _ => Vec2::new(1280.0, 720.0),
-        };
-        let (center, size) = (camera.translation.truncate(), view * LAMP_MARGIN);
-        let room_count = room_lights.len();
-        let mut all = room_lights;
-        // A thing that casts light names its colour in sRGB; the room's lamps
-        // and the veil are linear.
-        all.extend(casters.iter().filter(|(_, _, shown)| shown.get()).map(|(at, cast, _)| {
-            let c = Color::srgb(cast.color[0], cast.color[1], cast.color[2]).to_linear();
-            Lamp { at: at.translation().truncate(), radius: cast.radius, intensity: cast.intensity, color: [c.red, c.green, c.blue] }
-        }));
-        let shadows = solid.as_ref().filter(|_| quality == DarknessQuality::ShadowedLightMap);
-        let inputs = (center, size, all, shadows.map(|shadows| shadows.key().clone()));
-        if drawn.as_ref() != Some(&inputs) {
-            let reaches = shadows.map(|shadows| shadows.reaches(&inputs.2[room_count..]));
-            let (packed, rows) = pack(&inputs.2, reaches.as_deref(), center, size);
-            if let (Some(rows), Some(writes)) = (rows, writes.as_deref_mut()) {
-                writes.0.insert(assets.reach.id(), rows);
-            }
-            *last = packed;
-            *drawn = Some(inputs);
-        }
-        lamps = last.clone();
-    }
-    let at = camera.translation.truncate().extend(DAYLIGHT_VEIL_Z);
-    // Not on the world layer: a portal capture draws that layer, and its
-    // window, which the veil covers too, was lit two times. The main cameras
-    // draw this layer and no capture does.
-    let layer = bevy::camera::visibility::RenderLayers::layer(
-        ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
-    );
-    // The hour moves slowly, so the light needs no easing of its own; a change
-    // of room is a cut behind the room transition's cover.
-    if let (Some(assets), Some(materials)) = (veil_assets.as_deref(), materials.as_deref_mut()) {
+    let hour_tint = style.light_at(clock.hour(cycle));
+
+    for (view, (frame, bounds)) in views {
+        let sunlit = rooms.definition_in(frame.room).map(|definition| rooms.rooms().spec(definition))
+            .filter(|spec| ParallaxTheme::named_by_room_metadata(&spec.metadata)
+                .is_some_and(|theme| style.sunlit.contains(&theme)));
+        let tint = sunlit.map_or(Color::NONE, |_| hour_tint);
+        let light = multiplier(tint);
         let light = Vec4::new(light.red, light.green, light.blue, 1.0);
-        // The glow is as strong as the hour is dark.
-        let night = (1.0 - (light.x + light.y + light.z) / 3.0).clamp(0.0, 1.0);
-        let glow = Vec4::new(if lamps.count > 0 { GLOW_STRENGTH * night } else { 0.0 }, GLOW_SIZE, 0.0, 0.0);
-        if let Some(glow_materials) = glow_materials.as_deref_mut() {
-            let changed = |material: &LampGlowMaterial| material.glow != glow || material.lamps != lamps;
-            if glow_materials.get(&assets.glow).is_some_and(changed) {
-                if let Some(mut material) = glow_materials.get_mut(&assets.glow) {
-                    material.glow = glow;
-                    material.lamps = lamps.clone();
+        let shown = if assets.mesh.is_some() { light != Vec4::ONE } else { tint.alpha() > 0.0 };
+        if !shown {
+            if let Some(slot) = retained.0.get(&view) {
+                if let Ok((_, mut visibility, _)) = veils.get_mut(slot.veil) {
+                    visibility.set_if_neq(Visibility::Hidden);
+                }
+            }
+            continue;
+        }
+        let slot = retained.0.entry(view)
+            .or_insert_with(|| assets.spawn(&mut commands, view, frame.plane_center, tint));
+        if let Ok((mut transform, mut visibility, sprite)) = veils.get_mut(slot.veil) {
+            let at = frame.plane_center.extend(DAYLIGHT_VEIL_Z);
+            if transform.translation != at {
+                transform.translation = at;
+            }
+            visibility.set_if_neq(Visibility::Inherited);
+            if let Some(mut sprite) = sprite {
+                if sprite.color != tint {
+                    sprite.color = tint;
                 }
             }
         }
-        let changed = |material: &DaylightMaterial| material.light != light || material.lamps != lamps;
-        if materials.get(&assets.material).is_some_and(changed) {
-            if let Some(mut material) = materials.get_mut(&assets.material) {
-                material.light = light;
-                material.lamps = lamps;
+        if let Some(shading) = &mut slot.shading {
+            let mut lamps = LampsUniform::default();
+            if let Some(spec) = sunlit.filter(|_| lamps_drawn && light.truncate().min_element() < DAY_BRIGHT) {
+                if rooms.set_is_changed() {
+                    shading.solid = None;
+                    shading.last = None;
+                }
+                let moving = casters.iter().filter(|(entity, _, _, shown)| shown.get() && live.of(*entity) == Some(frame.room))
+                    .map(|(_, at, cast, _)| {
+                        let c = Color::srgb(cast.color[0], cast.color[1], cast.color[2]).to_linear();
+                        Lamp { at: at.translation().truncate(), radius: cast.radius, intensity: cast.intensity, color: [c.red, c.green, c.blue] }
+                    });
+                shading.sample_lamps(frame.room, spec, bounds, quality == DarknessQuality::ShadowedLightMap,
+                    moving, assets.writes.as_deref_mut());
+                lamps = shading.lamps.clone();
             }
-        }
-    }
-    // Over the veil, so the veil does not darken it; under the dark room's.
-    let glow_at = camera.translation.truncate().extend(DAYLIGHT_VEIL_Z + 0.25);
-    match (glows.single_mut(), veil_assets.as_deref()) {
-        (Ok(mut transform), _) => transform.translation = glow_at,
-        (Err(_), Some(assets)) => {
-            commands.spawn((
-                LampGlow,
-                Mesh2d(assets.mesh.clone()),
-                MeshMaterial2d(assets.glow.clone()),
-                Transform::from_translation(glow_at),
-                bevy::camera::visibility::RenderLayers::layer(
-                    ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
-                ),
-                Name::new("Lamp glow"),
-            ));
-        }
-        (Err(_), None) => {}
-    }
-    let Ok((mut transform, sprite)) = veils.single_mut() else {
-        let veil = commands.spawn((DaylightVeil, Transform::from_translation(at), layer, Name::new("Daylight veil"))).id();
-        match veil_assets.as_deref() {
-            Some(assets) => {
-                commands.entity(veil).insert((Mesh2d(assets.mesh.clone()), MeshMaterial2d(assets.material.clone())));
+            let night = (1.0 - (light.x + light.y + light.z) / 3.0).clamp(0.0, 1.0);
+            let strength = if lamps.count > 0 { GLOW_STRENGTH * night } else { 0.0 };
+            if let Ok(mut visibility) = glows.get_mut(shading.glow_entity) {
+                visibility.set_if_neq(if strength > 0.0 { Visibility::Inherited } else { Visibility::Hidden });
+            } else if strength > 0.0 {
+                commands.entity(shading.glow_entity).insert(Visibility::Inherited);
             }
-            None => {
-                commands
-                    .entity(veil)
-                    .insert(Sprite { color: target, custom_size: Some(Vec2::splat(VEIL_SIZE)), ..Default::default() });
-            }
+            assets.write(shading, light, Vec4::new(strength, GLOW_SIZE, 0.0, 0.0), lamps);
         }
-        return;
-    };
-    transform.translation = at;
-    if let Some(mut sprite) = sprite {
-        sprite.color = target;
     }
 }
 
@@ -453,5 +506,78 @@ mod tests {
         assert!((s.light_at(24.0).alpha() - 0.5).abs() < 1e-4);
         assert!((s.light_at(6.0).alpha() - 0.25).abs() < 1e-3, "half way from midnight to noon");
         assert!((s.light_at(18.0).alpha() - 0.25).abs() < 1e-3, "half way from noon to midnight");
+    }
+
+    #[test]
+    fn each_view_draws_only_the_daylight_and_lamps_of_its_room() {
+        use ambition_persistence::settings::{VisualQualityBudget, VisualQualityProfile};
+        use ambition_platformer2d_core as ae;
+        use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, PARALLAX_BACKGROUND_LAYER};
+        use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance};
+        use ambition_platformer2d_world::rooms::{insert_room_set, LiveRoomDefinition, RoomSet};
+        use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
+        use ambition_time::{DayClock, DayCycle};
+        use bevy::camera::RenderTargetInfo;
+        use bevy::camera::visibility::RenderLayers;
+        use crate::rendering::{PresentedViewFrame, PresentedViewFrames};
+
+        let mut app = App::new();
+        let cycle = DayCycle {
+            day_length_s: 24.0, start_hour: 0.0, morning_at: 6.0, day_at: 9.0,
+            evening_at: 18.0, night_at: 21.0,
+        };
+        let profile = VisualQualityProfile::High;
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::ZERO))
+            .insert_resource(cycle)
+            .insert_resource(DayClock::at_hour(&cycle, 0.0))
+            .insert_resource(style())
+            .insert_resource(ResolvedVisualQuality { profile, budget: VisualQualityBudget::for_profile(profile) })
+            .insert_resource(DaylightMesh(Handle::default()))
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<DaylightMaterial>>()
+            .init_resource::<Assets<LampGlowMaterial>>()
+            .add_systems(Update, (light_the_world, super::super::view_isolation::isolate_per_view_projections).chain());
+
+        let world = app.world_mut();
+        let room = |id| RoomSpec::new(id, ae::World::new(id, ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()));
+        let mut street = room("street");
+        street.metadata.visual_profile.parallax_theme = Some("math_town".into());
+        insert_room_set(world, RoomSet::from_parts_or_panic("inside", vec![room("inside"), street], Vec::new()));
+        let inside = LiveRoomInstance::ACTIVATION;
+        let street = inside.next();
+        spawn_live_room(world, street, LiveRoomDefinition::from_index(1));
+
+        let [first, second] = [LocalViewId::FIRST, LocalViewId(1)].map(|id| {
+            let view = world.spawn((LocalView, id)).id();
+            let mut camera = Camera::default();
+            camera.computed.target_info = Some(RenderTargetInfo { physical_size: UVec2::new(640, 360), scale_factor: 1.0 });
+            let output = world.spawn((Camera2d, MainCamera, camera, PresentsView(view), RenderLayers::layer(PARALLAX_BACKGROUND_LAYER))).id();
+            (view, output)
+        });
+        let frame = |room, x| PresentedViewFrame { room, plane_center: Vec2::new(x, 0.0), roll_radians: 0.0, orthographic_scale: 1.0 };
+        world.insert_resource(PresentedViewFrames::of_views(vec![(first.0, frame(inside, 0.0)), (second.0, frame(street, 48.0))]));
+        for room in [inside, street] {
+            world.spawn((InRoomInstance(room), GlobalTransform::IDENTITY, InheritedVisibility::VISIBLE,
+                CastsLight { radius: 90.0, intensity: 1.0, color: [1.0, 0.5, 0.3] }));
+        }
+
+        app.update();
+        let world = app.world_mut();
+        let (entity, view, layers, at, source) = world.query_filtered::<(
+            Entity, &PresentedForView, &RenderLayers, &Transform, &PreparedPlanarMesh<DaylightMaterial>,
+        ), With<DaylightVeil>>().single(world).unwrap();
+        assert_eq!(view.0, second.0);
+        assert_eq!(at.translation.x, 48.0);
+        assert!(layers.intersects(world.get::<RenderLayers>(second.1).unwrap()));
+        assert!(!layers.intersects(world.get::<RenderLayers>(first.1).unwrap()));
+        let material = world.resource::<Assets<DaylightMaterial>>().get(&source.material).unwrap();
+        assert_eq!(material.lamps.count, 1, "only the lamp in the observed room is visible");
+
+        app.insert_resource(DayClock::at_hour(&cycle, 12.0));
+        app.update();
+        assert_eq!(app.world().get::<Visibility>(entity), Some(&Visibility::Hidden));
+        app.world_mut().despawn(second.0);
+        app.update();
+        assert!(app.world().get_entity(entity).is_err());
     }
 }

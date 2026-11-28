@@ -14,11 +14,11 @@ title: ninja_village_context
 
 title: ninja_village_sato
 ---
-Sato: Good morning. The ring is swept. The leaves are not. They never will be.
+Sato: Good morning. Wait a moment, let me sweep these leaves away from the ring.
 -> Do many come through the gate?
     Sato: Couriers, pilgrims, merchants. Some bow to the ring. Most of them are only dizzy.
 -> Is the ring sacred?
-    Sato: It is old, it is useful, and people are grateful for it. Here that is close enough. I sweep round it as I sweep round the stones.
+    Sato: Some of the older villagers leave offerings here. I leave room for them when I sweep.
 -> Do you know Kagero?
     Sato: The one with the white scarf? Only by reputation. Hayashi says she works alone.
     Sato: People mention her when they talk about the castle. They usually lower their voices.
@@ -29,25 +29,24 @@ title: ninja_village_nagisa
 ---
 Nagisa: *tok, tok* Welcome through the SILENT gate. I am Nagisa. I keep it.
 -> What does a gatekeeper do?
-    Nagisa: I listen to the ring. Everything that crosses makes a sound. Couriers sound like a sigh. Trouble sounds like nothing at all.
-    Nagisa: Sato keeps the stones clean. I keep the ring honest.
+    Nagisa: I keep people away from it while the terminal is being used. Then I make sure everyone who comes through gets clear of the ring. Kenji usually needs a hand.
 -> Why is the gate called SILENT?
     Nagisa: A ninja village does not announce itself. Its address should not either.
 -> What brings an alligator to a mountain village?
     Nagisa: A river, once. Then the gate. A gate wants someone patient at the door, and nobody waits like a gator.
 -> Has anything strange come through?
     Nagisa: Kenji's letters to the castle side. They go out, and the ring brings them back unopened.
-    Nagisa: A gate does not refuse the post. Someone on the other side refuses it for the gate.
+    Nagisa: I checked the address twice with Kenji. Someone over there is sending them back.
 -> Thank you.
 ===
 
 title: ninja_village_kenji
 ---
-Kenji: Do not sit too near. I came through the ring an hour ago and the ground is still deciding.
+Kenji: Excuse me. I need to stay seated a while. Just came through the ring.
 -> Is the gate always like this?
-    Kenji: Every time. The letters arrive perfectly. The courier arrives green.
+    Kenji: About an hour of this every time. Ume has some tea for me. I hope I can keep it down today.
 -> Why not take the mountain road?
-    Kenji: Four days. The village wants its post today. My stomach has filed a complaint with the post office.
+    Kenji: Four days on the road. The gate saves me enough time to get the post sorted before sunset, even if I have to sit here first.
 -> Anything worrying in the post?
     Kenji: Three letters sent toward the castle side came back unopened. Same handwriting on the back of every one.
     Kenji: The woman who wrote them asked me to try again tomorrow. I said I would.
@@ -65,7 +64,7 @@ Ume: Welcome. Tea for the tired, and for the gate-sick at half price. You do not
     Ume: I've got two upstairs. One family paid ahead and left before daylight. The little one forgot her shoes.
     Ume: If they come back, they're under the bed. I'm leaving them there.
 -> Do the students eat here?
-    Ume: Daichi eats like he's won the exam. Ren eats standing up. Hayashi brings his own rice and borrows my salt.
+    Ume: Daichi always wants seconds. Ren comes in so late I have to keep something warm for her. Hayashi washes his bowl before he leaves, bless him.
 -> Thank you.
 ===
 
@@ -89,7 +88,7 @@ Matsuda: A visitor. Good. Step up to the line, bow to the pass, and try not to f
 -> What is the board for?
     Matsuda: The day's bouts. Fifteen so far, all to the clan. The visitors' column has a nought in it. I keep it very tidy.
 -> Are the fights fair?
-    Matsuda: Every opponent fights one at a time and stops when you're down. Zorlack sometimes forgets. I remind him with this whistle. He doesn't like the whistle.
+    Matsuda: One opponent at a time, and the match ends when I blow my whistle. Some of the younger students get carried away, so stay behind me if you are waiting.
 -> Has anyone ever won?
     Matsuda: Daichi, once. The duelist slipped on a leaf. Daichi insists it was the Thousand Leaf Step. I wrote it down as a leaf.
 -> I'm ready.
@@ -115,11 +114,11 @@ title: ninja_village_moriyama
 ---
 Moriyama: Downwind of the kiln, please. You are standing in my smoke and I am standing in it for a living.
 -> What are you burning?
-    Moriyama: Cedar, three days and three nights, with the door shut. What comes out is charcoal. What goes in is patience.
+    Moriyama: Cedar. I shut the kiln for three days and three nights and check the smoke. If it gets too hot, I lose the whole batch.
     Moriyama: The tea house cooks on it. The smith forges on it. The dojo heats its bath on it and says it is training.
 -> Do ninja pass by here?
     Moriyama: Every one in the clan, sooner or later, sneaking. I see them all. Then they smell of my smoke for a week and everyone else sees them too.
-    Moriyama: The Shadow Clan's elders call it the charcoal exam. They did not ask me if they could.
+    Moriyama: Some of the students have started practicing in the smoke. I told Hayashi to keep them away from the kiln vents.
 -> Is there anything up in the branches?
     Moriyama: The crows keep what they find on the fourth branch. Coins, mostly. A spoon. They will not miss it as much as they say.
 -> I'll leave you to it.
@@ -133,7 +132,7 @@ Sensei Hayashi: The new rank wears well. Do not let it make you slow.
 -> What comes after this rank?
     Sensei Hayashi: The next one. It has more forms.
 -> What do the ranks mean outside the village?
-    Sensei Hayashi: Not much. Wear yours here. Beyond the gate, you'll have to introduce yourself.
+    Sensei Hayashi: Other schools have their own ranks. The Shadow Clan has its own traditions too. You may have to demonstrate what you can do before they accept yours.
 -> Thank you, Sensei.
 <<elseif verdict("world.flag_set", "ninja_village_rank_awarded") == "unanswerable">>
     <<stop>>
@@ -149,7 +148,7 @@ Sensei Hayashi: Welcome to the village dojo. You came to take the rank exam. Eve
 -> How does the exam work?
     Sensei Hayashi: Walk onto the exam floor. Part one: break the dummies. Part two: the examiner. If you lose, ring the bell and begin again. There is no shame in the bell.
 -> Can a robot take it?
-    Sensei Hayashi: The form says "applicant". It does not say "person". I checked.
+    Sensei Hayashi: Of course. Let me know if the examiner uses a hold that is dangerous to your joints.
 -> Does Kagero train here?
     Sensei Hayashi: No. I've seen what she does with a paper talisman. I wouldn't know where to begin teaching it.
 -> Later.

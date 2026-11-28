@@ -20,7 +20,7 @@ Admiral: Ahoy, landstrider! Admiral R. Badely, at your service. If you're buying
 title: pirate_admiral__1
 ---
 Admiral: There's a shipment come through the gate, and the Authority's hired Zorlack to see it safely on its way.
-Admiral: I'm considering a few ways in which it might arrive at a different destination.
+Admiral: I've sent the navigator out to look at the shipping lanes. If there's a good place to board her, we'll find it.
 -> Are you planning to raid it?
     <<jump pirate_admiral__3>>
 -> Ask another question.
@@ -39,7 +39,7 @@ Admiral: Don't assume a shark on fire is in need of rescuing. That'll end badly 
 
 title: pirate_admiral__3
 ---
-Admiral: Aye. I'll tell ye how when we're back and the cargo's unloaded. Wouldn't want word getting to Zorlack before we sail.
+Admiral: Aye, if I can get a ship alongside her. Zorlack knows all our usual tricks. Bess wants to try a new one, which is generally an expensive conversation.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -59,7 +59,7 @@ Admiral: Well flown, landstrider. Bess tells me you made it back in one piece. T
 
 title: pirate_admiral_after_treasure__2
 ---
-Admiral: We've still got a fleet to run. The Authority keeps bringing freight through that ring. I intend to keep a portion of it in circulation.
+Admiral: The crews are due their pay, and the quartermaster says I owe him a mast. I'll have to look at the accounts. Ye can stay if ye like arithmetic.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -86,7 +86,7 @@ Admiral: Aye? Pull up a chair.
 
 title: pirate_admiral__business
 ---
-Admiral: Sail, drink, plunder. Lately it's Gate Authority freight. They bring it here through the ring, load it onto a ship, and off we go.
+Admiral: We take prizes out at sea and sell what we can. We used to go after the big merchant ships. Now there's freight coming through that gate every day.
 -> Do you have anything against the Authority?
     Admiral: I've plenty against some of 'em. There's people in there I'd be glad to have a drink with, too.
     Admiral: Doesn't mean I'm giving their cargo back.
@@ -101,9 +101,9 @@ Admiral: Sail, drink, plunder. Lately it's Gate Authority freight. They bring it
 
 title: pirate_admiral__authority
 ---
-Admiral: No. I was a Gate Authority recruit, back when they were still finding out what a crossing did to a person.
+Admiral: No. I signed up with the Gate Authority. I was a recruit when they sent me through.
 Admiral: Signed up to see the worlds. Got as far as this one.
-Admiral: I took to the sea here. Never figured I'd have a fleet of my own. Now I've three captains swearing the same broken mast was somebody else's fault.
+Admiral: Took me a long time before I could stand a rolling deck. Once I could, I liked it out there. Still do.
 -> What happened at the gate?
     <<jump pirate_admiral__crossing>>
 -> Something else.
@@ -113,8 +113,8 @@ Admiral: I took to the sea here. Never figured I'd have a fleet of my own. Now I
 
 title: pirate_admiral__crossing
 ---
-Admiral: Gate sickness. You've seen the stuff that clings to folk when they come through. Everyone told me it would wear off. I was still covered in it months later.
-Admiral: Most folk are on their feet the next day. Took me near a year. These marks never went away.
+Admiral: Gate sickness. Ever watched a traveller come out of the ring? You can see it on them. Mine wouldn't go away.
+Admiral: I lost near a year to it. Even after I was well enough to sail, I had these marks.
 -> Would you ever go through again?
     <<jump pirate_admiral__travel>>
 -> Something else.
@@ -125,7 +125,7 @@ Admiral: Most folk are on their feet the next day. Took me near a year. These ma
 title: pirate_admiral__travel
 ---
 Admiral: No.
-Admiral: ...I'd like to. I've stood in front of that ring, address in hand. Never got much further than that.
+Admiral: ...I'd like to. Last time I went down to the port I stood by the ring for a while. Couldn't bring meself to dial.
 -> Don't you want to go home?
     Admiral: Aye. I do.
     Admiral: Not today, landstrider.
@@ -141,17 +141,19 @@ Admiral: ...I'd like to. I've stood in front of that ring, address in hand. Neve
 
 title: pirate_heavy_broadside_bess
 ---
-Broadside Bess: YARRRGH — wee skipper! Mind the cleaver, mind the cleaver! Bess be the loudest gun on this here cove, an' I will out-shout, out-shoot, an' out-drink anyone who says different. The Admiral, bless 'im, signs me chits an' covers his ears.
--> What's a 'broadside', exactly?
+Broadside Bess: AHOY! Bess, gunner. Stand on me left. The other side's been known to go off.
+-> What's a broadside, exactly?
     <<jump pirate_heavy_broadside_bess__1>>
--> How d'ye end up in this cove?
+-> How'd you become a gunner?
     <<jump pirate_heavy_broadside_bess__2>>
+-> Are you ready for the shipment?
+    Broadside Bess: I've got powder, I've got shot, and I've got orders to leave the cargo intact. One of those things is spoilin' my fun.
 -> Carry on.
 ===
 
 title: pirate_heavy_broadside_bess__1
 ---
-Broadside Bess: A BROADSIDE, ye landlubber? Every gun on one side, all at once — BOOM, boom-boom-boom! Twelve of 'em when the deckhands remember powder. If ye want to try it, ask me which side to stand on FIRST.
+Broadside Bess: All the guns on one side, fired together! Twelve of em when the deckhands remember powder. Want to hear how loud this blade is?
 -> Aye, another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
@@ -159,7 +161,7 @@ Broadside Bess: A BROADSIDE, ye landlubber? Every gun on one side, all at once �
 
 title: pirate_heavy_broadside_bess__2
 ---
-Broadside Bess: Three crews back I was gunner on the Stormpetrel. Captain told me to hold fire. Then the ship rolled, I fired, and he went over the rail swearin' my name all the way down. He swam back to port. I kept sailing. YARRRGH.
+Broadside Bess: Worked the guns on the Stormpetrel. Captain told me to hold fire. Then the ship rolled, I fired, and off he went over the rail. He swam back to port. I kept sailing.
 -> Aye, another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
@@ -167,11 +169,13 @@ Broadside Bess: Three crews back I was gunner on the Stormpetrel. Captain told m
 
 title: pirate_heavy_iron_mary
 ---
-Iron Mary: Hmmph. Iron Mary. Don't shake me hand, ye'll lose a finger. Admiral keeps me 'round when somethin' needs hittin'. Wee skipper, what brings ye to a cove full o' shouters?
--> Why 'Iron'?
+Iron Mary: Hmm. If ye want Bess, she's over there. Follow the noise.
+-> Why Iron Mary?
     <<jump pirate_heavy_iron_mary__1>>
 -> How do you fight a ninja?
     <<jump pirate_heavy_iron_mary__2>>
+-> What do you do between raids?
+    Iron Mary: Fit plates. Repair the rail. Teach the new ones how to fall off a yard without breaking their necks.
 -> Carry on.
 ===
 
@@ -185,7 +189,7 @@ Iron Mary: This plate came off a navy cutter we sank. Good metal, so I dragged i
 
 title: pirate_heavy_iron_mary__2
 ---
-Iron Mary: Get close. They like room to move, so don't give 'em any. One got behind me once. I went backwards through the door with him still there.
+Iron Mary: Last one jumped over me shoulder, so I backed him against the bulkhead. If ye get aboard with me, leave that bit of deck clear.
 -> Another, then.
     <<jump pirate_heavy_iron_mary>>
 -> Carry on.
@@ -203,7 +207,8 @@ Salt Annet: Yarrrr. Salt in me eyes again. In me coffee too. Sit a spell, wee sk
 
 title: pirate_heavy_salt_annet__1
 ---
-Salt Annet: Signed on under the last Badely. This one wasn't a captain when he came to us. Three ships have rotted at this dock since. I'm outlastin' the fourth, too.
+Salt Annet: Signed on under the last Badely. This one was still learning his knots when I met him.
+Salt Annet: He's got a good eye for weather. If he ever tells ye to put in at a port when the sky looks clear, do it.
 -> One more, ye old salt.
     <<jump pirate_heavy_salt_annet>>
 -> Carry on.
@@ -245,17 +250,19 @@ Lookout: Quartermaster halved the salt pork. Six pirates, three burnin' sharks, 
 
 title: pirate_navigator
 ---
-Navigator: Three sharks, three riders, three sets o' teeth. They orbit on station at altitude 'til somethin' they fancy steps onto the planks — that be you, lubber — then they peel off and broadside. Here be the rub: every few breaths they come about and reverse the orbit, so ye can't lead 'em like a duck shoot.
--> What's their course aloft?
+Navigator: Get away from the chart, lubber! I had that weighted down. If ye see ink on your boots, give me a rag.
+-> What are the riders doing aloft?
     <<jump pirate_navigator__1>>
--> How d'ye dodge their broadside?
+-> How do I dodge their broadside?
     <<jump pirate_navigator__2>>
+-> Where's the shipment heading?
+    Navigator: That's the bit I'm working on. A ship that size has to turn with the wind. If I can work out where she'll do it, the Admiral can decide whether we go after her.
 -> ‹ready your blade›
 ===
 
 title: pirate_navigator__1
 ---
-Navigator: Three roles aloft, picked at sail-out an' kept 'til death. HOVER holds the weather gauge an' fires. SWOOP dives every three breaths. RETREAT climbs an' stretches the cadence so ye lose the beat. An' atop all of it — the reverse. Watch the SHARK, not the rider; the rider just pulls the trigger.
+Navigator: One rider stays high and shoots, one swoops down, and one likes to climb away after a pass. Watch where the sharks are heading. They change direction often enough to throw yer aim off.
 -> One more question, cap'n cartographer.
     <<jump pirate_navigator>>
 -> ‹ready your blade›
@@ -263,7 +270,7 @@ Navigator: Three roles aloft, picked at sail-out an' kept 'til death. HOVER hold
 
 title: pirate_navigator__2
 ---
-Navigator: Easy now — they don't fire on the navigator, see. They'd never find their way home if they did. I've been tryin' to chart a route past the freighter's escort, but I can't keep the ink in the pot with those sharks aloft.
+Navigator: Don't stand at the edge waitin' to see where the shot lands. Move when the rider starts his turn. If ye can get close, strike as he comes past.
 -> One more question, cap'n cartographer.
     <<jump pirate_navigator>>
 -> ‹ready your blade›
@@ -291,7 +298,7 @@ Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bess requisitione
 
 title: pirate_quartermaster__2
 ---
-Quartermaster: Up the riggin', through the hatch in the overhead — that's where the lookout's perched. Mind ye: the crew be in a black humor today. Every shark wears a rider with a grudge an' a flintlock, an' they fire before they ask yer name. Ye try splittin' six pork rations 'tween six pirates an' three on-fire sharks an' see how SWEET-tempered ye'd be.
+Quartermaster: Up the riggin', through the hatch in the overhead. Lookout's up there. Take care past him; the shark riders have been circlin' the cove all morning, and they shoot at folk they don't know.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
 -> ‹step aside›
@@ -386,7 +393,7 @@ Parrot: "The treasure was the priors we updated along the way." ...I don't know 
 
 title: pirate_admiral__ninja
 ---
-Admiral: Pirates and ninjas went to war long before my time. That's over. Zorlack's guarding a shipment for the Authority, and I'm interested in the shipment.
+Admiral: The old pirate wars were before my time. I know Zorlack well enough. Trouble is, he's being paid to keep me off a ship I'd very much like to board.
 Admiral: He tells me he's put in for jobs in the Business Dimension. If one of 'em takes him, I'll buy him a drink. Might actually get some work done around here.
 -> Ask another question.
     <<jump pirate_admiral>>

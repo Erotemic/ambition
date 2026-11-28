@@ -28,14 +28,14 @@ Fretjaw: Walls cost money. Pit was already here. Also the floor gets beer on it.
 
 title: military_general
 ---
-General: AT EASE, RECRUIT. You are in the Iron Bastion. Parade deck below, offices above. Keep your hands off the medals.
+General: AT EASE, RECRUIT. Iron Bastion. Parade deck below, offices above. If the gate staff sent you about a lost suitcase, I do not have it.
 -> What is this place?
     <<jump military_general__1>>
 -> Why so many medals?
     <<jump military_general__2>>
 -> Ask about the gate annex.
     <<jump military_general__gate>>
--> Who's requesting gate access?
+-> Who has been requesting passenger records?
     <<jump military_general__petitions>>
 -> Salute and withdraw.
 ===
@@ -43,7 +43,7 @@ General: AT EASE, RECRUIT. You are in the Iron Bastion. Parade deck below, offic
 title: military_general__gate
 ---
 <<if verdict("world.flag_set", "gate.clearance.military") == "satisfied">>
-    General: Your clearance stands. SENTINEL is the annex, and the annex dials what the public ring may not. The log reads every dial. So do I.
+    General: Your clearance stands. SENTINEL is the annex. Report to the sentry if you arrive through its ring. Ruiz logs the traffic.
 <<elseif verdict("world.flag_set", "gate.clearance.military") == "unanswerable">>
     <<stop>>
 <<elseif boss_cleared_verdict("castle_godwin.wolfenstein") == "satisfied">>
@@ -51,7 +51,7 @@ title: military_general__gate
     <<command "world.set_flag" "gate.clearance.military" true>>
     <<command "world.set_flag" "gate.known.SENTINEL" true>>
 <<elseif boss_cleared_verdict("castle_godwin.wolfenstein") == "not_satisfied">>
-    General: The annex off the parade deck holds our ring. Priority band, logged use, clearance only. Earn a military result and we will talk about clearance.
+    General: The annex off the parade deck holds our ring. We guard the checkpoint and keep a record of crossings. Earn a military result and we will talk about clearance.
     General: And keep out of the maintenance crawlway. It is for maintenance, and for nobody who crouches.
 <<else>>
     <<stop>>
@@ -63,7 +63,10 @@ title: military_general__gate
 
 title: military_general__1
 ---
-General: Iron Bastion, Faction of Steel. We drill downstairs. The upper floors are offices. Avoid the upper floors unless somebody outranks you enough to make it unavoidable.
+General: Iron Bastion, Faction of Steel. We drill downstairs and administer the military gate annex. Civilian gate traffic is handled by the Authority's Concourse.
+General: If I need a passenger manifest, I send Brandt to the Manifest Office. If they need a guard detail, they come to me.
+-> What does your garrison do?
+    General: Keep the troops ready, guard the annex, and respond when called upon. I have a standing order to keep the rifles out of the Concourse unless there is an emergency.
 -> Ask another question.
     <<jump military_general>>
 -> Salute and withdraw.
@@ -133,8 +136,8 @@ Chadwick III: The boardroom faces up because vision is a direction. Looking down
 
 title: military_general__petitions
 ---
-General: The castle submits another request for our passenger records every month. One page this time, six pages last time.
-General: Haven't signed it. The office that wants it can send somebody up here and explain themselves.
+General: Castle Godwin has asked for our passenger records again. I declined the last request. Brandt tells me they have addressed this one to the civilian Manifest Office as well.
+General: If a man crosses through my annex and hands my sentry his papers, I see no reason for Castle Godwin to have a copy.
 -> Ask another question.
     <<jump military_general>>
 -> Salute and withdraw.

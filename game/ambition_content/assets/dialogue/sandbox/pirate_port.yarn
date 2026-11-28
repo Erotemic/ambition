@@ -15,9 +15,9 @@ title: pirate_port_context
 title: pirate_port_ines
 ---
 <<if verdict("world.flag_set", "pirate_port_manifest_returned") == "satisfied">>
-Ines: Page eleven, back in the book. The goat is logged, the limes are logged, and you are logged as "helpful".
+Ines: I've got page eleven back in the book. The warehouse is open again. Thank you for climbing up there.
 -> What came through today?
-    Ines: Two crates of lamp oil, a mapmaker with a nosebleed, and a letter for "whoever is in charge". I filed it under me.
+    Ines: Two crates of lamp oil, a mapmaker with a nosebleed, and a letter addressed to the harbour master. Bram swears he's never heard of the sender.
 -> Has anyone asked for the passenger list?
     Ines: A broker sent a letter asking for the names of everyone arriving from Castle Godwin's side. Didn't say who he worked for.
     Ines: I asked him to come in person. Haven't seen him.
@@ -28,7 +28,7 @@ Ines: Page eleven, back in the book. The goat is logged, the limes are logged, a
 Ines: Is that page eleven? From the crow's nest? You climbed the Persistence for a page of my log?
 -> Hand her the page.
     <<command "world.set_flag" "pirate_port_manifest_returned" true>>
-    Ines: Every crate in the warehouse has an owner again. Take this from the clerk's tin. Do not tell the harbour master it was a tin.
+    Ines: Oh, thank goodness. I can let the crews collect their freight now. Here, I set this aside for whoever brought the page back.
 -> Keep it a moment longer.
     Ines: It is not a souvenir. It is a legal document with a gull print on it.
 <<elseif verdict("world.flag_set", "pirate_port_manifest_found") == "not_satisfied">>
@@ -37,10 +37,12 @@ Ines: Ring freight this way. Declare it, sign it, and keep it away from the edge
     Ines: The wind took page eleven of the freight log. It went up past the brig's yards and caught in her crow's nest. Without it, half the warehouse belongs to nobody.
     Ines: The brig is at the end of the pier. Mind the gaps in the boards. The harbour keeps what it gets.
 -> What do you log?
-    Ines: Everything the ring brings. Crates, letters, a goat last week. The ring does not care what it carries. I do.
+    Ines: Cargo goes in this book. Passengers go in the other one. Last week a goat arrived with a paid passenger ticket. I had to send a note to the Authority asking which book they wanted it in.
 -> What happens when the gate gets busy?
     Ines: Passenger traffic goes first. I get the warehouse after the last sick traveller has found a bench.
     Ines: There were three fishing crews waiting for rope on Tuesday. One went out without it.
+-> Do you know who is guarding the shipment?
+    Ines: The ninjas have been coming down to the wharf. I can tell you who signed for the freight, but I won't tell you where it is going. Badely's crew have already asked.
 -> Carry on.
 <<else>>
     <<stop>>
@@ -49,11 +51,11 @@ Ines: Ring freight this way. Declare it, sign it, and keep it away from the edge
 
 title: pirate_port_tomas
 ---
-Tomas: Do not mind me. I am waiting for my stomach. It is still in the other dimension.
+Tomas: Oof. Can you pass me that water? No, wait. I'd better sit a bit longer.
 -> Is the gate always like this?
-    Tomas: For people, yes. Three seconds of nothing, then the floor arrives all at once. You are a machine. You probably felt a draught.
+    Tomas: I always feel rotten after a trip. Some of the people who came through with me are already down at the market. Wish I knew how they did it.
 -> Where are you going?
-    Tomas: To sell lamp oil to pirates. The ring made it a short trip. Nobody said it would make it a long recovery.
+    Tomas: I sell lamp oil. Got two barrels to take to Agnes and another for the cove. My brother does the deliveries when I'm like this.
 -> Does everyone come through the ring now?
     Tomas: My brother still sails. He can eat lunch underway, for one thing.
     Tomas: I've got invoices to deliver on the station tomorrow. I may sleep here tonight.
@@ -62,7 +64,7 @@ Tomas: Do not mind me. I am waiting for my stomach. It is still in the other dim
 
 title: pirate_port_agnes
 ---
-Agnes: Rope, tar, biscuits, remedies. Forty years on this street. The ring changed the customers, not the rope.
+Agnes: Morning. Rope, tar, biscuits, remedies. If you need a full coil, I keep those in the back.
 -> Ginger for the gate-sick?
     Agnes: Your friend in the plaza has bought three bags. He is not better. He is fond of ginger now.
 -> Buy Health Cell — 8g <<if can_buy("healthcell", 8)>>
@@ -82,7 +84,7 @@ title: pirate_port_jory
 ---
 Jory: Mind the boards. There are two gaps in the pier and the harbour is deeper than it looks.
 -> What do you catch?
-    Jory: Whatever this sea gives. Now the market sells fish from three seas, through the ring. Mine still taste of this one.
+    Jory: Mostly mackerel this month. Shop up the road started selling fish from another world. Huge things. Asked how to cook one and the shopkeeper asked me the same thing.
 -> What is up the brig's mast?
     Jory: The crow's nest of the Persistence. Gulls, rope and, today, a piece of paper. Ines will want that.
 -> Has the ring changed fishing?
@@ -97,27 +99,29 @@ Bram: Harbour master. The docks are mine, the cove is the crews', and the sky ov
 -> What is past that door?
     Bram: The pirate cove. Mind your manners there. The crews keep a lookout above it, where the skyship raiders gather. They do not like visitors.
 -> Does the ring bother you?
-    Bram: A ship takes a week to bring what the ring brings in a breath. I still trust the ship. The ship never felt sick.
+    Bram: It took me ten years to get the piers laid out properly. Then freight started coming through the ring and I had to find room for a warehouse. We're busier now.
 -> Is the cove safe?
     Bram: Depends who you ask. The Admiral pays his mooring fees. His raiders are less reliable.
     Bram: I send Jory in to collect. Nobody wants to start a fight with an old fisherman.
 -> Do cargo ships still earn their keep?
-    Bram: Small ones do. Long hauls are harder. Freight buyers want the gate price, then they want the ship price when the ring goes down.
+    Bram: Depends on where you live. The ring gets a crate to this port, but a fisherman up the coast still needs a boat to collect it.
+-> Who pays to guard cargo?
+    Bram: Whoever owns the cargo. The Authority put this job out to the ninjas. Ask them how much they charged; I'd like to know myself.
 -> Carry on.
 ===
 
 title: pirate_port_wren
 ---
-Lark: Welcome to The Drowned Compass. We never tell you where you are, which is why you come back.
+Lark: Welcome to The Drowned Compass. Sit wherever there's a stool. Leave the one with the jacket on it.
 -> What do you serve?
-    Lark: Grog, chowder, and a tea for the gate-sick that is mostly ginger and hope.
+    Lark: Grog, chowder, tea. I've got a pot of ginger tea on the stove if you came through the ring.
 -> Who is the big one?
     Lark: Bess, from the cove. She pays, she sings, and nobody asks about the cannon port in her blade.
 -> What's everyone arguing about?
     Lark: Bram raised the dock fees. Jory says he isn't paying. Bram says Jory never pays.
     Lark: They'll be in here after sunset to sort it out over supper.
 -> Has Bess always come here?
-    Lark: Since she was small enough to sit on the counter. Last night she bought the whole room supper. She wouldn't say why.
+    Lark: Since she was small enough to sit on the counter. She still gets cross if I give her the little bowl she used to have.
 -> Carry on.
 ===
 
@@ -129,7 +133,7 @@ Broadside Bess: Shore leave. A table, a chowder, and nobody to board. Do not rui
 -> Have you been through the ring?
     Broadside Bess: Once. I came out the other side and fired a broadside at the floor. On purpose. Probably.
 -> Heard you're going after a shipment.
-    Broadside Bess: Aye, and the Authority's hired Zorlack to guard it. The Admiral won't let me fire into the hold. Apparently he wants to SELL what's in it.
+    Broadside Bess: Aye! Zorlack's people are on guard. I offered to blast open the hold, and the Admiral asked me how much I expected to get for a crate full of holes.
 -> Are the pirates at war with the ninjas?
     Broadside Bess: Not since before my time. I've drunk with a few of 'em here. If I see one on a ship we're boarding, I'll still knock him over the rail.
 -> Enjoy the chowder.
@@ -154,7 +158,7 @@ title: pirate_port_slipp
 Fennimore Slipp: Ah. A visitor who came down the well, which means a visitor who did not come through customs, which means we are going to get on.
 -> What is all this?
     Fennimore Slipp: Imports. Upstairs they declare cargo, livestock and curses. Down here we consult on which of those it would be wiser not to.
-    Fennimore Slipp: I am not a smuggler. I am an import consultant. It says so on my card. I stamped the card myself.
+    Fennimore Slipp: Import consultant. Here's my card. Oh, you can keep it. I had eight hundred printed.
 -> Are those chickens?
     Fennimore Slipp: They are a gift. To a friend. Who is a chicken. Livestock is a word for strangers.
 -> What's under the sheet?
@@ -162,7 +166,7 @@ Fennimore Slipp: Ah. A visitor who came down the well, which means a visitor who
 -> Who are the lads at the east end?
     Fennimore Slipp: Colleagues. Tariff-averse. They will tell you about the still, mostly with cutlasses. I would not go past the barrels.
 -> I'll be going.
-    Fennimore Slipp: Up the ladder, and you were never here. Mind you, neither was I. Neither was any of it, officially.
+    Fennimore Slipp: Up the ladder. If Ines asks, you were looking for the well bucket.
 ===
 
 title: pirate_port_lamplugh
@@ -176,7 +180,7 @@ Ezra Lamplugh: Evening. Or morning. Up here it's whichever the lamp says. Mind t
 -> Do you get lonely out here?
     Ezra Lamplugh: I have the cabbages, the gulls, and every ship that doesn't sink. That's a lot of company, if you look at it right.
 -> Keep it burning.
-    Ezra Lamplugh: Always. That's the whole job. Keep it burning and tell the truth.
+    Ezra Lamplugh: I will. If you see Nell down there, tell her I'm after another tin of polish.
 ===
 
 title: pirate_port_brine
@@ -191,5 +195,5 @@ Nell Brine: Mind the glass. That is not litter, that is stock.
 -> Why stay out here?
     Nell Brine: The port charges rent. The shore charges nothing, and every tide is a delivery.
 -> Good luck with the tides.
-    Nell Brine: Luck is for gamblers. I have a calendar of them.
+    Nell Brine: Come back after the next high tide. There might be a whole new shop by then.
 ===

@@ -21,7 +21,9 @@ title: hall_pirate_admiral
 ---
 Admiral: Ahoy! R. Badely, at your service. Provided you're not with the customs office.
 -> Were you always a pirate?
-    Admiral: No. Used to wear an Authority uniform. Much preferred the hat they gave me aboard ship.
+    Admiral: No. I signed up with the Authority. Got gate-sick on a crossing to PVN and ended up taking to the sea there.
+-> Would you go through another gate?
+    Admiral: I'd dearly like to see the Noodle Dimension. Think I'll stick to ships for now.
 -> What makes a good captain?
     Admiral: A crew that trusts ye when the wind changes. And enough sense to listen to the one who tells ye it's changing.
 -> What do you do for fun?
@@ -119,9 +121,9 @@ Infinite Sandbag: Nine thousand nine hundred and ninety-nine.
 
 title: hall_npc_general
 ---
-General: AT EASE. I have been saying that for thirty years. The army left before the habit did.
+General: AT EASE. I command the Iron Bastion. I am inspecting the facilities here today.
 -> What do you do here?
-    General: Threat reports. Nobody requested them. I filed one on that rope this morning.
+    General: The garrison guards the military annex in the Authority dimension. I would like to know who is supposed to be guarding this hall.
 -> Are we in danger?
     General: You are seventh on today's threat list. Sandbag is eighth. Do not celebrate.
 ===
@@ -249,7 +251,9 @@ Zorlack: You came close without being invited. Once is enough.
 -> What do you lead?
     Zorlack: The Shadow Clan. I am the sixty-five thousand five hundred and thirty-sixth Zorlack. The final name on our wall.
 -> What else would you like to do?
-    Zorlack: I am looking into work in the Business Dimension. The last application asked for a reference from my previous employer. I have only ever held this position.
+    Zorlack: I have applied for management jobs in the Business Dimension. The last application asked for a reference from my previous employer. I have only ever held this position.
+-> What are you doing in the meantime?
+    Zorlack: Guarding a shipment with my clan. We accepted the contract before I received any replies. I intend to finish it.
 -> Do you know my weaknesses?
     Zorlack: I know where you leave your guard open. I have no reason to help you close it.
 ===
@@ -2595,16 +2599,16 @@ title: hall_npc_tower_dorsey
 ---
 Private Dorsey: Halt! ...Carry on.
 -> What do you guard?
-    Private Dorsey: The hub door. Two years. It has never once tried anything.
+    Private Dorsey: The parade deck and the annex entrance. I have to send people upstairs if they need clearance.
 -> You let everyone through?
-    Private Dorsey: I say halt, and then I let everybody through. It is a system.
+    Private Dorsey: Visitors can see the General. The annex checkpoint is another matter.
 ===
 
 title: hall_npc_tower_tanaka
 ---
 Private Tanaka: Hospital corners. Look at them.
 -> What's the night watch like?
-    Private Tanaka: Very quiet on the signals floor. That is the point of it.
+    Private Tanaka: Mostly checking the tape with Ruiz. On a busy night I spend half the watch running up and down the ladder.
 -> And Bankole's bunk?
     Private Tanaka: A crime scene.
 ===
@@ -2613,7 +2617,7 @@ title: hall_npc_tower_bankole
 ---
 Corporal Bankole: Nobody outranks me on this floor. The beret stays.
 -> Who's in charge here?
-    Corporal Bankole: The ladder is the real chain of command. Three weeks and nobody has climbed down to check on us.
+    Corporal Bankole: Brandt. If you've got a problem with my beret, you can tell him yourself.
 -> Should you be wearing that?
     Corporal Bankole: No. The beret stays.
 ===
@@ -2633,7 +2637,7 @@ Corporal Ruiz: Copy that. *taps the tape printer*
 -> What's on the tape?
     Corporal Ruiz: Every dial of the annex ring prints a line on my tape.
 -> Anything strange?
-    Corporal Ruiz: SENTINEL, twice today. Both times it was the General.
+    Corporal Ruiz: Two test calls from a public ring. The General wanted to see the printout.
 ===
 
 title: hall_npc_math_ivo
@@ -5526,7 +5530,7 @@ Ottilie: Information! How can I direct you?
 -> What do you do here?
     Ottilie: I give directions to anywhere. Here, mostly. I can give you directions to here.
 -> Anything else?
-    Ottilie: Every address is confidential except ours. Ours is in gold on the ceiling.
+    Ottilie: Ask me for the civilian address and I can give it to you. If you need military clearance, you have to speak to the General.
 ===
 title: hall_npc_authority_baggage
 ---
@@ -5540,9 +5544,9 @@ title: hall_npc_authority_gatekeeper
 ---
 Imre: Move along, licensed traveller.
 -> What do you do here?
-    Imre: Gates come unlocked. We map them and fit the locks. That's what Authority means: we got there first, with a clipboard.
+    Imre: We survey the gates and maintain the terminals. My post is on the civilian side. The General has his own sentries at the annex.
 -> Anything else?
-    Imre: The armistice holds. We say holds a lot, round here.
+    Imre: I hope the armistice holds. I would like to retire from the same post I started at.
 ===
 title: hall_npc_authority_registrar
 ---

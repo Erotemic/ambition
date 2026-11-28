@@ -96,6 +96,34 @@ post-fight dialogue describe only the interim encounter. The old
 `pirate_treasure` quest key and `after_treasure` Yarn node IDs are retained for
 compatibility, not as evidence of a stolen chest story.
 
+## Expanded PVN and Authority pass — 2026-11-27
+
+The Iron Bastion is planned for the Gate Authority dimension, with the annex
+retained as its adjacent military facility. See [gate-network](gate-network.md#the-military-gate).
+The dialogue anticipates the move without specifying the new entrance. The
+General and Faction of Steel retain their established names. Their exact legal
+relationship to the civilian Authority and the wartime chain of command are
+open. Lines about cooperation between the garrison, Concourse and Manifest
+Office are provisional characterization, not new clearance rules. The actual
+map move remains a separate task.
+
+The dialogue pass extends the shipment thread into Pirate Port and Zorlack's
+Business College conversations. Roo remains in PVN; Zorlack can travel and
+continue the existing contract while applying elsewhere. The local Ninja
+Village has its own rank examination; its relationship to Zorlack's clan is
+left open. Ordinary NPCs have local routines rather than universal knowledge
+of the shipment. The contents, destination, raid result, job outcome,
+and replacement cove boss remain undecided.
+
+The existing `business_zorlack_met` branch provides another opportunity to
+ask about the contract. No new facts or save flags track Zorlack's travels;
+his existing appearances are retained. Reconcile placement and scheduling
+when travel becomes an actual simulated event.
+
+The Hall entries for these characters are updated for continuity. Existing
+quest commands, node IDs, gate-known flags, and clearance conditions remain.
+New anecdotes and local relationships are editable dialogue proposals.
+
 ## Validation / future work
 
 - Run the existing all-sources Yarn compiler test after editing:

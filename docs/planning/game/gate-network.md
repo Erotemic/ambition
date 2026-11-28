@@ -190,6 +190,15 @@ the annex once and never replaces them.
 
 ## The military gate
 
+**Planned location (2026-11-27):** move the Iron Bastion (`military_tower`)
+into the Gate Authority dimension. Keep the connected `military_gate_annex`
+with it unless the level-design pass decides otherwise. Dialogue now anticipates
+that setting. The relocation itself is not part of the dialogue overlay: choose
+the entrance, update the room links and dimension membership, and verify both
+walking and ring arrival paths. Keep SENTINEL, the clearance flag, and the
+maintenance crawlway unless their mechanics are separately revised. Do not
+conflate a checkpoint with a dial restriction.
+
 The annex (`military_gate_annex`, its own facility) opens off the ground floor
 of the General's tower (`military_tower`). Its ring answers `SENTINEL`. No
 faction refuses a dial, so any ring dials `SENTINEL` and `TESLA` (Jon,

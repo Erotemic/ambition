@@ -104,8 +104,8 @@ title: business_professor
         Gail: Two departments do the work of three and are paid as one. The difference is synergy.
         Gail: It's on the exam.
     -> Who is in the armour at the back?
-        Gail: Mr. Zorlack. Best attendance in the class. He bows when he hands in his work.
-        Gail: The careers office has a form about the bowing.
+        Gail: Mr. Zorlack. He asked for a class on personnel management. I gave him my old course materials, and he has been bringing me questions from his work back home.
+        Gail: I had to look up what a quarterdeck was.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -115,8 +115,11 @@ title: business_zorlack
 ---
 <<present_speaker "npc_ninja_shadow_oni_leader">>
 <<if verdict("world.flag_set", "business_zorlack_met") == "satisfied">>
-    Zorlack: The professor says a leader can lead anything. I asked her what she would choose to lead.
-    Zorlack: She said a department with a parking space.
+    Zorlack: Still no interview. I checked my mailbox before I came to class.
+    -> What about the clan?
+        Zorlack: We have work guarding a shipment in PVN. I intend to complete the contract while I wait for a reply.
+    -> How are the classes going?
+        Zorlack: We are studying the allocation of resources. I asked if we could use an actual watch roster for the exercise. The professor gave me a spreadsheet.
     -> ‹go›
 <<elseif verdict("world.flag_set", "business_zorlack_met") == "not_satisfied">>
     <<command "world.set_flag" "business_zorlack_met" true>>
@@ -124,10 +127,14 @@ title: business_zorlack
     -> What are you doing here?
         Zorlack: Synergy 101. Sixty-five thousand five hundred and thirty-five Zorlacks led the clan before me, and none of them took a class.
         Zorlack: The wall at home has a place for each of us. Mine is the last one. Nobody has told me what comes after the wall.
-        Zorlack: So I am asking a college.
+        Zorlack: I thought I might find some other work. I came here to find out what qualifications I need.
+    -> What jobs have you applied for?
+        Zorlack: Management. The last application asked for the number of people who report to me. I entered the whole clan. The form only accepted two digits.
+    -> What is your clan doing while you study?
+        Zorlack: We have been hired to guard a shipment. I have a good duelist who can organize the watches while I attend class. I go back when I am needed.
     -> Why the armour?
         Zorlack: The careers office asked the same. Their dress code says: bring your whole self, in a navy suit.
-        Zorlack: This is my whole self. It was my grandfather's whole self before me. I polished it for the interview.
+        Zorlack: This armour belonged to my grandfather. I polished it for the interview. I will purchase a suit if they insist.
         Zorlack: I have not been given an interview.
     -> ‹go›
 <<else>>

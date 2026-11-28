@@ -2,19 +2,26 @@ title: authority_information
 ---
 <<present_speaker "npc_authority_information">>
 <<if verdict("world.flag_set", "authority_information_met") == "satisfied">>
-    Ottilie: Information! You're still here. I checked.
+    Ottilie: Information! What are you looking for this time?
+    -> What is the Iron Bastion?
+        Ottilie: Military tower. The General has his office there. If you need clearance for the military annex, ask him.
+    -> What if someone feels sick after a crossing?
+        Ottilie: You can sit in the Concourse until you feel better. If you are still ill after the others have recovered, ask a member of staff for help.
     -> ‹go›
 <<elseif verdict("world.flag_set", "authority_information_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_information_met" true>>
     Ottilie: Welcome to the Concourse, licensed traveller. Information. How can I direct you?
     -> Where can I go from here?
-        Ottilie: Anywhere at all! Which address would you like?
-        Ottilie: Oh, I can't tell you that one. Or that one. Addresses are confidential.
+        Ottilie: Which address would you like? We have a list of public addresses. For some of the others, you need to speak to the office that manages the gate.
         Ottilie: Except LEGAL. You're standing in it. Everyone gets LEGAL. It's posted on every terminal in the network.
-        Ottilie: And our terminal posts the one address you came in wanting. Home, presumably. We don't ask.
+        Ottilie: Our terminal also posts a way back to the public hub. If you know another address, you can dial it yourself.
     -> Where am I?
         Ottilie: The Central Hub, seat of the Gate Authority. You came in by our own gate, LEGAL.
         Ottilie: Authority Plaza is east. Lost Baggage is down through the grate. Mind the claw.
+    -> Who handles military clearance?
+        Ottilie: The General at the Iron Bastion. His people have their own gate annex. We handle the civilian ring here.
+    -> Is there somewhere to recover from a crossing?
+        Ottilie: You can sit in the Concourse. We get people who need a few minutes and some who need most of the day. I would rather you sat down than fell on the stairs.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -44,18 +51,22 @@ title: authority_gatekeeper
 ---
 <<present_speaker "npc_authority_gatekeeper">>
 <<if verdict("world.flag_set", "authority_gatekeeper_met") == "satisfied">>
-    Imre: Move along, licensed traveller. The clock is watching.
+    Imre: Morning. Keep the gate clear, please.
+    -> Does the military use this gate?
+        Imre: Sometimes. Their annex has its own checkpoint. If they want to bring a squad through here, I ask them to wait until the civilians are clear.
+    -> Who can dial a military gate?
+        Imre: Anybody who has its address. Getting past the sentry when you arrive is another question.
     -> ‹go›
 <<elseif verdict("world.flag_set", "authority_gatekeeper_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_gatekeeper_met" true>>
     Imre: Gatekeeper Imre, Gate Authority. Papers?
     Imre: You're a robot. Your papers are you. Fine.
     -> What does the Authority do?
-        Imre: Gates come unlocked. Anyone with the right chevrons can walk through one. We find them, map them, and fit the locks.
-        Imre: That's what Authority means. We got there first, with a clipboard.
+        Imre: We survey rings, maintain terminals, and keep records of crossings at our posts. Anybody can dial a working gate if they know the address.
+        Imre: People tend to come to us when they need the address, or when something breaks.
     -> Who were you at war with?
         Imre: The regime. The ones whose banners we don't hang. It ended in a stalemate, a little in our favour.
-        Imre: There's an armistice. It holds. We say holds a lot, round here.
+        Imre: We have an armistice. I hope it lasts.
     -> What is the clock for?
         Imre: Every licensed gate keeps its time by that clock. It is never wrong.
         Imre: Occasionally it is corrected.
@@ -69,6 +80,8 @@ title: authority_registrar
 <<present_speaker "npc_authority_registrar">>
 <<if verdict("world.flag_set", "authority_registrar_met") == "satisfied">>
     Registrar: Now serving four thousand and ninety-six. You are sixty-five thousand, five hundred and thirty-seven.
+    -> Do you keep records for the military?
+        Registrar: Ask the Iron Bastion for their annex logs. They send me summaries. They do not send them often enough.
     -> ‹go›
 <<elseif verdict("world.flag_set", "authority_registrar_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_registrar_met" true>>
@@ -76,8 +89,8 @@ title: authority_registrar
     -> I don't have a number.
         Registrar: Then you were never in the queue. Then you were never here. That's quicker for both of us.
     -> What is this place?
-        Registrar: The Manifest Office. Every traveller through every licensed gate is on a manifest, and we keep the manifests.
-        Registrar: We never delete a record. Deleting is crude. We correct it, and then it was always so.
+        Registrar: The Manifest Office. We receive manifests from the staffed gates. If an office reports the same passenger twice, we have to reconcile the entries.
+        Registrar: And if a director sends a correction, we file the corrected record. No, you cannot see the original.
     -> Am I on the manifest?
         Registrar: Let me see. You are... not.
         Registrar: Don't worry. A traveller who is not on the manifest has been nowhere. You are spared the trouble of having been anywhere.

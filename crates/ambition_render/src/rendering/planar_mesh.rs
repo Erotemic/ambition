@@ -7,10 +7,16 @@ use bevy::camera::primitives::{Aabb, MeshAabb};
 use bevy::camera::visibility::{RenderLayers, VisibilitySystems};
 use bevy::prelude::{
     App, Asset, Assets, Camera, Camera2d, Commands, Component, Entity, FromWorld, Handle,
-    IntoScheduleConfigs, Mesh, Mesh2d, PostUpdate, Query, Rectangle, RemovedComponents, Resource,
-    SystemSet, Transform, Visibility, With, World,
+    IntoScheduleConfigs, Mesh, Mesh2d, PostUpdate, Query, Rectangle, RemovedComponents, Res,
+    ResMut, Resource, SystemSet, Transform, Visibility, With, World,
 };
-use bevy::sprite_render::{Material2d, MeshMaterial2d};
+use bevy::render::render_asset::RenderAssets;
+use bevy::render::sync_world::MainEntityHashMap;
+use bevy::render::{Render, RenderApp};
+use bevy::sprite_render::{
+    AlphaMode2d, Material2d, MeshMaterial2d, PreparedMaterial2d, RenderMaterial2dInstances,
+    RenderMesh2dInstances,
+};
 
 /// The geometry and material selected for one planar surface.
 /// A surface has one selected material. Remove the old typed component
@@ -53,6 +59,38 @@ enum PlanarMesh2d {
     Bind,
 }
 
+#[derive(Resource, Default)]
+pub(super) struct TransparentMeshDepths2d(pub MainEntityHashMap<f32>);
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(super) enum MeshPaint2d {
+    Clear,
+    Collect,
+}
+
+pub(super) fn clear_mesh_depths(mut depths: ResMut<TransparentMeshDepths2d>) {
+    depths.0.clear();
+}
+
+fn collect_mesh_depths<M: Material2d>(
+    depths: Option<ResMut<TransparentMeshDepths2d>>,
+    meshes: Option<Res<RenderMesh2dInstances>>,
+    instances: Option<Res<RenderMaterial2dInstances<M>>>,
+    materials: Option<Res<RenderAssets<PreparedMaterial2d<M>>>>,
+) {
+    let (Some(mut depths), Some(meshes), Some(instances), Some(materials)) = (depths, meshes, instances, materials) else {
+        return;
+    };
+    for (entity, id) in instances.iter() {
+        let Some(material) = materials.get(*id).filter(|material| material.properties.alpha_mode == AlphaMode2d::Blend) else {
+            continue;
+        };
+        if let Some(mesh) = meshes.get(entity) {
+            depths.0.insert(*entity, mesh.transforms.world_from_local.translation.z + material.properties.depth_bias);
+        }
+    }
+}
+
 /// Install the 2D bindings for one material type.
 pub fn install_planar_mesh_2d<M: Material2d>(app: &mut App) {
     if app.world().contains_resource::<Installed<M>>() {
@@ -74,6 +112,9 @@ pub fn install_planar_mesh_2d<M: Material2d>(app: &mut App) {
                 bind_meshes::<M>.in_set(PlanarMesh2d::Bind),
             ),
         );
+    if let Some(render) = app.get_sub_app_mut(RenderApp) {
+        render.add_systems(Render, collect_mesh_depths::<M>.in_set(MeshPaint2d::Collect));
+    }
 }
 
 fn retire_bindings<M: Material2d>(

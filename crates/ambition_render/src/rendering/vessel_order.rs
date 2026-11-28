@@ -19,6 +19,7 @@ use bevy::render::{Extract, ExtractSchedule, Render, RenderApp, RenderSystems};
 
 use super::actors::rigged::{LimbTwin, RiggedPartSlot, RiggedPresentationOf};
 use super::moving_platforms::{SeatedInVessel, VesselPanel, FRONT_LAYER_Z};
+use super::planar_mesh::{clear_mesh_depths, MeshPaint2d, TransparentMeshDepths2d};
 use super::posed_hand::HeldArtOf;
 use super::worn_gear_visuals::WornGearVisual;
 
@@ -66,8 +67,11 @@ pub(super) fn install(app: &mut App) {
         assert_eq!(removed.ok(), Some(1), "expected one Transparent2d sorter");
         render
             .init_resource::<VesselOrders>()
+            .init_resource::<TransparentMeshDepths2d>()
+            .configure_sets(Render, (MeshPaint2d::Clear, MeshPaint2d::Collect).chain().in_set(RenderSystems::PhaseSort))
             .add_systems(ExtractSchedule, extract_vessel_orders)
-            .add_systems(Render, sort_vessels_2d.in_set(RenderSystems::PhaseSort));
+            .add_systems(Render, clear_mesh_depths.in_set(MeshPaint2d::Clear))
+            .add_systems(Render, sort_vessels_2d.in_set(RenderSystems::PhaseSort).after(MeshPaint2d::Collect));
     }
 }
 
@@ -159,10 +163,19 @@ pub(super) fn extract_vessel_orders(
 
 fn sort_vessels_2d(
     orders: Res<VesselOrders>,
+    mesh_depths: Res<TransparentMeshDepths2d>,
     mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
 ) {
     let has_peers = orders.0.values().any(|order| order.has_room_peer);
     for phase in phases.values_mut() {
+        // Bevy retains mesh sort keys when only the transform changes.
+        if !mesh_depths.0.is_empty() {
+            for item in phase.items.values_mut() {
+                if let Some(&depth) = mesh_depths.0.get(&item.entity.1) {
+                    item.sort_key = FloatOrd(depth);
+                }
+            }
+        }
         if !has_peers {
             phase.sort();
         } else {

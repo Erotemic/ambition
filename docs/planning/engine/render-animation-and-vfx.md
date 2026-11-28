@@ -412,6 +412,114 @@ historical measurements qualified; hardware frame-time improvement remains
 to be measured on the selected visible host. The pool's existence is neither
 missing implementation nor proof that these other costs are small.
 
+### R9 - debris with material and shape
+
+**Proposed.** Use a wooden breakable and the cracked seam in the Elemental
+Mine to prove the authoring path and the visual result.
+
+#### Current path
+
+- The sim sends [`DebrisBurstMessage`](../../../crates/ambition_vfx/src/vfx.rs)
+  with a room, a position and a cue. A breakable has an
+  [authored look](../../../crates/ambition_breakables/src/lib.rs). Its
+  [break effect](../../../crates/ambition_breakables/src/simulation.rs) sends
+  the same brown debris recipe and spark burst for all looks. A body impact
+  already sends material, strength and launch through `ImpactBlow`. Its
+  separate debris message carries only the cue.
+- The [Avian adapter](../../../crates/ambition_platformer2d_physics_debris/src/lib.rs)
+  makes a colored rectangle and a rectangular collider for each piece.
+  The cue sets the size, color, impulse and lifetime. An impact emits four
+  pieces and a breakable emits nine before quality scaling. High and Ultra
+  use the same art as Potato. The quality budget limits the count.
+- The adapter builds room colliders from authored blocks on the first burst
+  in each live room. It stamps the pieces with that room and pauses Avian
+  when all active pieces are gone. This static block copy can disagree
+  with a slope or with a gate that opens during play. The renderer also has
+  [sprite FX and particles](../../../crates/ambition_render/src/fx.rs) for
+  sparks, dust and small chips.
+- The [mine seam](../../../game/ambition_map_assets/ambition_content/generators/elemental_mine/make_specs.py)
+  uses the default wooden breakable look. In a High capture, it breaks into
+  small brown rectangles that bounce, rest on the floor and disappear.
+
+#### First playable slice
+
+1. Capture the same break on Potato and High. Use a wooden crate in the
+   Sandbox and the mine seam. Record the intact frame, the split, the
+   landing and the cleared route at the normal game camera scale. Measure
+   one burst, repeated breaks, and the first burst after room entry. Include
+   image loads, live piece count and the time for presentation and physics.
+2. Give each material a distinct breakup. Make the crate split into a
+   recognizable corner, board ends and long splinters. Let the boards turn
+   and land with a short bounce. Give the mine seam an intact stone look
+   and angular pieces that show the same rock layers. Follow the break
+   with a short cloud of stone dust. Emit the large pieces from points
+   inside the source bounds. Use the contact direction for a strike and
+   a downward collapse for a break under weight. Keep the cleared passage
+   and the actor visible.
+3. Generate the pieces in the existing sprite renderer. Author the large
+   silhouettes and their pivots. Cut parts from the intact art where the
+   grain or rock layers must continue across the split. Use procedural
+   variants for small chips. Publish the atlas frames and pivots through the
+   existing asset path and its quality variants. Load the required sheets
+   with the room's breakable looks. Provide a preview that takes a recipe,
+   a source pose or bounds, a seed and a quality tier. Use the same prepared
+   recipe in the preview and in the game.
+4. Use the existing break and hit paths to send the facts the effect needs.
+   The breakable path supplies the look, bounds, mode of break and contact
+   point when known. Capture these facts at the accepted break. Reuse the
+   impact contact data when it applies. A provider binds a look or a named
+   scripted effect to a recipe. Prepare and validate the named frames,
+   pivots and fallback in the content pack. The presentation system owns
+   the piece selection, motion and lifetime. The producer owns the event
+   and its live room.
+   Use an occurrence seed for a repeatable burst. Select its main pieces
+   first so lighter tiers can omit detail and keep the shape of the event.
+5. Start High with a few textured pieces on the existing rigid body path
+   and use the particle path for the small chips and dust. On Medium, keep
+   the main silhouettes and reduce the small pieces. On Potato, use a
+   short and cheap burst with the material's color and direction. Keep the
+   break and its sound readable. Measure the art at the same live-piece
+   count before raising the budgets. Use the existing quality authority
+   and measure rigid body cost separately from particle count.
+
+#### Follow-up decisions
+
+- Compare the crate and stone at game scale before adding more content.
+  A strong next customer is Mother Lode's shell. Her crown and chest
+  plates can separate from their authored frame positions and fall around
+  the core. Use the shared recipe and give the pieces their own art and
+  launch settings. Keep a corpse or reward that must survive a revisit
+  under its existing game-state owner.
+- If a visible piece lands on a surface that the block copy misses, compare
+  a presentation-only sweep against the live collision view with the Avian
+  path for that contact. Use the chosen support view for world bounces.
+  Measure first-use cost before adding slope or gate copies to the physics
+  adapter. Use full rigid body contacts only where rotation and multiple
+  contacts make the main pieces read better.
+- One burst belongs to one live room. Views that show that room draw the
+  same pieces, including a portal view where the ordinary presentation
+  path admits them. Count the pieces once. Retire them with the room.
+  A rewind can retract or rebuild the effect. Collision, drops and
+  progression come from the gameplay event at every quality tier and in
+  a headless host.
+
+#### Acceptance for the first slice
+
+- Show the two breaks in motion at normal camera scale. A viewer can tell
+  the wood from the stone by the fragments and their motion. Compare
+  breakup, landing and fade for High and Potato from the same events.
+- Confirm that hitting and standing on a breakable still use the same
+  break publication path. Check that a scripted break can select the
+  same recipe. Check equal gameplay results with debris on and off.
+- Check room isolation when two rooms use the same coordinates, cleanup
+  on room exit, and one rollback across the break. Check the room seen
+  through a portal if it admits the effect. Use the existing room and
+  rollback fixtures.
+- Compare cost and image demand for the first burst and repeated bursts.
+  Include a quiet room and a low-capacity target. Change quality during
+  play and check the next burst's tier and count. Use these results to
+  decide the live body and particle budgets.
+
 ## Acceptance
 
 This program is healthy for Engine 1.0 when:

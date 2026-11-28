@@ -17392,7 +17392,7 @@
             manifest: "sprites/greater_imp_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
-            standing_height: Some(54.0),
+            standing_height: Some(64.0),
             composition: None,
             default_action_set: "greater_imp_flame",
             death_traits: Some((corpse: Some(Vanish))),

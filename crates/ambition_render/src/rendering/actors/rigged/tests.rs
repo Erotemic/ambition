@@ -1567,6 +1567,34 @@ fn app_direct(sprite_content: &ambition_sprite_sheet::SpriteContent, sheet: Char
     (app, root)
 }
 
+#[test]
+fn an_arriving_body_fades_on_its_current_sprite_path() {
+    use crate::rendering::actor_entrance::{present_actor_entrances, ActorEntranceFade};
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let sheet = raider(&sprite_content, true);
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
+    app.init_resource::<Time>()
+        .init_resource::<ambition_time::ClockState>()
+        .add_systems(Update, present_actor_entrances.after(animate).before(RiggedDriveSet));
+    app.world_mut().entity_mut(root).insert(ActorEntranceFade::default());
+    app.update();
+
+    let owner = owner(&app, root);
+    let body = app.world().get::<RiggedPresentation>(owner).unwrap();
+    assert!(body.impostor.is_none());
+    let opacity = app.world().get::<Sprite>(root).unwrap().color.alpha();
+    assert!(opacity > 0.0 && opacity < 1.0);
+    let sample = app.world().get::<RiggedLocalSample>(owner).unwrap();
+    let draws = sample.parts().unwrap();
+    assert!(!draws.is_empty() && body.slots.len() >= draws.len());
+    for (slot, draw) in body.slots.iter().zip(draws) {
+        let sprite = app.world().get::<Sprite>(*slot).unwrap();
+        assert!((sprite.color.alpha() - draw.opacity() * sample.frame_opacity * opacity).abs() < 1e-5);
+    }
+}
+
 /// Review finding #7 (2026-10-19). A part-drawn body that its passage
 /// fades is composited: it fades as one picture. Control: a passage look at
 /// full opacity leaves it drawn directly. Measured before: nothing declared

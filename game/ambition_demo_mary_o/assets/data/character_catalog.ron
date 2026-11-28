@@ -294,6 +294,7 @@
         // shell drives.
         "solid_snake": (
             display_name: "Solid Snake",
+            hall_dialogue_id: Some("hall_solid_snake"),
             manifest: "sprites/solid_snake_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -357,6 +358,7 @@
         // rule makes its head safe, so a stomp on it is a hit.
         "snake_plant": (
             display_name: "Snake Plant",
+            hall_dialogue_id: Some("hall_snake_plant"),
             manifest: "sprites/snake_plant_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -427,6 +429,7 @@
         // bridge because the level puts a post at each end.
         "void_lizard": (
             display_name: "Void Lizard",
+            hall_dialogue_id: Some("hall_void_lizard"),
             manifest: "sprites/void_lizard_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,

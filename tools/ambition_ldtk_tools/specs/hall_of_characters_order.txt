@@ -143,6 +143,26 @@ npc_valley_ranger
 npc_goblin_scavenger
 npc_fell_sheep
 barrow_king
+npc_fantasy_trail_keeper
+npc_fantasy_wayfarer
+npc_fantasy_broker
+npc_fantasy_cooper
+npc_fantasy_knight
+fantasy_bellback
+crag_ibex
+cockatrice
+bugbear
+barrow_toaster
+barrow_wight
+barrow_shambler
+barrow_crawler
+barrow_skeleton
+barrow_skeleton_archer
+air_elemental
+fire_elemental
+water_elemental
+earth_elemental
+lightning_elemental
 
 [Dry Dock, the Frontier's spaceport town]
 npc_frontier_clerk
@@ -160,6 +180,8 @@ npc_frontier_yardmaster
 npc_frontier_crane_driver
 npc_frontier_laundress
 npc_peyote_lean
+one_armed_bandit
+multi_armed_bandit
 
 [Capital, the city of the Business dimension]
 npc_business_dirk_quarterly
@@ -167,6 +189,11 @@ npc_business_solly_darity
 npc_business_barista
 npc_business_records_clerk
 npc_business_professor
+npc_quison
+loan_shark
+hedge_fund
+moving_goalposts
+serious_bismuth
 
 [The Neural dimension: the Cortex and the Weights]
 npc_neural_grandmother_cell
@@ -175,6 +202,12 @@ npc_neural_perceptron
 npc_neural_echo
 intrusive_thought
 attention_head
+sunk_cost_fallacy
+halo_horns_effect
+stereotyping
+anchoring_bias
+motor_neuron
+brainstorm
 
 [The Central Hub, the Gate Authority's capital]
 npc_authority_information
@@ -187,11 +220,15 @@ npc_unfinished_subclause_surveyor
 npc_unfinished_subclause_painter
 npc_unfinished_placeholder
 glitch_bug
+feature_creep
 
 [The Automaton dimension, clockwork and cells]
 npc_automaton_neighbour_moore
 npc_automaton_head
 life_spaceship
+cuckoo_clock
+replicator
+replicator_copy
 
 [The orbital station]
 npc_station_okafor
@@ -206,6 +243,8 @@ npc_station_pippin
 [The Magical dimension's people]
 npc_magical_celeste
 npc_magical_lumen
+npc_magical_wanda
+will_o_the_wisp
 
 [The Void's fighters (the Unlit)]
 void_pointed_polygon
@@ -229,6 +268,22 @@ npc_eureka_avery_gadro
 npc_eureka_barry_metric
 npc_science_nikobolt
 npc_science_coulomba
+free_radical
+
+[The Elemental Mine]
+mercury_elemental
+bromine_elemental
+bismuth_elemental
+argon_elemental
+uranium_elemental
+sodium_elemental
+lead_elemental
+npc_mine_foreman
+npc_mine_hand
+npc_mine_geologist
+npc_mine_sampler
+mother_lode
+npc_mine_lode_core
 
 [Made by the character generator]
 npc_armsmith_odile
@@ -252,6 +307,7 @@ npc_math_kleinbottle
 npc_math_lucas
 npc_math_fermette
 npc_math_kepplar
+truth_elemental
 
 [Castle Godwin's staff]
 npc_castle_hargreave
@@ -554,6 +610,8 @@ npc_evil_zombie
 npc_evil_zombie_crawler
 npc_shock_warden
 npc_searchlight_crawler
+npc_supreme_leader
+npc_command_uplink
 
 [The Art dimension]
 doodle_imp
@@ -573,6 +631,8 @@ war_drum
 clay_golem
 loom_spider
 kiln_sprite
+surprise_elemental
+danger_elemental
 
 [The History dimension]
 locust_swarm

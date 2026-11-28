@@ -2109,6 +2109,7 @@
         // pretending it is would put a mortality policy on a spawn point.
         "practice_sandbag": (
             display_name: "Practice Bag",
+            hall_dialogue_id: Some("hall_practice_sandbag"),
             manifest: "sprites/sandbag_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
             tier: MainHall,
@@ -2249,6 +2250,7 @@
         "npc_raid_brute": (
             sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
             display_name: "Raid Brute",
+            hall_dialogue_id: Some("hall_npc_raid_brute"),
             manifest: "sprites/goblin_brute_hammer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3148,6 +3150,7 @@
         "npc_giant_gnu2": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "GNU2",
+            hall_dialogue_id: Some("hall_npc_giant_gnu2"),
             manifest: "sprites/gnu_ton_boss/giant_gnu2_spritesheet.ron",
             tier: Giant,
             body_kind: Wide,
@@ -5477,6 +5480,7 @@
         // its fight builds at its arena box, so the Hall shows it at that size.
         "npc_marshal_gallus": (
             display_name: "Marshal Gallus",
+            hall_dialogue_id: Some("hall_npc_marshal_gallus"),
             cast: (importance: Secondary, roles: {"story": ["outlaw"], "encounter": ["boss"]}),
             manifest: "sprites/marshal_gallus_spritesheet.ron",
             tier: Basement,
@@ -5492,6 +5496,7 @@
         ),
         "npc_clockwork_warden": (
             display_name: "Clockwork Warden",
+            hall_dialogue_id: Some("hall_npc_clockwork_warden"),
             manifest: "sprites/clockwork_warden_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -5506,6 +5511,7 @@
         ),
         "npc_mode_collapse": (
             display_name: "Mode Collapse",
+            hall_dialogue_id: Some("hall_npc_mode_collapse"),
             manifest: "sprites/hooded_sentinel_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -5520,6 +5526,7 @@
         ),
         "npc_gram_reaper": (
             display_name: "Gram Reaper",
+            hall_dialogue_id: Some("hall_npc_gram_reaper"),
             cast: (importance: Secondary, roles: {"encounter": ["boss", "dungeon-guardian"]}),
             manifest: "sprites/gram_reaper_spritesheet.ron",
             tier: Basement,
@@ -5535,6 +5542,7 @@
         ),
         "npc_overflow": (
             display_name: "Overflow",
+            hall_dialogue_id: Some("hall_npc_overflow"),
             manifest: "sprites/gradient_sentinel_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -7175,6 +7183,7 @@
         ),
         "barrow_toaster": (
             display_name: "Haunted Toaster",
+            hall_dialogue_id: Some("hall_barrow_toaster"),
             manifest: "sprites/barrow_toaster_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
@@ -7193,6 +7202,7 @@
         "barrow_wight": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Barrow Wight",
+            hall_dialogue_id: Some("hall_barrow_wight"),
             cast: (importance: Tertiary, roles: {"encounter": ["dungeon-guardian"]}),
             manifest: "sprites/barrow_wight_spritesheet.ron",
             tier: MainHall,
@@ -7218,6 +7228,7 @@
             tags: ["enemy", "undead", "hobford", "barrow", "armored"],
             cues: (notice: Some("enemy.skeleton.alert"), tell: Some("enemy.decomposing_specter.tell"), swing: Some("enemy.skeleton.attack"), hit: Some("enemy.skeleton.hit")),
             barks: (
+                hall: ["Leave the king his rest."],
                 on_hit: ["*old bronze rattles*"],
                 idle: ["*stone scrapes on stone*"],
                 provoked: ["Leave the king his rest."],
@@ -7227,10 +7238,11 @@
         "barrow_king": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "The Barrow King",
+            hall_dialogue_id: Some("hall_barrow_king"),
             manifest: "sprites/barrow_king_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            standing_height: Some(184.0),
+            standing_height: Some(70.0),
             composition: None,
             default_action_set: "barrow_king_slash",
             // A jab (1 or 2) does not stagger him; a heavier blow does. The
@@ -7261,6 +7273,7 @@
         "barrow_shambler": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Barrow Shambler",
+            hall_dialogue_id: Some("hall_barrow_shambler"),
             manifest: "sprites/barrow_shambler_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -7283,6 +7296,7 @@
             tags: ["enemy", "undead", "zombie", "hobford", "barrow", "minion"],
             cues: (notice: Some("enemy.zombie.notice"), tell: Some("enemy.zombie.tell"), swing: Some("enemy.zombie.swing"), hit: Some("enemy.zombie.hit")),
             barks: (
+                hall: ["*linen rustles*"],
                 on_hit: ["*a dry rasp*"],
                 idle: ["*linen rustles*", "*a hollow groan*"],
             ),
@@ -7733,6 +7747,7 @@
         ),
         "stereotyping": (
             display_name: "Stereotyping",
+            hall_dialogue_id: Some("hall_stereotyping"),
             manifest: "sprites/stereotyping_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             tier: MainHall,
@@ -7751,10 +7766,11 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "neural", "cognitive_bias", "machine"],
-            barks: (idle: ["SORTING…"], provoked: ["I know your type."], on_hit: ["MISFILED!"]),
+            barks: (hall: ["SORTING..."], idle: ["SORTING…"], provoked: ["I know your type."], on_hit: ["MISFILED!"]),
         ),
         "anchoring_bias": (
             display_name: "Anchoring Bias",
+            hall_dialogue_id: Some("hall_anchoring_bias"),
             manifest: "sprites/anchoring_bias_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             tier: MainHall,
@@ -7774,10 +7790,11 @@
             max_health: Some(8),
             mass: Some(4.0),
             tags: ["enemy", "neural", "cognitive_bias", "heavy"],
-            barks: (idle: ["My first answer stands."], provoked: ["I said right here."]),
+            barks: (hall: ["My first answer stands."], idle: ["My first answer stands."], provoked: ["I said right here."]),
         ),
         "motor_neuron": (
             display_name: "Motor Neuron",
+            hall_dialogue_id: Some("hall_motor_neuron"),
             manifest: "sprites/motor_neuron_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             tier: MainHall,
@@ -7796,9 +7813,11 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "neural", "machine"],
+            barks: (hall: ["Command received."]),
         ),
         "brainstorm": (
             display_name: "Brainstorm",
+            hall_dialogue_id: Some("hall_brainstorm"),
             manifest: "sprites/brainstorm_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             tier: MainHall,
@@ -7817,6 +7836,7 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "neural", "electric"],
+            barks: (hall: ["I have another idea!"]),
         ),
         // The origami bird: a paper crane that flies. It does not attack: it
         // patrols and turns at walls (a Wanderer), and it has no contact
@@ -10889,6 +10909,7 @@
         // the hall. His fight is `supreme_leader` (`data/boss_profiles.ron`).
         "npc_supreme_leader": (
             display_name: "The Supreme Leader",
+            hall_dialogue_id: Some("hall_npc_supreme_leader"),
             cast: (importance: Secondary, roles: {"story": ["ruler"], "encounter": ["boss"]}),
             manifest: "sprites/supreme_leader_spritesheet.ron",
             tier: Basement,
@@ -10912,6 +10933,7 @@
         // and his orders go unanswered.
         "npc_command_uplink": (
             display_name: "Command Uplink",
+            hall_dialogue_id: Some("hall_npc_command_uplink"),
             manifest: "sprites/command_uplink_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
@@ -11189,6 +11211,7 @@
         "barrow_crawler": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Barrow Crawler",
+            hall_dialogue_id: Some("hall_barrow_crawler"),
             manifest: "sprites/barrow_crawler_spritesheet.ron",
             tier: MainHall,
             body_kind: Crawler,
@@ -11212,6 +11235,7 @@
             tags: ["enemy", "undead", "zombie", "hobford", "barrow", "minion", "crawler"],
             cues: (notice: Some("enemy.zombie.notice"), tell: Some("enemy.zombie_crawler.tell"), swing: Some("enemy.zombie_crawler.swing"), hit: Some("enemy.zombie.hit")),
             barks: (
+                hall: ["*nails scrape on stone*"],
                 on_hit: ["*a dry rasp*"],
                 idle: ["*nails scrape on stone*", "*linen drags across the floor*"],
             ),
@@ -11360,6 +11384,7 @@
 
         "npc_fantasy_trail_keeper": (
             display_name: "Mara",
+            hall_dialogue_id: Some("hall_npc_fantasy_trail_keeper"),
             manifest: "sprites/valley_ranger_spritesheet.ron",
             tier: MainHall, body_kind: Standard, standing_height: Some(65.0),
             default_brain: "townsfolk_roam", default_action_set: "bare_hands",
@@ -11368,6 +11393,7 @@
         ),
         "npc_fantasy_wayfarer": (
             display_name: "Anwen",
+            hall_dialogue_id: Some("hall_npc_fantasy_wayfarer"),
             manifest: "sprites/valley_shepherd_spritesheet.ron",
             tier: MainHall, body_kind: Standard, standing_height: Some(63.0),
             default_brain: "stand_still", default_action_set: "bare_hands",
@@ -11376,6 +11402,7 @@
         ),
         "npc_fantasy_broker": (
             display_name: "Nell",
+            hall_dialogue_id: Some("hall_npc_fantasy_broker"),
             manifest: "sprites/valley_trader_spritesheet.ron",
             tier: MainHall, body_kind: Standard, standing_height: Some(65.0),
             default_brain: "townsfolk_roam", default_action_set: "bare_hands",
@@ -11384,6 +11411,7 @@
         ),
         "npc_fantasy_cooper": (
             display_name: "Tom",
+            hall_dialogue_id: Some("hall_npc_fantasy_cooper"),
             manifest: "sprites/valley_miller_spritesheet.ron",
             tier: MainHall, body_kind: Standard, standing_height: Some(70.0),
             default_brain: "townsfolk_roam", default_action_set: "bare_hands",
@@ -11392,6 +11420,7 @@
         ),
         "npc_fantasy_knight": (
             display_name: "Sir Cumference",
+            hall_dialogue_id: Some("hall_npc_fantasy_knight"),
             manifest: "sprites/valley_knight_spritesheet.ron",
             tier: MainHall, body_kind: Standard, standing_height: Some(68.0),
             default_brain: "townsfolk_roam", default_action_set: "bare_hands",
@@ -11400,6 +11429,7 @@
         ),
         "fantasy_bellback": (
             display_name: "Bellback",
+            hall_dialogue_id: Some("hall_fantasy_bellback"),
             manifest: "sprites/math_show_goat_spritesheet.ron",
             tier: MainHall, body_kind: Wide, standing_height: Some(47.0),
             default_action_set: "fantasy_bellback_charge",
@@ -16587,6 +16617,7 @@
         ),
         "one_armed_bandit": (
             display_name: "One-Armed Bandit",
+            hall_dialogue_id: Some("hall_one_armed_bandit"),
             manifest: "sprites/one_armed_bandit_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             tier: MainHall,
@@ -16605,10 +16636,11 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "western", "mechanical", "outlaw"],
-            barks: (idle: ["Exact change."], provoked: ["Payout time."]),
+            barks: (hall: ["Exact change."], idle: ["Exact change."], provoked: ["Payout time."]),
         ),
         "multi_armed_bandit": (
             display_name: "Multi-Armed Bandit",
+            hall_dialogue_id: Some("hall_multi_armed_bandit"),
             manifest: "sprites/multi_armed_bandit_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             tier: MainHall,
@@ -16628,6 +16660,7 @@
             max_health: Some(9),
             mass: Some(5.0),
             tags: ["enemy", "western", "mechanical", "outlaw", "heavy"],
+            barks: (hall: ["Anybody got change?"]),
         ),
         "npc_frontier_brakeman": (
             display_name: "Hollis Teague",
@@ -16803,6 +16836,7 @@
         ),
         "npc_quison": (
             display_name: "Chef Quison",
+            hall_dialogue_id: Some("hall_npc_quison"),
             manifest: "sprites/quison_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17188,6 +17222,7 @@
         "crag_ibex": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Crag Ibex",
+            hall_dialogue_id: Some("hall_crag_ibex"),
             manifest: "sprites/crag_ibex_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17209,12 +17244,13 @@
             )),
             max_health: Some(3),
             tags: ["enemy", "animal", "quadruped", "fantasy", "mountain"],
-            barks: (idle: ["*it scrapes a hoof against the stone*"], provoked: ["*a sharp snort*"], on_hit: ["Maa!"]),
+            barks: (hall: ["*a sharp snort*"], idle: ["*it scrapes a hoof against the stone*"], provoked: ["*a sharp snort*"], on_hit: ["Maa!"]),
         ),
         // A ground monster with a long neck, bat wings, and a snake tail.
         "cockatrice": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Cockatrice",
+            hall_dialogue_id: Some("hall_cockatrice"),
             manifest: "sprites/cockatrice_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17235,12 +17271,13 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "fantasy", "monster", "cockatrice", "beast"],
-            barks: (idle: ["*a low hiss*"], provoked: ["*it clacks its beak*"], on_hit: ["*a sharp squawk*"]),
+            barks: (hall: ["*it clacks its beak*"], idle: ["*a low hiss*"], provoked: ["*it clacks its beak*"], on_hit: ["*a sharp squawk*"]),
         ),
         // A light melee undead for the fantasy barrows.
         "barrow_skeleton": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Barrow Skeleton",
+            hall_dialogue_id: Some("hall_barrow_skeleton"),
             manifest: "sprites/barrow_skeleton_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17261,12 +17298,13 @@
             )),
             max_health: Some(3),
             tags: ["enemy", "fantasy", "barrow", "undead", "skeleton"],
-            barks: (idle: ["*rattle*"], provoked: ["*bones scrape together*"], on_hit: ["*clack*"]),
+            barks: (hall: ["*bones rattle*"], idle: ["*rattle*"], provoked: ["*bones scrape together*"], on_hit: ["*clack*"]),
         ),
         // A ranged barrow undead with a warped bow and quiver of ancient arrows.
         "barrow_skeleton_archer": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Barrow Skeleton Archer",
+            hall_dialogue_id: Some("hall_barrow_skeleton_archer"),
             manifest: "sprites/barrow_skeleton_archer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17285,12 +17323,13 @@
             )),
             max_health: Some(3),
             tags: ["enemy", "fantasy", "barrow", "undead", "skeleton", "archer"],
-            barks: (idle: ["*rattle*", "*arrow nock clicks*"], provoked: ["*bone bow creaks*"], on_hit: ["*clack*"]),
+            barks: (hall: ["*arrow nock clicks*"], idle: ["*rattle*", "*arrow nock clicks*"], provoked: ["*bone bow creaks*"], on_hit: ["*clack*"]),
         ),
         // A shaggy, heavy woodland goblinoid, not another goblin skin.
         "bugbear": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Bugbear",
+            hall_dialogue_id: Some("hall_bugbear"),
             manifest: "sprites/bugbear_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17312,12 +17351,13 @@
             )),
             max_health: Some(6),
             tags: ["enemy", "fantasy", "monster", "goblinoid", "heavy", "woodland"],
-            barks: (idle: ["*a low growl*"], provoked: ["*it hefts its club*"], on_hit: ["Grrrah!"]),
+            barks: (hall: ["*a low growl*"], idle: ["*a low growl*"], provoked: ["*it hefts its club*"], on_hit: ["Grrrah!"]),
         ),
         // Air elemental: whorled cloud banks with a cutting gust attack.
         "air_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Air Elemental",
+            hall_dialogue_id: Some("hall_air_elemental"),
             manifest: "sprites/air_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -17334,6 +17374,7 @@
             max_health: Some(4),
             tags: ["enemy", "fantasy", "elemental", "air", "wind"],
             barks: (
+                hall: ["*a cold draft passes by*"],
                 on_hit: ["*the gale breaks and gathers again*"],
                 provoked: ["*a cutting gust rises*"],
                 idle: ["*whorl*", "*a cold draft passes by*"],
@@ -17343,6 +17384,7 @@
         "fire_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Fire Elemental",
+            hall_dialogue_id: Some("hall_fire_elemental"),
             manifest: "sprites/fire_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -17359,6 +17401,7 @@
             max_health: Some(4),
             tags: ["enemy", "fantasy", "elemental", "fire", "flame"],
             barks: (
+                hall: ["*embers drift*"],
                 on_hit: ["*it spits sparks*"],
                 provoked: ["*the heat rises*"],
                 idle: ["*crackle*", "*embers drift*"],
@@ -17368,6 +17411,7 @@
         "water_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Water Elemental",
+            hall_dialogue_id: Some("hall_water_elemental"),
             manifest: "sprites/water_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -17384,6 +17428,7 @@
             max_health: Some(5),
             tags: ["enemy", "fantasy", "elemental", "water", "wave"],
             barks: (
+                hall: ["*a quiet splash*"],
                 on_hit: ["*splash*"],
                 provoked: ["*the surface crests*"],
                 idle: ["*slosh*", "*drip*"],
@@ -17393,6 +17438,7 @@
         "earth_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Earth Elemental",
+            hall_dialogue_id: Some("hall_earth_elemental"),
             manifest: "sprites/earth_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17413,6 +17459,7 @@
             mass: Some(6.0),
             tags: ["enemy", "fantasy", "elemental", "earth", "rock"],
             barks: (
+                hall: ["*small pebbles fall*"],
                 on_hit: ["*stone chips away*"],
                 provoked: ["*a deep grinding rumble*"],
                 idle: ["*grind*", "*small pebbles fall*"],
@@ -17421,6 +17468,7 @@
         // An electrical spirit with a ranged attack.
         "lightning_elemental": (
             display_name: "Lightning Elemental",
+            hall_dialogue_id: Some("hall_lightning_elemental"),
             manifest: "sprites/lightning_elemental_spritesheet.ron",
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             tier: MainHall,
@@ -17439,11 +17487,13 @@
             default_action_set: "lightning_elemental_arc",
             max_health: Some(4),
             tags: ["enemy", "fantasy", "elemental", "lightning", "electric"],
+            barks: (hall: ["*a faint crackle*"]),
         ),
         // Mercury (Hg): a heavy, ground-based mass of liquid metal.
         "mercury_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Mercury Elemental",
+            hall_dialogue_id: Some("hall_mercury_elemental"),
             manifest: "sprites/mercury_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17466,11 +17516,13 @@
             max_health: Some(6),
             mass: Some(5.5),
             tags: ["enemy", "science", "elemental", "chemical_element", "mercury", "liquid_metal", "no_hands"],
+            barks: (hall: ["Mind the little droplets."]),
         ),
         // Bromine (Br, 35): a red-brown liquid with a reddish vapor.
         "bromine_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Bromine Elemental",
+            hall_dialogue_id: Some("hall_bromine_elemental"),
             manifest: "sprites/bromine_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17493,10 +17545,12 @@
             max_health: Some(5),
             mass: Some(3.0),
             tags: ["enemy", "science", "elemental", "chemical_element", "bromine", "halogen", "liquid", "no_hands"],
+            barks: (hall: ["Best keep your distance."]),
         ),
         "bismuth_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Bismuth Elemental",
+            hall_dialogue_id: Some("hall_bismuth_elemental"),
             manifest: "sprites/bismuth_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17519,10 +17573,12 @@
             max_health: Some(8),
             mass: Some(6.0),
             tags: ["enemy", "science", "elemental", "chemical_element", "bismuth", "crystal"],
+            barks: (hall: ["Mind that corner."]),
         ),
         "serious_bismuth": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Serious Bismuth",
+            hall_dialogue_id: Some("hall_serious_bismuth"),
             manifest: "sprites/serious_bismuth_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17545,11 +17601,13 @@
             max_health: Some(5),
             mass: Some(3.4),
             tags: ["enemy", "business", "elemental", "chemical_element", "bismuth", "crystal"],
+            barks: (hall: ["Structured growth."]),
         ),
         // Argon (Ar, 18): a noble gas with a reassuring smile.
         "argon_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Argon Elemental",
+            hall_dialogue_id: Some("hall_argon_elemental"),
             manifest: "sprites/argon_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -17578,6 +17636,7 @@
         "uranium_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Uranium Elemental",
+            hall_dialogue_id: Some("hall_uranium_elemental"),
             manifest: "sprites/uranium_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17600,11 +17659,13 @@
             max_health: Some(10),
             mass: Some(8.0),
             tags: ["enemy", "science", "elemental", "chemical_element", "uranium", "radioactive", "heavy"],
+            barks: (hall: ["Ask the lead."]),
         ),
         // The Element of Surprise, a living pop-up illustration.
         "surprise_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Surprise Elemental",
+            hall_dialogue_id: Some("hall_surprise_elemental"),
             manifest: "sprites/surprise_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -17623,6 +17684,7 @@
             max_health: Some(3),
             tags: ["enemy", "art", "elemental", "surprise", "paper"],
             barks: (
+                hall: ["Surprise!"],
                 provoked: ["Surprise!"],
                 on_hit: ["Oh!"],
             ),
@@ -17631,6 +17693,7 @@
         "sodium_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Sodium Elemental",
+            hall_dialogue_id: Some("hall_sodium_elemental"),
             manifest: "sprites/sodium_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17653,9 +17716,11 @@
             max_health: Some(4),
             mass: Some(1.4),
             tags: ["enemy", "science", "elemental", "chemical_element", "sodium", "alkali_metal"],
+            barks: (hall: ["No water, thank you."]),
         ),
         "mother_lode": (
             display_name: "Mother Lode",
+            hall_dialogue_id: Some("hall_mother_lode"),
             manifest: "sprites/mother_lode_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -17664,9 +17729,11 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["boss", "science", "mine", "elemental"],
+            barks: (hall: ["There is a quiet between blows."]),
         ),
         "npc_mine_lode_core": (
             display_name: "The Listening Seam",
+            hall_dialogue_id: Some("hall_npc_mine_lode_core"),
             manifest: "sprites/mine_listening_core_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -17675,9 +17742,11 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["science", "mine", "elemental", "peaceful"],
+            barks: (hall: ["*a faint tone rises out of the stone*"]),
         ),
         "npc_mine_foreman": (
             display_name: "Inez",
+            hall_dialogue_id: Some("hall_npc_mine_foreman"),
             manifest: "sprites/mine_foreman_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17686,9 +17755,11 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["townsfolk", "science", "mine", "peaceful"],
+            barks: (hall: ["Count the crew first."]),
         ),
         "npc_mine_hand": (
             display_name: "Ellis",
+            hall_dialogue_id: Some("hall_npc_mine_hand"),
             manifest: "sprites/mine_hand_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17697,9 +17768,11 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["townsfolk", "science", "mine", "peaceful"],
+            barks: (hall: ["Check the rails."]),
         ),
         "npc_mine_geologist": (
             display_name: "Farah",
+            hall_dialogue_id: Some("hall_npc_mine_geologist"),
             manifest: "sprites/mine_geologist_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17708,9 +17781,11 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["townsfolk", "science", "mine", "peaceful"],
+            barks: (hall: ["Keep the samples in order."]),
         ),
         "npc_mine_sampler": (
             display_name: "Tamsin",
+            hall_dialogue_id: Some("hall_npc_mine_sampler"),
             manifest: "sprites/mine_sampler_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17719,11 +17794,13 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["townsfolk", "science", "mine", "peaceful"],
+            barks: (hall: ["Sample and ticket. Same number."]),
         ),
         // A living True glyph whose parentheses frame a unique witness.
         "truth_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Truth Elemental",
+            hall_dialogue_id: Some("hall_truth_elemental"),
             manifest: "sprites/truth_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -17743,6 +17820,7 @@
             max_health: Some(5),
             tags: ["enemy", "math", "elemental", "truth", "logic", "proof"],
             barks: (
+                hall: ["Trivial."],
                 idle: ["Trivial."],
                 provoked: ["Truth hurts."],
                 on_hit: ["I stand corrected."],
@@ -17752,6 +17830,7 @@
         "danger_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Danger Elemental",
+            hall_dialogue_id: Some("hall_danger_elemental"),
             manifest: "sprites/danger_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
@@ -17770,6 +17849,7 @@
             max_health: Some(5),
             tags: ["enemy", "art", "elemental", "danger", "warning", "pictogram"],
             barks: (
+                hall: ["Caution."],
                 idle: ["Caution."],
                 provoked: ["You have been warned."],
                 on_hit: ["Danger!"],
@@ -17779,6 +17859,7 @@
         "lead_elemental": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Lead Elemental",
+            hall_dialogue_id: Some("hall_lead_elemental"),
             manifest: "sprites/lead_elemental_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -17801,6 +17882,7 @@
             max_health: Some(9),
             mass: Some(7.0),
             tags: ["enemy", "science", "elemental", "chemical_element", "lead", "heavy_metal", "heavy"],
+            barks: (hall: ["I'll be along in a minute."]),
         ),
     },
 )

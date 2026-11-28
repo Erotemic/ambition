@@ -29,7 +29,7 @@ title: station_okafor
     -> Clear the crate.
         <<command "world.set_flag" "orbital_consignment_cleared" true>>
         <<command "world.set_flag" "orbital_spur_pass" true>>
-        Officer Okafor: Stamped. The pen opens and the lane to the bay with it. One more thing: Hamid needs someone in the damaged spur who does not breathe. I put a pass on the hatch.
+        Officer Okafor: Stamped. The pen and the lane to the bay are open. Hamid needs someone who does not breathe in the damaged spur. I put a pass on the hatch.
     -> Not yet.
 <<elseif verdict("world.flag_set", "orbital_manifest_signed") == "unanswerable">>
     <<stop>>
@@ -40,7 +40,7 @@ title: station_okafor
         <<command "world.set_flag" "gate.known.TANGENT" true>>
     -> ‹step away›
 <<elseif verdict("world.flag_set", "orbital_consignment_query") == "not_satisfied">>
-    Officer Okafor: Customs. Crate 0447 in my pen is survey lenses from the Math town, for the Remainder. The manifest gives the count as "aleph-null". I cannot clear an infinite crate.
+    Officer Okafor: Customs. Crate 0447, survey lenses from Math Town for the Remainder. Quantity: "aleph-null". I cannot clear an infinite crate.
     -> I can ask the sender.
         <<command "world.set_flag" "orbital_consignment_query" true>>
         Officer Okafor: Surveyor's Office, Math town. The gate address is TANGENT. Bring me a number I can stamp.
@@ -164,8 +164,8 @@ Neil onGras Turfson: Well, actually, that blue line on the edge is all the air t
 -> Do you ever go down there?
     Neil onGras Turfson: Every leave. I take my shoes off on the first bit of grass I see. Last time it rained on me and I stayed outside till they called.
 -> Do you know Will Force?
-    Neil onGras Turfson: The horse on QED-TV? I call in from this window when he gets the sky wrong. Well, actually, he rarely gets it wrong. I call in anyway. The audience likes it.
-    Neil onGras Turfson: Last month he said the station "floats". It falls. It falls all the time, and it moves sideways fast enough that it keeps missing the ground. He thanked me on air and then asked if I had a comb.
+    Neil onGras Turfson: The horse on QED-TV? I call in when he gets the sky wrong. Well, actually, he rarely gets it wrong. I call in anyway.
+    Neil onGras Turfson: Last month he said the station "floats". It is falling, but moving sideways fast enough to miss the ground. He thanked me and asked if I had a comb.
 -> What's beyond this orbit?
     Neil onGras Turfson: Remainder goes out surveying. I work the observation window. You should ask the captain where she's been.
 -> ‹step away›

@@ -2,7 +2,7 @@ title: authority_information
 ---
 <<present_speaker "npc_authority_information">>
 <<if verdict("world.flag_set", "authority_information_met") == "satisfied">>
-    Ottilie: Information! What are you looking for this time?
+    Ottilie: Information. How can I help?
 <<elseif verdict("world.flag_set", "authority_information_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_information_met" true>>
     Ottilie: Welcome to the Concourse. Information. How can I direct you?
@@ -15,8 +15,8 @@ title: authority_information
 title: authority_information__topics
 ---
 -> Where can I go from here?
-    Ottilie: The terminal here lists public addresses. If your destination isn't listed, try the office that manages that gate; they may be able to give you its address.
-    Ottilie: Keep LEGAL written down. It is the address of this gate, and it is posted on every terminal in the network.
+    Ottilie: The terminal lists public addresses. For an unlisted one, ask the office that runs that gate.
+    Ottilie: Keep LEGAL written down. It is this gate, and every terminal lists it.
     Ottilie: Our terminal also posts a way back to the public hub. If you know another address, you can dial it yourself.
     <<jump authority_information__topics>>
 -> Where am I?
@@ -27,7 +27,7 @@ title: authority_information__topics
     Ottilie: The military tower. The General has his office there; ask him if you need clearance for the military annex. We handle the civilian ring here.
     <<jump authority_information__topics>>
 -> Where can I recover from a crossing?
-    Ottilie: Sit in the Concourse until you feel better. We get people who need a few minutes and some who need most of the day. If you are still ill after the others have recovered, ask a member of staff for help.
+    Ottilie: Rest here in the Concourse. Some need a few minutes, some most of the day. If you are still ill after the others recover, ask a member of staff.
     <<jump authority_information__topics>>
 -> Who works out when the gates are open?
     Ottilie: The timetable office. We asked them for more evening passenger slots because people were sleeping on the benches here.

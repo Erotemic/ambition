@@ -1,11 +1,11 @@
 title: magical_celeste
 ---
-Celeste Crumpet: Welcome to the Star Bakery! You're a robot, aren't you. We don't get many robots. We get a lot of void, lately, and void doesn't buy anything.
+Celeste Crumpet: Welcome to the Star Bakery! A robot! Mostly we get void these days, and void doesn't buy anything.
 -> What do you bake?
     Celeste Crumpet: The moon, in four phases. Crescents in the morning, half moons at lunch, gibbous in the afternoon. The full moon's Sundays only, and it's sold out by noon.
-    Celeste Crumpet: The new moon is free. It's an empty plate. People take it anyway. It's very popular with philosophers.
+    Celeste Crumpet: New moons are free. An empty plate. Very popular with philosophers.
 -> Why is the wand shop closed?
-    Celeste Crumpet: Out fighting the void. Wanda fixes the wands, and lately the wands come back bent from the castle. So she went to the castle. She left a note: "Back when it's straight."
+    Celeste Crumpet: Wanda's wands kept coming back bent from the castle. She's gone there herself. Her note says, "Back when it's straight."
 -> Who is Mary-O?
     Celeste Crumpet: Our magical girl. She buys a crescent every morning, eats it on the way to the castle, and comes back with the void a little smaller. She's been doing it for a week. The void is very big.
 -> I'll leave you to it.
@@ -170,7 +170,7 @@ Snake Plant: Hssss. ...Sorry. Reflex. You came up out of the ground very suddenl
 
 title: magical_rescued_robot
 ---
-Rescued Robot: Oh! Are you here to rescue me? Mary-O usually does it. She lands on the switch, the bridge falls, the gate opens, I say "Thank you, Mary-O!", and then I'm in the next castle. I don't know how. I just am.
+Rescued Robot: Here to rescue me? Mary-O usually does it. Switch, bridge, gate, "Thank you, Mary-O!" Then somehow I'm in the next castle.
 -> Do you want rescuing?
     Rescued Robot: I don't know. I've never not been rescued. It's the only thing I'm good at. If you rescue me, what will Mary-O do?
 -> How many castles?
@@ -181,9 +181,9 @@ Rescued Robot: Oh! Are you here to rescue me? Mary-O usually does it. She lands 
 
 title: magical_laden_swallow
 ---
-Laden Swallow: Coconut! Coconut! Mind your head! ...Sorry. I'm carrying a coconut. It's heavy. It's very heavy for a bird my size.
+Laden Swallow: Coconut! Mind your head! ...Heavy thing for a bird my size.
 -> African or European?
-    Laden Swallow: I KNEW somebody would ask. Every traveller on this road. "African or European?" I'm from the dunes. I'm a Stardune swallow. Nobody ever asks about the airspeed of a Stardune swallow.
+    Laden Swallow: I KNEW it. I'm a Stardune swallow. Nobody ever asks OUR airspeed.
 -> Where are you taking it?
     Laden Swallow: The castle. Mary-O drops them on things, I go and fetch them again. You'd be surprised how far a coconut rolls down those stairs.
 -> Do you get to fly without it?

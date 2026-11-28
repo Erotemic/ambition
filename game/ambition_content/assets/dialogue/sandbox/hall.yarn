@@ -152,7 +152,7 @@ Chadwick: Incredible positioning, this. Foot traffic, eyeballs, captive audience
 -> What is it you actually do?
     Chadwick: I disrupt. Categories, mostly. Right now we're pre-category but post-conviction. Huge whitespace.
 -> Disrupt what, specifically?
-    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. We're a confident posture, a deck with momentum, and a roadmap that goes up and to the right. It's working on you a little — I can tell.
+    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. Have you seen the deck?
 ===
 
 title: hall_npc_emmy_noether
@@ -536,7 +536,7 @@ title: hall_npc_girdle
 ---
 Girdle: I found a sentence the system can't prove from inside itself. I spent six months trying to break the argument. No luck.
 -> How can something be true but unprovable?
-    Girdle: Take a consistent, effectively axiomatized theory with enough arithmetic. Its Gödel sentence says, in arithmetic, that it has no proof in that theory. If the theory is consistent, the sentence has no proof there, and what it says is true of the natural numbers.
+    Girdle: Take a consistent, effectively axiomatized theory with enough arithmetic. Its Gödel sentence says that it has no proof there. It doesn't, and so what it says is true of the natural numbers.
 -> Doesn't that frighten you?
     Girdle: Please don't tell me the foundations are secure. I have spent years checking foundations. I would like one afternoon off.
 ===
@@ -1991,7 +1991,7 @@ title: hall_npc_valley_trader
 ---
 Trader: Gate goods. Lamp oil, salt, batteries. I used to shoe horses here. Now I sell imports.
 -> Do you miss the forge?
-    Trader: I still shoe the miller's mule. And I made the knight a crossguard for his new sword. I wish he'd brought it in with the switch off. Dennis has been asking me for a switch small enough to fit in the handle.
+    Trader: I still shoe the miller's mule. Made the knight a crossguard, too. Wish he'd switched the sword off. Dennis wants a smaller switch for the handle.
 ===
 
 title: hall_npc_valley_gatekeeper
@@ -2678,7 +2678,7 @@ title: hall_npc_math_monty
 ---
 Monty Carlo: Three doors! One car! Switch! Always switch!
 -> Why switch?
-    Monty Carlo: Your first choice wins a third of the time. I know where the car is, always open another door with a goat, and always offer the switch. You win by switching whenever your first choice was wrong.
+    Monty Carlo: Your first pick wins a third of the time. I know where the car is, always reveal a goat behind another door, and offer the switch. Switching wins whenever your first pick was wrong.
 -> Did anyone say you were wrong?
     Monty Carlo: Hundreds of mathematicians wrote in. I sent each of them a goat.
 ===

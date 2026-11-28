@@ -29,7 +29,7 @@ title: ninja_village_nagisa
 ---
 Nagisa: *tok, tok* Welcome through the SILENT gate. I am Nagisa. I keep it.
 -> What does a gatekeeper do?
-    Nagisa: I keep people away from it while the terminal is being used. Then I make sure everyone who comes through gets clear of the ring. Kenji usually needs a hand.
+    Nagisa: I keep the ring clear while the terminal is in use, and help arrivals off the platform. Kenji usually needs a hand.
 -> Why is the gate called SILENT?
     Nagisa: A ninja village does not announce itself. Its address should not either.
 -> What brings an alligator to a mountain village?
@@ -140,7 +140,7 @@ Sensei Hayashi: The new rank wears well. Do not let it make you slow.
     Sensei Hayashi: The next one. It has more forms.
 -> What do the ranks mean outside the village?
     Sensei Hayashi: Other schools have their own ranks. The Shadow Clan has its own traditions too. You may have to demonstrate what you can do before they accept yours.
-    Sensei Hayashi: Zorlack asked me how many students had passed this year. I sent him a number. He wanted to know how many could keep their footing on a ship. I told him to come back after the next exam and ask them himself.
+    Sensei Hayashi: Zorlack asked how many students had passed. Then he asked how many could keep their footing on a ship. He can come to the next exam and ask them himself.
 -> Thank you, Sensei.
 <<elseif verdict("world.flag_set", "ninja_village_rank_awarded") == "unanswerable">>
     <<stop>>

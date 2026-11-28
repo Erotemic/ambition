@@ -23,7 +23,7 @@ title: eureka_teodora
 Teodora: Step onto the car and it goes up. Hold the rail, and do not lean on the door.
 -> How far up does it go?
     Teodora: All the way to the station's tether hub. Thirty-six thousand kilometres of cable, and I have walked none of it.
-    Teodora: There are two operators on each shift. I work the ground end. Priya asked us to write down both clocks when we close the doors. I have given the other operator a second notebook.
+    Teodora: Two operators per shift, one at each end. Priya wants both clock readings when we close the doors. I sent up a second notebook.
 -> What is up there?
     Teodora: Customs, a docking bay, people who eat out of tubes. Further along the spoke, Gnu-ton's gravity works.
     Teodora: The empty car comes back lighter some days. Nobody can tell me why. I log it anyway.
@@ -42,7 +42,7 @@ Priya: Sorry, I thought you were the next shift. Do you know where Mina is?
     Priya: Four days since I had a night off. I slept in the lab last night and woke up when the temperature alarm went off.
 -> What are you measuring?
     Priya: Whether a clock at the top of the elevator runs fast. It does. The question is by how much, and whether my supervisor believes me.
-    Priya: Teodora is logging both ends for me. I still need to compare the signals properly. I have to account for the delay in the timing signals before I can use those readings.
+    Priya: Teodora logs both clocks. I still have to account for the signal delay before I can compare the readings.
 -> You should rest.
     Priya: Mina keeps telling me. She offered to ring my supervisor for me. I'd rather she didn't.
 -> Good luck with it.
@@ -245,7 +245,7 @@ title: eureka_quark
 ---
 Dr. Ilse Quark: Visitor! Helmet's optional, curiosity isn't. Welcome to the Eureka Collider. This is the slow bit. The fast bit is in the pipe.
 -> What does the collider do?
-    Dr. Ilse Quark: We send two beams round the ring opposite ways and make them meet in the detector. Then we read the wreckage. It's the most expensive way anyone has ever found to break something to see what's in it.
+    Dr. Ilse Quark: Two beams go round in opposite directions and collide in the detector. We read the wreckage. A very expensive way to find out what something's made of.
 -> Why the bicycles?
     Dr. Ilse Quark: The ring's twenty-seven kilometres round. The beam does it eleven thousand times a second. I do it once before lunch. We don't race. Well. I don't.
 -> What has got loose in the tunnel?
@@ -260,22 +260,22 @@ Will Force: Good evening, Eureka. I'm Will Force, and this is the news, straight
 Will Force: You are not a camera. That's fine. I never waste a good evening.
 -> What is in the news tonight?
     Will Force: Tonight's top stories. One: Priya at the institute says a clock at the top of the tether runs fast.
-    Will Force: That is not a broken clock. That is gravity. Time goes a little faster the higher you are out of a gravity well. A little. Not enough to be late for my show.
-    Will Force: Two: Teodora reports that the tether's car comes back lighter on some days. A developing story. QED-TV does not report a mystery as a fact. We report it as a mystery, with a serious face.
+    Will Force: That is gravity. The higher clock runs a little faster. Not fast enough to be late for my show.
+    Will Force: Two: the tether car comes back lighter on some days, says Teodora. We have no explanation. (He looks gravely into the camera.) A developing story.
     Will Force: And beyond the gate, lightning over a castle in another dimension. Sources say someone borrowed a coil design. Our source is Coulomba.
     Will Force: I'm Will Force. Stay curious, Eureka.
 -> Show me a demonstration.
     Will Force: Live, on my set? Absolutely. Stand behind the tape.
     Will Force: This is a Van de Graaff generator. A rubber belt carries charge up into the sphere, and the charge spreads over its outside.
-    Will Force: Touch the sphere and the charge spreads over you too. Each hair gets the same charge, and like charges push each other away. So each hair stands up and tries to leave the others.
+    Will Force: Touch it and your hairs acquire like charges. They repel one another, and up goes the hair.
     Will Force: And that is why I do not touch the sphere. The science is free. The hair is insured.
 -> Why no safety goggles?
     Will Force: Goggles leave a line in the fur, and the fur is on camera. I stand outside the tape. You must wear goggles past the tape. Do as I say, not as I wear.
 -> What is one horsepower?
-    Will Force: Seven hundred and forty-six watts. A man who sold steam engines measured horses turning mills, so his buyers could compare. My people became a unit of sales.
-    Will Force: Here is the twist: a real horse can make nearly fifteen horsepower for a moment, and less than one over a working day. I make one whole broadcast, every night. Television is endurance.
+    Will Force: Seven hundred and forty-six watts. A steam engine salesman used my people to measure his product.
+    Will Force: A horse can manage nearly fifteen horsepower in a burst, less than one all day. I do a whole broadcast every night. Television is endurance.
 -> Do you work with Carl Stargan?
-    Will Force: Carl is our astronomy correspondent. He files from the observatory. Every report begins with "look up", and every report runs long. I allow it. The universe is a big story.
+    Will Force: Carl is our astronomy correspondent. Every report from the observatory begins with "look up" and runs long. I allow it.
     Will Force: Neil onGras Turfson files from the orbital station. Well, actually, he corrects my reports from the orbital station. Live.
     Will Force: Great colleagues. Wonderful men. Neither of them has the hair.
 -> Who are you?
@@ -305,12 +305,12 @@ title: eureka_avery_gadro
 ---
 Avery Gadro: Ninety seconds to air. Do not touch the board. Do not stand on the board. Why is everyone always on the board?
 -> What does a producer do?
-    Avery Gadro: Everything that the anchor does not see. The cameras, the lights, the guests, the cues, the prompter. On a good night I count six times ten to the twenty-third little problems. That is about one mole of problems.
+    Avery Gadro: Cameras, lights, guests, cues, prompter. On a good night, six times ten to the twenty-third problems. About a mole.
 -> What happened on air last week?
     Avery Gadro: Someone typed a question mark on the teleprompter. He read it exactly as it was. "Good evening. I'm Will Force?"
     Avery Gadro: Then he said, "That is a good question," and he talked about identity for eleven minutes. The ratings went up. I hate that the ratings went up.
 -> Is he careful with the science?
-    Avery Gadro: Completely. He sends every story to two professors and to Dmitri, because Dmitri checks whether the thing has a plug. If a fact is wrong, he will not go on air.
+    Avery Gadro: He sends every story to two professors and Dmitri, who checks whether the thing has a plug. If a fact is wrong, he will not go on air.
     Avery Gadro: If his hair is wrong, he also will not go on air. One of those is a policy I wrote.
 -> Good luck with the show.
     Avery Gadro: Luck is not a variable I budget for. Thank you anyway.

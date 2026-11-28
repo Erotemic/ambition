@@ -192,7 +192,7 @@ title: alice_lane__topics
     Alice: One of them had a hammer as long as I am. I'd leave them alone.
     <<command "world.set_flag" "alice_told_goblins" true>>
 -> What are you measuring?
-    Alice: The hills, the stream, the road to the gate. The office's map of {$village} is forty years old. Bob and I are starting at opposite ends of it. We'll compare measurements where we meet.
+    Alice: Hills, stream, road to the gate. The office's map of {$village} is forty years old. Bob and I started at opposite ends. We'll compare measurements when we meet.
 -> ‹go›
 ===
 
@@ -451,7 +451,7 @@ Knight-Errant: Stand back, it's on. It's always on. I can't find where it goes o
     Knight-Errant: I had the smith put a proper crossguard on it. It was only a handle. You can't swear an oath on a handle.
 -> What do you use it for?
     Knight-Errant: Rats, mostly. The cellar rats of this valley have never been so frightened, or so well done.
-    Knight-Errant: When it's charged I'm going up to the barrow on the moor, past the fell. There are ghosts taking rubbish up there in broad daylight now. The innkeeper asked me to find out what they're doing.
+    Knight-Errant: When it's charged, I'm off to the barrow on the moor, past the fell. Ghosts have been hauling rubbish up there in daylight. The innkeeper asked me to look into it.
 -> There are goblins at the siding. <<if verdict("encounter.cleared", "intro_freight_yard_fight") == "not_satisfied">>
     Knight-Errant: I know. I'm waiting for it to charge. It charges in the Plough's window, when there's sun.
 -> You could have helped with the goblins. <<if verdict("encounter.cleared", "intro_freight_yard_fight") == "satisfied">>
@@ -470,7 +470,7 @@ Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
 -> Is it magic?
     Hedge Wizard: I bought it from the trader. There were forty in the crate. I've tried it on the Tuesday spell and it keeps asking me for a date.
 -> What about the ghosts at the barrow?
-    Hedge Wizard: There have been ghosts up there since my grandfather's time. You could generally walk right past them. Now the King has things that follow you all the way down to the bridge.
+    Hedge Wizard: Ghosts have been there since my grandfather's time. You could walk right past them. Now the King has things that follow you down to the bridge.
     Hedge Wizard: I told the knight I could try the fair-wind spell on them. He asked what day it was.
 -> Do you know any real spells?
     Hedge Wizard: Three. I've just told you all of them.
@@ -655,7 +655,7 @@ Manifest Clerk: Freight. Every declared crate has a line on a manifest. Passenge
 
 title: manifest_kiosk_wrong_list__2
 ---
-Manifest Clerk: A goblin crew filed for the {$village} freight window. Says here: one crate, laboratory research, carriage prepaid. I can tell you what the form says. I haven't seen inside their crate.
+Manifest Clerk: Goblin crew, {$village} freight window. One crate, laboratory research, carriage prepaid. I haven't seen inside the crate.
 Manifest Clerk: Next question.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>

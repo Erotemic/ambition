@@ -419,3 +419,23 @@ These topics use only the existing nodes: no new flags, items, rewards,
 encounter changes, or placements. Preserve the old choices in their original
 relative order. The map submodule is not available in this snapshot, so the
 placement assumptions are based on existing dialogue, not new map tests.
+
+## Follow-up: dialogue economy
+
+The goal is not to make every conversation shorter. Keep the useful
+questions, directions, distinct technical explanations, and longer
+exchanges that establish relationships. Trim repeated facts inside a single
+answer, second explanations of a joke, and unnecessary introductory
+phrases. Keep Zorlack's shipment contract and career prospects, Roo's
+interest in ALDENTE, and the lookout's existing combat advice. Do not
+remove quest-relevant information from the manifest, customs, or gate
+conversations. Keep the mathematical premises and conclusions, and the
+scientific details that make Eureka and Primeval worth visiting.
+
+This is a prose-only pass, with no change to the choice menus, speaker
+identifiers, substitution expressions, commands, quest state, or node
+structure. Longer conversations and intentionally repetitive jokes (such
+as the busy beaver's work and the Echo Chamber) are not inherently flaws.
+Avoid a uniform terse voice: the broadcast anchor, bureaucrats, clan
+leader and pirates should still sound like themselves. Debug dialogue and
+the historical gallery are outside the scope of this pass.

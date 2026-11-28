@@ -42,7 +42,7 @@ Shadow Oni: You came in without invitation. I have not decided whether that was 
 
 title: ninja_leader__1
 ---
-Shadow Oni: A shipment came through the gate. The Authority hired us to protect it. I have been applying for jobs in Capital, but until I hear back, we have this work.
+Shadow Oni: The Authority hired us to guard a shipment. It will keep us occupied while I wait to hear back from employers in Capital.
 Shadow Oni: I am keeping the clan busy in the meantime.
 Shadow Oni: Badely's crew have been asking about the cargo. I expect him to try something. I would prefer you not carry news of our plans to the cove.
 -> Ask another question.
@@ -52,8 +52,8 @@ Shadow Oni: Badely's crew have been asking about the cargo. I expect him to try 
 
 title: ninja_leader__2
 ---
-Shadow Oni: I have applied for several management positions. The careers office thinks I may be overqualified for some of them. Apparently I need to make the clan sound smaller on my application.
-Shadow Oni: I am taking a class at the business college while I wait. The gate address is DEALINGS, if you intend to visit. There are examinations, which I am accustomed to.
+Shadow Oni: Several management positions. The careers office says I may be overqualified. Apparently I ought to make the clan sound smaller.
+Shadow Oni: I am taking a class at the business college. DEALINGS, if you intend to visit. I am accustomed to examinations.
 <<command "world.set_flag" "gate.known.DEALINGS" true>>
 -> Ask another question.
     <<jump ninja_leader>>
@@ -62,8 +62,8 @@ Shadow Oni: I am taking a class at the business college while I wait. The gate a
 
 title: ninja_leader__3
 ---
-Shadow Oni: We are at peace. Badely would like the cargo, and I have taken payment to see that he does not get it. If I complete the contract, I shall pay my people and we shall take another job.
-Shadow Oni: If Badely succeeds, I shall have to explain the loss to the client. I would much prefer to do well in my current employment.
+Shadow Oni: We are at peace. Badely wants the cargo. I am being paid to keep him from it, and my people expect their wages.
+Shadow Oni: If he succeeds, I shall have to explain it to the client.
 -> Ask another question.
     <<jump ninja_leader>>
 -> Open the arena door.

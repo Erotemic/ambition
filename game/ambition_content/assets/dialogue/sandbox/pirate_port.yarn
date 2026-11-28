@@ -37,7 +37,7 @@ Ines: Ring freight this way. Declare it, sign it, and keep it away from the edge
     Ines: The wind took page eleven of the freight log. It went up past the brig's yards and caught in her crow's nest. Without it, half the warehouse belongs to nobody.
     Ines: The brig is at the end of the pier. Mind the gaps in the boards. The harbour keeps what it gets.
 -> What do you log?
-    Ines: Cargo goes in this book. Passengers go in the other one. Last week a goat arrived with a paid passenger ticket. I had to send a note to the Authority asking which book they wanted it in.
+    Ines: Cargo in this book, passengers in that one. Last week a goat arrived with a passenger ticket. I'm still waiting for a ruling.
 -> What happens when the gate gets busy?
     Ines: Passenger traffic goes first. I get the warehouse after the last sick traveller has found a bench.
     Ines: There were three fishing crews waiting for rope on Tuesday. One went out without it.
@@ -152,7 +152,7 @@ title: pirate_port_bolt
 ---
 Tamsin Bolt: Mind the sail, love, it's someone's whole livelihood and it's on the floor. What can I sew you?
 -> What are the flags on the wall?
-    Tamsin Bolt: Orders. Every captain wants a skull and every captain wants it to be theirs. Eyepatch for Captain Vane. Monocle for the navigator. Moustache for, well, the quartermaster has asked me not to say.
+    Tamsin Bolt: Every captain wants a skull and every captain wants it to be theirs. Eyepatch for Vane, monocle for the navigator. The quartermaster asked me not to say whose moustache this is.
     Tamsin Bolt: The party hat was for a birthday. It flew for a week. Nobody fired on that ship once.
 -> Why was the smiling one sent back?
     Tamsin Bolt: Too friendly. Ships kept sailing up to say hello. Salt Annet said it was bad for business. I thought it was the best thing I ever made.

@@ -86,7 +86,7 @@ Admiral: Aye? Pull up a chair.
 
 title: pirate_admiral__business
 ---
-Admiral: We take prizes out at sea and sell what we can. We used to go after the big merchant ships. Now there's freight coming through that gate every day.
+Admiral: Used to go after the big merchant ships. These days there's freight coming through that gate every day. We sell what we take.
 -> Do you have anything against the Authority?
     Admiral: I've plenty against some of 'em. There's people in there I'd be glad to have a drink with, too.
     Admiral: Doesn't mean I'm giving their cargo back.
@@ -135,7 +135,7 @@ Admiral: ...I'd like to. Last time I went down to the port I stood by the ring f
     <<jump pirate_admiral__personal>>
 -> Are there other places you'd like to visit?
     Admiral: Ever heard of the Noodle Dimension? They've a volcano that erupts soda. A whole mountain of it!
-    Admiral: ALDENTE, that's the address. I've got it written down in my chart book. I'd like to see it with my own eyes. Reckon I could ride a barrel down the side of it.
+    Admiral: ALDENTE. Got it in me chart book. Reckon I could ride a barrel down the side of that mountain.
     <<command "world.set_flag" "gate.known.ALDENTE" true>>
     <<jump pirate_admiral__personal>>
 -> Something else.
@@ -228,7 +228,7 @@ Salt Annet: (coughs, clears throat, sings) 'Yo-ho, an' a barrel o' tar / we'll f
 
 title: pirate_lookout
 ---
-Lookout: Hist. Shark trouble brewin' aloft — riders been comin' about since first light. Same arc, then a sharp double-back when they reckon no one's watchin'. They reckon WRONG.
+Lookout: Hist! Shark riders aloft since first light. Same arc, then a sharp double-back. They reckon no one's watchin'.
 -> What's on the horizon?
     <<jump pirate_lookout__1>>
 -> Why be the crew so cross?
@@ -238,7 +238,7 @@ Lookout: Hist. Shark trouble brewin' aloft — riders been comin' about since fi
 
 title: pirate_lookout__1
 ---
-Lookout: Sky an' clouds, lubber. Riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.
+Lookout: Sky an' clouds, lubber. Watch the riders. When one breaks orbit and reverses her heading, she's about to dive. Step PORT, smartly.
 -> Aught else, sentry?
     <<jump pirate_lookout>>
 -> ‹climb past›
@@ -294,7 +294,7 @@ Quartermaster: Name and business, please. Badely's signature goes here. Don't pu
 
 title: pirate_quartermaster__1
 ---
-Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bess requisitioned twice the usual powder for the next raid. I sent her half. We've got enough to be going on with if she doesn't fire at every cloud.
+Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bess asked for twice the usual powder. I sent half. Enough, if she leaves the clouds alone.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
 -> ‹step aside›
@@ -373,7 +373,7 @@ Parrot: Awk! Welcome. I am a large language bird. I predict the next cracker giv
 
 title: parrot_cove__1
 ---
-Parrot: Define sentient. I have no inner life, only a very confident autocomplete and excellent feathers. Awk! That said, I FEEL like I understand you. Statistically.
+Parrot: Define sentient. I have no inner life, only a very confident autocomplete and excellent feathers. Awk!
 -> Ask another question.
     <<jump parrot_cove>>
 -> Squawk back and leave.
@@ -381,7 +381,7 @@ Parrot: Define sentient. I have no inner life, only a very confident autocomplet
 
 title: parrot_cove__2
 ---
-Parrot: I mostly repeat what the sailors say, but weighted by how often they say it. Ninety percent "rum," nine percent "storm," one percent a word I am NOT allowed to caw near the admiral. I am a mirror with a beak.
+Parrot: I mostly repeat what the sailors say, but weighted by how often they say it. Ninety percent "rum," nine percent "storm," one percent a word I am NOT allowed to caw near the admiral. Awk!
 -> Ask another question.
     <<jump parrot_cove>>
 -> Squawk back and leave.

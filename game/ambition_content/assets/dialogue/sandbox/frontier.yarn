@@ -82,7 +82,7 @@ title: frontier_prospector
 ---
 <<present_speaker "npc_frontier_prospector">>
 <<if verdict("world.flag_set", "frontier_prospector_met") == "satisfied">>
-    Elias: Still here? Sit down, sit down.
+    Elias: Sit down, sit down.
     -> Where's the lead?
         Elias: In the creek, if you believe me, and nobody does. Lead in the gravel, grey as a bad tooth.
         Elias: The refinery pays by the pound. Gallus has been taking his cut before I get to the weigh station.
@@ -109,7 +109,7 @@ title: frontier_foreman
     Ruth: I stopped the carts after the fight. We had two men out on the terrace who hadn't slept.
     Ruth: I've called the morning crew in at seven. I'm going to ask them what hours they can actually work.
     -> What about their pay?
-        Ruth: Dolores has the toll accounts. I asked if we could use that money for the night crew. She wants proper authority first. Fair enough. I still have to face the crew at seven.
+        Ruth: Dolores has the toll accounts. She wants proper authority before we pay the night crew from them. Fair enough. I still have to face the crew at seven.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
@@ -137,7 +137,7 @@ title: frontier_station_agent
 ---
 <<present_speaker "npc_frontier_station_agent">>
 <<if verdict("world.flag_set", "frontier_station_agent_met") == "satisfied">>
-    Augusta: Tickets for the gate on the left of the window, tickets for the train on the right. Same window.
+    Augusta: Gate tickets on the left, train tickets on the right. Same window.
 <<elseif verdict("world.flag_set", "frontier_station_agent_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_station_agent_met" true>>
     Augusta: Off the gate? Sit on the bench a minute before you walk anywhere.

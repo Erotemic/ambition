@@ -324,8 +324,9 @@ guard's portal rebound tests pass unchanged.
 Still open in M3:
 - SUP1's changing-support input through a portal. (Status 2026-11-27:
   landed for a cut cell, a cell beyond one, a curve-carried cell and a round
-  body in a cut cell; see S1–S3 below. Only a line on an aperture's own
-  plane still reads the rigid fit.) Without portals the
+  body in a cut cell, a line on an aperture's own plane and a line reaching
+  or leaving one; see S1–S3 below. Only a line on a turning plane reads
+  the rigid fit, which is exact when it turns with the plane.) Without portals the
   kernel's contact already reads SUP1's per-point travel (`displacement_at`
   on a deforming line, landed with SUP1). A cell cut by a portal still reads
   the published rigid fit, because the deforming cast does not admit portal
@@ -375,6 +376,19 @@ Still open in M3:
   the same wall with no portal. The rigid fit met it at t 1/3, and so did
   the old dispatch (control run with the old `material_cast.rs`: 0.333).
   Core lib (976) and portal2d lib (145) pass.
+  **Landed (2026-11-27): a line reaching or leaving an aperture's plane.**
+  A line that lies on a plane at one of its poses only is off the plane
+  through the open tick, so each cell's planes clip it as any other line
+  (`deforming_in`). Only a line on a plane at both poses that no
+  translating plane carries, one on a turning plane, reads the rigid fit.
+  That is exact when the line turns with the plane, as a portal's host on a
+  turning support does. It is approximate only for a line that stretches
+  along a turning plane. Witness
+  `a_deforming_line_reaching_a_portals_plane_is_read_by_its_shape_motion`:
+  a wall 5 px in front of a static entry slides onto its plane while its
+  lower end slides down, and is met at t 2/3, as with no portal. The rigid
+  fit, which the old dispatch read for this line, meets it at another time
+  (the witness asserts that premise).
 
 ## Required motion operation
 
@@ -933,8 +947,9 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   or an end, about 1e-3 of a tick later (t 0.05096 against the true
   0.05005). Every rigid round body meeting a line in a cut cell took that
   road. A face contact on a segment's side now skips its twin plane. A line
-  on an aperture's plane landed the same day (S1's receipt above); only a
-  line that leaves the plane, or lies on a turning one, reads the rigid fit.
+  on an aperture's plane landed the same day (S1's receipt above), and a
+  line reaching or leaving one; only a line on a turning plane reads the
+  rigid fit.
 
 **P5/P6 — observer and capture** ([view/capture
 contract](portals-one-transit-for-every-mover.md)). Keep the current

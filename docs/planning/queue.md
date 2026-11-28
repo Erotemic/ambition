@@ -28,9 +28,10 @@ calling it done, and go on to the next.
    day: a room's replay keeps the hidden rooms' portal publication. Water
    membership, chest/switch touch and climbing read the body's admitted
    parts, and `body.regions` observes that query with its cost counted
-   (all 2026-11-27). What remains in the row: the last SUP1 case still
-   reads the rigid fit (a deforming line leaving an aperture's plane, or on
-   a turning one). RV3 is handled separately.
+   (all 2026-11-27). A deforming line reaching or leaving an aperture's
+   plane reads its own end travel (2026-11-27). A line on a turning plane
+   keeps the rigid fit, which is exact when it turns with the plane. RV3 is
+   handled separately.
 2. **Hobford polish (Jon, 2026-11-14).** [Hobford polish](game/hobford-polish.md)
    with [LEVEL-1](#level-1--the-lab-raid-and-the-first-level-after-it) and [LEVEL-TRUTH](#level-truth--authored-level-data-in-the-map-submodule-one-owner-per-room) for the level data. Story
    sequences SS1–SS8 (SS7/SS8 landed 2026-11-21) and dark rooms and tunnels
@@ -2053,9 +2054,10 @@ owner), the old completed-endpoint road is deleted, and the crossing reads
 the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
 P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26,
 the rider beside the cut, S2's clipped deforming cast and S3's
-curve-carried cast 2026-11-27, with a round body in a cut cell, and a line
-on an aperture's own plane the same day; only a line leaving the plane or on
-a turning one reads the rigid fit). Host admission landed the same
+curve-carried cast 2026-11-27, with a round body in a cut cell, a line
+on an aperture's own plane and a line reaching or leaving it the same day;
+only a line on a turning plane reads the rigid fit, exact when it turns with
+the plane). Host admission landed the same
 day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 and its shared projectile source leg 2026-11-27 (receipts in the
 owner's P4 section), and an unreachable moving portal is witnessed not to

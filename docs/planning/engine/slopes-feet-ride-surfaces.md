@@ -425,8 +425,10 @@ sweeps), the coherent source-phase cut, and the real GNU witness. As this
 section requires, the portal cases are NOT marked complete from these
 witnesses. They stay open under portal P2/M1/M2:
 
-- a cell cut by a portal or carried on a curve still reads the published
-  rigid fit (portal S2/S3);
+- *closed 2026-11-27:* a cell cut by a portal, one carried on a curve, a
+  line on an aperture's plane and a line reaching or leaving one read the
+  line's own end travel (portal S2/S3). Only a line on a turning plane reads
+  the rigid fit, which is exact when the line turns with the plane;
 - *closed 2026-11-25:* a portal hosted on a stretching line attaches by its
   material place (`PortalHost::Line { segment, fraction }`, witness
   `a_portal_on_a_stretching_line_keeps_its_material_place`), and since

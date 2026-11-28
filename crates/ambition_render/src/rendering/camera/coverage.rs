@@ -3,10 +3,10 @@ use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::{visibility::RenderLayers, CameraProjection, RenderTarget};
 use bevy::ecs::system::SystemParam;
 #[cfg(feature = "portal_render")]
-use bevy::prelude::UVec2;
+use bevy::prelude::Mat2;
 use bevy::prelude::{
     Camera, Camera2d, Component, Entity, GlobalTransform, Has, OrthographicProjection, Projection,
-    Query, Rect, Res, Transform, Vec2, Vec3, With,
+    Query, Rect, Res, Transform, UVec2, Vec2, Vec3, With,
 };
 
 #[cfg(any(feature = "card_view", feature = "portal_render"))]
@@ -53,17 +53,45 @@ impl PlayPlane {
     }
 }
 
+pub(in crate::rendering) struct OutputFootprint {
+    plane: PlayPlane,
+    #[cfg(feature = "portal_render")]
+    pixels: UVec2,
+}
+
+impl OutputFootprint {
+    pub fn bounds(&self, right: Vec2) -> Rect {
+        self.plane.bounds(right)
+    }
+
+    /// Get the pixel density along two axes in the play plane.
+    #[cfg(feature = "portal_render")]
+    pub fn texels_per_world(&self, right: Vec2) -> Option<Vec2> {
+        let [base, _, top, east] = self.plane.0;
+        let pixels = self.pixels.as_vec2();
+        let world_per_pixel = Mat2::from_cols((east - base) / pixels.x, (top - base) / pixels.y);
+        let area = world_per_pixel.determinant();
+        if area == 0.0 || !area.is_finite() {
+            return None;
+        }
+        let pixels_per_world = world_per_pixel.inverse();
+        let density = Vec2::new(
+            (pixels_per_world * right).length(),
+            (pixels_per_world * right.perp()).length(),
+        );
+        density.is_finite().then_some(density)
+    }
+}
+
 pub(in crate::rendering) struct GameplayCoverage<'a> {
     pub source: Entity,
     #[cfg(feature = "portal_render")]
     pub observer: Entity,
     #[cfg(feature = "portal_render")]
     pub frame: &'a PresentedViewFrame,
-    #[cfg(feature = "portal_render")]
-    pub pixels: UVec2,
     pub layers: Option<&'a RenderLayers>,
-    pub plane: Option<PlayPlane>,
-    pub cards: Option<PlayPlane>,
+    pub plane: Option<OutputFootprint>,
+    pub cards: Option<OutputFootprint>,
 }
 
 /// The play plane shown by each gameplay output. The card output uses the
@@ -110,21 +138,20 @@ impl GameplayOutputs<'_, '_> {
                 };
                 let pixels = camera.physical_viewport_size()?;
                 let factor = camera.target_scaling_factor()?;
-                let viewport = pixels.as_vec2() / factor;
-                let plane = || footprint(projection.clone(), viewport, *place);
+                let plane = || footprint(projection.clone(), pixels, factor, *place);
                 #[cfg(not(feature = "card_view"))]
                 let (plane, cards) = (plane(), None);
                 #[cfg(feature = "card_view")]
                 let (plane, cards) = match self.cards.as_deref() {
                     Some(settings) if settings.mode.replaces_plane() => {
-                        (None, card_footprint(settings, frame, viewport))
+                        (None, card_footprint(settings, frame, pixels, factor))
                     }
                     Some(settings)
                         if settings.mode == CardViewMode::Inset
                             && *self.views.get(observer).ok()?.1 == LocalViewId::FIRST =>
                     {
                         let inset = settings.inset_size(pixels).and_then(|size| {
-                            card_footprint(settings, frame, size.as_vec2() / factor)
+                            card_footprint(settings, frame, size, factor)
                         });
                         (plane(), inset)
                     }
@@ -136,8 +163,6 @@ impl GameplayOutputs<'_, '_> {
                     observer,
                     #[cfg(feature = "portal_render")]
                     frame,
-                    #[cfg(feature = "portal_render")]
-                    pixels,
                     layers,
                     plane,
                     cards,
@@ -149,22 +174,77 @@ impl GameplayOutputs<'_, '_> {
 
 fn footprint(
     mut projection: OrthographicProjection,
-    viewport: Vec2,
+    pixels: UVec2,
+    scale_factor: f32,
     place: Transform,
-) -> Option<PlayPlane> {
+) -> Option<OutputFootprint> {
+    if pixels.min_element() == 0 || !scale_factor.is_finite() || scale_factor <= 0.0 {
+        return None;
+    }
+    let viewport = pixels.as_vec2() / scale_factor;
     projection.update(viewport.x, viewport.y);
-    PlayPlane::intersect(&GlobalTransform::from(place), projection.area)
+    let plane = PlayPlane::intersect(&GlobalTransform::from(place), projection.area)?;
+    Some(OutputFootprint {
+        plane,
+        #[cfg(feature = "portal_render")]
+        pixels,
+    })
 }
 
 #[cfg(feature = "card_view")]
 fn card_footprint(
     settings: &CardViewSettings,
     frame: &PresentedViewFrame,
-    viewport: Vec2,
-) -> Option<PlayPlane> {
+    pixels: UVec2,
+    scale_factor: f32,
+) -> Option<OutputFootprint> {
     let projection = OrthographicProjection {
         scale: settings.projection_scale(frame.orthographic_scale),
         ..card_camera_projection()
     };
-    footprint(projection, viewport, card_camera_transform(frame, settings))
+    footprint(
+        projection,
+        pixels,
+        scale_factor,
+        card_camera_transform(frame, settings),
+    )
+}
+
+#[cfg(all(test, feature = "card_view", feature = "portal_render"))]
+mod tests {
+    use super::{card_footprint, footprint, CardViewMode, CardViewSettings, PresentedViewFrame};
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use bevy::prelude::{OrthographicProjection, Transform, UVec2, Vec2};
+
+    #[test]
+    fn zoom_and_tilt_change_the_inset_pixel_density_independently_of_its_bounds() {
+        let frame = PresentedViewFrame {
+            room: LiveRoomInstance::ACTIVATION,
+            plane_center: Vec2::ZERO,
+            roll_radians: 0.0,
+            orthographic_scale: 1.0,
+        };
+        let settings = CardViewSettings {
+            viewport_fraction: 0.5,
+            zoom: 6.0,
+            yaw_radians: 60_f32.to_radians(),
+            pitch_radians: 0.0,
+            ..CardViewSettings::for_game(CardViewMode::Inset)
+        };
+        let pixels = UVec2::new(1280, 800);
+        let plane = footprint(
+            OrthographicProjection::default_2d(),
+            pixels,
+            2.0,
+            Transform::IDENTITY,
+        )
+        .unwrap();
+        let inset = card_footprint(&settings, &frame, settings.inset_size(pixels).unwrap(), 2.0)
+            .unwrap();
+
+        assert!(plane.bounds(Vec2::X).contains(inset.bounds(Vec2::X).max));
+        assert_eq!(plane.texels_per_world(Vec2::X), Some(Vec2::splat(2.0)));
+        let inset_density = inset.texels_per_world(Vec2::X).unwrap();
+        assert!(inset_density.abs_diff_eq(Vec2::new(3.0, 6.0), 1e-4), "{inset_density:?}");
+    }
 }

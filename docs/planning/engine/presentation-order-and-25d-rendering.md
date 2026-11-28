@@ -924,6 +924,10 @@ shared value preparation are sufficient until source proves otherwise.
    A tilted view projects its viewport onto the play plane. Its capture
    covers the bounds of that projection. The comparison inset and its
    main output share one capture for each portal and observer.
+   The capture covers the union of the observer's output bounds. It uses
+   the highest projected pixel density along each axis, within the
+   capture limits. A projection test checks the density of a zoomed,
+   tilted inset on a high-DPI display.
 
    Portal windows, rims, and exit pieces project from the same play plane
    in 2.5D. The draw order of each stays in its own layer. An Ultra capture

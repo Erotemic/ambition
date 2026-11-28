@@ -242,13 +242,13 @@ fn the_window_uses_its_outputs_coverage_and_pixel_density() {
         .iter(app.world()).all(|camera| !camera.is_active));
 
     let extent = Vec2::new(300.0, 250.0);
-    let pixels = Vec2::new(600.0, 500.0);
+    let expected = Vec2::new(2.0, 1.5);
     app.world_mut().resource_mut::<crate::PortalObserverViews>().set_windows([(
         observer, crate::PortalWindowView {
             center_world: center,
             visible_view: extent,
             axis: Vec2::X,
-            output_pixels: pixels,
+            texels_per_world: expected,
         },
     )]);
     app.update();
@@ -261,8 +261,7 @@ fn the_window_uses_its_outputs_coverage_and_pixel_density() {
         let RenderTarget::Image(image) = target else { panic!("Missing capture image") };
         let size = world.resource::<Assets<Image>>().get(&image.handle).unwrap().size();
         let density = size.as_vec2() / rig.captured.unwrap().size;
-        let expected = pixels / extent;
-        assert_eq!(rig.rebuild.tex, pixels.as_uvec2());
+        assert_eq!(rig.rebuild.tex, (extent * expected).as_uvec2());
         assert!(density.abs_diff_eq(expected, 1e-4), "{density:?} vs {expected:?}");
     }
 }

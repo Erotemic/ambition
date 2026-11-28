@@ -247,8 +247,8 @@ pub struct PortalWindowView {
     pub visible_view: Vec2,
     /// The rectangle's horizontal unit vector in world coordinates.
     pub axis: Vec2,
-    /// The physical dimensions of the main output.
-    pub output_pixels: Vec2,
+    /// The highest pixel density of the outputs along each rectangle axis.
+    pub texels_per_world: Vec2,
 }
 
 impl PortalObserverViews {

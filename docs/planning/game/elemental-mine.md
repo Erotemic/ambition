@@ -13,12 +13,14 @@ The yard still sends ore to Eureka. Inez suspended the lower shift after the cru
 
 ## Mother Lode
 
-Watch the lifted arm for the close hammer, jump the floor fracture, and move off the marked spots before the crystals fall. The cavern shelves give a way over the fracture. The fight opens the seam beyond the arena and leaves 65 coins in loose ore. Mother Lode can speak after her shell breaks.
+Mother Lode starts with a close hammer strike on both sides and a low fracture that travels away from her. The crystal shelves give the player room to jump over the fracture and return to the floor close to her. In the second phase she marks three fixed columns. The middle crystal falls first. The two outer crystals follow.
 
-Mother Lode's shell has layers of bedrock and a crown of stepped bismuth. Amber seams light up during the hammer strike. Jade seams light up before the floor fracture, and violet seams light up before the crystal fall. The amber core in the debris is the same core that speaks in the chamber beyond the arena.
+The last phase waits for the old projectiles to leave the arena. Mother Lode braces, then ruptures two bands of rock. The warning shows an open strip on the player's side of the cavern. The strip and both shelves are safe from the rupture. Her plates open after each attack to show when the player can approach and strike.
+
+Mother Lode's shell has layers of bedrock and a crown of stepped bismuth. Amber seams light up during the hammer strike. Jade seams light up before the floor fracture, violet seams before the crystal fall, and rose seams before the rupture. The fight opens the seam beyond the arena and leaves 65 coins in loose ore. The amber core in the debris is the same core that speaks in the chamber beyond the arena.
 
 Inez can recognize the encounter result. The exact boundary of future work, the fate of the offending crusher, and the relationship of the mine to the wider Science story stay open. A dungeon visit needs no new traversal ability. The yard, optional locker, and loose ore give the visit a local purpose and result.
 
 ## Sources
 
-The map generators are `game/ambition_map_assets/ambition_content/generators/elemental_mine/make_specs.py` and the Eureka generator's `test_range`. Use the latter with `--rooms=eureka_test_range` to update the west connection. The boss profile, encounter settings, and conversations are Ambition content. `game/ambition_content/rhai/mother_lode.rhai` defines the fracture and falling crystal attacks. The backdrop, equipment, and character art are Python sources in the sprite renderer.
+The map generators are `game/ambition_map_assets/ambition_content/generators/elemental_mine/make_specs.py` and the Eureka generator's `test_range`. Use the latter with `--rooms=eureka_test_range` to update the west connection. The boss profile, encounter settings, and conversations are Ambition content. `game/ambition_content/rhai/mother_lode.rhai` uses the boss beat library to tie poses, attack warnings, and damage to the profile's schedule. The backdrop, equipment, and character art are Python sources in the sprite renderer.

@@ -26,6 +26,7 @@
             "noodle_lash",          // the FSM: one noodle whipped out at ledge height, toward you
             "inu_leash", // the Inugami: a ghost chain from its neck, its tip cracks the floor from behind it to in front of it
             "stack_power_chord", // Full Stack (the bossofthegame): a chord of sound rings rolls out each way and bounces along the floor
+            "lode_hammer",
             "lode_fault",
             "gallus_whistle", // Marshal Gallus: the shift whistle; a ring of sound runs the yard floor both ways
             "sl_lines", // the Supreme Leader: his uplink's low line down the room, then its high one: jump the low, be down for the high
@@ -112,7 +113,7 @@
         threat: Heavy,
         telegraph: (min_s: 1.30, max_s: 1.30),
         active: (min_s: 0.38, max_s: 0.38),
-        instances: ["reaper_null_space"],
+        instances: ["reaper_null_space", "lode_split"],
         recipes: [
             (
                 name: "central_gap",

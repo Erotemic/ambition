@@ -1779,7 +1779,7 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
 #[test]
 fn a_grid_fighter_that_authors_no_feel_is_seated_on_smashs_default_fighter() {
     // Read, never restated: the numbers are `match_rules.ron`'s.
-    let base = ambition_demo_smash::smash_match_rules()
+    let base = ambition_demo_smash::smash_match_rules(&ambition_demo_smash::smash_pack::PACK.prepared())
         .base_body
         .expect("Smash's match rules state a default fighter body")
         .over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
@@ -2057,8 +2057,8 @@ fn the_smash_demos_cast_is_prepared_from_its_pack_as_the_rust_registration_built
         ..AbilitySet::NONE
     };
     let rule = MatchAbilities {
-        granted: ambition_demo_smash::smash_fighter_kit(),
-        permitted: ambition_demo_smash::smash_fighter_ceiling(),
+        granted: ambition_demo_smash::smash_fighter_kit(&ambition_demo_smash::smash_pack::PACK.prepared()),
+        permitted: ambition_demo_smash::smash_fighter_ceiling(&ambition_demo_smash::smash_pack::PACK.prepared()),
     };
     for (id, name, sheet) in [
         (SMASH_CHARACTER_ID, "Robot v3", "player_robot_v3"),
@@ -2194,7 +2194,7 @@ fn the_shipped_polygon_carries_both_halves_of_her_ranged_move() {
 
 #[test]
 fn every_smash_roster_id_resolves_in_the_shipped_host() {
-    let roster = ambition_demo_smash::select::smash_roster();
+    let roster = ambition_demo_smash::select::smash_roster_of(ambition_demo_smash::smash_pack::PACK.prepared());
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -4563,8 +4563,8 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     assert_eq!(
         pools,
         vec![
-            ambition_demo_smash::smash_percent_reference(),
-            ambition_demo_smash::smash_percent_reference()
+            ambition_demo_smash::smash_percent_reference(&ambition_demo_smash::smash_pack::PACK.prepared()),
+            ambition_demo_smash::smash_percent_reference(&ambition_demo_smash::smash_pack::PACK.prepared())
         ],
         "two seats in one match are being read against two different hundreds: \
          {bodies:?}"
@@ -4652,13 +4652,13 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
         after[0].0,
         after[1].0
     );
-    let declared = 1.0 / ambition_demo_smash::smash_percent_reference() as f32;
+    let declared = 1.0 / ambition_demo_smash::smash_percent_reference(&ambition_demo_smash::smash_pack::PACK.prepared()) as f32;
     assert!(
         (crossover_scale - declared).abs() < 1e-6,
         "both fighters agree, and they agree on the wrong number: this stage \
          declares {} as a full meter, so a point of damage is {declared} of one, \
          not {crossover_scale}",
-        ambition_demo_smash::smash_percent_reference()
+        ambition_demo_smash::smash_percent_reference(&ambition_demo_smash::smash_pack::PACK.prepared())
     );
 }
 
@@ -6570,7 +6570,7 @@ mod ring_out {
     /// margins are the demo pack's `smash_stages.ron`, and a copy of them here
     /// would be a second stage that silently stops matching the first.
     fn stage_centre_and_reach() -> (f32, f32) {
-        let room = ambition_demo_smash::smash_stage();
+        let room = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared());
         let side = room
             .world
             .edges

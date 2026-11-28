@@ -18,8 +18,8 @@ fn bounds(aabb: ae::Aabb) -> ambition_demo_mary_o_modules::stomp::Bounds {
 
 /// Classify the player's contact with one body, or `None` if they are apart,
 /// with the stomp band her pack states (`stomp.band`).
-pub fn player_touch(body: ae::Aabb, player: ae::Aabb, player_vel: ae::Vec2) -> Option<PlayerTouch> {
-    let band = crate::rules::mary_o_rules().stomp.band;
+pub fn player_touch(rules: &crate::rules::MaryORules, body: ae::Aabb, player: ae::Aabb, player_vel: ae::Vec2) -> Option<PlayerTouch> {
+    let band = rules.stomp.band;
     ambition_demo_mary_o_modules::stomp::player_touch(bounds(body), bounds(player), [player_vel.x, player_vel.y], band)
 }
 

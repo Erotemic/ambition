@@ -673,7 +673,7 @@ mod limit_payoff_tests {
             spec("bivalence").gates.costs,
             vec![ambition_resource_spec::ResourceCost::new(
                 ambition_entity_catalog::smash_limit::LIMIT,
-                crate::limit::smash_limit().cap,
+                crate::limit::smash_limit(&crate::smash_pack::PACK.prepared()).cap,
             )],
             "the payoff must cost exactly the match's Limit cap, in Limit"
         );

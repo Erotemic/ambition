@@ -19,7 +19,7 @@ fn a_fight_under_way() -> App {
     for _ in 0..30 {
         app.update();
     }
-    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), characters, &[5, 5]);
     let countdown = roster.rules.opening_countdown_ticks;
     app.world_mut().insert_resource(roster);
     app.world_mut()

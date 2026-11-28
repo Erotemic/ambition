@@ -37,7 +37,7 @@ pub fn run(args: MatchDiagramArgs) {
     // locked seat human, and nobody presses anything here. To watch the
     // fighter brain, the roster must ask for it.
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,
         ]));

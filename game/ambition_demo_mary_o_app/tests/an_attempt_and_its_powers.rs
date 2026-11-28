@@ -45,7 +45,7 @@ fn give_her_the_wand(app: &mut App) {
     world
         .entity_mut(player)
         .insert(WornEquipment::new(vec![
-            ambition_demo_mary_o::powerups::star_wand(),
+            ambition_demo_mary_o::powerups::star_wand(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared())),
         ]));
 }
 

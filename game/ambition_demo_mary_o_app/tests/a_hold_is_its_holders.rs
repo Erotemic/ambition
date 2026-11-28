@@ -268,7 +268,7 @@ fn a_paused_snake_plant_keeps_its_phase_and_resumes_from_it() {
     app.update();
     let resumed = *app.world().get::<SnakePlantOut>(plant).unwrap();
     let expected = (paused.cycle_tick + app.world().resource::<WorldTime>().sim_dt() * 60.0)
-        % ambition_demo_mary_o::rules::mary_o_rules()
+        % ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared())
             .snake_plant
             .cycle_ticks as f32;
     assert!((resumed.cycle_tick - expected).abs() < 0.0001);

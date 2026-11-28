@@ -19,7 +19,7 @@ use bevy::prelude::*;
 
 /// Seat a one-stock match on the gameplay route.
 fn start_a_match(app: &mut App) {
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,

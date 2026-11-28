@@ -160,7 +160,7 @@ fn every_fighter_in_a_match_carries_a_stable_identity() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             "npc_pirate_admiral",
             "npc_pirate_admiral",
         ]));

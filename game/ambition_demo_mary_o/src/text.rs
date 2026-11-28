@@ -37,9 +37,9 @@ pub fn mary_o_text_schema() -> SchemaRegistration {
     )
 }
 
-/// The lines, as the demo's pack states them.
-pub fn mary_o_text() -> ambition_platformer2d::content::PackRow<ShownText> {
-    crate::pack::PACK.prepared().row(mary_o_text_in)
+/// The lines, as `pack` states them.
+pub fn mary_o_text(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
+    mary_o_text_in(pack)
 }
 
 /// [`mary_o_text`] in `pack`.
@@ -49,6 +49,6 @@ fn mary_o_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) ->
 }
 
 /// The line `key`.
-pub fn line(key: &str) -> String {
-    mary_o_text().line(key).to_string()
+pub fn line(pack: &ambition_platformer2d::content::PreparedContentPack, key: &str) -> String {
+    mary_o_text(pack).line(key).to_string()
 }

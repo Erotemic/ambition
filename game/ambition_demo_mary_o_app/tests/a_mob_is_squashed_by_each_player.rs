@@ -117,7 +117,7 @@ fn an_ai_slop_is_squashed_by_each_player_of_its_room_and_by_no_other() {
 fn the_squash_bounces_her_at_the_speed_her_pack_states() {
     let (mut app, mob) = a_mob();
     let mary_o = her(&mut app);
-    let authority = ambition_demo_mary_o::rules::mary_o_rules().stomp.bounce_speed;
+    let authority = ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).stomp.bounce_speed;
     let mut bounced = None;
     for _ in 0..20 {
         let Some(mob_box) = app.world().get::<ae::BodyKinematics>(mob).map(|kin| kin.aabb()) else {
@@ -154,7 +154,7 @@ fn the_squash_plays_the_dust_its_rules_state() {
     crate::the_switch_ends_the_castle::record_effects(&mut app);
     let mary_o = her(&mut app);
     assert!(!still_there_after_a_stomp(&mut app, mob, mary_o), "the premise: her stomp squashes it");
-    let stated = crate::the_switch_ends_the_castle::shape_of(&ambition_demo_mary_o::rules::mary_o_rules().stomp.dust);
+    let stated = crate::the_switch_ends_the_castle::shape_of(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).stomp.dust);
     let played = &app.world().resource::<crate::the_switch_ends_the_castle::Played>().bursts;
     assert!(played.contains(&stated), "the squash did not play the file's dust {stated:?}: played {played:?}");
 }

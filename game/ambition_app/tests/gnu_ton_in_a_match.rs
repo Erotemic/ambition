@@ -28,7 +28,7 @@ fn a_match(fighter: &str) -> App {
         app.update();
     }
     let before = app.world().resource::<ActiveSessionScope>().current();
-    app.world_mut().insert_resource(ambition_demo_smash::smash_roster_with_passive_targets([fighter, TARGET]));
+    app.world_mut().insert_resource(ambition_demo_smash::smash_roster_with_passive_targets(&ambition_demo_smash::smash_pack::PACK.prepared(), [fighter, TARGET]));
     app.world_mut().write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
     ));

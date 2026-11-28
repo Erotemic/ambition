@@ -139,8 +139,8 @@ fn every_authored_enemy_is_named_something_that_has_a_sheet() {
     .map(|character| crate::pack::PACK.display_name(character))
     .collect();
     for (room_id, room) in [
-        ("1-1", crate::level_1_1()),
-        ("1-2", crate::level_1_2::level_1_2()),
+        ("1-1", crate::level_1_1(&crate::rules::shipped_rules())),
+        ("1-2", crate::level_1_2::level_1_2(&crate::rules::shipped_rules())),
     ] {
         let unnamed: Vec<&str> = room
             .enemy_spawns
@@ -156,7 +156,7 @@ fn every_authored_enemy_is_named_something_that_has_a_sheet() {
         );
     }
     assert!(
-        !crate::level_1_1().enemy_spawns.is_empty(),
+        !crate::level_1_1(&crate::rules::shipped_rules()).enemy_spawns.is_empty(),
         "1-1 authors enemies; if it stops, this test is checking nothing"
     );
 }
@@ -232,6 +232,51 @@ fn a_carried_component_for_a_character_the_pack_does_not_state_is_refused() {
         .cast(crate::provider::MARY_O_EXPERIENCE, Some(crate::provider::MARY_O_CHARACTER_ID))
         .carrying::<ambition_platformer2d::combat::actor_tuning::ContactThreatWithdrawn>("solid_snak")
         .register(&mut app);
+}
+
+/// ⭐ A running reader plays its App's selection, not the compiled source: a
+/// generation selected in one App reaches the level owner her mode builds
+/// there, and another App built from the same source keeps the file it
+/// shipped with.
+#[test]
+fn a_running_reader_plays_its_apps_selection() {
+    use ambition_platformer2d::content::{EmbeddedPack, PackSelections, SelectedPacks};
+    use bevy::ecs::system::RunSystemOnce;
+
+    let authored = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/data/mary_o_rules.ron"))
+        .expect("her rules file is readable");
+    let shipped = "starting_lives: 3,";
+    assert_eq!(authored.matches(shipped).count(), 1, "the probe edits one line of the file");
+    let root = std::env::temp_dir().join(format!("mary_o_selection_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("data")).unwrap();
+    std::fs::write(
+        root.join("pack.ron"),
+        format!(
+            r#"(id: "mary_o_selection_probe", version: "0.1.0", namespace: "probe", requires: [],
+                sources: [(path: "data/mary_o_rules.ron", schema: "{}", version: 1)])"#,
+            crate::rules::MARY_O_RULES_SCHEMA
+        ),
+    )
+    .unwrap();
+    std::fs::write(root.join("data/mary_o_rules.ron"), authored.replace(shipped, "starting_lives: 5,")).unwrap();
+    let edited = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None)
+        .with_schemas(crate::pack::PACK.game_schemas())
+        .compile()
+        .unwrap_or_else(|failure| panic!("{}", failure.render()));
+
+    let owner_lives = |app: &mut bevy::prelude::App| {
+        app.world_mut()
+            .run_system_once(|packs: SelectedPacks| crate::mary_o_level_owner(&packs).0.lives)
+            .expect("the owner builds")
+    };
+    let mut edited_app = bevy::prelude::App::new();
+    edited_app.init_resource::<PackSelections>();
+    edited_app.world_mut().resource_mut::<PackSelections>().select(&crate::pack::PACK, edited);
+    let mut other_app = bevy::prelude::App::new();
+    assert_eq!(owner_lives(&mut edited_app), 5, "the App that selected the edit plays it");
+    assert_eq!(owner_lives(&mut other_app), 3, "another App plays the compiled source");
+    let _ = std::fs::remove_dir_all(root);
 }
 
 /// ⭐ Every schema of the demo's pack takes part in its live reload: a host

@@ -57,7 +57,7 @@ fn main() {
     }
 
     let reference = Reference::load();
-    let stage = ambition_demo_smash::smash_stage().world;
+    let stage = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world;
     let platform = stage.blocks[0].aabb;
     let k = (platform.max.x - platform.min.x) / ULTIMATE_STAGE_UNITS;
 

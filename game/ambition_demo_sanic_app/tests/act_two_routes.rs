@@ -160,7 +160,7 @@ fn a_spin_dash_into_the_cliff_opens_the_cave() {
         pos(&mut app)
     );
     // The wall and the monitors play the bursts their rules file states.
-    let effects = &ambition_demo_sanic::rules::sanic_rules().effects;
+    let effects = &ambition_demo_sanic::rules::sanic_rules_of(ambition_demo_sanic::pack::PACK.prepared()).effects;
     let played = &app.world().resource::<crate::act_completion::PlayedBursts>().0;
     for (what, row) in [("wall", &effects.wall_break), ("monitor", &effects.monitor_break)] {
         let stated = crate::act_completion::shape_of(row);

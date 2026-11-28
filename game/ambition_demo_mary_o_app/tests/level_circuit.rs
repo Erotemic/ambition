@@ -223,7 +223,7 @@ fn each_level_opens_with_its_own_title() {
     /// The room's authored title, and the card once it is up.
     fn title_and_card(app: &mut App) -> (Option<String>, Option<String>) {
         // The words of the clear card before its score: her text file's.
-        let course_clear = ambition_demo_mary_o::text::mary_o_text().fill("card.course_clear", &[("score", &"")]);
+        let course_clear = ambition_demo_mary_o::text::mary_o_text(&ambition_demo_mary_o::pack::PACK.prepared()).fill("card.course_clear", &[("score", &"")]);
         let course_clear = course_clear.trim_end();
         for _ in 0..COMMIT_CAP {
             let card = app

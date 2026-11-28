@@ -31,13 +31,13 @@ pub fn render_stage_diagram() -> Vec<u8> {
 
 /// The stage with fighters on it.
 pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
-    let room = ambition_demo_smash::smash_stage();
+    let room = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared());
     let world = &room.world;
     let platform = world.blocks[0].aabb;
     let side_margin = world.edges.side.unwrap_or(world.edges.fall);
     let ceiling_margin = world.edges.rise.unwrap_or(world.edges.fall);
     let fall_margin = world.edges.fall;
-    let respawn = ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 0);
+    let respawn = ambition_demo_smash::respawn_placement(&ambition_demo_smash::smash_pack::PACK.prepared(), ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()), 0);
 
     // Fit the BLAST ENVELOPE, not the world: the envelope is larger, and framing
     // to the world would crop the one boundary this diagram exists to show.

@@ -285,7 +285,7 @@ fn block(name: &str) -> ae::Aabb {
 /// its rectangle — "was this one struck" is a question about its `GeoId`.
 /// The first ?-block the LEVEL authors.
 fn first_power_block() -> ae::world::Block {
-    let room = ambition_demo_mary_o::level_1_1();
+    let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     room.world
         .blocks
         .iter()
@@ -298,7 +298,7 @@ fn first_power_block() -> ae::world::Block {
 }
 
 fn block_of(name: &str) -> ae::world::Block {
-    let room = ambition_demo_mary_o::level_1_1();
+    let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     room.world
         .blocks
         .iter()
@@ -317,7 +317,7 @@ fn pits() -> Vec<(f32, f32)> {
     //
     // The ground run is by far the widest block in the level, and a point inside
     // it is unambiguous — no falling, no stacking, nothing to infer.
-    let room = ambition_demo_mary_o::level_1_1();
+    let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     let widest = room
         .world
         .blocks
@@ -903,7 +903,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
          the replay observable ({away_from_spawn:?} vs {spawn:?})"
     );
 
-    let dwell_frames = (ambition_demo_mary_o::rules::mary_o_rules().level.cycle_dwell_seconds / (1.0 / 60.0)).ceil() as usize;
+    let dwell_frames = (ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).level.cycle_dwell_seconds / (1.0 / 60.0)).ceil() as usize;
     let replayed = drive(&mut app, dwell_frames + 240, |b| {
         if b.pos.distance(spawn) < 64.0 {
             return None;
@@ -924,7 +924,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
          ({score_before} -> {score_end})"
     );
     assert!(
-        (ambition_demo_mary_o::rules::mary_o_rules().level.starting_time - clock_end) < 5.0,
+        (ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).level.starting_time - clock_end) < 5.0,
         "and the fresh lap gets a fresh clock (got {clock_end})"
     );
     assert_eq!(
@@ -1167,7 +1167,7 @@ fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
 /// this asks the question the ladder actually cares about.
 fn ladder_blocks() -> Vec<ae::world::Block> {
     use ambition_demo_mary_o::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
-    let room = ambition_demo_mary_o::level_1_1();
+    let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     let mut blocks: Vec<ae::world::Block> = room
         .world
         .blocks

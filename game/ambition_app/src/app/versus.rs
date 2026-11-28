@@ -37,8 +37,8 @@ pub const VERSUS_ROOM_ID: &str = "versus_arena";
 /// The arena: the versus pack's room (`data/versus_arena.ron`). Crossing a
 /// blast line produces `ResetCause::LeftTheWorld`, which the versus rules
 /// score as a fighter death.
-fn versus_arena() -> RoomSpec {
-    versus_arena_of(&super::versus_fighters::PACK.prepared())
+fn versus_arena(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> RoomSpec {
+    versus_arena_of(versus_pack)
 }
 
 /// The arena as `pack` states it.
@@ -49,8 +49,12 @@ pub(crate) fn versus_arena_of(pack: &ambition_platformer2d::content::PreparedCon
     room
 }
 
-fn versus_prepared_session_world() -> PreparedPlatformerSource {
-    let room = versus_arena();
+fn versus_prepared_session_world(
+    packs: ambition_platformer2d::content::SelectedPacks,
+) -> PreparedPlatformerSource {
+    let versus_generation = packs.of(&crate::app::versus_fighters::PACK);
+    let versus_pack: &ambition_platformer2d::content::PreparedContentPack = &versus_generation;
+    let room = versus_arena(versus_pack);
     let geometry = ae::RoomGeometry(room.world.clone());
     // `for_match`: no home body. The comment this replaces described the
     // old contract exactly — *"the body a human seat takes over"* — and that
@@ -61,7 +65,7 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
         VERSUS_EXPERIENCE,
         RoomSet::from_parts_or_panic(VERSUS_ROOM_ID, vec![room], Vec::new()),
         geometry,
-        StartingCharacter::new(super::versus_rules::versus_seats().fighter(0)),
+        StartingCharacter::new(super::versus_rules::versus_seats(versus_pack).fighter(0)),
     )
 }
 
@@ -75,13 +79,13 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 
 /// The roster the route PROPOSES on entry, built from live device discovery
 /// before any session has decided its seating.
-pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
-    versus_roster_from(local_players, RosterSeating::Proposed)
+pub fn versus_roster(versus_pack: &ambition_platformer2d::content::PreparedContentPack, local_players: usize) -> MatchParticipantRoster {
+    versus_roster_from(versus_pack, local_players, RosterSeating::Proposed)
 }
 
 /// The same, in a stated seating lifecycle.
-pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> MatchParticipantRoster {
-    versus_roster_seating(&super::versus_rules::versus_seats(), local_players, seating)
+pub fn versus_roster_from(versus_pack: &ambition_platformer2d::content::PreparedContentPack, local_players: usize, seating: RosterSeating) -> MatchParticipantRoster {
+    versus_roster_seating(versus_pack, &super::versus_rules::versus_seats(versus_pack), local_players, seating)
 }
 
 /// The roster that `seats` (the pack's `versus_seats.ron`) gives.
@@ -92,8 +96,7 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
 /// `MatchTeam` is authoritative for team damage because human fighters
 /// otherwise share the same player faction. The roster is fixed at stage
 /// entry so device changes cannot mutate a running match.
-pub(crate) fn versus_roster_seating(
-    seats_row: &super::versus_rules::VersusSeats,
+pub(crate) fn versus_roster_seating(versus_pack: &ambition_platformer2d::content::PreparedContentPack, seats_row: &super::versus_rules::VersusSeats,
     local_players: usize,
     seating: RosterSeating,
 ) -> MatchParticipantRoster {
@@ -128,7 +131,7 @@ pub(crate) fn versus_roster_seating(
             // The pack's rules (`assets/data/match_rules.ron`): health rounds,
             // no match clock, no stocks, and the duel's verb ceiling.
             let mut rules = ambition_platformer2d::versus_match::MatchRules::default();
-            versus_match_rules().apply_to(&mut rules);
+            versus_match_rules(versus_pack).apply_to(&mut rules);
             // No items: these rounds are two duelists and a health bar, and an
             // item needs somewhere authored to land.
             rules.item_spawns = None;
@@ -174,7 +177,10 @@ fn reconcile_roster_with_frozen_topology(
     profiles: Option<
         Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let versus_generation = packs.of(&crate::app::versus_fighters::PACK);
+    let versus_pack: &ambition_platformer2d::content::PreparedContentPack = &versus_generation;
     let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
     };
@@ -237,7 +243,7 @@ fn reconcile_roster_with_frozen_topology(
     }
     // What the frozen topology WOULD seat. Before activation this replaces the
     // roster; after it, it is the thing the live roster is compared against.
-    let rebuilt = versus_roster_from(
+    let rebuilt = versus_roster_from(versus_pack, 
         topology.players(),
         RosterSeating::activated_at(topology.generation()),
     );
@@ -410,7 +416,10 @@ fn track_versus_roster(
     mut demand: ResMut<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>,
 
     mut match_state: ResMut<super::versus_rules::VersusMatch>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let versus_generation = packs.of(&crate::app::versus_fighters::PACK);
+    let versus_pack: &ambition_platformer2d::content::PreparedContentPack = &versus_generation;
     let on_versus = router
         .active
         .as_ref()
@@ -422,7 +431,7 @@ fn track_versus_roster(
     match (on_versus, mine) {
         (true, false) => {
             let frozen = topology.as_ref().filter(|topology| topology.is_frozen());
-            let roster = versus_roster_from(
+            let roster = versus_roster_from(versus_pack, 
                 frozen
                     .map(|topology| topology.players())
                     .unwrap_or_else(|| devices.connected().len().max(1)),
@@ -461,7 +470,7 @@ fn track_versus_roster(
             // A NEW roster is not yet a match. Activation is seating's to
             // publish, once every participant has a body.
             commands.remove_resource::<ambition_platformer2d::versus_match::ActiveMatch>();
-            *match_state = super::versus_rules::VersusMatch::opening();
+            *match_state = super::versus_rules::VersusMatch::opening(versus_pack);
         }
         // THE EXIT IS A DECLARATION, not a branch. Everything this route published leaves with
         // the experience — see the scope in [`compose_versus_experience`].
@@ -483,8 +492,8 @@ fn track_versus_roster(
 /// DECLARE, don't borrow (AE6). The stage states what IT plays under and writes
 /// nothing global. `project_combat_rules` folds the active room's rules over the
 /// world's baseline every tick, so a room outside the stage plays the baseline.
-pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules {
-    versus_room_rules()
+pub fn versus_combat_rules(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::combat::rules::CombatRules {
+    versus_room_rules(versus_pack)
         .combat
         .expect("the versus pack's `data/room_rules.ron` states a `combat` block")
 }
@@ -493,8 +502,8 @@ pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRule
 /// (`game/ambition_app/assets/data/match_rules.ron`): health rounds, no match
 /// clock, no stocks and the verb ceiling. An edit to the file is played at the
 /// next start, with no Rust build.
-pub fn versus_match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
-    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(&super::versus_fighters::PACK.prepared())
+pub fn versus_match_rules(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
+    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(versus_pack)
         .expect("the versus pack states the rules of its matches (`data/match_rules.ron`)")
 }
 
@@ -502,13 +511,15 @@ pub fn versus_match_rules() -> ambition_platformer2d::versus_match::match_rules:
 /// (`game/ambition_app/assets/data/room_rules.ron`): the combat rules and the
 /// heavy-hit line. An edit to the file is played at the next start, with no
 /// Rust build.
-pub fn versus_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
-    ambition_platformer2d::combat::room_rules::lowered_room_rules(&super::versus_fighters::PACK.prepared())
+pub fn versus_room_rules(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::combat::room_rules::RoomRules {
+    ambition_platformer2d::combat::room_rules::lowered_room_rules(versus_pack)
         .expect("the versus pack states the rules of its room (`data/room_rules.ron`)").clone()
 }
 
 /// Register the versus experience: a launcher entry, a route, and the stage.
 pub fn compose_versus_experience(app: &mut App) {
+    let versus_generation = super::versus_fighters::PACK.selected_in(app.world());
+    let versus_pack: &ambition_platformer2d::content::PreparedContentPack = &versus_generation;
     // A round settles across every fighter from its Starting phase on, before
     // the match is activated: no room replays alone while the stage is played.
     ambition_platformer2d::platformer::lifecycle::register_room_replay_refusal(app, "the versus stage", |world| {
@@ -517,7 +528,7 @@ pub fn compose_versus_experience(app: &mut App) {
         })
     });
     // The duelists are the stage's content pack: their rows and move tables.
-    let seats = super::versus_rules::versus_seats();
+    let seats = super::versus_rules::versus_seats(versus_pack);
     let default_character = seats.fighter(0);
     super::versus_fighters::register_versus_cast(app, default_character);
     // no archetype fragment. A CPU seat's `brain_profile` resolves against
@@ -528,9 +539,9 @@ pub fn compose_versus_experience(app: &mut App) {
     PlatformerExperienceAuthoring::new(
         VERSUS_EXPERIENCE,
         VERSUS_GAMEPLAY_ROUTE,
-        super::versus_rules::text::line("launcher.label"),
-        super::versus_rules::text::line("launcher.description"),
-        super::versus_rules::text::line("launcher.preparing"),
+        super::versus_rules::text::line(versus_pack, "launcher.label"),
+        super::versus_rules::text::line(versus_pack, "launcher.description"),
+        super::versus_rules::text::line(versus_pack, "launcher.preparing"),
         AuthoredCatalogFragments::new(default_character, VERSUS_EXPERIENCE),
     )
     // The look of its launcher row.
@@ -598,7 +609,7 @@ pub fn compose_versus_experience(app: &mut App) {
     )
     .install(app, versus_prepared_session_world);
 
-    app.init_resource::<super::versus_rules::VersusMatch>();
+    app.insert_resource(super::versus_rules::VersusMatch::opening(versus_pack));
     // The scoreboard is SIMULATION state: a rewind that restores the fighters
     // and not the score leaves the two disagreeing about what round it is.
     {
@@ -732,10 +743,12 @@ pub fn compose_versus_experience(app: &mut App) {
 ///
 /// A named function so the stage-rule tests compose THIS declaration.
 fn declare_versus_rules(app: &mut App) {
+    let versus_generation = super::versus_fighters::PACK.selected_in(app.world());
+    let versus_pack: &ambition_platformer2d::content::PreparedContentPack = &versus_generation;
     ambition_platformer2d::combat::room_rules::declare_room_rules(
         app,
         ambition_platformer2d::world::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
-        versus_room_rules(),
+        versus_room_rules(versus_pack),
     );
 }
 
@@ -798,8 +811,8 @@ mod stage_rule_tests {
     /// clock and no stocks, and the duel's ceiling with no floor.
     #[test]
     fn the_versus_roster_plays_its_match_rules_file() {
-        let rules = versus_roster_from(2, RosterSeating::default()).rules;
-        let file = versus_match_rules();
+        let rules = versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::default()).rules;
+        let file = versus_match_rules(&crate::app::versus_fighters::PACK.prepared());
         let abilities = rules.abilities.expect("the duel states a verb ceiling");
         assert_eq!(Some(abilities), file.abilities, "the roster's ceiling is the file's");
         assert_eq!(abilities.granted, ae::AbilitySet::NONE, "the duel grants no floor");
@@ -815,7 +828,7 @@ mod stage_rule_tests {
         let mut app = App::new();
         app.init_resource::<FeelTuning>();
         app.init_resource::<ambition_platformer2d::combat::targeting::FriendlyFire>();
-        app.init_resource::<super::super::versus_rules::VersusMatch>();
+        app.insert_resource(super::super::versus_rules::VersusMatch::opening(&crate::app::versus_fighters::PACK.prepared()));
         app.init_resource::<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>();
         app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
         app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
@@ -868,7 +881,7 @@ mod stage_rule_tests {
     /// Make the session's active room the versus arena, or the same arena with
     /// no mode tag (a room the stage does not govern).
     fn stand_in(app: &mut App, versus_room: bool) {
-        let mut room = versus_arena();
+        let mut room = versus_arena(&crate::app::versus_fighters::PACK.prepared());
         if !versus_room {
             room.id = "elsewhere".to_owned();
             room.metadata.mode = None;
@@ -977,7 +990,7 @@ mod stage_rule_tests {
         stand_in(&mut app, true);
         assert_eq!(
             resolved(&app).di_max_angle,
-            versus_combat_rules().di_max_angle,
+            versus_combat_rules(&crate::app::versus_fighters::PACK.prepared()).di_max_angle,
             "the fighting stage must author its DI budget"
         );
         assert_eq!(
@@ -1057,7 +1070,7 @@ mod stage_rule_tests {
         authored_is_intact(&app, "during the match");
         assert_eq!(
             resolved(&app).di_max_angle,
-            versus_combat_rules().di_max_angle,
+            versus_combat_rules(&crate::app::versus_fighters::PACK.prepared()).di_max_angle,
             "the match is not playing under its own declared DI"
         );
         assert!(
@@ -1124,7 +1137,7 @@ mod roster_topology_tests {
         // makes seat `n` human only while `n < local_players`, so a two-player
         // roster is two humans and has no brain profile to validate at all —
         // this test passed for that reason first time out.
-        app.insert_resource(versus_roster_from(1, RosterSeating::Proposed));
+        app.insert_resource(versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 1, RosterSeating::Proposed));
         // Not frozen: this is the entry-time arm, where the route activates its
         // own proposal because no session has an opinion.
         app.insert_resource(LocalSeatTopology::default());
@@ -1139,7 +1152,7 @@ mod roster_topology_tests {
              composition's BrainProfileRegistry does not publish, was activated \
              anyway. Seating will refuse it every tick and the stage will never \
              open",
-            crate::app::versus_rules::versus_seats().cpu_brain
+            crate::app::versus_rules::versus_seats(&crate::app::versus_fighters::PACK.prepared()).cpu_brain
         );
 
         // and the SAME roster activates once the composition can answer for it,
@@ -1155,7 +1168,7 @@ mod roster_topology_tests {
         // published here is what a shipped versus route publishes: it is what
         // turns an authored profile into a resolvable `versus::versus_duelist`
         // (cite-ok: an authored key, not a path).
-        crate::app::versus_fighters::register_versus_cast(&mut app, crate::app::versus_rules::versus_seats().fighter(0));
+        crate::app::versus_fighters::register_versus_cast(&mut app, crate::app::versus_rules::versus_seats(&crate::app::versus_fighters::PACK.prepared()).fighter(0));
         app.update();
         assert!(
             app.world()
@@ -1182,7 +1195,7 @@ mod roster_topology_tests {
     /// no player runs.
     #[test]
     fn a_roster_published_by_another_experience_is_left_alone() {
-        let mut foreign = versus_roster_from(2, RosterSeating::Proposed);
+        let mut foreign = versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::Proposed);
         foreign.published_by = Some("ambition_smash".to_owned());
         let before = foreign.clone();
 
@@ -1208,7 +1221,7 @@ mod roster_topology_tests {
     /// The reconciler still does its job for a roster that IS versus's.
     #[test]
     fn its_own_roster_is_still_reconciled() {
-        let mut mine = versus_roster_from(2, RosterSeating::Proposed);
+        let mut mine = versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::Proposed);
         mine.published_by = Some(VERSUS_EXPERIENCE.to_owned());
         let mut app = app_with(mine, 1, false);
         app.update();
@@ -1229,7 +1242,7 @@ mod roster_topology_tests {
     /// an intention and rebuilding it costs nothing.
     #[test]
     fn a_roster_built_before_the_freeze_is_rebuilt_against_it() {
-        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, false);
+        let mut app = app_with(versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::Proposed), 3, false);
         app.update();
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert_eq!(
@@ -1255,7 +1268,7 @@ mod roster_topology_tests {
     /// it is a match assembled from two rosters.
     #[test]
     fn a_half_seated_match_is_not_handed_a_different_roster() {
-        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, false);
+        let mut app = app_with(versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::Proposed), 3, false);
         // One fighter is already standing on the stage; the other has not seated
         // yet, so `ActiveMatch` is absent — the exact window.
         app.world_mut()
@@ -1284,14 +1297,14 @@ mod roster_topology_tests {
     #[test]
     fn a_half_seated_match_whose_cast_agrees_still_gets_its_stamp() {
         let topology = topology_of(2);
-        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 2, false);
+        let mut app = app_with(versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::Proposed), 2, false);
         app.world_mut()
             .spawn(ambition_platformer2d::versus_match::MatchSeat(0));
         app.update();
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert_eq!(
             roster.participants,
-            versus_roster_from(2, RosterSeating::Proposed).participants
+            versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::Proposed).participants
         );
         assert_eq!(
             roster.seat_topology(),
@@ -1308,7 +1321,7 @@ mod roster_topology_tests {
     fn an_agreeing_roster_is_not_touched() {
         let topology = topology_of(2);
         let mut app = app_with(
-            versus_roster_from(2, RosterSeating::activated_at(topology.generation())),
+            versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::activated_at(topology.generation())),
             2,
             false,
         );
@@ -1325,7 +1338,7 @@ mod roster_topology_tests {
     #[test]
     fn an_unfrozen_topology_does_not_overrule_the_roster() {
         let mut app = App::new();
-        app.insert_resource(versus_roster_from(4, RosterSeating::Proposed));
+        app.insert_resource(versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 4, RosterSeating::Proposed));
         app.insert_resource(LocalSeatTopology::default());
         app.init_resource::<CharacterLoadDemand>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);
@@ -1351,7 +1364,7 @@ mod roster_topology_tests {
     /// agreeing completely about who is fighting.
     #[test]
     fn a_live_match_that_agrees_with_its_session_adopts_its_topology() {
-        let mut app = app_with(versus_roster_from(1, RosterSeating::Proposed), 1, true);
+        let mut app = app_with(versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 1, RosterSeating::Proposed), 1, true);
         let generation = app.world().resource::<LocalSeatTopology>().generation();
         let fighters = app
             .world()
@@ -1379,7 +1392,7 @@ mod roster_topology_tests {
     /// After seating it is bodies on a stage, and it is left alone.
     #[test]
     fn a_seated_match_is_never_reseated_underneath_itself() {
-        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, true);
+        let mut app = app_with(versus_roster_from(&crate::app::versus_fighters::PACK.prepared(), 2, RosterSeating::Proposed), 3, true);
         app.update();
         assert_eq!(
             app.world()

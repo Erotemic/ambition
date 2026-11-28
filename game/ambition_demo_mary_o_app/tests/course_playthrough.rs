@@ -91,7 +91,7 @@ fn the_session_enters_the_fixture_course_when_asked() {
 /// only a test inserts.
 #[test]
 fn a_host_that_says_nothing_still_enters_level_one() {
-    let shipped = ambition_demo_mary_o::mary_o_session_world();
+    let shipped = ambition_demo_mary_o::mary_o_session_world(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     // the AUTHORED world's name, which the LDtk file supplies — not the string
     // the old Rust builder passed to `World::new`.
     assert!(
@@ -99,7 +99,7 @@ fn a_host_that_says_nothing_still_enters_level_one() {
         "no entry resource means the real level, not the fixture: {}",
         shipped.geometry.0.name
     );
-    let asked = ambition_demo_mary_o::provider::mary_o_session_world_entering(TEST_COURSE_ROOM_ID);
+    let asked = ambition_demo_mary_o::provider::mary_o_session_world_entering(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()), TEST_COURSE_ROOM_ID);
     assert!(
         asked.geometry.0.name.contains("test course"),
         "and asking for the course gets the course: {}",

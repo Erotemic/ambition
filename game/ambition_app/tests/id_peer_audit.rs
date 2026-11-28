@@ -533,13 +533,13 @@ fn two_hosts_with_different_local_history_seat_the_same_agreed_match() {
     ]);
     let agreed = || {
         let mut select = SmashSelect::default();
-        select.set_occupant(0, SlotOccupant::Cpu);
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
         select.set_pick(0, SlotPick::Fighter(0));
-        select.set_occupant(1, SlotOccupant::Cpu);
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
         select.set_pick(1, SlotPick::Random);
         // ⚠ TWO random seats, not one: each extra surprise square divides the
         // chance that a wrong seed happens to draw the right roster anyway.
-        select.set_occupant(2, SlotOccupant::Cpu);
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 2, SlotOccupant::Cpu);
         select.set_pick(2, SlotPick::Random);
         select
     };
@@ -550,14 +550,14 @@ fn two_hosts_with_different_local_history_seat_the_same_agreed_match() {
     let roster_on = |_host_activation_id: u64| {
         let select = agreed();
         select
-            .roster_seeded(
+            .roster_seeded(&ambition_demo_smash::smash_pack::PACK.prepared(), 
                 &fighters,
                 &Default::default(),
                 ambition_demo_smash::agreed_match_seed(&select),
                 POLICY,
                 &Default::default(),
                 None,
-                ambition_demo_smash::starting_stocks(),
+                ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared()),
             )
             .expect("two decided seats are a match")
             .participants
@@ -604,27 +604,27 @@ fn a_different_agreed_configuration_draws_a_different_sequence() {
 
     let two_way = {
         let mut s = SmashSelect::default();
-        s.set_occupant(0, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
         s.set_pick(0, SlotPick::Fighter(0));
-        s.set_occupant(1, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
         s.set_pick(1, SlotPick::Random);
         s
     };
     let three_way = {
         let mut s = SmashSelect::default();
-        s.set_occupant(0, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
         s.set_pick(0, SlotPick::Fighter(0));
-        s.set_occupant(1, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
         s.set_pick(1, SlotPick::Random);
-        s.set_occupant(2, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 2, SlotOccupant::Cpu);
         s.set_pick(2, SlotPick::Random);
         s
     };
     let other_picks = {
         let mut s = SmashSelect::default();
-        s.set_occupant(0, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
         s.set_pick(0, SlotPick::Fighter(2));
-        s.set_occupant(1, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
         s.set_pick(1, SlotPick::Random);
         s
     };
@@ -661,9 +661,9 @@ fn different_local_device_wiring_seeds_the_same_agreed_match() {
 
     let with_devices = |a: usize, b: usize| {
         let mut s = SmashSelect::default();
-        s.set_occupant(0, SlotOccupant::Controller { device: a });
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: a });
         s.set_pick(0, SlotPick::Fighter(0));
-        s.set_occupant(1, SlotOccupant::Controller { device: b });
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: b });
         s.set_pick(1, SlotPick::Random);
         s
     };
@@ -685,9 +685,9 @@ fn different_local_device_wiring_seeds_the_same_agreed_match() {
     // mechanical difference, so collapsing the occupant entirely would be wrong.
     let cpu_seated = {
         let mut s = SmashSelect::default();
-        s.set_occupant(0, SlotOccupant::Cpu);
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
         s.set_pick(0, SlotPick::Fighter(0));
-        s.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        s.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
         s.set_pick(1, SlotPick::Random);
         s
     };
@@ -751,11 +751,11 @@ fn two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road()
                 .world_mut()
                 .get_resource_mut::<SmashSelect>()
                 .expect("the select screen owns its state on this route");
-            select.set_occupant(0, SlotOccupant::Cpu);
+            select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
             select.set_pick(0, SlotPick::Fighter(0));
-            select.set_occupant(1, SlotOccupant::Cpu);
+            select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
             select.set_pick(1, SlotPick::Random);
-            select.set_occupant(2, SlotOccupant::Cpu);
+            select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 2, SlotOccupant::Cpu);
             select.set_pick(2, SlotPick::Random);
         }
         app.world_mut().insert_resource(StartRequested(true));

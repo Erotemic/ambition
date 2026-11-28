@@ -57,8 +57,8 @@ pub fn register_versus_cast(app: &mut bevy::prelude::App, default_character: &st
 /// duel forbids, and an unauthored character gets nothing (permission is not
 /// a grant). Each duelist's row grants itself exactly this kit, so the
 /// ceiling narrows nothing a fighter authored.
-pub fn versus_fighter_kit() -> ambition_platformer2d::engine_core::AbilitySet {
-    super::versus::versus_match_rules()
+pub fn versus_fighter_kit(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::engine_core::AbilitySet {
+    super::versus::versus_match_rules(versus_pack)
         .abilities
         .expect("the versus pack's `match_rules.ron` states the duel's verb ceiling")
         .permitted
@@ -172,10 +172,10 @@ mod tests {
     fn what_the_duelists_author_is_exactly_the_stages_ceiling() {
         use ambition_platformer2d::engine_core::{AbilitySet, MatchAbilities};
 
-        let rules = super::super::versus::versus_match_rules()
+        let rules = super::super::versus::versus_match_rules(&crate::app::versus_fighters::PACK.prepared())
             .abilities
             .expect("the versus pack states the duel's verb ceiling");
-        let kit = versus_fighter_kit();
+        let kit = versus_fighter_kit(&crate::app::versus_fighters::PACK.prepared());
         assert_eq!(rules, MatchAbilities::at_most(kit), "the duel states a ceiling and no floor");
         assert_eq!(
             rules.apply(None),

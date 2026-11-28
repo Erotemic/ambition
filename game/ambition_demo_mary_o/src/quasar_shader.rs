@@ -235,10 +235,13 @@ fn attach_quasar_overlays(
     // How long each candidate has been un-attachable, and whether it has already
     // been reported. See [`QUASAR_ATTACH_GRACE_FRAMES`].
     mut waiting: Local<HashMap<Entity, (u32, bool)>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     waiting.retain(|entity, _| candidates.get(*entity).is_ok());
     for (source_entity, worn, health, visibility, transform, sprite, anchor, frame, session_owner, star) in &candidates {
-        if !quasar_shows(worn, health, star, visibility, &settings) {
+        if !quasar_shows(forms, worn, health, star, visibility, &settings) {
             waiting.remove(&source_entity);
             continue;
         }
@@ -318,8 +321,7 @@ fn attach_quasar_overlays(
 /// its own. So in that form the quasar draws only while she holds a quasar:
 /// `star` is whether she has the timed state the quasar gives (the
 /// `Empowered` component), which the row does not give.
-fn quasar_shows(
-    worn: &CharacterForm,
+fn quasar_shows(forms: &crate::forms::MaryOForms, worn: &CharacterForm,
     health: &BodyHealth,
     star: bool,
     visibility: Option<&Visibility>,
@@ -333,7 +335,7 @@ fn quasar_shows(
             .invulnerable
             .holds(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED)
     };
-    crate::powerups::is_her_form(worn.id())
+    crate::powerups::is_her_form(forms, worn.id())
         && empowered
         && !matches!(visibility, Some(Visibility::Hidden))
         && !settings.disabled
@@ -353,12 +355,15 @@ fn declare_quasar_demand(
     settings: Res<MaryOQuasarShaderSettings>,
     bodies: Query<(Entity, &CharacterForm, &BodyHealth, Option<&Visibility>, Has<crate::star::PocketQuasar>), With<PlayerVisual>>,
     demand: Option<ResMut<ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemand>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     let Some(mut demand) = demand else {
         return;
     };
     for (body, worn, health, visibility, star) in &bodies {
-        if quasar_shows(worn, health, star, visibility, &settings) {
+        if quasar_shows(forms, worn, health, star, visibility, &settings) {
             demand.declare(body);
         }
     }
@@ -393,7 +398,10 @@ fn sync_quasar_overlays(
     )>,
     mut materials: ResMut<Assets<MaryOQuasarMaterial>>,
     mut was_enabled: Local<Option<bool>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     *elapsed += presentation_time.wall_dt();
 
     for (
@@ -419,7 +427,7 @@ fn sync_quasar_overlays(
         }
 
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
-        let enabled = quasar_shows(worn, health, star, source_visibility, &settings);
+        let enabled = quasar_shows(forms, worn, health, star, source_visibility, &settings);
         // Say it ONCE per transition, naming every condition. "I got the quasar
         // and saw nothing" has five possible causes and no way to tell them
         // apart from the outside; this line distinguishes them.
@@ -433,7 +441,7 @@ fn sync_quasar_overlays(
                 "overlay enabled = {enabled} (form '{}' ok = {}, invincible = {}, \
                  source_visible = {source_visible}, disabled = {}, strength = {})",
                 worn.id(),
-                crate::powerups::is_her_form(worn.id()),
+                crate::powerups::is_her_form(forms, worn.id()),
                 health.health.invulnerable.holds(
                 ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
             ),
@@ -593,11 +601,11 @@ mod tests {
     /// a character off the ladder does not.
     #[test]
     fn quasar_shader_accepts_all_mary_o_power_forms_only() {
-        assert!(is_mary_o_form("mary_o"));
-        assert!(is_mary_o_form("mary_o_tall_classic"));
-        assert!(is_mary_o_form("mary_o_fire"));
-        assert!(is_mary_o_form("mary_o_cosmic"));
-        assert!(!is_mary_o_form("sanic"));
+        assert!(is_mary_o_form(&crate::forms::shipped_forms(), "mary_o"));
+        assert!(is_mary_o_form(&crate::forms::shipped_forms(), "mary_o_tall_classic"));
+        assert!(is_mary_o_form(&crate::forms::shipped_forms(), "mary_o_fire"));
+        assert!(is_mary_o_form(&crate::forms::shipped_forms(), "mary_o_cosmic"));
+        assert!(!is_mary_o_form(&crate::forms::shipped_forms(), "sanic"));
     }
 
     use super::*;

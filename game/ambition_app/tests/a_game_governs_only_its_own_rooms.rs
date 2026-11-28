@@ -242,7 +242,7 @@ fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms(app: &m
         ),
         (
             Some(ambition_app::app::versus::VERSUS_EXPERIENCE),
-            Some(ambition_app::app::versus::versus_combat_rules()),
+            Some(ambition_app::app::versus::versus_combat_rules(&ambition_app::app::versus_fighters::PACK.prepared())),
         ),
         (None, None),
         (Some(ambition_demo_sanic::SANIC_MODE), None),
@@ -302,7 +302,7 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms(app: &mut App) {
     }
 
     let smash = Some(ambition_demo_smash::SMASH_MODE);
-    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(smash)).copied(), Some(SmashLimitFill(smash_limit())));
+    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(smash)).copied(), Some(SmashLimitFill(smash_limit(&ambition_demo_smash::smash_pack::PACK.prepared()))));
     assert_eq!(
         table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(smash)).copied(),
         Some(PortalCameraTransitMode::Pop)

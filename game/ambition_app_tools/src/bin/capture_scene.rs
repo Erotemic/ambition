@@ -3047,7 +3047,7 @@ fn go_to_route(
             eprintln!(
                 "capture_scene: seating '{character}' twice on the smash stage,                  so the route comes up with a match rather than an empty stage"
             );
-            commands.insert_resource(ambition_demo_smash::smash_roster([
+            commands.insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
                 character.as_str(),
                 character.as_str(),
             ]));

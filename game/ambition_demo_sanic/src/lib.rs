@@ -171,8 +171,8 @@ pub const SFX_RING_LOSS: &str = "sanic.ring_loss";
 
 /// Pick the rev tier from the post-tap charge (`0..=1`) at the rules'
 /// `spin_dash.rev_tiers`.
-pub fn rev_tier_id(charge: f32) -> &'static str {
-    let [second, third] = ball_dash::spin_dash_tuning().rev_tiers;
+pub fn rev_tier_id(tuning: &ball_dash::BallDashTuning, charge: f32) -> &'static str {
+    let [second, third] = tuning.rev_tiers;
     if charge < second {
         SFX_REV_TIERS[0]
     } else if charge < third {
@@ -215,7 +215,8 @@ pub fn world_text(world: &PackText) -> std::borrow::Cow<'static, str> {
 /// the level fields say its mode, biome and visual profile (the skybridge
 /// parallax). This adds only the loop and finish signs, whose places come
 /// from the loop and the goal.
-pub fn sanic_speedway(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+pub fn sanic_speedway(pack: &ambition_platformer2d::content::PreparedContentPack, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+    let (rules, text) = (crate::rules::sanic_rules_in(pack), crate::text::sanic_text_in(pack));
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&SPEEDWAY_WORLD))
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
     let room_set = project
@@ -240,10 +241,10 @@ pub fn sanic_speedway(sprite_content: &ambition_platformer2d::sprite_sheet::Spri
     let signs = vec![
         (
             "loop".to_string(),
-            crate::text::line("sign.loop"),
+            crate::text::line(text, "sign.loop"),
             ae::Vec2::new(loop_top.x, loop_top.y - 36.0),
         ),
-        ("finish".to_string(), crate::text::line("sign.finish"), finish_sign(&room.world),
+        ("finish".to_string(), crate::text::line(text, "sign.finish"), finish_sign(rules, &room.world),
         ),
     ];
     room.debug_labels.extend(signs.into_iter().map(|(id, text, position)| {
@@ -259,7 +260,7 @@ pub fn sanic_speedway(sprite_content: &ambition_platformer2d::sprite_sheet::Spri
         )
     }));
     monitors::dress_monitors(&sprite_content, &mut room);
-    scenery::dress_goal(&sprite_content, &mut room);
+    scenery::dress_goal(rules, &sprite_content, &mut room);
     room
 }
 
@@ -268,7 +269,8 @@ pub fn sanic_speedway(sprite_content: &ambition_platformer2d::sprite_sheet::Spri
 /// the spike gauntlet, and the `velocity` score. Every loop is authored data
 /// (`SurfaceLoop` with `attach_to`); nothing is grafted here. The layout is
 /// `tools/author_highway_ldtk.py`'s docstring.
-pub fn sanic_highway(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+pub fn sanic_highway(pack: &ambition_platformer2d::content::PreparedContentPack, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+    let (rules, text) = (crate::rules::sanic_rules_in(pack), crate::text::sanic_text_in(pack));
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&HIGHWAY_WORLD,
     ))
         .expect(
@@ -285,24 +287,25 @@ pub fn sanic_highway(sprite_content: &ambition_platformer2d::sprite_sheet::Sprit
         .into_iter()
         .find(|room| room.id == HIGHWAY_ROOM_ID)
         .expect("the world file authors the sanic_highway area");
-    let finish = finish_sign(&room.world);
+    let finish = finish_sign(rules, &room.world);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_highway_finish",
-        crate::text::line("sign.finish"),
+        crate::text::line(text, "sign.finish"),
         ae::Aabb::new(finish, ae::Vec2::splat(1.0)),
         ambition_platformer2d::world::debug_label::DebugLabel::new(
-            crate::text::line("sign.finish"),
+            crate::text::line(text, "sign.finish"),
             finish,
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
     )];
     monitors::dress_monitors(&sprite_content, &mut room);
-    scenery::dress_goal(&sprite_content, &mut room);
+    scenery::dress_goal(rules, &sprite_content, &mut room);
     room
 }
 
 /// Load the dark third act from its LDtk source.
-pub fn sanic_darkness(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+pub fn sanic_darkness(pack: &ambition_platformer2d::content::PreparedContentPack, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+    let (rules, text) = (crate::rules::sanic_rules_in(pack), crate::text::sanic_text_in(pack));
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&DARKNESS_WORLD))
         .expect("sanic_darkness.ldtk parses (regen: game/ambition_demo_sanic/tools/author_darkness_ldtk.py)");
     let room_set = project
@@ -316,19 +319,19 @@ pub fn sanic_darkness(sprite_content: &ambition_platformer2d::sprite_sheet::Spri
         .into_iter()
         .find(|room| room.id == DARKNESS_ROOM_ID)
         .expect("the world file authors the sanic_darkness area");
-    let finish = ae::Vec2::new(goal_x_of(&room.world), 1120.0);
+    let finish = ae::Vec2::new(goal_x_of(rules, &room.world), 1120.0);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_darkness_finish",
-        crate::text::line("sign.finish"),
+        crate::text::line(text, "sign.finish"),
         ae::Aabb::new(finish, ae::Vec2::splat(1.0)),
         ambition_platformer2d::world::debug_label::DebugLabel::new(
-            crate::text::line("sign.finish"),
+            crate::text::line(text, "sign.finish"),
             finish,
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
     )];
     monitors::dress_monitors(&sprite_content, &mut room);
-    scenery::dress_goal(&sprite_content, &mut room);
+    scenery::dress_goal(rules, &sprite_content, &mut room);
     room
 }
 
@@ -844,8 +847,8 @@ fn toggle_sanic_form(
 /// Sanic's transformation beat: its length and its slow-down are `super_form`
 /// in the pack's `sanic_rules.ron`. He holds his taunt and cannot be touched
 /// while it runs.
-fn super_form_beat() -> ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
-    let form = crate::rules::sanic_rules().super_form;
+fn super_form_beat(rules: &crate::rules::SanicRules) -> ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
+    let form = rules.super_form;
     ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
         duration: form.beat_seconds,
         anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt,
@@ -879,6 +882,7 @@ fn sync_super_form_traits(
         ),
         bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     // `None` means no controlled player (the session has retired). Capture
     // the emit position while the body is borrowed.
@@ -925,7 +929,7 @@ fn sync_super_form_traits(
             if let Some(body) = body {
                 commands.entity(body).try_insert(
                     ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested(
-                        super_form_beat(),
+                        super_form_beat(&crate::rules::sanic_rules(&packs)),
                     ),
                 );
             }
@@ -940,7 +944,7 @@ fn sync_super_form_traits(
         return;
     }
     // How the sparkles look is `effects.super_sparkle` in his rules file.
-    let sparkle = crate::rules::sanic_rules().effects.super_sparkle;
+    let sparkle = crate::rules::sanic_rules(&packs).effects.super_sparkle;
     *sparkle_accum += time.sim_dt();
     if *sparkle_accum >= sparkle.puffs.period_s {
         *sparkle_accum -= sparkle.puffs.period_s;
@@ -1080,6 +1084,7 @@ pub fn scatter_rings_on_hit(
         ),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     let Some(scope) =
         ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
@@ -1107,7 +1112,7 @@ pub fn scatter_rings_on_hit(
         // rings land. `WalletShieldSpent` leaves the expression to content.
         // Raise, never replace: a longer running window (a hazard respawn
         // arms 1.10s) must not be cut short.
-        let loss = crate::rules::sanic_rules().ring_loss;
+        let loss = crate::rules::sanic_rules(&packs).ring_loss;
         if let Some(mut combat) = combat {
             combat.damage_invuln_timer = combat.damage_invuln_timer.max(loss.invulnerable_seconds);
         }
@@ -1170,7 +1175,7 @@ pub fn scatter_rings_on_hit(
         // At the rings' own launch speed, so the sparkle reads as the same
         // event and not a separate, smaller puff at the centre.
         vfx.for_room(rooms.of(event.victim))
-            .write(crate::rules::sanic_rules().effects.ring_loss.at(event.pos, loss.burst_speed),
+            .write(crate::rules::sanic_rules(&packs).effects.ring_loss.at(event.pos, loss.burst_speed),
         );
         // H2: losing your rings is the struck body's cue.
         sfx.write_for(
@@ -1206,8 +1211,9 @@ pub fn arc_scattered_rings(
         &mut ScatteredRing,
         &mut ae::CenteredAabb,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
-    let loss = crate::rules::sanic_rules().ring_loss;
+    let loss = crate::rules::sanic_rules(&packs).ring_loss;
     let dt = time.sim_dt();
     for (entity, mut ring, mut aabb) in &mut rings {
         let solids = world.of(entity).map(|geometry| &geometry.0);
@@ -1266,8 +1272,8 @@ fn ring_step(
 
 /// The goal line of the course `world` lays out. It is inside the player's
 /// reachable horizontal extent, not at the level's visual edge.
-pub fn goal_x_of(world: &ae::World) -> f32 {
-    goal_x_with(&crate::rules::sanic_rules().act, world)
+pub fn goal_x_of(rules: &crate::rules::SanicRules, world: &ae::World) -> f32 {
+    goal_x_with(&rules.act, world)
 }
 
 /// The goal line of `world` under the act rules `act`.
@@ -1278,15 +1284,15 @@ pub fn goal_x_with(act: &crate::rules::Act, world: &ae::World) -> f32 {
 /// Where an act's FINISH sign stands: over its goal line, 300 px above the
 /// ground there. Derived from the course, so the sign and the trigger cannot
 /// drift, and a course with other ground has its sign over that ground.
-fn finish_sign(world: &ae::World) -> ae::Vec2 {
-    let x = goal_x_of(world);
+fn finish_sign(rules: &crate::rules::SanicRules, world: &ae::World) -> ae::Vec2 {
+    let x = goal_x_of(rules, world);
     let ground = scenery::ground_at(world, x).unwrap_or(world.size.y);
     ae::Vec2::new(x, ground - 300.0)
 }
 
 /// The act's score, from the numbers captured at the clear.
-pub fn act_score(time: f32, rings: i32) -> i32 {
-    let act = crate::rules::sanic_rules().act;
+pub fn act_score(rules: &crate::rules::SanicRules, time: f32, rings: i32) -> i32 {
+    let act = rules.act;
     let remaining = (act.par_seconds - time).max(0.0);
     (remaining * act.time_bonus_per_second as f32) as i32 + rings.max(0) * act.ring_bonus
 }
@@ -1306,8 +1312,7 @@ pub fn act_clock_text(seconds: f32) -> String {
 
 /// The name of an act and its number, by its room (`acts` in the pack's
 /// `sanic_rules.ron`). `None` for a room that is not an act.
-pub fn act_title(room_id: &str) -> Option<(String, u8)> {
-    let rules = crate::rules::sanic_rules();
+pub fn act_title(rules: &crate::rules::SanicRules, room_id: &str) -> Option<(String, u8)> {
     let index = rules.acts.iter().position(|act| act.room == room_id)?;
     Some((rules.acts[index].title.clone(), index as u8 + 1))
 }
@@ -1330,6 +1335,7 @@ fn take_the_controls_at_the_goal(
     mut models: bevy::prelude::Query<&mut ambition_platformer2d::actor::MotionModel>,
     mut kinematics: bevy::prelude::Query<&mut ae::BodyKinematics>,
     mut holds: bevy::prelude::Query<&mut ambition_platformer2d::characters::control::ControlHolds>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     let cleared = act
         .iter()
@@ -1371,7 +1377,7 @@ fn take_the_controls_at_the_goal(
         return;
     };
     // The rate is `act.outro_brake_per_second` in his rules file.
-    let brake = crate::rules::sanic_rules().act.outro_brake_per_second;
+    let brake = crate::rules::sanic_rules(&packs).act.outro_brake_per_second;
     let keep = (1.0 - brake * time.sim_dt()).clamp(0.0, 1.0);
     if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *motion {
         // A brake has no airborne answer (the kinematic velocity below
@@ -1402,6 +1408,7 @@ pub fn clear_act_at_goal(
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     let Ok((runner, kin, wallet)) = player.single() else {
         return;
@@ -1409,7 +1416,7 @@ pub fn clear_act_at_goal(
     let Some(spec) = rooms.spec_of(runner) else {
         return;
     };
-    let goal = goal_x_of(&spec.world);
+    let goal = goal_x_of(&crate::rules::sanic_rules(&packs), &spec.world);
     for mut state in &mut act {
         if !matches!(state.phase, SanicActPhase::Running) || kin.pos.x < goal {
             continue;
@@ -1417,9 +1424,9 @@ pub fn clear_act_at_goal(
         state.phase = SanicActPhase::Cleared {
             time: state.elapsed,
             rings: wallet.balance,
-            dwell: crate::rules::sanic_rules().act.clear_dwell,
+            dwell: crate::rules::sanic_rules(&packs).act.clear_dwell,
         };
-        vfx.for_room(rooms.live().of(runner)).write(crate::rules::sanic_rules().effects.act_clear.at(kin.pos));
+        vfx.for_room(rooms.live().of(runner)).write(crate::rules::sanic_rules(&packs).effects.act_clear.at(kin.pos));
         // H2/I3: the act's fanfare belongs to the course, not to the runner or
         // the host.
         sfx.write_from(

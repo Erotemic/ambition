@@ -84,8 +84,8 @@ pub enum CastleBeat {
 impl CastleBeat {
     /// The seconds of a beat that ends on time. A beat with `None` ends on a
     /// fact of the world ([`CastleFacts`]).
-    fn seconds(self) -> Option<f32> {
-        let castle = crate::rules::mary_o_rules().castle_end;
+    fn seconds(self, mary_o_pack: &ambition_platformer2d::content::PreparedContentPack, rules: &crate::rules::MaryORules,) -> Option<f32> {
+        let castle = rules.castle_end;
         let beats = castle.beats;
         match self {
             Self::Pressed => Some(beats.pressed),
@@ -93,7 +93,7 @@ impl CastleBeat {
             Self::BridgeFalls | Self::BossFalls | Self::Walks => None,
             Self::Aftermath => Some(beats.aftermath),
             Self::GateOpens => Some(beats.gate_opens),
-            Self::Thanks => Some(rescue_line_seconds() + beats.thanks_after_line),
+            Self::Thanks => Some(rescue_line_seconds(mary_o_pack) + beats.thanks_after_line),
             Self::Victory => Some(beats.victory),
         }
     }
@@ -171,8 +171,7 @@ pub struct CastleFacts {
 ///
 /// Returns where the body is this tick, as [`crate::flag::step_flag_sequence`]
 /// does for a pole. `None` in `Idle`: the player still plays.
-pub fn step_castle_ending(
-    seq: &mut FlagSequence,
+pub fn step_castle_ending(mary_o_pack: &ambition_platformer2d::content::PreparedContentPack, rules: &crate::rules::MaryORules, seq: &mut FlagSequence,
     goal: &CastleGoal,
     body: Stomper,
     facts: CastleFacts,
@@ -180,13 +179,12 @@ pub fn step_castle_ending(
 ) -> Option<FlagDrive> {
     // The body the sequence drives is the one IT last put down.
     let at = seq.driven.unwrap_or(body.pos);
-    let out = step_beat(seq, goal, Stomper { pos: at, ..body }, facts, dt);
+    let out = step_beat(mary_o_pack, rules, seq, goal, Stomper { pos: at, ..body }, facts, dt);
     seq.driven = out.map(|drive| drive.pos);
     out
 }
 
-fn step_beat(
-    seq: &mut FlagSequence,
+fn step_beat(mary_o_pack: &ambition_platformer2d::content::PreparedContentPack, rules: &crate::rules::MaryORules, seq: &mut FlagSequence,
     goal: &CastleGoal,
     body: Stomper,
     facts: CastleFacts,
@@ -208,7 +206,7 @@ fn step_beat(
                 return None;
             }
             seq.phase = FlagPhase::Castle {
-                score: crate::rules::mary_o_rules().castle_end.switch_score,
+                score: rules.castle_end.switch_score,
                 beat: CastleBeat::Pressed,
                 since: 0.0,
             };
@@ -228,30 +226,30 @@ fn step_beat(
     };
     let done = match beat {
         CastleBeat::Pressed => {
-            drive.pos.y = on_button((since * crate::rules::mary_o_rules().castle_end.press_speed).min(PRESS_DROP));
+            drive.pos.y = on_button((since * rules.castle_end.press_speed).min(PRESS_DROP));
             false
         }
         CastleBeat::BridgeFalls => !facts.planks_left,
         CastleBeat::BossFalls => !facts.boss_left,
         CastleBeat::Walks => {
             let floor = switch.max.y - body.half.y;
-            let x = (body.pos.x + crate::rules::mary_o_rules().flag.walk_off_speed * dt).min(goal.stand_x.max(body.pos.x));
+            let x = (body.pos.x + rules.flag.walk_off_speed * dt).min(goal.stand_x.max(body.pos.x));
             // Off the button when her middle is past its edge.
             let y = if x < switch.max.x {
                 body.pos.y
             } else {
-                (body.pos.y + crate::rules::mary_o_rules().castle_end.step_down_speed * dt).min(floor)
+                (body.pos.y + rules.castle_end.step_down_speed * dt).min(floor)
             };
             let arrived = x >= goal.stand_x && y >= floor;
             drive.pos = ae::Vec2::new(x, y);
             if !arrived {
-                drive.vel = ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0);
+                drive.vel = ae::Vec2::new(rules.flag.walk_off_speed, 0.0);
             }
             arrived
         }
         _ => false,
     };
-    let done = done || beat.seconds().is_some_and(|seconds| since >= seconds);
+    let done = done || beat.seconds(mary_o_pack, rules).is_some_and(|seconds| since >= seconds);
     seq.phase = match (done, beat.next()) {
         (false, _) => FlagPhase::Castle { score, beat, since },
         (true, Some(next)) => FlagPhase::Castle {
@@ -278,8 +276,8 @@ fn block_named(room: &RoomSpec, name: &str) -> Option<ae::Aabb> {
 }
 
 /// The pack's cutscenes (`data/cutscenes/*.ron`).
-pub fn cutscenes() -> ambition_platformer2d::content::PackRow<[CutsceneScript]> {
-    crate::pack::PACK.prepared().row(cutscenes_in)
+pub fn cutscenes(mary_o_pack: &ambition_platformer2d::content::PreparedContentPack) -> &[CutsceneScript] {
+    cutscenes_in(mary_o_pack)
 }
 
 fn cutscenes_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &[CutsceneScript] {
@@ -289,8 +287,8 @@ fn cutscenes_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &
 }
 
 /// The script of the rescue, as the pack states it.
-pub fn rescue_script() -> ambition_platformer2d::content::PackRow<CutsceneScript> {
-    crate::pack::PACK.prepared().row(rescue_script_in)
+pub fn rescue_script(mary_o_pack: &ambition_platformer2d::content::PreparedContentPack) -> &CutsceneScript {
+    rescue_script_in(mary_o_pack)
 }
 
 fn rescue_script_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &CutsceneScript {
@@ -301,8 +299,8 @@ fn rescue_script_in(pack: &ambition_platformer2d::content::PreparedContentPack) 
 }
 
 /// What he says: the banner of the rescue.
-pub fn rescue_line() -> ambition_platformer2d::content::PackRow<str> {
-    crate::pack::PACK.prepared().row(rescue_line_in)
+pub fn rescue_line(mary_o_pack: &ambition_platformer2d::content::PreparedContentPack) -> &str {
+    rescue_line_in(mary_o_pack)
 }
 
 fn rescue_line_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &str {
@@ -317,8 +315,8 @@ fn rescue_line_in(pack: &ambition_platformer2d::content::PreparedContentPack) ->
 }
 
 /// How long his line is on the screen: the banners of the rescue.
-fn rescue_line_seconds() -> f32 {
-    rescue_script()
+fn rescue_line_seconds(mary_o_pack: &ambition_platformer2d::content::PreparedContentPack) -> f32 {
+    rescue_script(mary_o_pack)
         .beats
         .iter()
         .map(|beat| match beat {
@@ -331,9 +329,11 @@ fn rescue_line_seconds() -> f32 {
 /// Put the pack's cutscenes in the library of the app, one time, when the app
 /// is built: a provider gives the library the rows of its own ids.
 pub fn install(app: &mut App) {
+    let mary_o_generation = crate::pack::PACK.selected_in(app.world());
+    let mary_o_pack: &ambition_platformer2d::content::PreparedContentPack = &mary_o_generation;
     app.init_resource::<CutsceneLibrary>();
     let mut library = app.world_mut().resource_mut::<CutsceneLibrary>();
-    for script in cutscenes().iter() {
+    for script in cutscenes(mary_o_pack).iter() {
         library.insert(script.clone());
     }
     drop(library);
@@ -407,7 +407,12 @@ pub fn run_castle_ending(
         Option<&CharacterForm>,
     )>,
     mut holds: Query<&mut ControlHolds>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let mary_o_generation = packs.of(&crate::pack::PACK);
+    let mary_o_pack: &ambition_platformer2d::content::PreparedContentPack = &mary_o_generation;
     let Some(her) = subject.as_deref().and_then(|subject| subject.0) else {
         return;
     };
@@ -450,7 +455,7 @@ pub fn run_castle_ending(
     let goal = CastleGoal {
         switch,
         // With nobody past the gate, she walks off as she does from a pole.
-        stand_x: he_is_at.map_or(switch.max.x + crate::rules::mary_o_rules().flag.walk_off_px, |x| x - crate::rules::mary_o_rules().castle_end.stand_before_him),
+        stand_x: he_is_at.map_or(switch.max.x + rules.flag.walk_off_px, |x| x - rules.castle_end.stand_before_him),
     };
     let stomper = Stomper {
         pos: kin.pos,
@@ -461,7 +466,7 @@ pub fn run_castle_ending(
     let facts = CastleFacts { planks_left, boss_left };
     let in_the_beats = sequence.castle_beat().is_some();
     let mut candidate = *sequence;
-    let drive = step_castle_ending(&mut candidate, &goal, stomper, facts, time.sim_dt());
+    let drive = step_castle_ending(mary_o_pack, rules, &mut candidate, &goal, stomper, facts, time.sim_dt());
     if let Some(drive) = &drive {
         if crate::flag::drive_her(&poses, her, drive, &mut kin, sweep.as_deref_mut(), mode).is_err() {
             return;
@@ -505,7 +510,12 @@ pub fn charges_go_off_on_the_bridge(
     broken: Option<Res<crate::bricks::BrokenBricks>>,
     geometry: LiveRoomOf<ae::RoomGeometry>,
     mut fireworks: MessageWriter<FireworksRequest>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let mary_o_generation = packs.of(&crate::pack::PACK);
+    let mary_o_pack: &ambition_platformer2d::content::PreparedContentPack = &mary_o_generation;
     let Some((body, _, CastleBeat::Charges, since)) =
         beat_of_her_room(&sequences, rooms.as_ref(), subject.as_deref())
     else {
@@ -526,10 +536,10 @@ pub fn charges_go_off_on_the_bridge(
         return;
     };
     let mut show = FireworksRequest::around(Some(room), ae::Vec2::new((left + right) * 0.5, deck));
-    let look = crate::rules::mary_o_rules().effects.bridge_fireworks;
+    let look = rules.effects.bridge_fireworks;
     show.count = look.count;
     show.spread = ae::Vec2::new((right - left) * look.across_share, look.height_px);
-    show.duration = CastleBeat::Charges.seconds().unwrap_or(1.0);
+    show.duration = CastleBeat::Charges.seconds(mary_o_pack, rules).unwrap_or(1.0);
     fireworks.write(show);
 }
 
@@ -553,7 +563,10 @@ pub fn the_lava_takes_the_boss(
     mut vfx: VfxWriter,
     mut explosions: MessageWriter<FxRequest>,
     mut bosses: Query<(Entity, &ActorConfig, &mut BodyHealth, &mut ae::BodyKinematics)>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     let Some((body, switch, beat, since)) = beat_of_her_room(&sequences, rooms.as_ref(), subject.as_deref()) else {
         return;
     };
@@ -562,7 +575,7 @@ pub fn the_lava_takes_the_boss(
         .and_then(|rooms| rooms.spec_of(body))
         .map(crate::scenery::lava_pools_of)
         .unwrap_or_default();
-    let out_of_time = beat > CastleBeat::BossFalls || (beat == CastleBeat::BossFalls && since > crate::rules::mary_o_rules().castle_end.boss_fall_limit_seconds);
+    let out_of_time = beat > CastleBeat::BossFalls || (beat == CastleBeat::BossFalls && since > rules.castle_end.boss_fall_limit_seconds);
     let room = live.of(body);
     // The base of the switch is the line of the floor.
     let floor = switch.max.y;
@@ -585,14 +598,14 @@ pub fn the_lava_takes_the_boss(
                 // The lava holds the speed; the step moves the body.
                 let at = kin.pos;
                 let desired = ae::BodyKinematics { pos: at,
-                    vel: ae::Vec2::new(0.0, crate::rules::mary_o_rules().castle_end.sink_speed), ..*kin };
+                    vel: ae::Vec2::new(0.0, rules.castle_end.sink_speed), ..*kin };
                 if poses.constrain(entity, &mut kin, None, desired).is_err() { continue; }
-                if tick.as_ref().is_some_and(|tick| tick.get() % crate::rules::mary_o_rules().castle_end.splash_ticks == 0) {
-                    vfx.for_room(room).write(crate::rules::mary_o_rules().effects.lava_splash.at(ae::Vec2::new(kin.pos.x, pool.min.y)));
+                if tick.as_ref().is_some_and(|tick| tick.get() % rules.castle_end.splash_ticks == 0) {
+                    vfx.for_room(room).write(rules.effects.lava_splash.at(ae::Vec2::new(kin.pos.x, pool.min.y)));
                 }
-                (top > pool.min.y + crate::rules::mary_o_rules().castle_end.sunk_under).then_some(ae::Vec2::new(kin.pos.x, pool.min.y))
+                (top > pool.min.y + rules.castle_end.sunk_under).then_some(ae::Vec2::new(kin.pos.x, pool.min.y))
             }
-            None if top > floor + crate::rules::mary_o_rules().castle_end.fallen_under => Some(kin.pos),
+            None if top > floor + rules.castle_end.fallen_under => Some(kin.pos),
             _ => None,
         };
         let Some(at) = dies_at else {
@@ -600,7 +613,7 @@ pub fn the_lava_takes_the_boss(
         };
         health.health.current = 0;
         // Its death is seen: one explosion where it went, and the lava it throws.
-        let effects = &crate::rules::mary_o_rules().effects;
+        let effects = &rules.effects;
         explosions.write(
             FxRequest::classic(room, at)
                 .with_scale(effects.boss_death_explosion_scale)
@@ -624,7 +637,10 @@ pub fn the_gate_opens(
     mut broken: ResMut<crate::bricks::BrokenBricks>,
     mut vfx: VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     let Ok(sequence) = sequences.single() else {
         return;
     };
@@ -654,20 +670,20 @@ pub fn the_gate_opens(
         vfx.for_room(Some(room)).write(VfxMessage::Dust { pos: base, facing: -1.0 });
         vfx.for_room(Some(room)).write(VfxMessage::Dust { pos: base, facing: 1.0 });
     }
-    if gate_row(sequence) == GATE_ROWS[GATE_ROWS.len() - 1] && broken.mark(room, GOAL_GATE) {
+    if gate_row(rules, sequence) == GATE_ROWS[GATE_ROWS.len() - 1] && broken.mark(room, GOAL_GATE) {
         clank(ae::Vec2::new(base.x, gate.min.y));
     }
 }
 
 /// The row of the sheet of the gate for the state of the sequence.
-fn gate_row(sequence: &FlagSequence) -> &'static str {
+fn gate_row(rules: &crate::rules::MaryORules, sequence: &FlagSequence) -> &'static str {
     let last = GATE_ROWS.len() - 1;
     let row = match sequence.phase {
         FlagPhase::Castle { beat, .. } if beat < CastleBeat::GateOpens => 0,
         FlagPhase::Castle {
             beat: CastleBeat::GateOpens,
             since,
-        .. } => (1 + (since / crate::rules::mary_o_rules().castle_end.gate_step_seconds) as usize).min(last),
+        .. } => (1 + (since / rules.castle_end.gate_step_seconds) as usize).min(last),
         FlagPhase::Castle { .. } | FlagPhase::Tallied { .. } => last,
         _ => 0,
     };
@@ -735,13 +751,16 @@ pub fn dress_the_goal(
         &ambition_platformer2d::render::rendering::PropVisual,
         Option<&ambition_platformer2d::render::rendering::PropClip>,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     use ambition_platformer2d::render::rendering::PropClip;
     let sequence = sequences.single().ok();
     for (entity, prop, clip) in &props {
         let row = match prop.name.as_str() {
             SWITCH_ART => sequence.is_some_and(|sequence| sequence.active()).then_some(PRESSED_ROW),
-            GATE_ART => Some(sequence.map_or(GATE_ROWS[0], gate_row)),
+            GATE_ART => Some(sequence.map_or(GATE_ROWS[0], |sequence| gate_row(rules, sequence))),
             _ => continue,
         };
         let wanted = row.map(|row| {
@@ -796,11 +815,11 @@ mod tests {
             ("up through its top", Stomper { vel: ae::Vec2::new(0.0, -200.0), ..landed }),
         ] {
             let mut seq = FlagSequence::default();
-            assert_eq!(step_castle_ending(&mut seq, &goal, body, facts, DT), None, "a body {what} pressed the switch");
+            assert_eq!(step_castle_ending(&crate::pack::PACK.prepared(), &crate::rules::shipped_rules(), &mut seq, &goal, body, facts, DT), None, "a body {what} pressed the switch");
             assert_eq!(seq.phase, FlagPhase::Idle, "a body {what} pressed the switch");
         }
         let mut seq = FlagSequence::default();
-        assert!(step_castle_ending(&mut seq, &goal, landed, facts, DT).is_some());
+        assert!(step_castle_ending(&crate::pack::PACK.prepared(), &crate::rules::shipped_rules(), &mut seq, &goal, landed, facts, DT).is_some());
         assert_eq!(seq.castle_beat(), Some((CastleBeat::Pressed, 0.0)));
     }
 
@@ -819,7 +838,7 @@ mod tests {
         for tick in 0..3000 {
             // The bridge takes one second to fall, and the boss one more.
             let facts = CastleFacts { planks_left: tick < 200, boss_left: tick < 320 };
-            let drive = step_castle_ending(&mut seq, &goal, body, facts, DT).expect("the sequence drives her");
+            let drive = step_castle_ending(&crate::pack::PACK.prepared(), &crate::rules::shipped_rules(), &mut seq, &goal, body, facts, DT).expect("the sequence drives her");
             at = drive.pos;
             let Some((beat, _)) = seq.castle_beat() else {
                 break;
@@ -851,12 +870,12 @@ mod tests {
             phase: FlagPhase::Castle { score: 0, beat, since },
             driven: None,
         };
-        assert_eq!(gate_row(&FlagSequence::default()), "idle");
-        assert_eq!(gate_row(&phase(CastleBeat::Aftermath, 0.9)), "idle");
-        assert_eq!(gate_row(&phase(CastleBeat::GateOpens, 0.0)), "rise_1");
-        assert_eq!(gate_row(&phase(CastleBeat::GateOpens, 0.9)), "open");
-        assert_eq!(gate_row(&phase(CastleBeat::Walks, 0.0)), "open");
+        assert_eq!(gate_row(&crate::rules::shipped_rules(), &FlagSequence::default()), "idle");
+        assert_eq!(gate_row(&crate::rules::shipped_rules(), &phase(CastleBeat::Aftermath, 0.9)), "idle");
+        assert_eq!(gate_row(&crate::rules::shipped_rules(), &phase(CastleBeat::GateOpens, 0.0)), "rise_1");
+        assert_eq!(gate_row(&crate::rules::shipped_rules(), &phase(CastleBeat::GateOpens, 0.9)), "open");
+        assert_eq!(gate_row(&crate::rules::shipped_rules(), &phase(CastleBeat::Walks, 0.0)), "open");
         let tallied = FlagSequence { phase: FlagPhase::Tallied { score: 0 }, driven: None };
-        assert_eq!(gate_row(&tallied), "open");
+        assert_eq!(gate_row(&crate::rules::shipped_rules(), &tallied), "open");
     }
 }

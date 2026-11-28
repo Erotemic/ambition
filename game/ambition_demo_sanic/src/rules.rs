@@ -437,14 +437,20 @@ pub fn sanic_rules_schema() -> SchemaRegistration {
 /// True when feet at `feet` land on a top at `top` (screen +y is down): within
 /// `stomp.band` of it on either side. The badnik's head and the monitor's lid
 /// use this one rule.
-pub fn feet_on_top(feet: f32, top: f32) -> bool {
-    let band = sanic_rules().stomp.band;
+pub fn feet_on_top(rules: &SanicRules, feet: f32, top: f32) -> bool {
+    let band = rules.stomp.band;
     feet >= top - band && feet <= top + band
 }
 
 /// The demo's tuning, as its pack states it (`assets/data/sanic_rules.ron`).
-pub fn sanic_rules() -> ambition_platformer2d::content::PackRow<SanicRules> {
-    crate::pack::PACK.prepared().row(sanic_rules_in)
+pub fn sanic_rules(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<SanicRules> {
+    sanic_rules_of(packs.of(&crate::pack::PACK))
+}
+
+/// [`sanic_rules`] in `generation`: what a caller with no system boundary
+/// reads (a test of the shipped file, or of a running App's selection).
+pub fn sanic_rules_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<SanicRules> {
+    generation.row(sanic_rules_in)
 }
 
 /// [`sanic_rules`] in `pack`.
@@ -462,12 +468,12 @@ mod tests {
     /// Rust names the band.
     #[test]
     fn a_landing_is_the_stomp_band_the_rules_state() {
-        let band = sanic_rules().stomp.band;
+        let band = crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).stomp.band;
         let top = 400.0;
-        assert!(feet_on_top(top - band, top), "feet {band} px above the top are not a landing");
-        assert!(feet_on_top(top + band, top), "feet {band} px into the top are not a landing");
-        assert!(!feet_on_top(top - band - 0.5, top), "feet above the band ({band} px) are a landing");
-        assert!(!feet_on_top(top + band + 0.5, top), "feet below the band ({band} px) are a landing");
+        assert!(feet_on_top(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), top - band, top), "feet {band} px above the top are not a landing");
+        assert!(feet_on_top(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), top + band, top), "feet {band} px into the top are not a landing");
+        assert!(!feet_on_top(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), top - band - 0.5, top), "feet above the band ({band} px) are a landing");
+        assert!(!feet_on_top(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), top + band + 0.5, top), "feet below the band ({band} px) are a landing");
     }
 
     /// The demo plays its pack's `sanic_rules.ron`, and an edit to the file
@@ -499,7 +505,7 @@ mod tests {
         };
 
         let file = rules_of(&authored);
-        assert_eq!(&file, &*sanic_rules(), "the demo plays the file");
+        assert_eq!(&file, &*crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), "the demo plays the file");
         // The acts are the file's: a renamed act is the title its card shows.
         let title = r#"title: "COVE HIGHWAY""#;
         assert_eq!(authored.matches(title).count(), 1, "the probe renames one act");
@@ -509,11 +515,11 @@ mod tests {
         let goal = "goal_from_end: 400.0,";
         assert_eq!(authored.matches(goal).count(), 1, "the probe moves the goal");
         let nearer = rules_of(&authored.replace(goal, "goal_from_end: 300.0,"));
-        let course = crate::sanic_speedway(&sprite_content).world;
+        let course = crate::sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content).world;
         assert_eq!(crate::goal_x_with(&nearer.act, &course), course.size.x - 300.0, "the goal line is not the file's");
         // The score the demo pays is the file's par and bonuses.
         assert_eq!(
-            crate::act_score(0.0, 3),
+            crate::act_score(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), 0.0, 3),
             (file.act.par_seconds * file.act.time_bonus_per_second as f32) as i32 + 3 * file.act.ring_bonus,
         );
 

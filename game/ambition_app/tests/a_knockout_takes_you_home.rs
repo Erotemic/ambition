@@ -50,7 +50,7 @@ fn an_ordinary_knockout_returns_to_the_select_screen_on_its_own() {
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster(["performer", "performer"]);
+    let mut roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), ["performer", "performer"]);
     // One stock, so a single ring-out is the whole match.
     roster.rules.stocks = Some(1);
     app.world_mut().insert_resource(roster);
@@ -160,7 +160,7 @@ fn a_fighter_knocked_out_of_the_world_is_not_drawn_until_it_returns() {
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster(["performer", "performer"]);
+    let mut roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), ["performer", "performer"]);
     roster.rules.stocks = Some(2);
     app.world_mut().insert_resource(roster);
     app.world_mut()

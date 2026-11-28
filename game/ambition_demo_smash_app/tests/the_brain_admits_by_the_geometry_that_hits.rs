@@ -55,7 +55,7 @@ fn a_live_pair() -> App {
     for _ in 0..30 {
         app.update();
     }
-    let roster = ambition_demo_smash::smash_roster_at_levels(PAIR, &[5, 5]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), PAIR, &[5, 5]);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -67,7 +67,7 @@ fn a_live_pair() -> App {
     // loading takes a number of frames that varies per process, and the
     // fighters are held until the ceremony ends. (`match_report.rs`, same
     // rule, same measurement.)
-    let countdown = ambition_demo_smash::smash_roster(PAIR)
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), PAIR)
         .rules
         .opening_countdown_ticks;
     let mut waited = 0usize;

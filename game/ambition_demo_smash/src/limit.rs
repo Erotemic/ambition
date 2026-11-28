@@ -27,8 +27,8 @@ pub struct SmashLimitFill(pub LimitMeterFill);
 /// This ruleset's Limit, as `limit` in the pack's `smash_rules.ron` states
 /// it. Its declaration is also the match's seat resource, so a seat is built
 /// with the meter this rule fills.
-pub fn smash_limit() -> LimitMeterFill {
-    crate::rules::smash_rules().limit
+pub fn smash_limit(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> LimitMeterFill {
+    crate::rules::smash_rules_in(selected_pack).limit
 }
 
 /// Fill every seated fighter's meter from the clock and from the hits that

@@ -59,17 +59,22 @@ pub fn smash_text_schema() -> SchemaRegistration {
 }
 
 /// The lines, as the demo's pack states them.
-pub fn smash_text() -> ambition_platformer2d::content::PackRow<ShownText> {
-    crate::smash_pack::PACK.prepared().row(smash_text_in)
+pub fn smash_text(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<ShownText> {
+    smash_text_of(packs.of(&crate::smash_pack::PACK))
+}
+
+/// [`smash_text`] in `generation`: what a caller with no system boundary reads.
+pub fn smash_text_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<ShownText> {
+    generation.row(smash_text_in)
 }
 
 /// [`smash_text`] in `pack`.
-fn smash_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
+pub(crate) fn smash_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
     lowered_shown_text(pack, SMASH_TEXT_SCHEMA)
         .expect("the demo's pack states its lines (`data/smash_text.ron`)")
 }
 
 /// The line `key`.
-pub fn line(key: &str) -> String {
-    smash_text().line(key).to_string()
+pub fn line(selected_pack: &ambition_platformer2d::content::PreparedContentPack, key: &str) -> String {
+    crate::text::smash_text_in(selected_pack).line(key).to_string()
 }

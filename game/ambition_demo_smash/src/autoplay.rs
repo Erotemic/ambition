@@ -98,7 +98,7 @@ fn cast_state(world: &mut World) -> (usize, usize) {
 /// Choose a reproducible cast from actually prepared character ids. If a
 /// minimal Smash-only build has two fighters and the full hub has twenty,
 /// both still give two (or four) live CPUs with no missing-identity fallback.
-fn profile_roster(seatable: &SmashRoster, count: usize) -> Result<MatchParticipantRoster, String> {
+fn profile_roster(selected_pack: &ambition_platformer2d::content::PreparedContentPack, seatable: &SmashRoster, count: usize) -> Result<MatchParticipantRoster, String> {
     if seatable.0.len() < 2 {
         return Err(format!(
             "Smash autoplay needs two seatable fighters, got {:?}",
@@ -108,11 +108,11 @@ fn profile_roster(seatable: &SmashRoster, count: usize) -> Result<MatchParticipa
     let ids = (0..count)
         .map(|seat| seatable.0[seat % 2].clone())
         .collect::<Vec<_>>();
-    let mut roster = smash_roster_at_levels(ids, &vec![CPU_LEVEL; count]);
+    let mut roster = smash_roster_at_levels(selected_pack, ids, &vec![CPU_LEVEL; count]);
     // A 60-90s phone capture should not turn into a results-screen profile
     // just because the CPUs exhausted three default stocks. Preserve all
     // other authored match rules, including the real countdown and respawns.
-    apply_smash_match_rules(&mut roster, PROFILE_STOCKS);
+    apply_smash_match_rules(selected_pack, &mut roster, PROFILE_STOCKS);
     Ok(roster)
 }
 
@@ -129,6 +129,8 @@ pub fn drive_smash_autoplay(world: &mut World) {
     let Some(mut state) = world.remove_resource::<SmashAutoplayDriver>() else {
         return;
     };
+    let selected_generation = crate::smash_pack::PACK.selected_in(world);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     let requested = world
         .get_resource::<Autoplay>()
         .and_then(|profile| profile_seat_count(&profile.0))
@@ -139,7 +141,7 @@ pub fn drive_smash_autoplay(world: &mut World) {
         Stage::Settling(frames) if frames < SETTLE_FRAMES => Stage::Settling(frames + 1),
         Stage::Settling(_) => {
             let seatable = world.get_resource::<SmashRoster>().cloned().unwrap_or_default();
-            match profile_roster(&seatable, requested) {
+            match profile_roster(selected_pack, &seatable, requested) {
                 Ok(roster) => {
                     let cast = roster
                         .participants
@@ -241,7 +243,7 @@ mod tests {
     fn the_profile_does_not_leave_a_human_primary_seat() {
         let available = SmashRoster(vec!["smash_duelist_a".into(), "smash_duelist_b".into()]);
         for expected in [2, 4] {
-            let roster = profile_roster(&available, expected).expect("seatable cast");
+            let roster = profile_roster(&crate::smash_pack::PACK.prepared(), &available, expected).expect("seatable cast");
             assert_eq!(roster.participants.len(), expected);
             assert_eq!(roster.rules.stocks, Some(PROFILE_STOCKS));
             assert_eq!(roster.local_channel_plan().channels(), 0);
@@ -257,6 +259,6 @@ mod tests {
 
     #[test]
     fn a_missing_second_fighter_is_an_error_not_a_zero_load_profile() {
-        assert!(profile_roster(&SmashRoster(vec!["one".into()]), 2).is_err());
+        assert!(profile_roster(&crate::smash_pack::PACK.prepared(), &SmashRoster(vec!["one".into()]), 2).is_err());
     }
 }

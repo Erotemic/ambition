@@ -151,7 +151,7 @@ fn a_stomp_plays_the_burst_its_rules_state() {
     crate::the_switch_ends_the_castle::record_effects(&mut app);
     let mary_o = her(&mut app);
     assert!(!still_walking_after_a_stomp(&mut app, snake, mary_o), "the premise: her stomp makes a shell");
-    let stated = crate::the_switch_ends_the_castle::shape_of(&ambition_demo_mary_o::rules::mary_o_rules().stomp.dust);
+    let stated = crate::the_switch_ends_the_castle::shape_of(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).stomp.dust);
     let played = &app.world().resource::<crate::the_switch_ends_the_castle::Played>().bursts;
     assert!(played.contains(&stated), "the stomp did not play the file's burst {stated:?}: played {played:?}");
 }

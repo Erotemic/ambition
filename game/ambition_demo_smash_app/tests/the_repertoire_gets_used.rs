@@ -29,7 +29,7 @@ struct MoveLedger {
 
 impl MoveLedger {
     fn sample(&mut self, app: &mut App) {
-        let stage = ambition_demo_smash::smash_stage().world.size;
+        let stage = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size;
         let world = app.world_mut();
         // Position is a proxy for "knocked out toward the blast zone and trying to
         // get home". A fighter waiting to respawn (D192) also lies outside the
@@ -200,7 +200,7 @@ fn run_a_match_at(characters: [&str; 2], ticks: usize, levels: &[u8]) -> MatchRe
     // Both seats are CPUs at the same rung. `smash_roster_at_levels` seats
     // every slot as a CPU; the other helper makes seat 0 a human with no
     // controller.
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(characters, levels);
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), characters, levels);
     // The window must be a window of fighting. These tests are a patience
     // budget for a CPU to go offstage and throw its route home. A match that
     // ends inside the budget fails for want of opportunity. With D192's
@@ -225,7 +225,7 @@ fn run_a_match_at(characters: [&str; 2], ticks: usize, levels: &[u8]) -> MatchRe
         ));
     // The warm-up must outlast the countdown: fighters are held for the whole
     // 3-2-1-GO. Read it from the ruleset.
-    let countdown = ambition_demo_smash::smash_roster(characters)
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters)
         .rules
         .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
@@ -760,7 +760,7 @@ fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
     ];
-    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), characters, &[5, 5]);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -768,7 +768,7 @@ fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    let countdown = ambition_demo_smash::smash_roster(characters)
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters)
         .rules
         .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
@@ -850,14 +850,14 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([character, character]));
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, character]));
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new(
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    let countdown = ambition_demo_smash::smash_roster([character, character])
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, character])
         .rules
         .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {

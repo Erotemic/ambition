@@ -97,13 +97,16 @@ pub(crate) fn retire_quasar(commands: &mut Commands, body: Entity, grant: Option
 pub fn begin_star_power(
     mut commands: Commands,
     mut players: Query<(Entity, &mut WornEquipment, Option<&Empowered>), With<PlayerEntity>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     for (body, mut worn, grant) in &mut players {
         // Read first: `unequip` takes `&mut`, which marks `WornEquipment`
         // changed on every tick, and each change re-folds the repertoire.
         if worn.wears(POCKET_QUASAR_ID) && worn.unequip(POCKET_QUASAR_ID).is_some() {
             let mut body = commands.entity(body);
-            body.try_insert(PocketQuasar { remaining: crate::rules::mary_o_rules().star_seconds });
+            body.try_insert(PocketQuasar { remaining: rules.star_seconds });
             if grant.is_none_or(|grant| *grant == QUASAR_GRANT) {
                 body.try_insert(QUASAR_GRANT);
             }
@@ -313,7 +316,7 @@ mod tests {
         app.update();
 
         // Burn the whole duration, plus a tick.
-        for _ in 0..((crate::rules::mary_o_rules().star_seconds * 60.0) as usize + 2) {
+        for _ in 0..((crate::rules::shipped_rules().star_seconds * 60.0) as usize + 2) {
             app.update();
         }
 

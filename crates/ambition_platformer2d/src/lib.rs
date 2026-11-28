@@ -138,11 +138,9 @@ pub mod content {
         /// The schemas the game itself owns, which the pack compiles against
         /// with the engine's. See [`Self::with_schemas`].
         schemas: fn() -> Vec<SchemaRegistration>,
-        /// The generation every read gets: compiled on the first read, then
-        /// whichever generation a live reload published last ([`live_reload`]).
-        ///
-        /// A reader holds its generation ([`PackGeneration`], [`PackRow`]),
-        /// so a replaced one lives exactly as long as its last reader.
+        /// The compiled source, compiled on the first read and shared by every
+        /// App of the process. A live reload never replaces it: it selects a
+        /// new generation in the App that watched the edit ([`PackSelections`]).
         current: std::sync::RwLock<Option<PackGeneration>>,
     }
 
@@ -215,6 +213,49 @@ pub mod content {
             // SAFETY: see `row`; `self.generation` keeps the pack alive for
             // as long as the returned borrow of `self`.
             unsafe { self.row.as_ref() }
+        }
+    }
+
+    /// Each embedded pack's generation as this App selected it (P5 step 4
+    /// cut 2). A live reload selects a new generation in the App that
+    /// watched the edit, never for the process: two Apps built from one
+    /// embedded source keep their own selections, sessions and timelines. A
+    /// pack this App has not reloaded plays its compiled source
+    /// ([`EmbeddedPack::prepared`]).
+    #[derive(bevy::prelude::Resource, Default, Clone)]
+    pub struct PackSelections(Vec<(&'static EmbeddedPack, PackGeneration)>);
+
+    impl PackSelections {
+        /// `pack`'s generation in this App.
+        pub fn of(&self, pack: &'static EmbeddedPack) -> PackGeneration {
+            self.0
+                .iter()
+                .find(|(selected, _)| std::ptr::eq(*selected, pack))
+                .map_or_else(|| pack.prepared(), |(_, generation)| generation.clone())
+        }
+
+        /// Select `generation` for `pack` in this App: the live reload's road,
+        /// and a host's that admitted a generation itself.
+        pub fn select(&mut self, pack: &'static EmbeddedPack, generation: PreparedContentPack) {
+            let generation = PackGeneration::new(generation);
+            match self.0.iter_mut().find(|(selected, _)| std::ptr::eq(*selected, pack)) {
+                Some((_, held)) => *held = generation,
+                None => self.0.push((pack, generation)),
+            }
+        }
+    }
+
+    /// The packs as this App selected them, bound once at a system boundary;
+    /// a system passes the rows it reads down to its helpers.
+    #[derive(bevy::ecs::system::SystemParam)]
+    pub struct SelectedPacks<'w> {
+        selections: Option<bevy::prelude::Res<'w, PackSelections>>,
+    }
+
+    impl SelectedPacks<'_> {
+        /// `pack`'s generation in this App.
+        pub fn of(&self, pack: &'static EmbeddedPack) -> PackGeneration {
+            self.selections.as_deref().map_or_else(|| pack.prepared(), |selections| selections.of(pack))
         }
     }
 
@@ -502,8 +543,10 @@ pub mod content {
             })
         }
 
-        /// The compiled pack: compiled once, or the generation a live reload
-        /// published last ([`live_reload`]).
+        /// The compiled source pack, compiled once for the process: what an App
+        /// plays until a live reload selects another generation in that App.
+        /// A reader in a running App asks for the App's selection instead
+        /// ([`SelectedPacks`], [`Self::selected_in`]).
         ///
         /// # Panics
         ///
@@ -534,11 +577,10 @@ pub mod content {
             }
         }
 
-        /// Make `generation` the pack every later [`Self::prepared`] reads.
-        /// Only [`live_reload`] calls it, between two sessions.
-        fn publish(&self, generation: PreparedContentPack) {
-            *self.current.write().unwrap_or_else(std::sync::PoisonError::into_inner) =
-                Some(PackGeneration::new(generation));
+        /// This pack's generation as `world`'s App selected it: the last one
+        /// a live reload published there, else the compiled source.
+        pub fn selected_in(&'static self, world: &bevy::prelude::World) -> PackGeneration {
+            world.get_resource::<PackSelections>().map_or_else(|| self.prepared(), |selections| selections.of(self))
         }
 
         /// The move table this pack authors for `character`.

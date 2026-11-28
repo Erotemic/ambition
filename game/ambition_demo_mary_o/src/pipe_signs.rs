@@ -77,13 +77,16 @@ fn present_pipe_signs(
     rooms: LiveRoomSpecs,
     presented: Query<&InRoomInstance, With<PresentedPipeSigns>>,
     active_session: Option<Res<ActiveSessionScope>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     // No session: no room is live, and there is nothing to put a sign in.
     let Some(session_scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref()) else {
         return;
     };
     // How the signs look is `pipe_signs` in her rules file.
-    let look = crate::rules::mary_o_rules().pipe_signs;
+    let look = rules.pipe_signs.clone();
     let rgb = |[r, g, b]: [f32; 3]| Color::srgb(r, g, b);
     let (ink, edge) = (rgb(look.ink), rgb(look.edge));
     for (room, definition) in rooms.live_rooms() {

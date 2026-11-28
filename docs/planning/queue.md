@@ -1789,8 +1789,9 @@ no-op/stale/superseded edit handling; reload for moves, characters, audio,
 cutscenes and quests; native/WASM procedural modules; `actor_think` S1-S3;
 held traversal modules; and the `body_contact` extension route. Do not
 re-enqueue the old missing-reload-family list or repeat the completed brain
-migration. The SDK/demo path retains old generation readers, but still has
-process-wide selection and callbacks that can refuse after selecting a pack.
+migration. The SDK/demo path selects each pack's generation in the App that
+watched the edit (P5 step 4 cut 2, landed 2026-11-28), and admits every
+affected owner product before it selects.
 
 **Contact customer receipt:** the named `body_contact` customers are done (2026-11-19).
 The Sanic badnik's contact is a module, and its toucher roll and
@@ -1801,18 +1802,14 @@ the new `body_contact` requests. The plant is a brain
 and pose customer, not a contact rule. Recheck which customers are still native
 before migrating them.
 
-**Next action:** SDK/demo P5 step 4 cut 2, delivery step 4 at the owner
-above: App-local selection, with rules bound at operation boundaries and no
-World lookups in every leaf helper. It was sized 2026-11-27 (mechanism
-proven; about 230 non-test demo call sites, mostly Smash and Mary-O
-helpers). It is one slice across all four demos: see the owner's sizing
-note. Delivery steps 1–3 landed 2026-11-27. A
-pack's publication now prepares each owner's product once from all of its
-changed schemas, and admits every affected product before it changes the
-selection. One refusal keeps the old pack, and the cast is prepared in a
-private revision. See the owner's receipt. This selects the concrete SDK
-coherence defect, not all open migrations in the older runtime-authoring
-audit.
+**SDK publication cut landed (2026-11-28):** delivery steps 1–4 at the
+owner. Step 4 made the selection App-owned: a reload selects into the App
+that watched the edit, systems bind `SelectedPacks` once, and helpers in
+Mary-O, Smash, Sanic and versus take the row they read. See the owner's
+receipt.
+
+**Next action:** audit the three owner pages for open I2/I3 work that is
+not this cut. Delete this row if none remains.
 
 **Acceptance:** a foreign-audio collision plus a rules edit leaves the old
 pack and all affected products selected, with one refusal and no published

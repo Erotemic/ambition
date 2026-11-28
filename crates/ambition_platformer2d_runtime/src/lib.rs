@@ -137,7 +137,7 @@ pub use content_identity::{
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
 pub use mode_scope::{
     ModeOwnersSpawned, ModeScopePlugin, ModeScopes, RulesScopeSet, ScopedSystemsAppExt,
-    despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, install_mode_owner,
+    despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, install_mode_owner, install_mode_owner_with,
     project_room_rule, room_uses,
 };
 pub use player_schedule::PlayerSchedulePlugin;

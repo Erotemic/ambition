@@ -53,8 +53,8 @@ pub fn ground_at(world: &ae::World, x: f32) -> Option<f32> {
 ///
 /// A build that baked no sheet for it (sprites not generated) or a goal over
 /// no ground leaves the room as it was.
-pub fn dress_goal(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, room: &mut RoomSpec) {
-    let goal_x = crate::goal_x_of(&room.world);
+pub fn dress_goal(rules: &crate::rules::SanicRules, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, room: &mut RoomSpec) {
+    let goal_x = crate::goal_x_with(&rules.act, &room.world);
     let Some(ground) = ground_at(&room.world, goal_x) else {
         return;
     };
@@ -71,7 +71,7 @@ pub fn dress_goal(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteCo
         return;
     };
     let frame = ae::Vec2::new(record.frame_width as f32, record.frame_height as f32);
-    let scale = crate::rules::sanic_rules().act.goal_post_height / body.h as f32;
+    let scale = rules.act.goal_post_height / body.h as f32;
     let (foot, centre_x) = (
         (body.y + body.h) as f32,
         body.x as f32 + body.w as f32 * 0.5,
@@ -158,12 +158,13 @@ mod tests {
     #[test]
     fn each_act_has_a_goal_post_that_stands_on_its_ground() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let pack = crate::pack::PACK.prepared();
         for room in [
-            crate::sanic_speedway(&sprite_content),
-            crate::sanic_highway(&sprite_content),
-            crate::sanic_darkness(&sprite_content),
+            crate::sanic_speedway(&pack, &sprite_content),
+            crate::sanic_highway(&pack, &sprite_content),
+            crate::sanic_darkness(&pack, &sprite_content),
         ] {
-            let goal_x = crate::goal_x_of(&room.world);
+            let goal_x = crate::goal_x_with(&crate::rules::sanic_rules_in(&pack).act, &room.world);
             let ground = ground_at(&room.world, goal_x)
                 .unwrap_or_else(|| panic!("{}: no ground at its goal ({goal_x})", room.id));
             let post = room

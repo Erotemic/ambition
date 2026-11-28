@@ -457,8 +457,8 @@ impl CursorFeel {
 }
 
 /// The feel the demo's pack states.
-pub fn cursor_feel() -> CursorFeel {
-    crate::rules::smash_rules().select_cursor
+pub fn cursor_feel(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> CursorFeel {
+    crate::rules::smash_rules_in(selected_pack).select_cursor
 }
 
 /// The longest frame the cursor will integrate over.
@@ -491,9 +491,9 @@ pub struct CursorRamp {
 
 impl CursorRamp {
     /// Fold this frame in, and report the multiplier to apply to base speed.
-    pub fn advance(&mut self, analog: Vec2, dt: f32) -> f32 {
+    pub fn advance(&mut self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, analog: Vec2, dt: f32) -> f32 {
         let magnitude = analog.length();
-        if magnitude < cursor_feel().ramp_arm_deflection {
+        if magnitude < cursor_feel(selected_pack).ramp_arm_deflection {
             *self = Self::default();
             return 1.0;
         }
@@ -504,12 +504,12 @@ impl CursorRamp {
         }
         self.direction = heading;
         self.held_seconds += dt.clamp(0.0, MAX_CURSOR_DT);
-        self.multiplier()
+        self.multiplier(selected_pack)
     }
 
     /// The current multiplier, without advancing.
-    pub fn multiplier(&self) -> f32 {
-        let feel = cursor_feel();
+    pub fn multiplier(&self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> f32 {
+        let feel = cursor_feel(selected_pack);
         let building = (self.held_seconds - feel.ramp_arm_seconds).max(0.0);
         let t = (building / feel.ramp_to_full_seconds).clamp(0.0, 1.0);
         let eased = t * t * (3.0 - 2.0 * t);
@@ -517,8 +517,8 @@ impl CursorRamp {
     }
 
     /// Whether any speed has been built. Diagnostics and tests, not gameplay.
-    pub fn is_building(&self) -> bool {
-        self.held_seconds > cursor_feel().ramp_arm_seconds
+    pub fn is_building(&self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> bool {
+        self.held_seconds > cursor_feel(selected_pack).ramp_arm_seconds
     }
 }
 
@@ -532,13 +532,13 @@ impl CursorRamp {
 ///
 /// Two multipliers compose: the curve reads how hard the stick is pushed, and
 /// `ramp` reads how long.
-pub fn cursor_travel(analog: Vec2, cell: Vec2, dt: f32, ramp: f32) -> Vec2 {
+pub fn cursor_travel(selected_pack: &ambition_platformer2d::content::PreparedContentPack, analog: Vec2, cell: Vec2, dt: f32, ramp: f32) -> Vec2 {
     let magnitude = analog.length().min(1.0);
     if magnitude <= 0.0 {
         return Vec2::ZERO;
     }
     let direction = analog / analog.length();
-    let speed = magnitude * magnitude * cursor_feel().cells_per_second * cell.x * ramp;
+    let speed = magnitude * magnitude * cursor_feel(selected_pack).cells_per_second * cell.x * ramp;
     direction * speed * dt.clamp(0.0, MAX_CURSOR_DT)
 }
 
@@ -565,8 +565,8 @@ mod cursor_travel_tests {
     #[test]
     fn a_full_deflection_travels_the_same_distance_up_as_it_does_across() {
         let cell = wide().cell();
-        let across = cursor_travel(Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
-        let down = cursor_travel(Vec2::Y, cell, 1.0 / 60.0, NO_RAMP).length();
+        let across = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
+        let down = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::Y, cell, 1.0 / 60.0, NO_RAMP).length();
         assert!(
             (across - down).abs() < 0.001,
             "a vertical push travelled {down:.2}px and a horizontal one {across:.2}px"
@@ -579,7 +579,7 @@ mod cursor_travel_tests {
     fn crossing_one_portrait_takes_the_same_time_on_any_screen_shape() {
         let seconds_per_cell = |layout: SelectLayout| {
             let cell = layout.cell();
-            let per_frame = cursor_travel(Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
+            let per_frame = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
             cell.x / (per_frame * 60.0)
         };
         let a = seconds_per_cell(wide());
@@ -589,10 +589,10 @@ mod cursor_travel_tests {
             "one portrait took {a:.3}s to cross on a 16:9 screen and {b:.3}s on a 4:3 one"
         );
         assert!(
-            (a - 1.0 / cursor_feel().cells_per_second).abs() < 0.001,
+            (a - 1.0 / cursor_feel(&crate::smash_pack::PACK.prepared()).cells_per_second).abs() < 0.001,
             "a full deflection crossed a cell in {a:.3}s, not the \
              1/{} the file promises",
-            cursor_feel().cells_per_second
+            cursor_feel(&crate::smash_pack::PACK.prepared()).cells_per_second
         );
     }
 
@@ -601,15 +601,15 @@ mod cursor_travel_tests {
     #[test]
     fn a_half_deflection_moves_at_a_quarter_speed_not_half() {
         let cell = wide().cell();
-        let full = cursor_travel(Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
-        let half = cursor_travel(Vec2::X * 0.5, cell, 1.0 / 60.0, NO_RAMP).length();
+        let full = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
+        let half = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X * 0.5, cell, 1.0 / 60.0, NO_RAMP).length();
         assert!(
             (half / full - 0.25).abs() < 0.01,
             "a half deflection moved at {:.3} of full speed",
             half / full
         );
         // A fifth of the stick is a twenty-fifth of the speed.
-        let nudge = cursor_travel(Vec2::X * 0.2, cell, 1.0 / 60.0, NO_RAMP).length();
+        let nudge = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X * 0.2, cell, 1.0 / 60.0, NO_RAMP).length();
         assert!(
             (nudge / full - 0.04).abs() < 0.01,
             "a fifth deflection moved at {:.3} of full speed",
@@ -626,7 +626,7 @@ mod cursor_travel_tests {
             Vec2::new(3.0, 1.0).normalize() * 0.9,
             Vec2::new(-1.0, 2.0).normalize() * 0.6,
         ] {
-            let travel = cursor_travel(stick, cell, 1.0 / 60.0, NO_RAMP);
+            let travel = cursor_travel(&crate::smash_pack::PACK.prepared(), stick, cell, 1.0 / 60.0, NO_RAMP);
             let angle = travel.normalize().dot(stick.normalize());
             assert!(
                 angle > 0.9999,
@@ -639,14 +639,14 @@ mod cursor_travel_tests {
     #[test]
     fn a_long_frame_is_clamped_so_a_hitch_does_not_throw_the_cursor() {
         let cell = wide().cell();
-        let hitch = cursor_travel(Vec2::X, cell, 0.100, NO_RAMP).length();
-        let capped = cursor_travel(Vec2::X, cell, MAX_CURSOR_DT, NO_RAMP).length();
+        let hitch = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, 0.100, NO_RAMP).length();
+        let capped = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, MAX_CURSOR_DT, NO_RAMP).length();
         assert!(
             (hitch - capped).abs() < 0.001,
             "a 100ms frame travelled {hitch:.1}px against the {capped:.1}px cap"
         );
         // An ordinary frame is not clamped, or the cap would be the speed.
-        let ordinary = cursor_travel(Vec2::X, cell, 1.0 / 120.0, NO_RAMP).length();
+        let ordinary = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, 1.0 / 120.0, NO_RAMP).length();
         assert!(
             ordinary < capped * 0.5,
             "a 120Hz frame travelled {ordinary:.2}px, which is the cap, not the rate"
@@ -657,7 +657,7 @@ mod cursor_travel_tests {
     #[test]
     fn a_stick_at_rest_moves_the_cursor_nowhere() {
         assert_eq!(
-            cursor_travel(Vec2::ZERO, wide().cell(), 1.0 / 60.0, NO_RAMP),
+            cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::ZERO, wide().cell(), 1.0 / 60.0, NO_RAMP),
             Vec2::ZERO
         );
     }
@@ -672,8 +672,8 @@ mod cursor_travel_tests {
         let cell = layout.cell();
         let old_px_per_second = layout.viewport.x * 1.15;
         let dt = 1.0 / 60.0;
-        let base = cursor_travel(Vec2::X, cell, dt, NO_RAMP).length() / dt;
-        let top = cursor_travel(Vec2::X, cell, dt, cursor_feel().ramp_max_multiplier).length() / dt;
+        let base = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, dt, NO_RAMP).length() / dt;
+        let top = cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, dt, cursor_feel(&crate::smash_pack::PACK.prepared()).ramp_max_multiplier).length() / dt;
         println!(
             "cell {cell:?}: base {base:.0}px/s, top {top:.0}px/s (old was {old_px_per_second:.0})"
         );
@@ -691,7 +691,7 @@ mod cursor_travel_tests {
 
         // A short push runs at the base rate, which makes the top speed safe.
         let mut ramp = CursorRamp::default();
-        let correction = ramp.advance(Vec2::X, 0.12);
+        let correction = ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, 0.12);
         assert_eq!(
             correction, 1.0,
             "a 120ms nudge already had built-up speed, so every small \
@@ -713,7 +713,7 @@ mod cursor_ramp_tests {
         let mut multiplier = 1.0;
         let frames = (seconds / dt).round() as i32;
         for _ in 0..frames {
-            multiplier = ramp.advance(Vec2::X, dt);
+            multiplier = ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, dt);
         }
         multiplier
     }
@@ -731,9 +731,9 @@ mod cursor_ramp_tests {
             "held 0.05s/{start:.2}x, 0.5s/{middle:.2}x, 1.5s/{end:.2}x — not a build"
         );
         assert!(
-            (end - cursor_feel().ramp_max_multiplier).abs() < 0.01,
+            (end - cursor_feel(&crate::smash_pack::PACK.prepared()).ramp_max_multiplier).abs() < 0.01,
             "a long hold reached {end:.2}x, not the {}x the file promises",
-            cursor_feel().ramp_max_multiplier
+            cursor_feel(&crate::smash_pack::PACK.prepared()).ramp_max_multiplier
         );
         assert_eq!(
             much_later, end,
@@ -745,7 +745,7 @@ mod cursor_ramp_tests {
     /// the arming delay.
     #[test]
     fn a_short_correction_never_leaves_the_base_speed() {
-        for nudge in [0.016_f32, 0.05, 0.1, cursor_feel().ramp_arm_seconds - 0.01] {
+        for nudge in [0.016_f32, 0.05, 0.1, cursor_feel(&crate::smash_pack::PACK.prepared()).ramp_arm_seconds - 0.01] {
             assert_eq!(
                 after_holding(nudge),
                 1.0,
@@ -761,13 +761,13 @@ mod cursor_ramp_tests {
         let mut ramp = CursorRamp::default();
         let dt = 1.0 / 60.0;
         for _ in 0..60 {
-            ramp.advance(Vec2::X, dt);
+            ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, dt);
         }
         assert!(
-            ramp.multiplier() > 1.5,
+            ramp.multiplier(&crate::smash_pack::PACK.prepared()) > 1.5,
             "the sweep did not build enough speed for this arm to mean anything"
         );
-        let back = ramp.advance(-Vec2::X, dt);
+        let back = ramp.advance(&crate::smash_pack::PACK.prepared(), -Vec2::X, dt);
         assert_eq!(
             back, 1.0,
             "flicking back after an overshoot inherited {back:.2}x of the \
@@ -782,10 +782,10 @@ mod cursor_ramp_tests {
         let mut ramp = CursorRamp::default();
         let dt = 1.0 / 60.0;
         for _ in 0..60 {
-            ramp.advance(Vec2::X, dt);
+            ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, dt);
         }
-        let built = ramp.multiplier();
-        let turned = ramp.advance(Vec2::Y, dt);
+        let built = ramp.multiplier(&crate::smash_pack::PACK.prepared());
+        let turned = ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::Y, dt);
         assert!(
             turned >= built,
             "turning ninety degrees dropped the build from {built:.2}x to {turned:.2}x"
@@ -799,13 +799,13 @@ mod cursor_ramp_tests {
         let dt = 1.0 / 60.0;
         let mut multiplier = 1.0;
         for _ in 0..180 {
-            multiplier = ramp.advance(Vec2::X * (cursor_feel().ramp_arm_deflection - 0.05), dt);
+            multiplier = ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X * (cursor_feel(&crate::smash_pack::PACK.prepared()).ramp_arm_deflection - 0.05), dt);
         }
         assert_eq!(
             multiplier, 1.0,
             "three seconds of a careful half-push accelerated to {multiplier:.2}x"
         );
-        assert!(!ramp.is_building());
+        assert!(!ramp.is_building(&crate::smash_pack::PACK.prepared()));
     }
 
     /// Releasing the stick forgets the build, or the next push starts fast.
@@ -814,12 +814,12 @@ mod cursor_ramp_tests {
         let mut ramp = CursorRamp::default();
         let dt = 1.0 / 60.0;
         for _ in 0..60 {
-            ramp.advance(Vec2::X, dt);
+            ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, dt);
         }
-        assert!(ramp.is_building());
-        assert_eq!(ramp.advance(Vec2::ZERO, dt), 1.0);
+        assert!(ramp.is_building(&crate::smash_pack::PACK.prepared()));
+        assert_eq!(ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::ZERO, dt), 1.0);
         assert_eq!(
-            ramp.advance(Vec2::X, dt),
+            ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, dt),
             1.0,
             "the push after a release started with inherited speed"
         );
@@ -837,7 +837,7 @@ mod cursor_ramp_tests {
         // The first and last frames of the build move far less than its
         // middle, which a corner would not do.
         let biggest = jumps.iter().cloned().fold(0.0_f32, f32::max);
-        let feel = cursor_feel();
+        let feel = cursor_feel(&crate::smash_pack::PACK.prepared());
         let arming_frame = (feel.ramp_arm_seconds / dt).ceil() as usize;
         let full_frame = ((feel.ramp_arm_seconds + feel.ramp_to_full_seconds) / dt).floor() as usize;
         assert!(
@@ -867,9 +867,9 @@ mod cursor_ramp_tests {
             let mut travelled = 0.0;
             let mut elapsed = 0.0;
             while travelled < row && elapsed < 10.0 {
-                let multiplier = ramp.advance(Vec2::X, dt);
+                let multiplier = ramp.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, dt);
                 let multiplier = if ramped { multiplier } else { 1.0 };
-                travelled += cursor_travel(Vec2::X, cell, dt, multiplier).length();
+                travelled += cursor_travel(&crate::smash_pack::PACK.prepared(), Vec2::X, cell, dt, multiplier).length();
                 elapsed += dt;
             }
             elapsed
@@ -896,11 +896,11 @@ mod cursor_ramp_tests {
     fn a_long_frame_does_not_fast_forward_the_build() {
         let mut hitched = CursorRamp::default();
         let mut steady = CursorRamp::default();
-        hitched.advance(Vec2::X, 1.0);
-        steady.advance(Vec2::X, MAX_CURSOR_DT);
+        hitched.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, 1.0);
+        steady.advance(&crate::smash_pack::PACK.prepared(), Vec2::X, MAX_CURSOR_DT);
         assert_eq!(
-            hitched.multiplier(),
-            steady.multiplier(),
+            hitched.multiplier(&crate::smash_pack::PACK.prepared()),
+            steady.multiplier(&crate::smash_pack::PACK.prepared()),
             "a one-second frame built more speed than the clamp allows"
         );
     }

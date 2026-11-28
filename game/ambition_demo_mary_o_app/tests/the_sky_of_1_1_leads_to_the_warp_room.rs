@@ -204,7 +204,7 @@ fn each_pipe_of_the_warp_room_has_the_name_of_its_level_over_it() {
     }
     // The words and their edge are the colours her rules file states
     // (`pipe_signs`).
-    let look = ambition_demo_mary_o::rules::mary_o_rules().pipe_signs;
+    let look = ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).pipe_signs;
     let mut signs = app.world_mut().query::<(&Text2d, &TextColor, &WorldLabel, &Children)>();
     let mut words = Vec::new();
     for (text, ink, label, edge) in signs.iter(app.world()) {

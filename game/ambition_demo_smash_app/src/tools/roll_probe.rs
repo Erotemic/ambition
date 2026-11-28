@@ -103,7 +103,7 @@ pub fn run(args: RollProbeArgs) {
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
     ];
-    let roster = ambition_demo_smash::smash_roster(characters);
+    let roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -111,7 +111,7 @@ pub fn run(args: RollProbeArgs) {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    let countdown = ambition_demo_smash::smash_roster(characters)
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters)
         .rules
         .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
@@ -124,7 +124,7 @@ pub fn run(args: RollProbeArgs) {
     };
 
     // The stage, so the answer can be stated as a fraction of it.
-    let stage = ambition_demo_smash::smash_stage().world;
+    let stage = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world;
     let platform = stage.blocks[0].aabb;
     let platform_width = platform.max.x - platform.min.x;
 

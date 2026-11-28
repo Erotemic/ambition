@@ -251,7 +251,7 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
             ran |= app
                 .world()
                 .get::<ambition_platformer2d::characters::control::ActorControl>(body)
-                .is_some_and(|control| control.0.locomotion.x.abs() > ambition_demo_mary_o::rules::mary_o_rules().walk_throttle);
+                .is_some_and(|control| control.0.locomotion.x.abs() > ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).walk_throttle);
             let mut q = app
                 .world_mut()
                 .query::<&ambition_platformer2d::projectiles::ProjectileVisualId>();
@@ -295,7 +295,7 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
     );
     assert_eq!(run_label(&app).as_deref(), Some("Run"), "her rules name the run");
 
-    wear(&mut app, body, vec![star_wand()]);
+    wear(&mut app, body, vec![star_wand(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()))]);
     assert_eq!(
         run_press_sparks(&mut app, body).0,
         0,
@@ -303,7 +303,7 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
     );
     assert_eq!(run_label(&app).as_deref(), Some("Run"), "the wand grants no technique");
 
-    wear(&mut app, body, vec![cinder_beacon()]);
+    wear(&mut app, body, vec![cinder_beacon(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()))]);
     let (sparks, ran) = run_press_sparks(&mut app, body);
     assert!(
         sparks > 0,
@@ -372,7 +372,7 @@ fn her_sparks_leave_at_their_authored_cadence_and_two_fly_at_once() {
     app.init_resource::<Launches>();
     let sim = app.sim_schedule();
     app.add_systems(sim, record);
-    let beacon = cinder_beacon();
+    let beacon = cinder_beacon(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()));
     let spark = beacon
         .grants
         .iter()
@@ -449,7 +449,7 @@ fn a_restart_gives_her_weapon_back_ready() {
     let body = seated(&mut app).expect("Mary-O is seated");
     app.world_mut()
         .entity_mut(body)
-        .insert(WornEquipment::new(vec![cinder_beacon()]));
+        .insert(WornEquipment::new(vec![cinder_beacon(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()))]));
     for _ in 0..30 {
         step(&mut app, ControlFrame::default());
     }
@@ -494,7 +494,7 @@ fn her_spark_does_not_push_her_back() {
     let body = seated(&mut app).expect("Mary-O is seated");
     app.world_mut()
         .entity_mut(body)
-        .insert(WornEquipment::new(vec![cinder_beacon()]));
+        .insert(WornEquipment::new(vec![cinder_beacon(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()))]));
     // Let her take the fire form and come to rest.
     for _ in 0..90 {
         step(&mut app, ControlFrame::default());

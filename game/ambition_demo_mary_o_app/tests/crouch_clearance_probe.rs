@@ -61,7 +61,7 @@ fn a_ceiling_she_cannot_stand_under_keeps_her_crouched() {
         let player = q.iter(world).next().expect("a player");
         world.entity_mut(player).insert(
             ambition_platformer2d::characters::equipment::WornEquipment::new(vec![
-                ambition_demo_mary_o::powerups::star_wand(),
+                ambition_demo_mary_o::powerups::star_wand(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared())),
             ]),
         );
     }

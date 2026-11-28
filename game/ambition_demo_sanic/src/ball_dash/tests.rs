@@ -361,7 +361,7 @@ fn pre_compaction_floor_contact_arms_and_releases_after_detach() {
         momentum.state = SurfaceMotion::Airborne;
     }
     app.update();
-    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, spin_dash_tuning().rev_per_tap);
+    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).rev_per_tap);
 
     set_ball_dash_input_with_contact(&mut app, e, false, false, false);
     app.update();
@@ -372,7 +372,7 @@ fn pre_compaction_floor_contact_arms_and_releases_after_detach() {
     );
     assert!(
         app.world().get::<ae::BodyKinematics>(e).unwrap().vel.x
-            >= spin_dash_tuning().rev_per_tap * spin_dash_tuning().launch_speed,
+            >= crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).rev_per_tap * crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).launch_speed,
         "the airborne release writes the charged speed into world velocity"
     );
 }
@@ -395,13 +395,13 @@ fn releasing_one_rev_writes_its_launch_speed_into_v_t() {
     let (mut app, e) = body_app();
     set_ball_dash_input(&mut app, e, true, true);
     app.update(); // one X edge is enough for a small launch
-    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, spin_dash_tuning().rev_per_tap);
+    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).rev_per_tap);
     assert!(app.world().get::<Rolling>(e).is_none(), "not yet");
 
     set_ball_dash_input(&mut app, e, false, false);
     app.update();
 
-    let t = spin_dash_tuning();
+    let t = crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared());
     assert_eq!(v_t(&app, e), t.rev_per_tap * t.launch_speed);
     assert!(app.world().get::<Rolling>(e).is_some(), "he is a ball now");
 }
@@ -437,7 +437,7 @@ fn facing_decides_the_launch_direction() {
     app.update(); // full charge
     set_ball_dash_input(&mut app, e, false, false);
     app.update();
-    assert_eq!(v_t(&app, e), -spin_dash_tuning().launch_speed);
+    assert_eq!(v_t(&app, e), -crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).launch_speed);
 }
 
 /// The hurtbox-resize seam. Rolling shrinks the live body box (the kernel's
@@ -459,7 +459,7 @@ fn rolling_narrows_the_body_and_standing_up_restores_it() {
     app.update();
 
     let ball = app.world().get::<ae::BodyKinematics>(e).unwrap().size();
-    assert_eq!(ball, spin_dash_tuning().ball_size());
+    assert_eq!(ball, crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).ball_size());
     let re_templated = ae::Vec2::new(30.0, 44.0);
     app.world_mut()
         .get_mut::<ae::BodyBaseSize>(e)
@@ -602,7 +602,7 @@ fn a_jump_balls_him_up_until_he_lands() {
     );
     assert_eq!(
         app.world().get::<ae::BodyKinematics>(e).unwrap().size(),
-        spin_dash_tuning().ball_size()
+        crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).ball_size()
     );
 
     // The apex: slow, still airborne, the jump op spent.
@@ -668,7 +668,7 @@ fn the_roll_law_is_held_while_a_spin_dash_ball_rolls() {
     assert!(app.world().get::<Rolling>(e).is_some());
     assert!(holds(&app), "the spin dash's ball rolls by the roll's law");
     let effects = app.world().get::<ae::BodyEffects>(e).unwrap().clone();
-    let t = spin_dash_tuning();
+    let t = crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared());
     assert_eq!(effects.resolve(ae::NumericAttribute::GroundAccel, 700.0), 0.0);
     assert_eq!(effects.resolve(ae::NumericAttribute::GroundFriction, 400.0), 400.0 * t.roll_friction_scale);
     assert_eq!(effects.resolve(ae::NumericAttribute::GroundBrake, 1800.0), 1800.0 * t.roll_brake_scale);

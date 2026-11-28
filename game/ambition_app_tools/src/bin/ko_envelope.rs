@@ -638,7 +638,7 @@ impl KoProbe {
 
         // Read off the real stage, as `ring_out::stage_centre_and_reach` does,
         // never restated from the demo's constants.
-        let room = ambition_demo_smash::smash_stage();
+        let room = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared());
         let centre = room.world.size.x / 2.0;
 
         // The victim's own tumble threshold, off its live motion model.
@@ -2523,7 +2523,7 @@ fn run_probe() {
             // flip. Read the real edge and stand a margin inboard.
             // Both edges: see the per-move choice at the `ledge_ko` call below.
             let (left_ledge_x, right_ledge_x) = {
-                let room = ambition_demo_smash::smash_stage();
+                let room = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared());
                 let right = room
                     .world
                     .blocks
@@ -2889,7 +2889,7 @@ fn main() {
 
     // The population is the shipped host's own roster, printed so the census
     // is not read as covering a cast it did not cover.
-    let roster = ambition_demo_smash::select::SmashRoster::assemble(registry);
+    let roster = ambition_demo_smash::select::SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     let ids: Vec<String> = roster.ids().map(|s| s.to_string()).collect();
     println!("# ko_envelope — launcher-pulse census");
     println!("# roster (SmashRoster::assemble, the seatable cast): {} fighters", ids.len());
@@ -3096,7 +3096,7 @@ mod tests {
             .world()
             .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
             .expect("registry");
-        let roster = ambition_demo_smash::select::SmashRoster::assemble(registry);
+        let roster = ambition_demo_smash::select::SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
         let n = roster.ids().count();
         assert!(
             n > 0,
@@ -3114,7 +3114,7 @@ mod tests {
             .world()
             .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
             .expect("registry");
-        let roster = ambition_demo_smash::select::SmashRoster::assemble(registry);
+        let roster = ambition_demo_smash::select::SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
 
         let mut resolved = 0usize;
         let mut carries = 0usize;

@@ -180,8 +180,13 @@ pub fn smash_rules_schema() -> SchemaRegistration {
 }
 
 /// The rules, as the demo's pack states them (`assets/data/smash_rules.ron`).
-pub fn smash_rules() -> ambition_platformer2d::content::PackRow<SmashRules> {
-    crate::smash_pack::PACK.prepared().row(smash_rules_in)
+pub fn smash_rules(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<SmashRules> {
+    smash_rules_of(packs.of(&crate::smash_pack::PACK))
+}
+
+/// [`smash_rules`] in `generation`: what a caller with no system boundary reads.
+pub fn smash_rules_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<SmashRules> {
+    generation.row(smash_rules_in)
 }
 
 /// [`smash_rules`] in `pack`.
@@ -226,9 +231,9 @@ mod tests {
         };
 
         let file = rules_of(&authored);
-        assert_eq!(&file, &*smash_rules(), "the demo plays the file");
+        assert_eq!(&file, &*smash_rules_of(crate::smash_pack::PACK.prepared()), "the demo plays the file");
         // The Limit the seats hold and fill is the file's `limit`.
-        assert_eq!(crate::limit::smash_limit(), file.limit, "the match plays a Limit that is not the file's");
+        assert_eq!(crate::limit::smash_limit(&crate::smash_pack::PACK.prepared()), file.limit, "the match plays a Limit that is not the file's");
         let cap = "cap: 60.0,";
         assert_eq!(authored.matches(cap).count(), 1, "the probe edits the Limit");
         assert_eq!(rules_of(&authored.replace(cap, "cap: 80.0,")).limit.cap, 80.0);
@@ -249,7 +254,7 @@ mod tests {
 
         // The select cursor's feel is the file's, and a build that takes no
         // time is refused.
-        assert_eq!(crate::select_screen::cursor::cursor_feel(), file.select_cursor, "the cursor does not feel as the file states");
+        assert_eq!(crate::select_screen::cursor::cursor_feel(&crate::smash_pack::PACK.prepared()), file.select_cursor, "the cursor does not feel as the file states");
         let speed = "cells_per_second: 4.5,";
         assert_eq!(authored.matches(speed).count(), 1, "the probe edits the cursor speed");
         assert_eq!(rules_of(&authored.replace(speed, "cells_per_second: 6.0,")).select_cursor.cells_per_second, 6.0);
@@ -261,7 +266,7 @@ mod tests {
 
         // The select screen's colours are the file's, and a colour that is
         // not one is refused.
-        assert_eq!(crate::select_screen::select_look(), file.select_look, "the select screen does not wear the file's colours");
+        assert_eq!(crate::select_screen::select_look(&crate::smash_pack::PACK.prepared()), file.select_look, "the select screen does not wear the file's colours");
         let refused = match compile(&authored.replace("ink: (0.94, 0.96, 1.0),", "ink: (0.94, 0.96, 1.5),")) {
             Ok(_) => panic!("an ink brighter than white was admitted"),
             Err(failure) => failure.render(),
@@ -275,7 +280,7 @@ mod tests {
 
         // The swing a kitless fighter is seated with is the file's, and one
         // that reaches nothing is refused.
-        assert_eq!(crate::smash_seating_melee(), file.seating_melee, "a kitless seat swings a melee that is not the file's");
+        assert_eq!(crate::smash_seating_melee(&crate::smash_pack::PACK.prepared()), file.seating_melee, "a kitless seat swings a melee that is not the file's");
         let reach = "reach_px: 34.0))";
         assert_eq!(authored.matches(reach).count(), 1, "the probe edits the seating swing");
         assert_eq!(rules_of(&authored.replace(reach, "reach_px: 40.0))")).seating_melee.reach_px(), 40.0);

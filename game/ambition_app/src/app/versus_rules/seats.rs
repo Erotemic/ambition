@@ -80,10 +80,8 @@ pub fn versus_seats_in(pack: &PreparedContentPack) -> Option<&VersusSeats> {
 }
 
 /// Who the stage seats, as the versus pack states it.
-pub fn versus_seats() -> ambition_platformer2d::content::PackRow<VersusSeats> {
-    super::super::versus_fighters::PACK.prepared().row(|pack| {
-        versus_seats_in(pack).expect("the versus pack states who it seats (`data/versus_seats.ron`)")
-    })
+pub fn versus_seats(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> &VersusSeats {
+    versus_seats_in(versus_pack).expect("the versus pack states who it seats (`data/versus_seats.ron`)")
 }
 
 #[cfg(test)]
@@ -124,7 +122,7 @@ mod tests {
         // One human and three CPUs: each seat names its fighter, its team and,
         // for a CPU, its brain.
         let roster_of = |seats: &VersusSeats| {
-            crate::app::versus::versus_roster_seating(seats, 1, RosterSeating::Proposed)
+            crate::app::versus::versus_roster_seating(&crate::app::versus_fighters::PACK.prepared(), seats, 1, RosterSeating::Proposed)
                 .participants
                 .into_iter()
                 .map(|seat| {
@@ -137,7 +135,7 @@ mod tests {
                 .collect::<Vec<_>>()
         };
 
-        assert_eq!(&seats_of(&authored), &*versus_seats(), "the stage seats the file");
+        assert_eq!(&seats_of(&authored), &*versus_seats(&crate::app::versus_fighters::PACK.prepared()), "the stage seats the file");
         let fighters = r#"fighters: ["arena_duelist_long", "arena_duelist_close"],"#;
         let teams = r#"teams: ["blue", "red"],"#;
         let brain = r#"cpu_brain: "versus_duelist","#;

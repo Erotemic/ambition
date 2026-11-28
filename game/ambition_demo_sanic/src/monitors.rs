@@ -257,6 +257,7 @@ pub fn break_monitor_boxes(
         // own live room, so a second seat breaks them too.
         With<PlayerEntity>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     // Two bodies can reach one monitor in one tick. The first breaks it and
     // takes its grant, so the order is a gameplay decision and a rewind must
@@ -289,7 +290,7 @@ pub fn break_monitor_boxes(
                 if rolling && near {
                     spent.spend(room, &block.name);
                     let center = (b.min + b.max) * 0.5;
-                    vfx.write(crate::rules::sanic_rules().effects.wall_break.at(center));
+                    vfx.write(crate::rules::sanic_rules(&packs).effects.wall_break.at(center));
                     sfx.write_from(
                         crate::provider::SANIC_EXPERIENCE,
                         ambition_platformer2d::sfx::SfxMessage::Play {
@@ -307,14 +308,14 @@ pub fn break_monitor_boxes(
             let overlap_x = p.min.x < b.max.x && p.max.x > b.min.x;
             let overlap_y = p.min.y < b.max.y && p.max.y > b.min.y;
             let feet = p.max.y;
-            let stomp = falling && overlap_x && crate::rules::feet_on_top(feet, b.min.y);
+            let stomp = falling && overlap_x && crate::rules::feet_on_top(&crate::rules::sanic_rules(&packs), feet, b.min.y);
             let roll = rolling && overlap_x && overlap_y;
             if !(stomp || roll) {
                 continue;
             }
             spent.spend(room, &block.name);
             let center = (b.min + b.max) * 0.5;
-            vfx.write(crate::rules::sanic_rules().effects.monitor_break.at(center));
+            vfx.write(crate::rules::sanic_rules(&packs).effects.monitor_break.at(center));
             // The monitor's own pop. H2/I3: a monitor is a prop in this course,
             // so the sound is the course's, not the host's. The breaker's own cue
             // (roll, stomp bounce) is emitted by the breaker.
@@ -328,11 +329,11 @@ pub fn break_monitor_boxes(
             match block.name.as_str() {
                 name if name.starts_with(RING_MONITOR) => {
                     if let Some(wallet) = wallet.as_deref_mut() {
-                        wallet.add(crate::rules::sanic_rules().ring_monitor.rings);
+                        wallet.add(crate::rules::sanic_rules(&packs).ring_monitor.rings);
                     }
                 }
                 name if name.starts_with(SPEED_MONITOR) => {
-                    let shoes = crate::rules::sanic_rules().speed_shoes;
+                    let shoes = crate::rules::sanic_rules(&packs).speed_shoes;
                     // The shoes are ONE application on the momentum the body
                     // rides, two numbers under one interval: the kernel
                     // resolves them over the authored params and spends the
@@ -409,7 +410,7 @@ mod tests {
     fn every_monitor_wears_the_box_of_its_grant() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut dressed = 0;
-        for room in [crate::sanic_speedway(&sprite_content), crate::sanic_highway(&sprite_content), crate::sanic_darkness(&sprite_content)] {
+        for room in [crate::sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content), crate::sanic_highway(&crate::pack::PACK.prepared(), &sprite_content), crate::sanic_darkness(&crate::pack::PACK.prepared(), &sprite_content)] {
             for block in room.world.blocks.iter().filter(|block| block.name.starts_with(MONITOR_PREFIX)) {
                 let kind = box_sprite_of(&block.name).unwrap_or_else(|| panic!("{} grants nothing", block.name));
                 let prop = room
@@ -571,7 +572,7 @@ mod tests {
         let bob = app.world_mut().spawn(landing_seat(1, bobs_room)).id();
         app.update();
         let spent = app.world().resource::<SpentMonitors>();
-        let held = crate::rules::sanic_rules().ring_monitor.rings;
+        let held = crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_monitor.rings;
         assert_eq!(
             (
                 spent.is_broken(LiveRoomInstance::ACTIVATION, RING_MONITOR),
@@ -599,7 +600,7 @@ mod tests {
             .collect();
         // The fixture's monitor is 32 px square with its corner at (100, 200).
         let centre = ae::Vec2::new(116.0, 216.0);
-        let stated = crate::rules::burst_shape(&crate::rules::sanic_rules().effects.monitor_break.at(centre));
+        let stated = crate::rules::burst_shape(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).effects.monitor_break.at(centre));
         assert_eq!(played, stated.into_iter().collect::<Vec<_>>(), "the monitor's burst is not the file's");
     }
 
@@ -615,7 +616,7 @@ mod tests {
         app.update();
         assert_eq!(
             (rings(&app, alice), rings(&app, bob)),
-            (crate::rules::sanic_rules().ring_monitor.rings, 0),
+            (crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_monitor.rings, 0),
             "(slot 0's rings, slot 1's rings): one payout, to the first seat by SimId"
         );
     }

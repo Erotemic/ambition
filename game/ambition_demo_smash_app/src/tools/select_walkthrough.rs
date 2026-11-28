@@ -163,8 +163,8 @@ fn show(app: &mut App, what: &str) {
             // The walkthrough renders the screen's own text without a live input
             // world, so the button falls back to its index rather than naming a
             // device it cannot see.
-            role_button_text(card.occupant, None),
-            card_name_text(
+            role_button_text(&ambition_demo_smash::smash_pack::PACK.prepared(), card.occupant, None),
+            card_name_text(&ambition_demo_smash::smash_pack::PACK.prepared(), 
                 catalog.as_ref(),
                 &fighters,
                 card.occupant.participates().then_some(card.pick).flatten(),

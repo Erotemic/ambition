@@ -131,7 +131,7 @@ fn the_utility_control_puts_her_in_the_form_and_takes_her_out_of_it() {
         .expect("her way out of the form has its row");
     assert_eq!(leave.policy.anim, CharacterAnim::Shrink);
     assert!(
-        (leave.policy.duration - cosmic_clip_seconds(&app, leave.policy.clip.as_deref().unwrap()) - ambition_demo_mary_o::rules::mary_o_rules().cosmic.leave_hold_seconds).abs() < 0.0001,
+        (leave.policy.duration - cosmic_clip_seconds(&app, leave.policy.clip.as_deref().unwrap()) - ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).cosmic.leave_hold_seconds).abs() < 0.0001,
         "her way out is as long as its row takes to draw and its hold, and it is {} s",
         leave.policy.duration
     );
@@ -253,7 +253,7 @@ fn cosmic_clip_seconds(app: &App, clip: &str) -> f32 {
 fn each_base_form_uses_its_own_cosmic_entry_and_return() {
     use ambition_platformer2d::characters::equipment::WornEquipment;
     use ambition_platformer2d::sprite_sheet::character::PinnedRow;
-    let forms = ambition_demo_mary_o::forms::mary_o_forms();
+    let forms = ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared());
     let (mut app, body) = seated();
     for rung in &forms.ladder {
         let mut equipped = WornEquipment::default();
@@ -286,7 +286,7 @@ fn a_pickup_during_the_cosmic_exit_changes_the_return_without_restarting_it() {
     press_utility(&mut app);
     idle(&mut app, 12);
     let before = app.world().get::<TransformBeat>(body).unwrap().remaining;
-    let forms = ambition_demo_mary_o::forms::mary_o_forms();
+    let forms = ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared());
     let fire = forms.ladder.last().unwrap();
     let mut equipment = WornEquipment::default();
     equipment.equip(forms.row(&fire.row.as_ref().unwrap().id).unwrap());
@@ -306,7 +306,7 @@ fn cosmic_requests_belong_to_each_body_without_a_primary_subject_lookup() {
     use ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested;
     use bevy::ecs::system::RunSystemOnce;
     let (mut app, _) = seated();
-    let forms = ambition_demo_mary_o::forms::mary_o_forms();
+    let forms = ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared());
     let bodies: Vec<_> = forms.ladder.iter().take(2).map(|rung| {
         app.world_mut().spawn((
             CharacterForm(rung.character.clone().into()),

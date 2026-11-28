@@ -33,7 +33,7 @@ pub fn fighter_ladder() -> ambition_platformer2d::characters::brain::fighter::Fi
 /// The rules of Smash's matches, as its pack states them
 /// (`assets/data/match_rules.ron`): stocks, clocks, the percent pool, the
 /// fighter body, the ability floor and ceiling, fighter contact.
-pub fn match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
-    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(&PACK.prepared())
+pub fn match_rules(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
+    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(selected_pack)
         .expect("Smash's pack states the rules of its matches (`data/match_rules.ron`)")
 }

@@ -214,7 +214,7 @@ fn first_unreflected_field(a: &SeatState, b: &SeatState, mid: f32) -> Option<Str
 /// the mean of the first frame: a mean moves with an asymmetric placement and
 /// so hides it.
 fn first_part(frames: &[[SeatState; 2]], with_stream: bool) -> Option<(usize, String)> {
-    let mid = ambition_demo_smash::stage_centre().x;
+    let mid = ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()).x;
     frames.iter().enumerate().find_map(|(index, [a, b])| {
         first_unreflected_field(a, b, mid)
             .filter(|field| with_stream || !field.starts_with("stream:"))
@@ -274,7 +274,7 @@ fn play_mirror_match(
             .world()
             .get_resource::<PreparedCharacterRegistry>()
             .expect("the composed host has a prepared-character registry");
-        let grid = SmashRoster::assemble(registry);
+        let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
         let ids: Vec<&str> = grid.ids().collect();
         assert!(
             ids.contains(&character),
@@ -283,7 +283,7 @@ fn play_mirror_match(
         );
     }
 
-    let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[RUNG, RUNG]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, character], &[RUNG, RUNG]);
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -516,7 +516,7 @@ fn a_match_in_cycled_gravity(steps: usize, by_the_key: bool) -> ((f32, f32), usi
     use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
     use ambition_platformer2d::world::AmbientGravityRequest;
     let mut app = host();
-    let roster = ambition_demo_smash::smash_roster_at_levels([ORDINARY, ORDINARY], &[RUNG, RUNG]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), [ORDINARY, ORDINARY], &[RUNG, RUNG]);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE)));

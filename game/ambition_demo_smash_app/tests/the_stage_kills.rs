@@ -27,7 +27,7 @@ fn the_shell_boots_onto_the_authored_stage() {
 /// The blast margin is reachable from the platform.
 #[test]
 fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
-    let world = ambition_demo_smash::smash_stage().world;
+    let world = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world;
     let platform = world.blocks[0].aabb;
     let side_margin = world
         .edges
@@ -95,7 +95,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
     assert_eq!(roster.participants.len(), 2);
     assert_eq!(
         roster.rules.stocks,
-        Some(ambition_demo_smash::starting_stocks()),
+        Some(ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared())),
         "the decided match is not a stocks match"
     );
 
@@ -263,7 +263,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
         // apart. The y is not pinned, because the body falls during the frames
         // the restart announcement needs.
         let respawn =
-            ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 1);
+            ambition_demo_smash::respawn_placement(&ambition_demo_smash::smash_pack::PACK.prepared(), ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()), 1);
         let kin = app
             .world()
             .get::<BodyKinematics>(launched)
@@ -279,7 +279,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
         // `axis.x * facing`, so a fighter facing away resolves `air_back` where
         // its mirror image resolves `air_forward`. Assert the direction toward
         // centre, not a literal sign: the side depends on `respawn_placement`.
-        let inward = (ambition_demo_smash::stage_centre().x - respawn.x).signum();
+        let inward = (ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()).x - respawn.x).signum();
         assert_eq!(
             kin.facing, inward,
             "the fighter respawned at x={} facing {} — the stage centre is at \
@@ -287,7 +287,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
              returned to",
             respawn.x,
             kin.facing,
-            ambition_demo_smash::stage_centre().x
+            ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()).x
         );
     }
 }
@@ -320,7 +320,7 @@ fn a_respawn_is_above_the_live_stages_platform() {
         platform.max.x += SHIFT;
         ambition_demo_smash::stage_centre_of(&rooms[0].0)
     };
-    assert_eq!(moved.x, ambition_demo_smash::stage_centre().x + SHIFT, "the probe did not move the platform");
+    assert_eq!(moved.x, ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()).x + SHIFT, "the probe did not move the platform");
 
     let launched = {
         let world = app.world_mut();
@@ -339,7 +339,7 @@ fn a_respawn_is_above_the_live_stages_platform() {
         pending |= now;
     }
     assert!(pending, "the launched fighter was never knocked out, so this test proves nothing");
-    let respawn = ambition_demo_smash::respawn_placement(moved, 1);
+    let respawn = ambition_demo_smash::respawn_placement(&ambition_demo_smash::smash_pack::PACK.prepared(), moved, 1);
     let kin = app.world().get::<BodyKinematics>(launched).expect("the fighter still has a body");
     assert!(
         (kin.pos.x - respawn.x).abs() < 32.0,
@@ -347,7 +347,7 @@ fn a_respawn_is_above_the_live_stages_platform() {
          the flat stage's seat 1 is at x={}",
         kin.pos.x,
         respawn.x,
-        ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 1).x
+        ambition_demo_smash::respawn_placement(&ambition_demo_smash::smash_pack::PACK.prepared(), ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()), 1).x
     );
     assert_eq!(kin.facing, (moved.x - respawn.x).signum(), "the fighter came back facing away from the live centre");
 }
@@ -382,7 +382,7 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
     // `smash_roster_at_levels` seats every slot as a CPU. Equal rungs, so the
     // measurement is about engagement, not skill.
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -397,7 +397,7 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
         ));
     // Derive the window from the ruleset; a fighter brain that emits nothing is
     // still the scenario under test.
-    let countdown = ambition_demo_smash::smash_roster([
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         ambition_demo_smash::SMASH_CHARACTER_ID,
         ambition_demo_smash::SMASH_OPPONENT_ID,
     ])
@@ -470,7 +470,7 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,
         ]));
@@ -513,7 +513,7 @@ fn the_opening_countdown_is_something_a_player_can_see() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -528,7 +528,7 @@ fn the_opening_countdown_is_something_a_player_can_see() {
         ));
 
     let slot = ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
-    let countdown = ambition_demo_smash::smash_roster([
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         ambition_demo_smash::SMASH_CHARACTER_ID,
         ambition_demo_smash::SMASH_OPPONENT_ID,
     ])
@@ -596,7 +596,7 @@ fn the_camera_closes_no_faster_than_it_opened() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -617,7 +617,7 @@ fn the_camera_closes_no_faster_than_it_opened() {
     // waiting body still (D201/ADR 0033), so a live launch widens the frame
     // only a little. The rule is about the teleport back.
     let mut stock_spent = false;
-    let world_width = ambition_demo_smash::smash_stage().world.size.x;
+    let world_width = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size.x;
     for tick in 0..5_400 {
         app.update();
         // THE KNOCKOUT IS STAGED, not waited for. Two rung-5 CPUs that see their
@@ -721,7 +721,7 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
     //
     // One stock: the question is the removal, not the pace. At the default
     // stock count, neither fighter reliably reaches zero in the window.
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -799,7 +799,7 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
         .clone();
 
     for level in [1u8, 5, 9] {
-        let roster = ambition_demo_smash::smash_roster_at_level(
+        let roster = ambition_demo_smash::smash_roster_at_level(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -835,9 +835,9 @@ fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
     let second = index_of(app, ambition_demo_smash::SMASH_OPPONENT_ID);
     {
         let mut select = app.world_mut().resource_mut::<SmashSelect>();
-        select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
         select.set_pick(0, first);
-        select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
         select.set_pick(1, second);
     }
     app.world_mut()
@@ -877,7 +877,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     // generic row and would not exercise the authored ladder behavior.
     const RUNGS: &[u8] = &[1, 3, 5, 6, 9];
 
-    let roster = ambition_demo_smash::smash_roster_at_levels(
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -931,7 +931,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     // (6,5), (9,6).
     for pair in RUNGS.windows(2) {
         let (lower, upper) = (pair[0], pair[1]);
-        let rung = ambition_demo_smash::smash_roster_at_levels(
+        let rung = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -956,7 +956,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     // The ruleset is the shipped stage's, not the rig's.
     assert_eq!(
         roster.rules.stocks,
-        Some(ambition_demo_smash::starting_stocks())
+        Some(ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared()))
     );
     assert!(
         roster.rules.opens_suspended,
@@ -1038,7 +1038,7 @@ fn every_live_fighter_stays_inside_the_frame() {
     }
     // Both seats are CPUs, so bodies get launched.
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -1052,7 +1052,7 @@ fn every_live_fighter_stays_inside_the_frame() {
             ),
         ));
 
-    let room = ambition_demo_smash::smash_stage().world.size;
+    let room = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size;
     // The match's camera box, read once the match has declared it. Without
     // one, no body is ever past the box.
     let mut camera_box: Option<(
@@ -1183,7 +1183,7 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
     }
     // One stock: this test needs a fighter to leave, and must not race the
     // fight's pace.
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -1307,7 +1307,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
     let slot: ambition_platformer2d::presentation::HudSlotId =
         ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
 
-    let world_width = ambition_demo_smash::smash_stage().world.size.x;
+    let world_width = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size.x;
     let mut app = build_demo_app();
     app.init_resource::<Decisions>();
     app.add_systems(
@@ -1324,7 +1324,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
 
     let play = |app: &mut App| -> Played {
         let before = app.world().resource::<Decisions>().0.len();
-        let mut roster = ambition_demo_smash::smash_roster_at_levels(
+        let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -1473,7 +1473,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
         assert_eq!(
             played.said.last().map(String::as_str),
             Some(
-                ambition_demo_smash::victory_banner(
+                ambition_demo_smash::victory_banner(&ambition_demo_smash::smash_pack::PACK.prepared(), 
                     &ambition_platformer2d::actor::MatchVerdict::Winner("Robot v3".to_string()),
                     Some("Robot v3"),
                 )
@@ -1526,7 +1526,7 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
         app.update();
     }
 
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -1545,7 +1545,7 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
             ),
         ));
 
-    let world_width = ambition_demo_smash::smash_stage().world.size.x;
+    let world_width = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size.x;
     let mut seated = 0usize;
     let mut launched = false;
     // Stop a few ticks after the end. The stage returns to the select screen
@@ -1619,7 +1619,7 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
     };
     assert_eq!(
         card,
-        ambition_demo_smash::victory_banner(
+        ambition_demo_smash::victory_banner(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             &ambition_platformer2d::actor::MatchVerdict::Winner(survivor.to_string()),
             Some(&survivor),
         ),
@@ -1663,7 +1663,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
     }
 
     // Two teams of two.
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [
             ambition_demo_smash::SMASH_CHARACTER_ID,
             ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -1692,8 +1692,8 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         seats.sort_unstable();
         seats
     };
-    let world_width = ambition_demo_smash::smash_stage().world.size.x;
-    let side_margin = ambition_demo_smash::smash_stage()
+    let world_width = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size.x;
+    let side_margin = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared())
         .world
         .edges
         .side
@@ -1791,7 +1791,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         .expect("the end of a match writes the announce card");
     assert_eq!(
         card,
-        ambition_demo_smash::victory_banner(
+        ambition_demo_smash::victory_banner(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             &ambition_platformer2d::actor::MatchVerdict::Winner("Red".to_string()),
             Some("Red"),
         ),
@@ -1815,7 +1815,7 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
         app.update();
     }
     let character = ambition_demo_smash::SMASH_CHARACTER_ID;
-    let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[5, 5]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, character], &[5, 5]);
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -1895,7 +1895,7 @@ fn the_stage_grants_body_contact_to_both_seated_fighters() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -1964,7 +1964,7 @@ fn probe_where_bodies_are_before_the_match_settles() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -2020,7 +2020,7 @@ fn probe_when_the_mirror_breaks() {
         app.update();
     }
     let character = ambition_demo_smash::SMASH_CHARACTER_ID;
-    let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[5, 5]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, character], &[5, 5]);
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()

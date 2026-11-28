@@ -95,7 +95,7 @@ fn a_settled_match_of(seats: usize, stocks: Option<u32>) -> (App, Entity, Entity
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster(vec![DIRECTOR; seats]);
+    let mut roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), vec![DIRECTOR; seats]);
     for (index, participant) in roster.participants.iter_mut().enumerate().skip(1) {
         participant.controller = ambition_platformer2d::actor::ControllerBinding::Human {
             source: ambition_platformer2d::actor::LocalInputSource::Pad(index as u8),

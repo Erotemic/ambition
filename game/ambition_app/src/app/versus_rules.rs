@@ -59,12 +59,6 @@ pub struct VersusMatch {
     pub phase: MatchPhase,
 }
 
-impl Default for VersusMatch {
-    fn default() -> Self {
-        Self::opening()
-    }
-}
-
 impl VersusMatch {
     /// A fresh match, counting into round one.
     ///
@@ -73,12 +67,12 @@ impl VersusMatch {
     /// "ROUND 1 — FIGHT" card never appeared at the start of a match, only after
     /// a later round reset. One constructor, so a caller
     /// cannot pick the silent one by accident.
-    pub fn opening() -> Self {
+    pub fn opening(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> Self {
         Self {
             rounds_won: BTreeMap::new(),
             round: 1,
             phase: MatchPhase::Starting {
-                ticks_remaining: versus_rounds().countdown_ticks,
+                ticks_remaining: versus_rounds(versus_pack).countdown_ticks,
             },
         }
     }
@@ -88,10 +82,10 @@ impl VersusMatch {
     }
 
     /// The team that has taken the match, if any.
-    pub fn winner(&self) -> Option<&str> {
+    pub fn winner(&self, versus_pack: &ambition_platformer2d::content::PreparedContentPack,) -> Option<&str> {
         self.rounds_won
             .iter()
-            .find(|(_, wins)| **wins >= versus_rounds().rounds_to_win)
+            .find(|(_, wins)| **wins >= versus_rounds(versus_pack).rounds_to_win)
             .map(|(team, _)| team.as_str())
     }
 }
@@ -178,7 +172,10 @@ pub fn settle_versus_round(
     >,
     mut scale: MessageWriter<ambition_platformer2d::time::time_control::ClockScaleRequest>,
     mut snap: MessageWriter<ambition_platformer2d::time::time_control::ClockResetRequest>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let versus_generation = packs.of(&crate::app::versus_fighters::PACK);
+    let versus_pack: &ambition_platformer2d::content::PreparedContentPack = &versus_generation;
     // No roster means no match. The stage's own teardown removes it, so this
     // needs no second opinion about whether versus is running.
     let (Some(_roster), Some(geometry)) = (roster, geometry) else {
@@ -275,14 +272,14 @@ pub fn settle_versus_round(
                 }
                 RoundResult::Draw => None,
             };
-            state.phase = match state.winner() {
+            state.phase = match state.winner(versus_pack) {
                 Some(champion) => MatchPhase::Won {
                     winner: champion.to_string(),
-                    remaining_s: versus_rounds().match_hold_seconds,
+                    remaining_s: versus_rounds(versus_pack).match_hold_seconds,
                 },
                 None => MatchPhase::Ko {
                     winner,
-                    remaining_s: versus_rounds().ko_hold_seconds,
+                    remaining_s: versus_rounds(versus_pack).ko_hold_seconds,
                 },
             };
             // FREEZE ON THIS TICK, not the next one.
@@ -374,7 +371,7 @@ pub fn settle_versus_round(
         &mut rounds,
     );
     *state = if match_over {
-        VersusMatch::opening()
+        VersusMatch::opening(versus_pack)
     } else {
         VersusMatch {
             rounds_won: std::mem::take(&mut state.rounds_won),
@@ -386,7 +383,7 @@ pub fn settle_versus_round(
             // later rounds have is a countdown that tells you the match already
             // started without you.
             phase: MatchPhase::Starting {
-                ticks_remaining: versus_rounds().countdown_ticks,
+                ticks_remaining: versus_rounds(versus_pack).countdown_ticks,
             },
         }
     };
@@ -588,7 +585,10 @@ pub fn publish_versus_hud(
     roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
     fighters: Query<(&MatchSeat, Option<&MatchTeam>, &BodyHealth, &Name)>,
     mut readouts: ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let versus_generation = packs.of(&crate::app::versus_fighters::PACK);
+    let versus_pack: &ambition_platformer2d::content::PreparedContentPack = &versus_generation;
     let (Some(state), Some(_roster)) = (state, roster) else {
         for slot in HEALTH_HUD_SLOTS {
             readouts.clear_slot(slot);
@@ -654,10 +654,10 @@ pub fn publish_versus_hud(
     }
     readouts.set(
         ROUNDS_HUD_SLOT,
-        ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(score_line(&state, &teams)),
+        ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(score_line(versus_pack, &state, &teams)),
     );
 
-    match announce_line(&state) {
+    match announce_line(versus_pack, &state) {
         Some(line) => readouts.set(ANNOUNCE_HUD_SLOT, ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(line)),
         None => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
     }
@@ -665,29 +665,29 @@ pub fn publish_versus_hud(
 
 /// The score line: each of `teams` with its round wins, in that order, and
 /// the wins that take the match. Empty when no team is seated.
-pub fn score_line(state: &VersusMatch, teams: &[&String]) -> String {
+pub fn score_line(versus_pack: &ambition_platformer2d::content::PreparedContentPack, state: &VersusMatch, teams: &[&String]) -> String {
     if teams.is_empty() {
         return String::new();
     }
-    let text = versus_text();
+    let text = versus_text(versus_pack);
     let score = teams
         .iter()
         .map(|team| text.fill("hud.team_score", &[hole("team", team), hole("wins", &state.wins(team))]))
         .collect::<Vec<_>>()
         .join(text.line("hud.score_separator"));
-    text.fill("hud.rounds", &[hole("score", &score), hole("to_win", &versus_rounds().rounds_to_win)])
+    text.fill("hud.rounds", &[hole("score", &score), hole("to_win", &versus_rounds(versus_pack).rounds_to_win)])
 }
 
 /// The announce line for the match's phase, or `None` while the round is
 /// fought.
-pub fn announce_line(state: &VersusMatch) -> Option<String> {
-    let text = versus_text();
+pub fn announce_line(versus_pack: &ambition_platformer2d::content::PreparedContentPack, state: &VersusMatch) -> Option<String> {
+    let text = versus_text(versus_pack);
     match &state.phase {
         // The countdown reads in two beats: WHICH round, then GO. Both are
         // derived from the same tick counter the simulation is already using, so
         // the card cannot disagree with the phase — a presentation timer running
         // beside a simulation timer is two clocks for one fact.
-        MatchPhase::Starting { ticks_remaining } => Some(if *ticks_remaining > versus_rounds().fight_call_ticks {
+        MatchPhase::Starting { ticks_remaining } => Some(if *ticks_remaining > versus_rounds(versus_pack).fight_call_ticks {
             text.fill("announce.round", &[("number", &state.round)])
         } else {
             text.line("announce.fight").to_string()
@@ -728,9 +728,10 @@ mod tests {
     /// code fills the teams, their wins, the round and the winner.
     #[test]
     fn the_stage_says_what_its_text_file_states() {
-        let text = versus_text();
+        let shipped = crate::app::versus_fighters::PACK.prepared();
+        let text = versus_text(&shipped);
         let (left, right) = ("Blue".to_string(), "Red".to_string());
-        let mut state = VersusMatch::opening();
+        let mut state = VersusMatch::opening(&crate::app::versus_fighters::PACK.prepared());
         state.rounds_won.insert(left.clone(), 1);
         let score = format!(
             "{}{}{}",
@@ -739,21 +740,21 @@ mod tests {
             text.fill("hud.team_score", &[hole("team", &right), hole("wins", &0)]),
         );
         assert_eq!(
-            score_line(&state, &[&left, &right]),
-            text.fill("hud.rounds", &[hole("score", &score), hole("to_win", &versus_rounds().rounds_to_win)])
+            score_line(&crate::app::versus_fighters::PACK.prepared(), &state, &[&left, &right]),
+            text.fill("hud.rounds", &[hole("score", &score), hole("to_win", &versus_rounds(&crate::app::versus_fighters::PACK.prepared()).rounds_to_win)])
         );
-        assert_eq!(score_line(&state, &[]), "", "no seated team, no score line");
+        assert_eq!(score_line(&crate::app::versus_fighters::PACK.prepared(), &state, &[]), "", "no seated team, no score line");
 
         state.round = 2;
-        state.phase = MatchPhase::Starting { ticks_remaining: versus_rounds().fight_call_ticks + 1 };
-        assert_eq!(announce_line(&state), Some(text.fill("announce.round", &[("number", &2)])));
+        state.phase = MatchPhase::Starting { ticks_remaining: versus_rounds(&crate::app::versus_fighters::PACK.prepared()).fight_call_ticks + 1 };
+        assert_eq!(announce_line(&crate::app::versus_fighters::PACK.prepared(), &state), Some(text.fill("announce.round", &[("number", &2)])));
         state.phase = MatchPhase::Starting { ticks_remaining: 0 };
-        assert_eq!(announce_line(&state).as_deref(), Some(text.line("announce.fight")));
+        assert_eq!(announce_line(&crate::app::versus_fighters::PACK.prepared(), &state).as_deref(), Some(text.line("announce.fight")));
         state.phase = MatchPhase::Fighting;
-        assert_eq!(announce_line(&state), None);
+        assert_eq!(announce_line(&crate::app::versus_fighters::PACK.prepared(), &state), None);
         state.phase = MatchPhase::Won { winner: left.clone(), remaining_s: 1.0 };
-        assert_eq!(announce_line(&state), Some(text.fill("announce.match_won", &[("winner", &left)])));
-        assert!(announce_line(&state).unwrap().contains("Blue"), "the shipped call names the winner");
+        assert_eq!(announce_line(&crate::app::versus_fighters::PACK.prepared(), &state), Some(text.fill("announce.match_won", &[("winner", &left)])));
+        assert!(announce_line(&crate::app::versus_fighters::PACK.prepared(), &state).unwrap().contains("Blue"), "the shipped call names the winner");
     }
 
     /// The countdown waits for the roster.
@@ -891,13 +892,13 @@ mod tests {
                 .expect("the probe pack lowers the rounds")
         };
 
-        assert_eq!(rounds_of(&authored), versus_rounds(), "the stage plays the file");
+        assert_eq!(rounds_of(&authored), versus_rounds(&crate::app::versus_fighters::PACK.prepared()), "the stage plays the file");
         // The shipped file is best of three, and the match reads it.
-        let mut state = VersusMatch::default();
+        let mut state = VersusMatch::opening(&crate::app::versus_fighters::PACK.prepared());
         state.rounds_won.insert("red".into(), 1);
-        assert_eq!(state.winner(), None, "one round does not take the shipped match");
+        assert_eq!(state.winner(&crate::app::versus_fighters::PACK.prepared()), None, "one round does not take the shipped match");
         state.rounds_won.insert("red".into(), 2);
-        assert_eq!(state.winner(), Some("red"), "two rounds take the shipped match");
+        assert_eq!(state.winner(&crate::app::versus_fighters::PACK.prepared()), Some("red"), "two rounds take the shipped match");
         let best_of_three = "rounds_to_win: 2,";
         assert_eq!(authored.matches(best_of_three).count(), 1, "the probe edits one line of the file");
         let edited = rounds_of(&authored.replace(best_of_three, "rounds_to_win: 3,"));
@@ -907,11 +908,11 @@ mod tests {
 
     #[test]
     fn the_match_is_won_at_two_rounds() {
-        let mut state = VersusMatch::default();
-        assert_eq!(state.winner(), None);
+        let mut state = VersusMatch::opening(&crate::app::versus_fighters::PACK.prepared());
+        assert_eq!(state.winner(&crate::app::versus_fighters::PACK.prepared()), None);
         state.rounds_won.insert("red".into(), 1);
-        assert_eq!(state.winner(), None);
-        state.rounds_won.insert("red".into(), versus_rounds().rounds_to_win);
-        assert_eq!(state.winner(), Some("red"));
+        assert_eq!(state.winner(&crate::app::versus_fighters::PACK.prepared()), None);
+        state.rounds_won.insert("red".into(), versus_rounds(&crate::app::versus_fighters::PACK.prepared()).rounds_to_win);
+        assert_eq!(state.winner(&crate::app::versus_fighters::PACK.prepared()), Some("red"));
     }
 }

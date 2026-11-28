@@ -152,7 +152,7 @@ fn harming(body: &mut EntityWorldMut) {
 fn a_stomp_squashes_each_kind_and_bounces_him_at_his_packs_speed() {
     let mut app = the_speedway();
     let him = sanic(&mut app);
-    let authority = ambition_demo_sanic::rules::sanic_rules().badnik.bounce_speed;
+    let authority = ambition_demo_sanic::rules::sanic_rules_of(ambition_demo_sanic::pack::PACK.prepared()).badnik.bounce_speed;
     let placed = badniks(&mut app);
     assert!(placed.len() >= 4, "the premise: the speedway places its kinds, {:?}", placed.keys().collect::<Vec<_>>());
     for (kind, badnik) in placed {

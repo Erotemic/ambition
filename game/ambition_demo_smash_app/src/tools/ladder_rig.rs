@@ -45,7 +45,7 @@ use ambition_platformer2d::engine_core as ae;
 /// to the damage tiebreak. `--seconds` shortens it for quick runs; the header
 /// names the clock.
 fn default_ticks() -> usize {
-    ambition_demo_smash::smash_time_limit_ticks() as usize
+    ambition_demo_smash::smash_time_limit_ticks(&ambition_demo_smash::smash_pack::PACK.prepared()) as usize
 }
 
 /// The match budget this run is using, in ticks.
@@ -616,13 +616,13 @@ fn resolved_stage() -> ambition_demo_smash::SmashStageChoice {
         // No `--stage`: use the demo's own default, so the rig follows it.
         return ambition_demo_smash::SmashStageChoice::default();
     }
-    ambition_demo_smash::SmashStageChoice::all()
+    ambition_demo_smash::SmashStageChoice::all(&ambition_demo_smash::smash_pack::PACK.prepared())
         .into_iter()
-        .find(|stage| stage.label().to_ascii_lowercase() == asked)
+        .find(|stage| stage.label(&ambition_demo_smash::smash_pack::PACK.prepared()).to_ascii_lowercase() == asked)
         .unwrap_or_else(|| {
-            let known: Vec<String> = ambition_demo_smash::SmashStageChoice::all()
+            let known: Vec<String> = ambition_demo_smash::SmashStageChoice::all(&ambition_demo_smash::smash_pack::PACK.prepared())
                 .iter()
-                .map(|stage| format!("`{}`", stage.label().to_ascii_lowercase()))
+                .map(|stage| format!("`{}`", stage.label(&ambition_demo_smash::smash_pack::PACK.prepared()).to_ascii_lowercase()))
                 .collect();
             panic!(
                 "unknown --stage {asked:?}; the rig fights on {}. Defaulting \
@@ -635,7 +635,7 @@ fn resolved_stage() -> ambition_demo_smash::SmashStageChoice {
 
 /// Say how long a bout ran, and say loudly when that is not a real match.
 fn report_which_clock_is_in_play() {
-    let shipped = ambition_demo_smash::smash_time_limit_ticks() as usize;
+    let shipped = ambition_demo_smash::smash_time_limit_ticks(&ambition_demo_smash::smash_pack::PACK.prepared()) as usize;
     let used = ticks();
     if used == shipped {
         println!(
@@ -855,7 +855,7 @@ fn run_scenarios(seeds: usize) {
         playable.len(),
         suite.len(),
         ticks() / 60,
-        resolved_stage().label(),
+        resolved_stage().label(&ambition_demo_smash::smash_pack::PACK.prepared()),
         // Name the design: paired and unpaired tables use different controls.
         if args().paired {
             pairing_axis()
@@ -1071,7 +1071,7 @@ fn row_verdict(bouts: &[Bout], properly_paired: bool) -> (&'static str, bool, Op
         median(
             bouts
                 .iter()
-                .map(|b| (ambition_demo_smash::starting_stocks() - b.stocks[1 - seat]) as f32)
+                .map(|b| (ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared()) - b.stocks[1 - seat]) as f32)
                 .collect(),
         )
     };
@@ -1134,7 +1134,7 @@ fn paired_outcomes(bouts: &[Bout]) -> Vec<PairedOutcome> {
         .map(|pair| {
             let took = |seat: usize| -> u32 {
                 pair.iter()
-                    .map(|b| ambition_demo_smash::starting_stocks() - b.stocks[1 - seat])
+                    .map(|b| ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared()) - b.stocks[1 - seat])
                     .sum()
             };
             let dealt = |seat: usize| -> f32 { pair.iter().map(|b| b.damage_taken[1 - seat]).sum() };
@@ -1720,7 +1720,7 @@ fn run_bout_at(
     // the composition prepared, so the check cannot drift.
     assert_seatable(&app, fighters_seated(mirror == Mirror::Fighters));
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             fighters_seated(mirror == Mirror::Fighters),
             &[higher, lower],
         ));
@@ -1732,7 +1732,7 @@ fn run_bout_at(
         ));
 
     // An eliminated seat stops existing, so keep the last value seen.
-    let mut stocks = [ambition_demo_smash::starting_stocks(); 2];
+    let mut stocks = [ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared()); 2];
     let mut eliminated = [ticks(); 2];
     let mut peak_percent = [0.0f32; 2];
     let mut damage_taken = [0.0f32; 2];

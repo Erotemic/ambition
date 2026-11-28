@@ -39,7 +39,7 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -303,7 +303,7 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -489,9 +489,9 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
             .world_mut()
             .get_resource_mut::<SmashSelect>()
             .expect("the select screen has its state");
-        select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
         select.set_pick(0, admiral_index);
-        select.set_occupant(1, SlotOccupant::Cpu);
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
         select.set_pick(1, admiral_index);
         assert!(
             select.ready(),
@@ -747,7 +747,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -1051,7 +1051,7 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -1205,7 +1205,7 @@ fn the_summoned_shark_carries_no_contact_hazard() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -1276,7 +1276,7 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -1436,10 +1436,10 @@ fn an_admiral_cpu_flies_back_to_stage_on_either_side() {
     use bevy::ecs::message::MessageCursor;
     use bevy::prelude::Messages;
 
-    let stage = ambition_demo_smash::smash_stage();
+    let stage = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared());
     let floor = stage.world.blocks.iter().next().expect("the flat stage has a platform").aabb;
     for start_x in [floor.min.x - 300.0, floor.max.x + 300.0] {
-        let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             "npc_pirate_admiral",
             "npc_pirate_admiral",
         ]));
@@ -1450,7 +1450,7 @@ fn an_admiral_cpu_flies_back_to_stage_on_either_side() {
             let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(cpu).unwrap();
             kin.pos = ae::Vec2::new(start_x, floor.min.y + 220.0);
             kin.vel = ae::Vec2::ZERO;
-            kin.facing = (ambition_demo_smash::stage_centre().x - start_x).signum();
+            kin.facing = (ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()).x - start_x).signum();
         }
 
         let mut boarded = false;
@@ -1521,7 +1521,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -1690,7 +1690,7 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
         .get_resource::<PreparedCharacterRegistry>()
         .expect("the app registers characters")
         .clone();
-    let roster = ambition_demo_smash::select::SmashRoster::assemble(&registry);
+    let roster = ambition_demo_smash::select::SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), &registry);
     assert!(
         roster.len() >= 8,
         "the assembled roster holds {} fighter(s) — this composition never \
@@ -1868,9 +1868,9 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
             .world_mut()
             .get_resource_mut::<SmashSelect>()
             .expect("the select screen has its state");
-        select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
         select.set_pick(0, admiral_index);
-        select.set_occupant(1, SlotOccupant::Cpu);
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
         select.set_pick(1, admiral_index);
         assert!(
             select.ready(),
@@ -2180,7 +2180,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
             .world_mut()
             .get_resource_mut::<SmashSelect>()
             .expect("the select screen has its state");
-        select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
         select.set_pick(0, admiral_index);
         // ⛔ A SECOND PERSON WHO NEVER TOUCHES THE PAD, not a CPU. The last arm
         // below reads the shark's WHOLE damage meter as "not combat", which is
@@ -2189,7 +2189,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
         // box, the rival's swings and shots at the rider land on the shark (a
         // projectile for 8 at tick 74). The occupant is the premise; the census
         // below states it.
-        select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
         select.set_pick(1, admiral_index);
         assert!(
             select.ready(),
@@ -2356,7 +2356,7 @@ fn probe_the_recovery_charge_across_the_shark_handoff() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -2481,7 +2481,7 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));
@@ -2652,7 +2652,7 @@ fn a_saddled_body_advances_its_clocks_and_none_of_its_displacement() {
 
     // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_pirate_admiral",
         "npc_pirate_admiral",
     ]));

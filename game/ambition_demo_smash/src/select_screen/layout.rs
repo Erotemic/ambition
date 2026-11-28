@@ -642,7 +642,7 @@ mod tests {
     fn roster() -> usize {
         // Mirrors `SmashRoster::cell_count()`; `smash_roster()` is a slice, so
         // the `+ 1` for random is spelled out.
-        crate::select::smash_roster().len() + 1
+        crate::select::smash_roster_of(crate::smash_pack::PACK.prepared()).len() + 1
     }
 
     const PHONE_LANDSCAPE: Vec2 = Vec2::new(844.0, 390.0);
@@ -914,7 +914,7 @@ mod tests {
         assert_eq!(layout.characters, roster());
         assert_eq!(
             roster(),
-            crate::select::smash_roster().len() + 1,
+            crate::select::smash_roster_of(crate::smash_pack::PACK.prepared()).len() + 1,
             "the fixture's cell count drifted from the wish list plus random"
         );
         assert!(layout.portrait(layout.characters).is_none());

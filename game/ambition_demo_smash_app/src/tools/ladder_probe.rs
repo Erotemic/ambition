@@ -292,7 +292,7 @@ fn death_side(runs: &[LadderRun]) -> String {
     if xs.is_empty() {
         return "no self-KO".to_string();
     }
-    let stage_midpoint = ambition_demo_smash::stage_centre().x;
+    let stage_midpoint = ambition_demo_smash::stage_centre(&ambition_demo_smash::smash_pack::PACK.prepared()).x;
     let left = xs.iter().filter(|x| **x < stage_midpoint).count();
     let right = xs.len() - left;
     let mean = xs.iter().sum::<f32>() / xs.len() as f32;
@@ -344,7 +344,7 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_level(
+        .insert_resource(ambition_demo_smash::smash_roster_at_level(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             [
                 ambition_demo_smash::SMASH_CHARACTER_ID,
                 ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -410,7 +410,7 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
                 present = true;
                 seat_x = Some(kinematics.pos.x);
                 peak_speed = peak_speed.max(kinematics.vel.x.abs());
-                let now = ambition_demo_smash::starting_stocks().saturating_sub(stocks.remaining);
+                let now = ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared()).saturating_sub(stocks.remaining);
                 if now > 0 && first_loss.is_none() {
                     first_loss = Some(tick);
                     death_x = last_x;
@@ -430,7 +430,7 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     let world = app.world_mut();
     let mut alive = world.query::<&MatchSeat>();
     if !alive.iter(world).any(|seat| seat.0 == 1) {
-        lost = ambition_demo_smash::starting_stocks();
+        lost = ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared());
     }
     assert!(
         depth_played,

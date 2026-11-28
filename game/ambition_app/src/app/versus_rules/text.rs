@@ -40,13 +40,11 @@ pub fn versus_text_schema() -> SchemaRegistration {
 }
 
 /// The lines, as the versus pack states them.
-pub fn versus_text() -> ambition_platformer2d::content::PackRow<ShownText> {
-    super::super::versus_fighters::PACK.prepared().row(|pack| {
-        lowered_shown_text(pack, VERSUS_TEXT_SCHEMA).expect("the versus pack states its lines (`data/versus_text.ron`)")
-    })
+pub fn versus_text(versus_pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
+    lowered_shown_text(versus_pack, VERSUS_TEXT_SCHEMA).expect("the versus pack states its lines (`data/versus_text.ron`)")
 }
 
 /// The line `key`.
-pub fn line(key: &str) -> String {
-    versus_text().line(key).to_string()
+pub fn line(versus_pack: &ambition_platformer2d::content::PreparedContentPack, key: &str) -> String {
+    versus_text(versus_pack).line(key).to_string()
 }

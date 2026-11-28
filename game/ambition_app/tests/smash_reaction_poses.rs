@@ -57,7 +57,7 @@ fn seated_as(fighter: &str) -> (App, Entity, Entity, Entity) {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([fighter, fighter]));
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [fighter, fighter]));
     app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )));
@@ -421,7 +421,7 @@ fn drawn_motion_jerk_extrapolated_and_interpolated() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels([FIGHTER, FIGHTER], &[5, 5]));
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), [FIGHTER, FIGHTER], &[5, 5]));
     app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )));
@@ -509,7 +509,7 @@ fn the_sounds_of_a_grab() {
         app.update();
     }
     let fighter = std::env::var("GRAB_FIGHTER").unwrap_or_else(|_| FIGHTER.to_string());
-    app.world_mut().insert_resource(ambition_demo_smash::smash_roster_at_levels(
+    app.world_mut().insert_resource(ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [fighter.as_str(), fighter.as_str()],
         &[9, 9],
     ));

@@ -74,7 +74,7 @@ pub const SMASH_SHARK_RIDER: &str = "npc_pirate_admiral";
 ///
 /// `fighter_stocks` declares the count and `DeathPolicy::Unbounded` together,
 /// because neither is meaningful alone. The engine owns that pairing.
-pub fn smash_roster<I, S>(characters: I) -> MatchParticipantRoster
+pub fn smash_roster<I, S>(selected_pack: &ambition_platformer2d::content::PreparedContentPack, characters: I) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
     S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
@@ -106,18 +106,18 @@ where
         // facet's body over Smash's default fighter, else its catalog feel,
         // else the default fighter (`MatchRules::seat_body`).
         .collect();
-    apply_smash_match_rules(&mut roster, starting_stocks());
+    apply_smash_match_rules(selected_pack, &mut roster, starting_stocks(selected_pack));
     roster.published_by(SMASH_EXPERIENCE)
 }
 
 /// The Smash ruleset, in one place.
-pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32) {
+pub fn apply_smash_match_rules(selected_pack: &ambition_platformer2d::content::PreparedContentPack, roster: &mut MatchParticipantRoster, stocks: u32) {
     // The pack's rules (`assets/data/match_rules.ron`): the countdown, the
     // clock, the respawn beat, the percent pool, the floor and ceiling, the
     // fighter body and fighter contact. This match grants no pilot licence:
     // which shark a body may board is answered on the mount (see
     // `ambition_mount::MountReservedFor`).
-    smash_match_rules().apply_to(&mut roster.rules);
+    smash_match_rules(selected_pack).apply_to(&mut roster.rules);
     // A parameter, not a resource read here: both roads (`smash_roster` and
     // `SmashSelect::roster_seeded`) must state the count.
     roster.rules.stocks = Some(stocks);
@@ -127,7 +127,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     roster.rules.move_damage =
         Some(ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE);
     // The Limit is the match's resource: every seat is built holding it, empty.
-    roster.rules.resources = vec![crate::limit::smash_limit().declaration()];
+    roster.rules.resources = vec![crate::limit::smash_limit(selected_pack).declaration()];
     // No items for now (Jon's call). The machinery (`MatchItemSpawns`, the
     // spawner, the weighted table) is built and tested; only this declaration
     // is absent. The previous table: a drop every 8s at three points above the
@@ -139,43 +139,43 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
 /// The rules of Smash's matches, as its pack states them
 /// (`assets/data/match_rules.ron`). [`apply_smash_match_rules`] writes them on
 /// every roster; the accessors below read one rule each.
-pub fn smash_match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
-    crate::smash_pack::match_rules()
+pub fn smash_match_rules(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
+    crate::smash_pack::match_rules(selected_pack)
 }
 
 /// Stocks each fighter starts with, unless the select screen chooses.
-pub fn starting_stocks() -> u32 {
-    smash_match_rules().stocks.expect("Smash's match rules state a stock count")
+pub fn starting_stocks(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> u32 {
+    smash_match_rules(selected_pack).stocks.expect("Smash's match rules state a stock count")
 }
 
 /// The match clock, in ticks. Public so that measurement tools (for example
 /// `ladder_rig`) use the real match length: a shorter one ends every bout on
 /// the damage tiebreak.
-pub fn smash_time_limit_ticks() -> u32 {
-    smash_match_rules().time_limit_ticks
+pub fn smash_time_limit_ticks(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> u32 {
+    smash_match_rules(selected_pack).time_limit_ticks
 }
 
 /// What 100% means: the denominator of `damage_percent()`.
-pub fn smash_percent_reference() -> i32 {
-    smash_match_rules().health_pool.expect("Smash's match rules state a percent pool")
+pub fn smash_percent_reference(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> i32 {
+    smash_match_rules(selected_pack).health_pool.expect("Smash's match rules state a percent pool")
 }
 
 /// The fighter body the match writes over each fighter's own movement.
-pub fn smash_fighter_body() -> ambition_platformer2d::engine_core::MatchBody {
-    smash_match_rules().body.expect("Smash's match rules state a fighter body")
+pub fn smash_fighter_body(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::engine_core::MatchBody {
+    smash_match_rules(selected_pack).body.expect("Smash's match rules state a fighter body")
 }
 
 /// The floor: the verbs every fighter has here.
-pub fn smash_fighter_kit() -> ambition_platformer2d::engine_core::AbilitySet {
-    smash_match_rules().abilities.expect("Smash's match rules state a floor and ceiling").granted
+pub fn smash_fighter_kit(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::engine_core::AbilitySet {
+    smash_match_rules(selected_pack).abilities.expect("Smash's match rules state a floor and ceiling").granted
 }
 
 /// The ceiling: the floor plus the verbs a fighter may bring from home. The
 /// difference is character identity (Robot v3 keeps its pogo because it
 /// authors pogo). `MatchAbilities::levelled` treats the two as floor and
 /// ceiling.
-pub fn smash_fighter_ceiling() -> ambition_platformer2d::engine_core::AbilitySet {
-    smash_match_rules().abilities.expect("Smash's match rules state a floor and ceiling").permitted
+pub fn smash_fighter_ceiling(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::engine_core::AbilitySet {
+    smash_match_rules(selected_pack).abilities.expect("Smash's match rules state a floor and ceiling").permitted
 }
 
 /// The same roster, at a named ladder level.
@@ -183,12 +183,12 @@ pub fn smash_fighter_ceiling() -> ambition_platformer2d::engine_core::AbilitySet
 /// For the ladder probe: it measures the same match at two levels. The brain
 /// profile is a per-seat override, not a second archetype, because a second
 /// archetype would also vary speed, reach and health.
-pub fn smash_roster_at_level<I, S>(characters: I, level: u8) -> MatchParticipantRoster
+pub fn smash_roster_at_level<I, S>(selected_pack: &ambition_platformer2d::content::PreparedContentPack, characters: I, level: u8) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
     S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
 {
-    let mut roster = smash_roster(characters);
+    let mut roster = smash_roster(selected_pack, characters);
     for participant in &mut roster.participants {
         if let ControllerBinding::Cpu { brain_profile } = &mut participant.controller {
             *brain_profile = Some(format!("{SMASH_DUELIST_BRAIN}_l{level}"));
@@ -218,12 +218,12 @@ pub const INSPECTION_TARGET: &str = "sandbag_infinite";
 /// The seat has a driver that stands still by name. `ControllerBinding::Cpu {
 /// brain_profile: None }` is refused at preparation, because a seat with no
 /// driver looks the same as a brain that failed to install.
-pub fn smash_roster_with_passive_targets<I, S>(characters: I) -> MatchParticipantRoster
+pub fn smash_roster_with_passive_targets<I, S>(selected_pack: &ambition_platformer2d::content::PreparedContentPack, characters: I) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
     S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
 {
-    let mut roster = smash_roster(characters);
+    let mut roster = smash_roster(selected_pack, characters);
     for participant in &mut roster.participants {
         if let ControllerBinding::Cpu { brain_profile } = &mut participant.controller {
             *brain_profile = Some(SMASH_IDLE_BRAIN.to_string());
@@ -240,12 +240,12 @@ where
 ///
 /// `opens_suspended` and the stock count are inherited, so the rig measures
 /// the shipped ruleset. Only the controllers differ from a real match.
-pub fn smash_roster_at_levels<I, S>(characters: I, levels: &[u8]) -> MatchParticipantRoster
+pub fn smash_roster_at_levels<I, S>(selected_pack: &ambition_platformer2d::content::PreparedContentPack, characters: I, levels: &[u8]) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
     S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
 {
-    let mut roster = smash_roster(characters);
+    let mut roster = smash_roster(selected_pack, characters);
     for (index, participant) in roster.participants.iter_mut().enumerate() {
         // Every seat is a CPU here, including seat 0.
         let level = levels.get(index).copied().unwrap_or(1);
@@ -262,15 +262,15 @@ where
 ///
 /// Seats alternate outward from the centre (0 left, 1 right, 2 further left,
 /// 3 further right), so the layout is symmetric at any roster size.
-pub fn respawn_placement(stage_centre: Vec2, seat: usize) -> Vec2 {
+pub fn respawn_placement(selected_pack: &ambition_platformer2d::content::PreparedContentPack, stage_centre: Vec2, seat: usize) -> Vec2 {
     // 0,1 → half a spacing out; 2,3 → one and a half; and so on.
     let rank = (seat / 2) as f32 + 0.5;
     let side = if seat % 2 == 0 { -1.0 } else { 1.0 };
     Vec2::new(
-        stage_centre.x + side * rank * crate::stages::smash_stages().respawn.seat_spacing,
+        stage_centre.x + side * rank * crate::stages::smash_stages_in(selected_pack).respawn.seat_spacing,
         // Toward the sky: this demo is screen-down. A gravity-flipped stocks
         // stage is a question for the engine.
-        stage_centre.y - crate::stages::smash_stages().respawn.rise,
+        stage_centre.y - crate::stages::smash_stages_in(selected_pack).respawn.rise,
     )
 }
 
@@ -287,8 +287,8 @@ pub const SMASH_PLATFORM_STAGE_ROOM_ID: &str = "smash_platform_stage";
 pub const SMASH_NARROW_STAGE_ROOM_ID: &str = "smash_narrow_stage";
 
 /// The stage `id`, built from the pack's `data/smash_stages.ron`.
-fn smash_stage_room(id: &str) -> RoomSpec {
-    stage_room(&crate::stages::smash_stages(), id)
+fn smash_stage_room(selected_pack: &ambition_platformer2d::content::PreparedContentPack, id: &str) -> RoomSpec {
+    stage_room(&crate::stages::smash_stages_in(selected_pack), id)
 }
 
 /// The stage `id` as `stages` states it.
@@ -325,27 +325,27 @@ pub fn stage_room(stages: &crate::stages::SmashStages, id: &str) -> RoomSpec {
 }
 
 /// The stage: a platform surrounded by nothing (`smash_stages.ron`).
-pub fn smash_stage() -> RoomSpec {
-    smash_stage_room(SMASH_STAGE_ROOM_ID)
+pub fn smash_stage(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> RoomSpec {
+    smash_stage_room(selected_pack, SMASH_STAGE_ROOM_ID)
 }
 
 /// Less ground, same blast envelope: an edgeguard-and-recovery stage
 /// (`smash_stages.ron`).
-pub fn smash_narrow_stage() -> RoomSpec {
-    smash_stage_room(SMASH_NARROW_STAGE_ROOM_ID)
+pub fn smash_narrow_stage(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> RoomSpec {
+    smash_stage_room(selected_pack, SMASH_NARROW_STAGE_ROOM_ID)
 }
 
 /// The main surface plus three drop-through tiers (`smash_stages.ron`).
 /// Reachable through [`SmashStageChoice`] and the select screen's stage
 /// button.
-pub fn smash_platform_stage() -> RoomSpec {
-    smash_stage_room(SMASH_PLATFORM_STAGE_ROOM_ID)
+pub fn smash_platform_stage(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> RoomSpec {
+    smash_stage_room(selected_pack, SMASH_PLATFORM_STAGE_ROOM_ID)
 }
 
 /// The top centre of [`smash_stage`]'s main platform. The tools and tests
 /// that measure on the flat stage read it; a match reads [`StageCentre`].
-pub fn stage_centre() -> Vec2 {
-    stage_centre_of(&smash_stage().world)
+pub fn stage_centre(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> Vec2 {
+    stage_centre_of(&smash_stage(selected_pack).world)
 }
 
 /// The top centre of a stage's main platform (its first block): a respawn
@@ -379,19 +379,18 @@ impl StageCentre<'_, '_> {
 ///
 /// `announce_the_winner` resolves the winning side into the fighter's name
 /// before the call; this function owns only the wording.
-pub fn victory_banner(
-    outcome: &ambition_platformer2d::actor::MatchVerdict,
+pub fn victory_banner(selected_pack: &ambition_platformer2d::content::PreparedContentPack, outcome: &ambition_platformer2d::actor::MatchVerdict,
     winner_name: Option<&str>,
 ) -> String {
     use ambition_platformer2d::actor::MatchVerdict;
     match outcome {
         // The name from the caller; a side label is not a name.
-        MatchVerdict::Winner(side) => text::smash_text().fill("banner.winner", &[("name", &winner_name.unwrap_or(side))]),
+        MatchVerdict::Winner(side) => crate::text::smash_text_in(selected_pack).fill("banner.winner", &[("name", &winner_name.unwrap_or(side))]),
         // A draw is reachable and cheaply: two fighters on their last stock,
         // knocked off together.
-        MatchVerdict::Draw => text::line("banner.draw"),
+        MatchVerdict::Draw => text::line(selected_pack, "banner.draw"),
         // Say so: "Draw" would tell players the fighters settled something.
-        MatchVerdict::NoContest => text::line("banner.no_contest"),
+        MatchVerdict::NoContest => text::line(selected_pack, "banner.no_contest"),
     }
 }
 
@@ -408,6 +407,8 @@ pub struct SmashRulesPlugin;
 
 impl bevy::prelude::Plugin for SmashRulesPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        let selected_generation = crate::smash_pack::PACK.selected_in(app.world());
+        let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
         use bevy::prelude::IntoScheduleConfigs;
 
         // The plugin owns its channels. A full app registers these through the
@@ -459,7 +460,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             // Only the seats hold a Limit slot, so the fill reaches no other body.
             app.declare_rules(
                 ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
-                crate::limit::SmashLimitFill(crate::limit::smash_limit()),
+                crate::limit::SmashLimitFill(crate::limit::smash_limit(selected_pack)),
             );
             // A viewer-dependent cone is undefined with no primary player, and
             // seamless camera transit is a single-camera effect. The portal
@@ -638,8 +639,8 @@ pub fn smash_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules
 /// "peaceful"`; seating one in an arena adapts it into a fighter.
 /// `roster_seeded` folds this into the seat's `ActionSet` at seating time, so
 /// the body has one move authority and nothing reads a fallback.
-pub fn smash_seating_melee() -> ambition_platformer2d::character::MeleeActionSpec {
-    rules::smash_rules().seating_melee
+pub fn smash_seating_melee(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> ambition_platformer2d::character::MeleeActionSpec {
+    crate::rules::smash_rules_in(selected_pack).seating_melee
 }
 
 /// One fighter panel's face: the page, and which frame of it to draw.
@@ -797,7 +798,10 @@ fn announce_the_opening_countdown(
         bevy::prelude::Res<ambition_platformer2d::versus_match::SuddenDeathEntered>,
     >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     use ambition_platformer2d::versus_match::OpeningPhase;
     let (Some(active), Some(prepared), Some(tick)) = (active, prepared, tick) else {
         return;
@@ -828,7 +832,7 @@ fn announce_the_opening_countdown(
     if sudden_death.is_some_and(|entered| entered.entered(&active)) {
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(text::line("announce.sudden_death")),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(text::line(selected_pack, "announce.sudden_death")),
         );
         return;
     }
@@ -839,7 +843,7 @@ fn announce_the_opening_countdown(
     let word = match rules.opening_phase(elapsed) {
         OpeningPhase::Counting { beats_remaining } => Some(beats_remaining.to_string()),
         // GO holds one beat past the release, then the card comes down.
-        OpeningPhase::Live if elapsed < total + per_beat => Some(text::line("announce.go")),
+        OpeningPhase::Live if elapsed < total + per_beat => Some(text::line(selected_pack, "announce.go")),
         OpeningPhase::Live => None,
     };
     match word {
@@ -874,7 +878,10 @@ fn place_respawning_fighters(
         Option<&mut ambition_platformer2d::combat::moveset::MovePlayback>,
     )>,
     stage: StageCentre,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     // D192: the cue is the interval elapsing. Eliminated fighters never get a
     // pending respawn, so the engine decides who returns; this decides where.
     for event in due.read() {
@@ -887,7 +894,7 @@ fn place_respawning_fighters(
         // The reset zeroes velocity, so the fighter does not keep flying
         // toward the blast zone it just left.
         let centre = stage.of(event.body);
-        let placement = respawn_placement(centre, seat);
+        let placement = respawn_placement(selected_pack, centre, seat);
         // The fighter's own air game, as its movement policy authors it.
         let air_jumps = model.air_jumps();
         ambition_platformer2d::engine_core::reset_body_clusters(
@@ -926,7 +933,7 @@ fn place_respawning_fighters(
         commands
             .entity(event.body)
             .try_insert(ambition_platformer2d::actor::RespawnGrace {
-                remaining: crate::stages::smash_stages().respawn.protection_seconds,
+                remaining: crate::stages::smash_stages_in(selected_pack).respawn.protection_seconds,
             });
     }
 }
@@ -958,9 +965,12 @@ fn hold_the_respawn_platforms(
         ),
         bevy::prelude::With<ambition_platformer2d::actor::RespawnGrace>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     for (room, mut platforms) in &mut rooms {
-        hold_the_respawn_platforms_of_one_room(
+        hold_the_respawn_platforms_of_one_room(selected_pack, 
             &mut platforms,
             protected
                 .iter()
@@ -972,15 +982,14 @@ fn hold_the_respawn_platforms(
 
 /// [`hold_the_respawn_platforms`] for one live room: `protected` is the seat
 /// and the position of each protected body in that room.
-fn hold_the_respawn_platforms_of_one_room(
-    platforms: &mut ambition_platformer2d::world::collision::MovingPlatformSet,
+fn hold_the_respawn_platforms_of_one_room(selected_pack: &ambition_platformer2d::content::PreparedContentPack, platforms: &mut ambition_platformer2d::world::collision::MovingPlatformSet,
     protected: impl Iterator<Item = (usize, Vec2)>,
 ) {
     let mut wanted: Vec<(String, Vec2)> = Vec::new();
     for (seat, pos) in protected {
         wanted.push((
             respawn_platform_id(seat),
-            Vec2::new(pos.x, pos.y + respawn_platform_drop()),
+            Vec2::new(pos.x, pos.y + respawn_platform_drop(selected_pack)),
         ));
     }
     // Sort by id so the order depends only on which seats are protected. The
@@ -1005,7 +1014,7 @@ fn hold_the_respawn_platforms_of_one_room(
                 id,
                 "Respawn platform",
                 centre,
-                respawn_platform_size(),
+                respawn_platform_size(selected_pack),
                 // Stationary: a zero-width sweep at zero speed.
                 0.0,
                 0.0,
@@ -1104,15 +1113,15 @@ fn is_respawn_platform_id(id: &str) -> bool {
 
 /// The platform a returning fighter materialises on (`respawn.platform` in
 /// `smash_stages.ron`).
-pub fn respawn_platform_size() -> Vec2 {
-    let (width, height) = crate::stages::smash_stages().respawn.platform;
+pub fn respawn_platform_size(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> Vec2 {
+    let (width, height) = crate::stages::smash_stages_in(selected_pack).respawn.platform;
     Vec2::new(width, height)
 }
 
 /// How far below the fighter's centre the platform's centre sits: half a
 /// standing body plus half the platform, so its top is under the feet.
-fn respawn_platform_drop() -> f32 {
-    24.0 + respawn_platform_size().y * 0.5
+fn respawn_platform_drop(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> f32 {
+    24.0 + respawn_platform_size(selected_pack).y * 0.5
 }
 
 /// The freeze a FULL punch is measured against, in seconds.
@@ -1166,7 +1175,10 @@ fn return_to_the_select_screen_when_the_match_ends(
     // A paused game holds the card (the shell's pause menu pauses the mode).
     mode: Option<bevy::prelude::Res<bevy::prelude::State<ambition_platformer2d::platformer::schedule::GameMode>>>,
     mut countdown: bevy::prelude::Local<Option<f32>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     let on_stage = router
         .active
         .as_ref()
@@ -1220,7 +1232,7 @@ fn return_to_the_select_screen_when_the_match_ends(
         .as_deref()
         .is_none_or(|boundary| boundary.fully_confirmed());
     if ended && confirmed && countdown.is_none() {
-        *countdown = Some(crate::rules::smash_rules().return_to_select_seconds);
+        *countdown = Some(crate::rules::smash_rules_in(selected_pack).return_to_select_seconds);
     }
     let Some(remaining) = countdown.as_mut() else {
         return;
@@ -1265,7 +1277,10 @@ fn announce_the_winner(
         &bevy::prelude::Name,
     )>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     let Some((settled, active)) = settled.as_deref().zip(active.as_deref()) else {
         return;
     };
@@ -1315,7 +1330,7 @@ fn announce_the_winner(
         });
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(victory_banner(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(victory_banner(selected_pack, 
                 verdict,
                 named.as_deref(),
             )),
@@ -1529,7 +1544,10 @@ fn offer_to_exit_the_match(
     // installs anything; then the match is not settled.
     settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     offered: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellAbandonOffer>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     let on_stage = router
         .active
         .as_ref()
@@ -1547,8 +1565,8 @@ fn offer_to_exit_the_match(
     match (offer, offered.is_some()) {
         (true, false) => {
             commands.insert_resource(ambition_platformer2d::game_shell::ShellAbandonOffer {
-                label: text::line("pause.exit_label"),
-                detail: text::line("pause.exit_detail"),
+                label: text::line(selected_pack, "pause.exit_label"),
+                detail: text::line(selected_pack, "pause.exit_detail"),
             });
         }
         (false, true) => {
@@ -1653,11 +1671,14 @@ fn assemble_the_smash_roster(
     // Each fighter's skins: the catalog says which rows are looks of it.
     catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
     mut skins: bevy::prelude::ResMut<select::SmashSkins>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     let Some(registry) = registry.get() else {
         return;
     };
-    let assembled = select::SmashRoster::assemble(registry);
+    let assembled = select::SmashRoster::assemble(selected_pack, registry);
     if let Some(catalog) = catalog.as_deref() {
         let looks = select::SmashSkins::assemble(&assembled, catalog, registry);
         if *skins != looks {
@@ -1728,9 +1749,12 @@ fn present_select_screen_ui(
         bevy::prelude::Entity,
         bevy::prelude::With<select_screen::SmashSelectUiRoot>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     if on_the_select_route(&router) {
-        select_screen::spawn_select_screen(
+        select_screen::spawn_select_screen(selected_pack, 
             commands,
             existing,
             fighters,
@@ -1787,7 +1811,10 @@ fn on_the_select_route(router: &ambition_platformer2d::game_shell::ShellRouter) 
 fn publish_the_select_ui_cue(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut cues: bevy::prelude::ResMut<ambition_platformer2d::input::ActiveUiCues>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     ambition_platformer2d::input::ActiveUiCues::sync_marked(
         &mut cues,
         ambition_platformer2d::input::UiCue {
@@ -1795,7 +1822,7 @@ fn publish_the_select_ui_cue(
             priority: ambition_platformer2d::input::participant::context_priority::SELECT,
             // The cursor takes a role, takes a fighter, or presses START: one
             // word fits all three.
-            submit_label: text::line("prompt.choose"),
+            submit_label: text::line(selected_pack, "prompt.choose"),
         },
         on_the_select_route(&router),
     );
@@ -1855,7 +1882,10 @@ fn start_the_battle_when_asked(
     // prepares.
     offer: bevy::prelude::Res<SmashStageOffer>,
     mut stage: bevy::prelude::ResMut<SmashStageChoice>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     if !asked.0 {
         return;
     }
@@ -1878,7 +1908,7 @@ fn start_the_battle_when_asked(
     // handshake the project does not have yet.
     let seed = agreed_match_seed(&select);
 
-    let Some(mut decided) = select.roster_seeded(
+    let Some(mut decided) = select.roster_seeded(selected_pack, 
         &fighters,
         &skins.as_deref().cloned().unwrap_or_default(),
         seed,
@@ -1895,7 +1925,7 @@ fn start_the_battle_when_asked(
                     .collect()
             }),
         // The kit a fighter that authors none is seated with.
-        Some(smash_seating_melee()),
+        Some(smash_seating_melee(selected_pack)),
         // What the lobby's stocks button decided.
         stocks.count(),
     ) else {
@@ -1906,7 +1936,7 @@ fn start_the_battle_when_asked(
     // the button's default.
     decided.rules.time_limit_ticks = clock.ticks();
     // Before the route request below, which prepares the stage this names.
-    *stage = offer.resolve(seed);
+    *stage = offer.resolve(selected_pack, seed);
     // The seat plan this match decided, published under this experience's
     // name. Devices are not participants (a CPU seat has no device), so the
     // session must not be sized from what is plugged in. It lands in the same
@@ -1988,6 +2018,8 @@ fn with_loading_activity(
 
 impl bevy::prelude::Plugin for SmashExperiencePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        let selected_generation = crate::smash_pack::PACK.selected_in(app.world());
+        let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
         install_smash_content(app);
         // Before the authoring below: it advertises the select screen as the
         // entry and refuses an unregistered route.
@@ -1996,9 +2028,9 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             SMASH_EXPERIENCE,
             SMASH_GAMEPLAY_ROUTE,
             // The name of the game, as its row of a launcher shows it.
-            text::line("launcher.label"),
-            text::line("launcher.description"),
-            text::line("launcher.preparing"),
+            text::line(selected_pack, "launcher.label"),
+            text::line(selected_pack, "launcher.description"),
+            text::line(selected_pack, "launcher.preparing"),
             // No `.with_procedural_sfx()`: the stage is silent and the
             // fighters bring their own cues.
             ambition_platformer2d::provider::AuthoredCatalogFragments::new(
@@ -2188,8 +2220,10 @@ pub struct SmashStageChoice {
 }
 
 impl Default for SmashStageChoice {
+    /// The first stage the compiled pack offers: the choice a plugin inits at
+    /// build, before any reload has selected another generation.
     fn default() -> Self {
-        Self::all()[0]
+        Self::all(&crate::smash_pack::PACK.prepared())[0]
     }
 }
 
@@ -2203,15 +2237,15 @@ pub struct SmashStockChoice(u32);
 
 impl Default for SmashStockChoice {
     fn default() -> Self {
-        Self(starting_stocks())
+        Self(starting_stocks(&crate::smash_pack::PACK.prepared()))
     }
 }
 
 impl SmashStockChoice {
     /// The choice of `count` stocks. Panics when the rules do not offer it.
-    pub fn of(count: u32) -> Self {
+    pub fn of(selected_pack: &ambition_platformer2d::content::PreparedContentPack, count: u32) -> Self {
         assert!(
-            crate::rules::smash_rules().stock_choices.contains(&count),
+            crate::rules::smash_rules_in(selected_pack).stock_choices.contains(&count),
             "`smash_rules.ron` does not offer {count} stocks"
         );
         Self(count)
@@ -2229,13 +2263,13 @@ impl SmashStockChoice {
     }
 
     /// Every count, in cycle order (`stock_choices`).
-    pub fn all() -> Vec<Self> {
-        crate::rules::smash_rules().stock_choices.iter().copied().map(Self).collect()
+    pub fn all(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> Vec<Self> {
+        crate::rules::smash_rules_in(selected_pack).stock_choices.iter().copied().map(Self).collect()
     }
 
     /// The next count in the cycle, for a single button that walks them.
-    pub fn next(self) -> Self {
-        let all = Self::all();
+    pub fn next(self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> Self {
+        let all = Self::all(selected_pack);
         let here = all.iter().position(|count| *count == self).expect("a choice is made from `all`");
         all[(here + 1) % all.len()]
     }
@@ -2251,7 +2285,7 @@ pub struct SmashClockChoice(u32);
 
 impl Default for SmashClockChoice {
     fn default() -> Self {
-        let ticks = smash_time_limit_ticks();
+        let ticks = smash_time_limit_ticks(&crate::smash_pack::PACK.prepared());
         let seconds = ticks / Self::TICKS_PER_SECOND;
         assert_eq!(
             seconds * Self::TICKS_PER_SECOND,
@@ -2267,9 +2301,9 @@ impl SmashClockChoice {
     const TICKS_PER_SECOND: u32 = ambition_platformer2d::runtime::SIM_TICK_HZ as u32;
 
     /// The clock of `seconds`. Panics when the rules do not offer it.
-    pub fn of(seconds: u32) -> Self {
+    pub fn of(selected_pack: &ambition_platformer2d::content::PreparedContentPack, seconds: u32) -> Self {
         assert!(
-            crate::rules::smash_rules().clock_choices_seconds.contains(&seconds),
+            crate::rules::smash_rules_in(selected_pack).clock_choices_seconds.contains(&seconds),
             "`smash_rules.ron` does not offer a {seconds} s clock"
         );
         Self(seconds)
@@ -2292,13 +2326,13 @@ impl SmashClockChoice {
     }
 
     /// Every clock, in cycle order (`clock_choices_seconds`).
-    pub fn all() -> Vec<Self> {
-        crate::rules::smash_rules().clock_choices_seconds.iter().copied().map(Self).collect()
+    pub fn all(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> Vec<Self> {
+        crate::rules::smash_rules_in(selected_pack).clock_choices_seconds.iter().copied().map(Self).collect()
     }
 
     /// The next clock in the cycle, for a single button that walks them.
-    pub fn next(self) -> Self {
-        let all = Self::all();
+    pub fn next(self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> Self {
+        let all = Self::all(selected_pack);
         let here = all.iter().position(|clock| *clock == self).expect("a choice is made from `all`");
         all[(here + 1) % all.len()]
     }
@@ -2329,31 +2363,31 @@ impl SmashStageOffer {
     const STAGE_SALT: u64 = 0x5354_4147_455f_5244;
 
     /// The next offer: each offered stage in order, then Random, then round.
-    pub fn next(self) -> Self {
-        let all = SmashStageChoice::all();
+    pub fn next(self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> Self {
+        let all = SmashStageChoice::all(selected_pack);
         match self {
             Self::Random => Self::Stage(all[0]),
             Self::Stage(stage) if Some(&stage) == all.last() => Self::Random,
-            Self::Stage(stage) => Self::Stage(stage.next()),
+            Self::Stage(stage) => Self::Stage(stage.next(selected_pack)),
         }
     }
 
     /// What the stage button shows.
-    pub fn label(self) -> String {
+    pub fn label(self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> String {
         match self {
-            Self::Stage(stage) => stage.label(),
-            Self::Random => crate::text::line("select.random"),
+            Self::Stage(stage) => stage.label(selected_pack),
+            Self::Random => crate::text::line(selected_pack, "select.random"),
         }
     }
 
     /// The stage a match started under this offer plays on. `seed` is the
     /// match's agreed seed (ADR 0023: no ambient RNG), so peers that agree on
     /// the lobby draw the same stage.
-    pub fn resolve(self, seed: u64) -> SmashStageChoice {
+    pub fn resolve(self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, seed: u64) -> SmashStageChoice {
         match self {
             Self::Stage(stage) => stage,
             Self::Random => {
-                let all = SmashStageChoice::all();
+                let all = SmashStageChoice::all(selected_pack);
                 let index = select::RandomPick::seeded(seed ^ Self::STAGE_SALT)
                     .draw(all.len())
                     .expect("`smash_stages.ron` offers at least one stage");
@@ -2368,18 +2402,18 @@ impl SmashStageChoice {
     ///
     /// Consumers (the select button, `ladder_rig --stage`, the prepared match)
     /// resolve through this list, so a new row reaches all of them.
-    pub fn all() -> Vec<Self> {
-        crate::stages::smash_stages().offered.iter().map(|room| Self { room: ambition_platformer2d::content::interned_id(room) }).collect()
+    pub fn all(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> Vec<Self> {
+        crate::stages::smash_stages_in(selected_pack).offered.iter().map(|room| Self { room: ambition_platformer2d::content::interned_id(room) }).collect()
     }
 
     /// The offered stage `room_id`, or `None` when the pack does not offer it.
-    pub fn find(room_id: &str) -> Option<Self> {
-        Self::all().into_iter().find(|stage| stage.room == room_id)
+    pub fn find(selected_pack: &ambition_platformer2d::content::PreparedContentPack, room_id: &str) -> Option<Self> {
+        Self::all(selected_pack).into_iter().find(|stage| stage.room == room_id)
     }
 
     /// The offered stage `room_id`. Panics when the pack does not offer it.
-    pub fn of(room_id: &str) -> Self {
-        Self::find(room_id).unwrap_or_else(|| panic!("`smash_stages.ron` does not offer `{room_id}`"))
+    pub fn of(selected_pack: &ambition_platformer2d::content::PreparedContentPack, room_id: &str) -> Self {
+        Self::find(selected_pack, room_id).unwrap_or_else(|| panic!("`smash_stages.ron` does not offer `{room_id}`"))
     }
 
     /// The room this choice starts in.
@@ -2388,13 +2422,13 @@ impl SmashStageChoice {
     }
 
     /// What a stage button shows.
-    pub fn label(self) -> String {
-        crate::stages::smash_stages().stages[self.room].label.clone()
+    pub fn label(self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> String {
+        crate::stages::smash_stages_in(selected_pack).stages[self.room].label.clone()
     }
 
     /// The next stage in the cycle, for a single button that walks them.
-    pub fn next(self) -> Self {
-        let all = Self::all();
+    pub fn next(self, selected_pack: &ambition_platformer2d::content::PreparedContentPack,) -> Self {
+        let all = Self::all(selected_pack);
         let here = all.iter().position(|stage| *stage == self).expect("a choice is made from `all`");
         all[(here + 1) % all.len()]
     }
@@ -2408,12 +2442,15 @@ impl SmashStageChoice {
 /// room's.
 fn smash_prepared_session_world(
     choice: bevy::prelude::Res<SmashStageChoice>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) -> ambition_platformer2d::runtime::PreparedPlatformerSource {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     use ambition_platformer2d::world::rooms::RoomSet;
     use ambition_platformer2d::session::StartingCharacter;
 
     let choice = *choice;
-    let rooms: Vec<RoomSpec> = SmashStageChoice::all().into_iter().map(|stage| smash_stage_room(stage.room_id())).collect();
+    let rooms: Vec<RoomSpec> = SmashStageChoice::all(selected_pack).into_iter().map(|stage| smash_stage_room(selected_pack, stage.room_id())).collect();
     let started = rooms
         .iter()
         .find(|room| room.id == choice.room_id())

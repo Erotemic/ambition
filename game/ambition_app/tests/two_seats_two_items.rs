@@ -34,7 +34,7 @@ fn two_local_seats_each_pick_up_their_own_bomb() {
     // CPU seat is not what this is about — a brain that never presses attack
     // would pass the seat-1 arm by never contesting anything.
     let mut roster =
-        ambition_demo_smash::smash_roster(["npc_pirate_admiral", "npc_pirate_admiral"]);
+        ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), ["npc_pirate_admiral", "npc_pirate_admiral"]);
     roster.participants[1] = roster.participants[1].clone().driven_by(
         ambition_platformer2d::actor::ControllerBinding::Human {
             source: ambition_platformer2d::actor::LocalInputSource::Pad(1),

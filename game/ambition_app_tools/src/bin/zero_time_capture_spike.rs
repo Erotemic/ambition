@@ -76,7 +76,7 @@ fn main() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             "npc_pirate_admiral",
             "npc_pirate_admiral",
         ]));

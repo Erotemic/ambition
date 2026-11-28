@@ -22,13 +22,13 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
     let fighters = SmashRoster(vec![ARMED.to_string(), UNARMED.to_string()]);
     let mut select = SmashSelect::default();
     for (slot, pick) in [(0usize, 0usize), (1, 1)] {
-        select.set_occupant(slot, SlotOccupant::Cpu);
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), slot, SlotOccupant::Cpu);
         select.set_pick(slot, SlotPick::Fighter(pick));
     }
     // The fixture grants a floor, because the shipped experience does. An
     // experience that grants none seats an unarmed character unarmed.
     let roster = select
-        .roster_seeded(
+        .roster_seeded(&crate::smash_pack::PACK.prepared(), 
             &fighters,
             &Default::default(),
             7,
@@ -44,7 +44,7 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
                     armored: false,
                 },
             )),
-            crate::starting_stocks(),
+            crate::starting_stocks(&crate::smash_pack::PACK.prepared()),
         )
         .expect("two decided seats are a match");
 
@@ -78,9 +78,9 @@ fn fighters() -> SmashRoster {
 /// Two people, two characters — the smallest thing that is a match.
 fn two_decided() -> SmashSelect {
     let mut select = SmashSelect::default();
-    select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
     select.set_pick(0, 0);
-    select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
     select.set_pick(1, 1);
     select
 }
@@ -88,14 +88,14 @@ fn two_decided() -> SmashSelect {
 #[test]
 fn the_slot_button_cycles_absent_controller_cpu() {
     let mut select = SmashSelect::default();
-    select.cycle_role(0, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]);
     assert_eq!(
         select.slot(0).occupant,
         SlotOccupant::Controller { device: 0 }
     );
-    select.cycle_role(0, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]);
     assert_eq!(select.slot(0).occupant, SlotOccupant::Cpu);
-    select.cycle_role(0, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]);
     assert_eq!(select.slot(0).occupant, SlotOccupant::Absent);
 }
 
@@ -108,7 +108,7 @@ fn two_controller_slots_never_share_one_device() {
     let mut select = SmashSelect::default();
     let connected = [0, 1, 2, 3];
     for slot in 0..MAX_SMASH_SEATS {
-        select.cycle_role(slot, slot, &connected);
+        select.cycle_role(&crate::smash_pack::PACK.prepared(), slot, slot, &connected);
     }
     let devices: Vec<usize> = (0..MAX_SMASH_SEATS)
         .filter_map(|slot| select.slot(slot).occupant.device())
@@ -127,13 +127,13 @@ fn two_controller_slots_never_share_one_device() {
 #[test]
 fn a_seated_participant_can_enable_a_card_for_another_connected_source() {
     let mut select = SmashSelect::default();
-    select.cycle_role(0, 0, &[0, 1]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0, 1]);
     assert_eq!(
         select.slot(0).occupant,
         SlotOccupant::Controller { device: 0 }
     );
 
-    select.cycle_role(1, 0, &[0, 1]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 1, 0, &[0, 1]);
     assert_eq!(
         select.slot(1).occupant,
         SlotOccupant::Controller { device: 1 },
@@ -145,8 +145,8 @@ fn a_seated_participant_can_enable_a_card_for_another_connected_source() {
 #[test]
 fn an_empty_card_becomes_cpu_when_every_connected_source_is_already_seated() {
     let mut select = SmashSelect::default();
-    select.cycle_role(0, 0, &[0]);
-    select.cycle_role(1, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 1, 0, &[0]);
     assert_eq!(select.slot(1).occupant, SlotOccupant::Cpu);
 }
 
@@ -155,10 +155,10 @@ fn an_empty_card_becomes_cpu_when_every_connected_source_is_already_seated() {
 #[test]
 fn an_absent_slot_releases_its_participant_for_another_card() {
     let mut select = SmashSelect::default();
-    select.cycle_role(0, 0, &[0]); // controller
-    select.cycle_role(0, 0, &[0]); // cpu
-    select.cycle_role(0, 0, &[0]); // absent
-    select.cycle_role(1, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]); // controller
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]); // cpu
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]); // absent
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 1, 0, &[0]);
     assert_eq!(
         select.slot(1).occupant,
         SlotOccupant::Controller { device: 0 }
@@ -169,10 +169,10 @@ fn an_absent_slot_releases_its_participant_for_another_card() {
 #[test]
 fn an_unseated_source_claims_the_first_absent_card_on_selection() {
     let mut select = SmashSelect::default();
-    select.set_occupant(0, SlotOccupant::Cpu);
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
 
     let slot = select
-        .slot_for_or_claim(1)
+        .slot_for_or_claim(&crate::smash_pack::PACK.prepared(), 1)
         .expect("an absent card remained for the connected source");
 
     assert_eq!(slot, 1);
@@ -187,8 +187,8 @@ fn an_unseated_source_claims_the_first_absent_card_on_selection() {
 #[test]
 fn selecting_again_does_not_move_an_existing_human_between_cards() {
     let mut select = SmashSelect::default();
-    assert_eq!(select.slot_for_or_claim(1), Some(0));
-    assert_eq!(select.slot_for_or_claim(1), Some(0));
+    assert_eq!(select.slot_for_or_claim(&crate::smash_pack::PACK.prepared(), 1), Some(0));
+    assert_eq!(select.slot_for_or_claim(&crate::smash_pack::PACK.prepared(), 1), Some(0));
     assert_eq!(select.slot(1).occupant, SlotOccupant::Absent);
 }
 
@@ -199,7 +199,7 @@ fn a_third_player_joins_on_random_and_the_match_is_still_ready() {
     let mut select = two_decided();
     assert!(select.ready());
 
-    select.set_occupant(2, SlotOccupant::Controller { device: 2 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 2, SlotOccupant::Controller { device: 2 });
     assert_eq!(
         select.slot(2).pick,
         Some(SlotPick::Random),
@@ -223,10 +223,10 @@ fn a_third_player_joins_on_random_and_the_match_is_still_ready() {
 #[test]
 fn a_single_decided_slot_never_starts_a_battle() {
     let mut select = SmashSelect::default();
-    select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
     select.set_pick(0, 0);
     assert!(!select.ready());
-    assert!(select.roster(&fighters(), UNIFIED).is_none());
+    assert!(select.roster(&crate::smash_pack::PACK.prepared(), &fighters(), UNIFIED).is_none());
 }
 
 /// Two CPUs are a match, and a person can join them.
@@ -234,7 +234,7 @@ fn a_single_decided_slot_never_starts_a_battle() {
 fn two_cpus_are_a_match_and_a_person_can_join_them() {
     let mut select = SmashSelect::default();
     for slot in [0, 1] {
-        select.set_occupant(slot, SlotOccupant::Cpu);
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), slot, SlotOccupant::Cpu);
         select.seed_pick(slot, &fighters());
     }
     assert_eq!(select.cpus(), 2);
@@ -249,7 +249,7 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
     );
     assert_eq!(
         select
-            .roster(&fighters(), UNIFIED)
+            .roster(&crate::smash_pack::PACK.prepared(), &fighters(), UNIFIED)
             .expect("two decided CPUs are a match")
             .participants
             .len(),
@@ -257,12 +257,12 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
     );
 
     // A person joining does not displace them.
-    select.set_occupant(2, SlotOccupant::Controller { device: 0 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 2, SlotOccupant::Controller { device: 0 });
     select.set_pick(2, 2);
     assert!(select.ready());
     assert_eq!(
         select
-            .roster(&fighters(), UNIFIED)
+            .roster(&crate::smash_pack::PACK.prepared(), &fighters(), UNIFIED)
             .expect("one player and two CPUs is a match")
             .participants
             .len(),
@@ -275,14 +275,14 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
 #[test]
 fn absent_clears_the_pick_and_rejoin_starts_on_random() {
     let mut select = SmashSelect::default();
-    select.cycle_role(0, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]);
     select.set_pick(0, 5);
-    select.cycle_role(0, 0, &[0]); // → CPU
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]); // → CPU
     assert_eq!(select.slot(0).pick, Some(SlotPick::Fighter(5)));
-    select.cycle_role(0, 0, &[0]); // → absent
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]); // → absent
     assert_eq!(select.slot(0).pick, None);
 
-    select.cycle_role(0, 0, &[0]); // → controller again
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), 0, 0, &[0]); // → controller again
     assert_eq!(
         select.slot(0).pick,
         Some(SlotPick::Random),
@@ -298,15 +298,15 @@ fn absent_clears_the_pick_and_rejoin_starts_on_random() {
 #[test]
 fn a_pick_past_the_end_of_the_roster_loses_its_seat_rather_than_inventing_one() {
     let mut select = SmashSelect::default();
-    select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
     select.set_pick(0, 0);
-    select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
     select.set_pick(1, 1);
-    select.set_occupant(2, SlotOccupant::Cpu);
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 2, SlotOccupant::Cpu);
     select.set_pick(2, 999);
 
     let roster = select
-        .roster(&fighters(), UNIFIED)
+        .roster(&crate::smash_pack::PACK.prepared(), &fighters(), UNIFIED)
         .expect("two seats with real fighters are still a match");
     assert_eq!(
         roster.participants.len(),
@@ -319,14 +319,14 @@ fn a_pick_past_the_end_of_the_roster_loses_its_seat_rather_than_inventing_one() 
 #[test]
 fn the_roster_carries_every_decided_slot_on_its_own_side() {
     let mut select = two_decided();
-    select.set_occupant(3, SlotOccupant::Controller { device: 3 });
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 3, SlotOccupant::Controller { device: 3 });
     select.set_pick(3, 2);
 
     let roster = select
-        .roster(&fighters(), UNIFIED)
+        .roster(&crate::smash_pack::PACK.prepared(), &fighters(), UNIFIED)
         .expect("three decided slots are a match");
     assert_eq!(roster.participants.len(), 3);
-    assert_eq!(roster.rules.stocks, Some(starting_stocks()));
+    assert_eq!(roster.rules.stocks, Some(starting_stocks(&crate::smash_pack::PACK.prepared())));
     assert!(roster.rules.opens_suspended);
 
     // Slot 3's device is 3, not 2: the roster is indexed by the source held,
@@ -378,7 +378,7 @@ fn every_own_fighter_is_declared_by_this_demo() {
 fn an_untouched_screen_is_not_a_match() {
     let select = SmashSelect::default();
     assert!(!select.ready());
-    assert!(select.roster(&fighters(), UNIFIED).is_none());
+    assert!(select.roster(&crate::smash_pack::PACK.prepared(), &fighters(), UNIFIED).is_none());
     assert_eq!(select.participating(), 0);
     assert!(select.blocker().is_some());
 }
@@ -387,7 +387,7 @@ fn an_untouched_screen_is_not_a_match() {
 #[test]
 fn a_slot_past_the_ceiling_is_ignored_rather_than_a_crash() {
     let mut select = SmashSelect::default();
-    select.cycle_role(MAX_SMASH_SEATS, 0, &[0]);
+    select.cycle_role(&crate::smash_pack::PACK.prepared(), MAX_SMASH_SEATS, 0, &[0]);
     select.set_pick(MAX_SMASH_SEATS, 0);
     select.seed_pick(MAX_SMASH_SEATS, &fighters());
     assert_eq!(select.participating(), 0);
@@ -424,7 +424,7 @@ fn the_grid_is_the_fighters_plus_a_random_square_at_the_end() {
 fn a_new_participant_starts_on_the_random_square() {
     let fighters = fighters();
     let mut select = SmashSelect::default();
-    select.set_occupant(0, SlotOccupant::Cpu);
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
     select.seed_pick(0, &fighters);
     assert_eq!(select.slot(0).pick, Some(SlotPick::Random));
     assert!(
@@ -445,7 +445,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     let fighters = fighters();
     let mut select = SmashSelect::default();
     for slot in [0, 1] {
-        select.set_occupant(slot, SlotOccupant::Cpu);
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), slot, SlotOccupant::Cpu);
         select.set_pick(slot, SlotPick::Random);
     }
 
@@ -453,7 +453,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
 
     let roster = select
-        .roster_seeded(&fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&crate::smash_pack::PACK.prepared(), &fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks(&crate::smash_pack::PACK.prepared()))
         .expect("two decided seats are a match");
     assert_eq!(roster.participants.len(), 2);
     for participant in &roster.participants {
@@ -469,7 +469,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
 
     // Seeded, not ambient (ADR 0023): the same seed draws the same match.
     let again = select
-        .roster_seeded(&fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&crate::smash_pack::PACK.prepared(), &fighters, &Default::default(), 12_345, UNIFIED, &Default::default(), None, crate::starting_stocks(&crate::smash_pack::PACK.prepared()))
         .expect("the same screen is still a match");
     assert_eq!(
         again.participants[0].character, roster.participants[0].character,
@@ -479,7 +479,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // A different seed may differ. Requiring it to differ would assert that
     // no hash collision happens on a small grid.
     let other = select
-        .roster_seeded(&fighters, &Default::default(), 99, UNIFIED, &Default::default(), None, crate::starting_stocks())
+        .roster_seeded(&crate::smash_pack::PACK.prepared(), &fighters, &Default::default(), 99, UNIFIED, &Default::default(), None, crate::starting_stocks(&crate::smash_pack::PACK.prepared()))
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
 }
@@ -495,14 +495,14 @@ fn a_card_dresses_its_fighter_in_a_skin_and_a_new_pick_undresses_it() {
             .collect(),
     );
     let mut select = SmashSelect::default();
-    select.set_occupant(0, SlotOccupant::Cpu);
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
     select.set_pick(0, SlotPick::Fighter(0));
-    select.set_occupant(1, SlotOccupant::Cpu);
+    select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
     select.set_pick(1, SlotPick::Fighter(1));
 
     let seated = |select: &SmashSelect| {
         select
-            .roster_seeded(&fighters, &skins, 1, UNIFIED, &Default::default(), None, crate::starting_stocks())
+            .roster_seeded(&crate::smash_pack::PACK.prepared(), &fighters, &skins, 1, UNIFIED, &Default::default(), None, crate::starting_stocks(&crate::smash_pack::PACK.prepared()))
             .expect("two decided seats are a match")
             .participants
             .iter()

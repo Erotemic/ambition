@@ -23,7 +23,7 @@ fn a_pair_at_the_victim(window: f32) -> (i32, usize, usize) {
     ))
     .expect("the quiet room builds");
     sim.step_n(AgentAction::default(), 30);
-    let mut rules = ambition_app::app::versus::versus_combat_rules();
+    let mut rules = ambition_app::app::versus::versus_combat_rules(&ambition_app::app::versus_fighters::PACK.prepared());
     rules.clank_damage_window = window;
     sim.world_mut()
         .resource_mut::<DeclaredRules<CombatRules>>()

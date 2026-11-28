@@ -181,7 +181,7 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
             use CastleBeat::*;
             assert_eq!(seen, [Pressed, Charges, BridgeFalls, BossFalls, Aftermath, GateOpens, Walks, Thanks, Victory]);
             let (line_frame, text) = heard.expect("the level went and the robot did not say his line");
-            assert_eq!(text, &*rescue_line(), "the line on the screen is not the pack's rescue banner");
+            assert_eq!(text, &*rescue_line(&ambition_demo_mary_o::pack::PACK.prepared()), "the line on the screen is not the pack's rescue banner");
             let pressed_at = pressed_at.expect("a beat was seen");
             assert!(
                 line_frame - pressed_at > 240,
@@ -191,7 +191,7 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
             assert_eq!(room_id(&mut app).as_deref(), Some("mary_o_2_1"), "the castle names 2-1 as its next room");
             // The bridge, the lava and the boss's death play what Mary-O's
             // rules file states (`effects`).
-            let effects = &ambition_demo_mary_o::rules::mary_o_rules().effects;
+            let effects = &ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).effects;
             let played = app.world().resource::<Played>();
             for (what, row) in [
                 ("a plank", &effects.plank_break),

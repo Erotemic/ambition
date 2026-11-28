@@ -96,7 +96,7 @@ fn report(app: &mut App, requested: u32) {
     match remaining {
         Some(t) => println!(
             "  level clock     : {t:.1} / {starting:.0}  (mode-scoped; engine owns its teardown)",
-            starting = ambition_demo_mary_o::rules::mary_o_rules().level.starting_time
+            starting = ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).level.starting_time
         ),
         None => println!("  level clock     : ABSENT — the mode never woke. That is a bug."),
     }

@@ -12,7 +12,7 @@ fn two_georges() -> (App, [Entity; 2]) {
 }
 
 fn two_fighters(characters: [&str; 2]) -> (App, [Entity; 2]) {
-    let roster = ambition_demo_smash::smash_roster(characters);
+    let roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters);
     let mut app = crate::common::smash::live_round(roster);
     let bodies = [0, 1].map(|seat| crate::common::smash::seat(&mut app, seat));
     for body in bodies {

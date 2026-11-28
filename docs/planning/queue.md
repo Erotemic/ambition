@@ -1843,14 +1843,15 @@ Mary-O, Smash, Sanic and versus take the row they read. See the owner's
 receipt.
 
 **Running-demo world reload (2026-11-28):** F11/F12 reloads the running
-session's world through its provider's declared reader; Mary-O's world
-reloads in her running session. See the
+session's world through its provider's declared reader; Mary-O's world and
+Sanic's three acts reload in their running sessions. See the
 [fast iteration](engine/fast-iteration-implementation.md) receipt.
 
-**Next action:** Sanic's world reload, which needs a watch of several files
-(its acts are three). Then the owner pages' open items: I5 durable-record
-eligibility, I6's native-ABI comparison (M1), and I7's deterministic
-cancellation and cleanup.
+**Next action:** I6's native-ABI comparison (M1): raw observations of a
+trusted native shared-library backend beside wasmi on the same fixture, and
+a justified deployment choice. I7's cancellation was measured with no
+defect (2026-11-28); I5's `Checkpoint` eligibility waits for a module that
+declares it.
 
 **Acceptance:** a foreign-audio collision plus a rules edit leaves the old
 pack and all affected products selected, with one refusal and no published

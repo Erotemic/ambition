@@ -182,10 +182,12 @@ impl Plugin for MaryOExperiencePlugin {
             app,
             MARY_O_EXPERIENCE,
             ambition_platformer2d::provider::WorldReloadSource {
-                file: crate::MARY_O_WORLD
+                files: crate::MARY_O_WORLD
                     .embedded
                     .is_none()
-                    .then(|| std::path::PathBuf::from(crate::MARY_O_WORLD.file)),
+                    .then(|| std::path::PathBuf::from(crate::MARY_O_WORLD.file))
+                    .into_iter()
+                    .collect(),
                 read: read_mary_o_world,
             },
         );
@@ -293,9 +295,12 @@ fn mary_o_prepared_session_world(
 /// developer's world reload publishes into her running session.
 fn read_mary_o_world(
     world: &bevy::prelude::World,
-    path: &std::path::Path,
+    paths: &[std::path::PathBuf],
     active: &PreparedPlatformerSource,
 ) -> Result<PreparedPlatformerSource, Vec<String>> {
+    let [path] = paths else {
+        return Err(vec![format!("her world is one file; {} are watched", paths.len())]);
+    };
     let text = std::fs::read_to_string(path)
         .map_err(|error| vec![format!("{} is not readable: {error}", path.display())])?;
     let rules_row = crate::rules::mary_o_rules_of(crate::pack::PACK.selected_in(world));

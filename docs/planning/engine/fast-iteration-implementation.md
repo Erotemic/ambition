@@ -177,13 +177,16 @@ publication rebuilds the live rooms from it. Ambition's reader is its LDtk
 project (`ambition_content::world_preparation`); Mary-O's is her world file
 through her own room conversion. Before this, a hosted Mary-O watched
 Ambition's file, and F11 refused with "would delete the current room".
-Witness: `a_world_reload_in_her_running_session_reads_her_world` (her
-watch, then an edited 1-1 biome reaching her live room).
+A provider may state several files (Sanic's three acts): the watch polls
+them all (`WorldSourceHotReload::watched`), and the reader takes them in
+the declared order. Sanic's acts build from text through
+`sanic_*_from`, which refuse a bad file instead of panicking.
+Witnesses: `a_world_reload_in_her_running_session_reads_her_world` (her
+watch, then an edited 1-1 biome reaching her live room) and
+`a_world_reload_in_a_running_sanic_reads_its_three_acts`.
 
-**Still open:** Sanic's world is three act files under one provider, and
-the watch holds one path; it needs a watch of several files. A world
-provider that states no source is refused by name. The standalone demo
-binaries do not install the developer reload.
+**Still open:** a world provider that states no source is refused by name.
+The standalone demo binaries do not install the developer reload.
 Runtime sprite publication is separate from reading tables without a rebuild;
 see the visual-generation acceptance in I3 below.
 
@@ -272,8 +275,8 @@ refused and requires restart.
 - I3c scenario pin/replay, changed-section explanation, activation status,
   and generation-aware cancellation. Keep refusal, unchanged-content and
   sealed-candidate behavior explicit.
-- Running-demo world reload: Mary-O's landed 2026-11-28 (see "Still
-  open" above); Sanic's needs a watch of several files.
+- Running-demo world reload: Mary-O's and Sanic's landed 2026-11-28 (see
+  "Running-demo world reload" above).
 
 **Reference contracts:** `content-generation-and-reload.md`,
 `immutable-content-and-transactional-construction.md`, `netcode.md`.
@@ -482,10 +485,16 @@ Witness: `a_durable_session_record_comes_back_with_its_save_and_a_transient_one_
 Game reducer, each red at its own assertion; no offer, refused at admission).
 A death keeps the record. The save's flags and quest steps do not: since 2026-11-11 a death that spares nobody puts them back to the checkpoint with the bag (Q164, DIALOGUE-CHECKPOINT slice 1).
 
-**Open:** save eligibility for body records and checkpoints (`Body` +
-`Durable` and `Checkpoint` are
-refused at admission); durable references to unloaded entities; measurement of
-record visits and copied bytes.
+Body records joined the durable save on 2026-11-16 (`dca3002c0`,
+`SaveRoad::BodyDurable` in `ambition_platformer2d_runtime::module_save_road`):
+a body's record is kept under its durable identity (the `SimId` of an
+authored or provider-staged occurrence) and comes back when a body with
+that identity is built again.
+
+**Open:** `Checkpoint` eligibility (no road; such a schema is refused at
+admission). No shipped module schema declares it, so it waits for a
+customer; durable references to unloaded entities; measurement of record
+visits and copied bytes.
 
 **Rules:** schema descriptors live in immutable generation metadata. Register
 the store through the current rollback registration method. `SnapshotState`
@@ -541,8 +550,16 @@ for Bevy internals or several production language bindings.
 
 - The shipped app's own local session (the `LocallyRebasable` arm) taking a
   module reload has no test; the harness cannot construct that ownership.
-- Deterministic cancellation and occurrence cleanup: a despawn, interrupted
-  move or room retirement must not leak references or repeat requests.
+- Deterministic cancellation and occurrence cleanup, measured 2026-11-28
+  with no defect found. A module's records are components of their entity,
+  so a despawn or a room retirement takes them; a request queued for a gone
+  entity yields nothing
+  (`private_behavior_records_share_a_subject_without_sharing_state_or_receipts`).
+  A cancellation is its own control request (AC2). A special is invoked
+  once per action message and carries its move instance, so an interrupted
+  move cannot repeat it. A held status keeps invoking its module each tick
+  (`ambition.body.status_tick`), which ends it. A new move-invoked port must
+  state its own interruption rule.
 - Source-map diagnostics in the agent tool road.
 - The graph fixture is not a shipped mechanic.
 

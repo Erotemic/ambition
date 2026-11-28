@@ -65,9 +65,12 @@ pub fn ldtk_vocabulary() -> ldtk_world::LdtkVocabulary {
 /// manifest and vocabulary: what a developer world reload publishes.
 fn read_ambition_world(
     world: &bevy::prelude::World,
-    path: &std::path::Path,
+    paths: &[std::path::PathBuf],
     active: &ambition_platformer2d::runtime::PreparedPlatformerSource,
 ) -> Result<ambition_platformer2d::runtime::PreparedPlatformerSource, Vec<String>> {
+    let [path] = paths else {
+        return Err(vec![format!("Ambition's world is one LDtk project; {} files are watched", paths.len())]);
+    };
     let catalog = world
         .get_resource::<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>()
         .ok_or_else(|| vec!["Ambition's asset catalog is not installed".to_string()])?;
@@ -283,7 +286,7 @@ pub(crate) fn prepare_ambition_world(app: &mut App) {
         app,
         crate::provider::AMBITION_EXPERIENCE,
         ambition_platformer2d::provider::WorldReloadSource {
-            file: hot_reload.watch_path.clone(),
+            files: hot_reload.watch_path.iter().cloned().collect(),
             read: read_ambition_world,
         },
     );

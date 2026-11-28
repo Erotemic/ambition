@@ -5,20 +5,21 @@
 use ambition_platformer2d_runtime::PreparedPlatformerSource;
 use bevy::prelude::{Resource, World};
 
-/// Read a world provider's file at `path` into a replacement of `active`'s
-/// world: its rooms, and for a format that installs one, its index
+/// Read a world provider's files at `paths` (in the order it declared them)
+/// into a replacement of `active`'s world: its rooms, and for a format that installs one, its index
 /// ([`PreparedPlatformerSource::with_installed_ldtk_index`]). Every other fact
 /// of `active` is kept ([`PreparedPlatformerSource::with_world`]). Which room
 /// the set activates into does not matter: the reload keeps the player's room.
 pub type WorldReader =
-    fn(&World, &std::path::Path, &PreparedPlatformerSource) -> Result<PreparedPlatformerSource, Vec<String>>;
+    fn(&World, &[std::path::PathBuf], &PreparedPlatformerSource) -> Result<PreparedPlatformerSource, Vec<String>>;
 
 /// One world provider's source.
 #[derive(Clone, Debug)]
 pub struct WorldReloadSource {
-    /// The file a development build reads the world from; `None` when the
-    /// build embedded it, so there is nothing to watch.
-    pub file: Option<std::path::PathBuf>,
+    /// The files a development build reads the world from, in the order the
+    /// reader takes them; none when the build embedded them, so there is
+    /// nothing to watch.
+    pub files: Vec<std::path::PathBuf>,
     pub read: WorldReader,
 }
 

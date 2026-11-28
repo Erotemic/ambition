@@ -474,14 +474,15 @@ pub(super) fn read_the_world_reload_candidate(
     if !(requested || (watch.pending && watch.auto_apply)) {
         return;
     }
-    let Some(path) = watch.watch_path.clone() else {
+    let paths = watch.watched();
+    if paths.is_empty() {
         eprintln!(
             "world reload asked for but nothing is watched; the active asset profile \
              or the running world's provider has no file to read"
         );
         watch.pending = false;
         return;
-    };
+    }
     if world.get_resource::<StagedWorldCandidate>().is_some_and(|staged| staged.0.is_some()) {
         return;
     }
@@ -497,7 +498,7 @@ pub(super) fn read_the_world_reload_candidate(
         .and_then(|sources| sources.of(&provider))
         .map(|source| source.read);
     let read = match reader {
-        Some(read) => read(world, &path, &active),
+        Some(read) => read(world, &paths, &active),
         None => Err(vec![format!(
             "the world of `{provider}` states no reload source; restart the game to play an edit"
         )]),
@@ -524,10 +525,10 @@ pub(super) fn follow_the_running_world(
     if watch.world_provider.as_deref() == Some(provider.as_str()) {
         return;
     }
-    let file = sources.as_deref().and_then(|sources| sources.of(provider)).and_then(|source| source.file.clone());
+    let files = sources.as_deref().and_then(|sources| sources.of(provider)).map(|source| source.files.clone()).unwrap_or_default();
     watch.follow(
         provider,
-        file,
+        files,
         format!("world reload inactive: `{provider}` states no world file to watch"),
     );
 }

@@ -216,24 +216,23 @@ pub fn world_text(world: &PackText) -> std::borrow::Cow<'static, str> {
 /// parallax). This adds only the loop and finish signs, whose places come
 /// from the loop and the goal.
 pub fn sanic_speedway(pack: &ambition_platformer2d::content::PreparedContentPack, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
-    let (rules, text) = (crate::rules::sanic_rules_in(pack), crate::text::sanic_text_in(pack));
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&SPEEDWAY_WORLD))
-        .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
-    let room_set = project
-        // Sanic authors only engine nouns (no game-specific converter), and
-        // the call says so.
-        .to_room_set_with_entry(
-            SPEEDWAY_ROOM_ID,
-            &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine(),
-        )
-        .unwrap_or_else(|errors| panic!("sanic_speedway.ldtk converts to rooms: {errors:?}"));
-    let mut room = room_set
-        .rooms
-        .into_iter()
-        .find(|room| room.id == SPEEDWAY_ROOM_ID)
-        .expect("the world file authors the sanic_speedway area");
+    sanic_speedway_from(pack, sprite_content, &world_text(&SPEEDWAY_WORLD)).unwrap_or_else(|errors| {
+        panic!("sanic_speedway.ldtk (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py): {errors:?}")
+    })
+}
 
-    let loop_top = loop_top(&room.world);
+/// [`sanic_speedway`] from the world file's text `world`, or why that text
+/// cannot be played.
+pub fn sanic_speedway_from(
+    pack: &ambition_platformer2d::content::PreparedContentPack,
+    sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
+    world: &str,
+) -> Result<RoomSpec, Vec<String>> {
+    let (rules, text) = (crate::rules::sanic_rules_in(pack), crate::text::sanic_text_in(pack));
+    let mut room = authored_act("sanic_speedway.ldtk", world, SPEEDWAY_ROOM_ID)?;
+
+    let loop_top = loop_top(&room.world)
+        .ok_or_else(|| vec!["sanic_speedway.ldtk authors no `sanic_loop` SurfaceLoop with points".to_string()])?;
 
     // World-space signs, beside the distance markers the file authors. They are
     // ordinary room debug labels rendered by the generic presentation face, not
@@ -261,7 +260,23 @@ pub fn sanic_speedway(pack: &ambition_platformer2d::content::PreparedContentPack
     }));
     monitors::dress_monitors(&sprite_content, &mut room);
     scenery::dress_goal(rules, &sprite_content, &mut room);
-    room
+    Ok(room)
+}
+
+/// One act's room out of its world file's text: the file parses, converts
+/// with the engine's nouns (Sanic has no converter of its own), and authors
+/// the act's area.
+fn authored_act(file: &str, world: &str, room_id: &str) -> Result<RoomSpec, Vec<String>> {
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(world)
+        .map_err(|error| vec![format!("{file}: {error}")])?;
+    let room_set = project
+        .to_room_set_with_entry(room_id, &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine())
+        .map_err(|errors| errors.into_iter().map(|error| format!("{file}: {error}")).collect::<Vec<_>>())?;
+    room_set
+        .rooms
+        .into_iter()
+        .find(|room| room.id == room_id)
+        .ok_or_else(|| vec![format!("{file} authors no `{room_id}` area")])
 }
 
 /// Act 2, the highway: ground that climbs and drops, a speed-gated split (the
@@ -270,23 +285,20 @@ pub fn sanic_speedway(pack: &ambition_platformer2d::content::PreparedContentPack
 /// (`SurfaceLoop` with `attach_to`); nothing is grafted here. The layout is
 /// `tools/author_highway_ldtk.py`'s docstring.
 pub fn sanic_highway(pack: &ambition_platformer2d::content::PreparedContentPack, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+    sanic_highway_from(pack, sprite_content, &world_text(&HIGHWAY_WORLD)).unwrap_or_else(|errors| {
+        panic!("sanic_highway.ldtk (regen: game/ambition_demo_sanic/tools/author_highway_ldtk.py): {errors:?}")
+    })
+}
+
+/// [`sanic_highway`] from the world file's text `world`, or why that text
+/// cannot be played.
+pub fn sanic_highway_from(
+    pack: &ambition_platformer2d::content::PreparedContentPack,
+    sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
+    world: &str,
+) -> Result<RoomSpec, Vec<String>> {
     let (rules, text) = (crate::rules::sanic_rules_in(pack), crate::text::sanic_text_in(pack));
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&HIGHWAY_WORLD,
-    ))
-        .expect(
-        "sanic_highway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_highway_ldtk.py)",
-    );
-    let room_set = project
-        .to_room_set_with_entry(
-            HIGHWAY_ROOM_ID,
-            &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine(),
-        )
-        .unwrap_or_else(|errors| panic!("sanic_highway.ldtk converts to rooms: {errors:?}"));
-    let mut room = room_set
-        .rooms
-        .into_iter()
-        .find(|room| room.id == HIGHWAY_ROOM_ID)
-        .expect("the world file authors the sanic_highway area");
+    let mut room = authored_act("sanic_highway.ldtk", world, HIGHWAY_ROOM_ID)?;
     let finish = finish_sign(rules, &room.world);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_highway_finish",
@@ -300,25 +312,25 @@ pub fn sanic_highway(pack: &ambition_platformer2d::content::PreparedContentPack,
     )];
     monitors::dress_monitors(&sprite_content, &mut room);
     scenery::dress_goal(rules, &sprite_content, &mut room);
-    room
+    Ok(room)
 }
 
 /// Load the dark third act from its LDtk source.
 pub fn sanic_darkness(pack: &ambition_platformer2d::content::PreparedContentPack, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
+    sanic_darkness_from(pack, sprite_content, &world_text(&DARKNESS_WORLD)).unwrap_or_else(|errors| {
+        panic!("sanic_darkness.ldtk (regen: game/ambition_demo_sanic/tools/author_darkness_ldtk.py): {errors:?}")
+    })
+}
+
+/// [`sanic_darkness`] from the world file's text `world`, or why that text
+/// cannot be played.
+pub fn sanic_darkness_from(
+    pack: &ambition_platformer2d::content::PreparedContentPack,
+    sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
+    world: &str,
+) -> Result<RoomSpec, Vec<String>> {
     let (rules, text) = (crate::rules::sanic_rules_in(pack), crate::text::sanic_text_in(pack));
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&DARKNESS_WORLD))
-        .expect("sanic_darkness.ldtk parses (regen: game/ambition_demo_sanic/tools/author_darkness_ldtk.py)");
-    let room_set = project
-        .to_room_set_with_entry(
-            DARKNESS_ROOM_ID,
-            &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine(),
-        )
-        .unwrap_or_else(|errors| panic!("sanic_darkness.ldtk converts to rooms: {errors:?}"));
-    let mut room = room_set
-        .rooms
-        .into_iter()
-        .find(|room| room.id == DARKNESS_ROOM_ID)
-        .expect("the world file authors the sanic_darkness area");
+    let mut room = authored_act("sanic_darkness.ldtk", world, DARKNESS_ROOM_ID)?;
     let finish = ae::Vec2::new(goal_x_of(rules, &room.world), 1120.0);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_darkness_finish",
@@ -332,22 +344,14 @@ pub fn sanic_darkness(pack: &ambition_platformer2d::content::PreparedContentPack
     )];
     monitors::dress_monitors(&sprite_content, &mut room);
     scenery::dress_goal(rules, &sprite_content, &mut room);
-    room
+    Ok(room)
 }
 
 /// The top of the speedway's loop, where its label hangs: the highest point of
 /// the authored `sanic_loop` route.
-fn loop_top(world: &ae::World) -> ae::Vec2 {
-    let chain = world
-        .chain_named("sanic_loop")
-        .map(|index| &world.chains[index])
-        .expect("sanic_speedway.ldtk authors the `sanic_loop` SurfaceLoop");
-    chain
-        .points
-        .iter()
-        .copied()
-        .min_by(|a, b| a.y.total_cmp(&b.y))
-        .expect("a loop route has points")
+fn loop_top(world: &ae::World) -> Option<ae::Vec2> {
+    let chain = world.chain_named("sanic_loop").map(|index| &world.chains[index])?;
+    chain.points.iter().copied().min_by(|a, b| a.y.total_cmp(&b.y))
 }
 
 pub mod badnik;

@@ -11,13 +11,20 @@ base `23bf0a94a41d`. No game, build, test, render or benchmark ran. The
 reported floating robot is not reproduced. Source findings below explain
 possible causes and capability limits; they do not measure that scene.
 
+**Update (2026-11-27):** [ECP](environmental-collision-profiles.md) owns the
+ordinary ramp, collision-profile and mechanical grounding roadmap. The
+maintainer prefers selectable rectangles, ECBs and paired-support bodies.
+CV1 is revised below: the visible gameplay pose and collision/hit geometry
+must agree. CV2–CV5 remain separate optional curve and gravity work.
+
 ## Recommendation and decision boundary
 
 Keep four investments separate:
 
-1. **Ground the existing picture on its accepted support.** The current
-   slope plan already wants this. It helps the flagship without changing
-   gravity, the collision shape or the movement law.
+1. **Ground the accepted character pose.** Keep the rectangular path and
+   introduce new profiles where useful. ECP owns reliable ramp joins,
+   fixed ECBs, paired support and the shared mechanical pose. No new
+   gravity field or change to the ordinary movement law is necessary.
 2. **Author curves, prepare bounded native geometry.** The engine already
    samples curves into chains. Improve that boundary when an author needs
    it, preserving fast line/chain queries and stating the approximation.
@@ -38,7 +45,7 @@ graph, universal foot IK and a new whole-tick mover are not prerequisites.
 
 | Choice | Conservative starting point | What the other choice costs or changes |
 | --- | --- | --- |
-| Ordinary hill stance | Keep the accepted physical box and add bounded visual grounding | Narrow feet or a rotated collider change edge support, clearance and combat geometry |
+| Ordinary hill stance | Preserve existing boxes; pilot fixed ECB and paired support with accepted physical placement | New profiles change edge support, clearance and combat geometry; admit and test each configuration |
 | Curve representation | Authored curves compiled to native chains at a fixed mechanical tolerance | Analytic collision must cover casts, overlap, corners, bounds and contact response, with explicit supported/unsupported portal-host cases |
 | Planet walking | A selected local-frame walking policy with an explicit attachment rule | Sanic momentum remains viable, but has different speed, jump and release feel |
 | Attraction | Constant-magnitude radial gravity in one region | Distance-dependent strength changes jump tuning; overlapping sources need a composition law |
@@ -84,7 +91,7 @@ orientation and accepted motion**. The consumers retain their meanings.
 | Physical contact | Which actual material blocks this body, at which point and normal? | Native geometry and movement |
 | Locomotion attachment | Does this body keep following that boundary, and when does it leave? | The selected motion policy |
 | Reference up and acceleration | How are controls interpreted, and what accelerates the body? | The per-body frame resolver |
-| Grounded visual pose | Where should the visible sole, legs and torso appear? | Presentation derived from accepted support |
+| Grounded mechanical pose | Where are the sole, legs and torso after native admission? | Shared accepted pose; presentation and gameplay geometry consume it |
 | View up | How does this observer see and control the scene? | The selected view and input policy |
 
 A terrain curve may feed all six. They are not six copies of one normal.
@@ -94,13 +101,17 @@ fixed while the body goes around a planet.
 
 A physical contact normal also differs from a smoothed visual tangent.
 Smoothing an internal edge normal is not permission to accept material
-penetration. Conversely, a harmless visual turn need not change collision.
+penetration. A decorative visual turn need not change collision; a turn of
+the gameplay-significant body or its hit geometry uses the accepted pose.
 
 ## CV1 — Ground the picture from accepted support
 
-**Candidate:** sharpen the existing slope presentation goal. This is
-useful without any new curve or gravity capability. It is not a claim that
-the maintainer's reported scene has one proven cause.
+**Candidate, revised 2026-11-27:** ground the accepted character pose, not
+only the picture. [ECP2–ECP4 and ECP6](environmental-collision-profiles.md#delivery-gates)
+own the profile boundary, pilots and shared terrain-adaptive pose. CV1
+retains the curve/support handoff requirements below. This work does not
+require a new curve or gravity capability, and the floating-robot report
+is still not reproduced.
 
 ### Why a physically supported box can look airborne
 
@@ -124,73 +135,62 @@ not a property that one box or one image translation can provide.
 
 ### Preserve the accepted support through the pose boundary
 
-After native motion and righting are accepted, provide a small
-presentation description of the selected support: its valid local extent,
-source occurrence, pose/time and the place relevant to the visual foot
-origin. This may be an already evaluated target or a bounded patch; a new
-global support graph is not required.
-
-The present physical contact point alone is insufficient. It can be the
-uphill extremity of the body. Recovering a line beneath the visual middle
-requires the selected boundary and its extent. At an edge or fork:
+After native motion and orientation are accepted, retain the selected
+support's valid extent, source occurrence/place, and pose/time. Evaluate
+requested sole or contact targets on that support. A single physical
+contact point may be at the uphill extremity of a rectangular body and
+cannot supply a whole local terrain profile. At an edge or fork:
 
 - do not extend a segment beyond its endpoint;
-- do not choose a different nearby floor to make the picture look planted;
-- retain the native branch/boarding choice;
-- use an explicit unchanged or limited-offset fallback when the selected
-  support has no valid point beneath the chosen visual origin.
+- do not choose a different floor to improve the picture;
+- keep the native branch and boarding choice;
+- use a valid mechanical fallback when the selected support cannot supply
+  a requested target.
 
-Apply the derived correction once with the authored quad/feet placement.
-Do not give `ActorSpriteOffset` two competing writers. Baked sheets,
-direct parts, composed sprites, held visual props and other body-owned
-drawables must consume the same resolved presentation placement. Preserve
-the [body-owned finalization boundary](render-animation-and-vfx.md#body-owned-drawable-geometry-has-one-finalization-boundary)
-and the existing appearance-order work.
+The general solution is not to move a body's art below its physical box.
+Use an admitted environmental profile and shared mechanical pose. Gameplay
+geometry, attachments, and gameplay-significant art derive from the same
+accepted adjustment. A cosmetic-only offset is permissible for decorative
+parts within stated bounds; it cannot move a solid or damageable feature
+away from its mechanical position as a substitute for grounding.
 
-Body and support must be sampled at the same presentation cut. Interpolating
-the body while reading an unrelated current support sample can create
-drift even when both individual values are correct. Loss of support,
-jump, drop-through, portal crossing and a source discontinuity need an
-explicit visual cut or release rule. Do not let visual smoothing delay an
-authoritative jump or invent a physical attachment.
+Start with fixed profiles and root placement. If the profile requests a
+physical turn or a terrain-dependent leg pose, admit that change against
+material clearance. Use bounded local support samples and a small analytic
+solve. No independent presentation grounding pass or convergence loop is
+necessary. Baked rows without suitable metadata have an explicit compatible
+pose fallback. Reuse the existing part pose and two-bone solver where
+applicable. See [ECP's pose contract](environmental-collision-profiles.md#spatial-correspondence-one-accepted-mechanical-pose).
 
-Apply ordinary grounding only to the selected supported ground posture.
-Derive it from accepted body placement and the neutral authored foot
-origin, then compose the existing reaction and animation offsets.
+Preserve the [body-owned finalization boundary](render-animation-and-vfx.md#body-owned-drawable-geometry-has-one-finalization-boundary).
+Do not give `ActorSpriteOffset` competing writers. Baked sheets, direct
+parts, composed sprites, props, and derived gameplay geometry use the
+accepted placement. Sample body and support at the same cut. Loss of support,
+jump, drop-through, portal crossing and a source discontinuity have explicit
+release/cut rules. Preserve [scale-relative gameplay](scale-relative-gameplay.md)
+and map the same body/material placement through the existing portal charts.
+
 [`PresentedPose`](../../../crates/ambition_sim_view/src/presented_pose.rs)
-already lowers buried/crumpled art and carries hitlag presentation. Do not
-resnap the final picture and cancel those choices. Ledge hands, capture,
-saddle and other external pose owners keep their placement unless that
-owner supplies an explicit grounding target. Unsupported rows retain
-their declared fallback.
-
-Bound the correction in the character's authored units and expose it in
-the contact view. Visible art can otherwise move too far from its hurt
-geometry. The existing [scale contract](scale-relative-gameplay.md) still
-owns conversion to world units. At a portal, compose the correction in
-the declared body/material appearance frame before the existing fragment
-mapping; do not add the same world offset to every mapped fragment.
+includes buried/crumpled and hitlag presentation. Do not resnap the picture
+and cancel the selected reaction. Ledge hands, capture, saddle and other
+external pose owners retain their placement unless that owner supplies an
+admitted grounding target. Resolve mechanical changes at their native cut;
+interpolation or cosmetic effects cannot rewrite contact or hit history.
 
 ### Root placement, tilt and feet are separate choices
 
 | Technique | What it can do | Limit |
 | --- | --- | --- |
-| Root translation | Put one declared visual foot origin onto the selected support | Cannot plant two boots at different heights |
-| Bounded visual tilt about that origin | Follow a hill with baked or part art | Turns torso and both boots together; does not change physical clearance |
-| Terrain foot placement | Set separate sole targets and solve the legs within reach | Needs stance phase, real sole metadata, fallback and pelvis limits |
-| Physical body turn | Change the actual pose of the collision material | Must pass native swept righting and changes gameplay |
+| Accepted physical root placement | Place the declared environmental contacts on their support | Requires a compatible profile and clearance |
+| Admitted physical tilt | Pitch a dog or another long body on its support | Requires swept orientation clearance and one-contact/release rules |
+| Terrain foot placement | Place separate planted soles and solve legs within reach | Needs stance phase, sole metadata, reach and bounded fallback; affected gameplay geometry follows |
+| Decorative interpolation | Improve appearance between accepted poses | Cannot change the gameplay pose or introduce a competing support |
 
-The robot already has authored leg joint triples. Its published foot
-attachments mean ankles. Putting those directly on terrain would put the
-wrong point on the ground. A later terrain-foot customer must name
-sole/heel/toe offsets and which foot is in stance. Reuse the existing
-small limb solver and part-pose road where suitable; do not require
-`BodyRigAdmission` for a cosmetic experiment or require all characters to
-have rigs. Some robot rows/views lack compatible rig coverage.
-
-A planted foot on GNU is a place on GNU's material, not a permanent world
-point. Toe-off, lost support and reach failure release it. These visual
-plant/release choices do not replace locomotion attachment.
+The robot's published foot attachments mean ankles. Terrain placement must
+name sole/heel/toe offsets and stance phase, not use ankle positions as
+soles. A planted foot on GNU is a source material place, not a permanent
+world point. Toe-off, lost support and reach failure release it. Retain
+native locomotion attachment as a distinct decision.
 
 ### GNU has a second, independent geometry question
 
@@ -702,8 +702,9 @@ implementation constraints and future comparison cases:
   Do not repeat world discovery independently in each renderer.
 - Preserve constant-zone, straight-segment, cardinal and rigid cases.
   More expressive reference evaluation may remain offline.
-- Mechanical sampling does not depend on rendering quality. Visual-only
-  leg work can have a prepared fallback without changing gameplay.
+- Mechanical sampling does not depend on rendering quality. Gameplay pose
+  adjustment has a deterministic fallback; purely decorative work can use a
+  presentation fallback without changing gameplay.
 - A moving/deforming curve must retain SUP1's actual motion law and bounds.
   Refitting a static index without the old interval is not sufficient.
 - Measure query counts, preparation size, transient allocations and frame
@@ -721,7 +722,7 @@ These are planning gates, not work selected in [queue](../queue.md).
 
 | Candidate | Smallest coherent result | Evidence required when implementation is selected |
 | --- | --- | --- |
-| CV1: visual grounding | One resolved support-derived root placement for the robot and its baked fallback | Flat, straight incline, crest, edge, jump release and GNU comparison at one body/support cut; visible and mechanical origins shown |
+| CV1: shared grounded pose (ECP) | Admitted profile and root/orientation placement, with compatible rig/baked pose | Flat, straight incline, crest, edge, jump release and GNU comparison at one body/support cut; occupancy, visible and combat geometry shown |
 | CV2: curve preparation | One authored curve recipe with bounded native lowering and placement queries | Error/normal limits, source mapping, sharp corners and refinement semantics; unsupported shapes rejected before publication |
 | CV3: continuous walker | Existing kernel handles a bounded range of continuous down without cardinal jumps | Fixed tilted full-solid walk/jump/land, exact support, rotation obstruction, low ceiling, release and existing cardinal behavior; extra mechanics admitted separately |
 | CV4: circular proof | One human-controlled exterior planet with explicit attraction/attachment and held-command feel | Walk/stop/jump/land, uninterrupted circuit, release/repress, high-speed release choice, center/escape behavior and a fixed camera |

@@ -100,18 +100,26 @@ omission/override and moving supports. The current
 research questions. Cross-version saved-content compatibility is deferred
 to 2027. Actual performance ranking still needs measurements.
 
-### Curved ground and local gravity
+### Environmental collision, ground support and local gravity
 
+- ▢ [Environmental collision profiles and ground support (ECP)](engine/environmental-collision-profiles.md)
+  proposes connected ramp terrain, first-class rectangular and fighter ECB
+  profiles, paired-support quadrupeds, continuous navigation and shared
+  mechanical poses. The Hobford companion snag is the first reproduction
+  and promotion trigger; Scout and the dog are the first profile customers.
+  Preserve the rectangular fast path and existing native movement authority.
+  Promote bounded gates after source review and customer evidence. Dynamic
+  ECBs follow fixed profiles and pose admission; rounded and compound
+  profiles need a new customer. No ECP card is selected in the queue here.
 - ▢ [Curved surfaces and local gravity](engine/curved-surfaces-and-local-gravity.md)
-  is tentative. CV1 states the existing hill-picture goal's missing
-  support-to-pose handoff. CV2 prepares authored curves with bounded native
-  geometry. CV3 first makes continuous down an honest ordinary-walker
-  capability; CV4 can then prove one static circular world. CV5 adds a
-  named surface field only if a scene needs it. No CV card is selected by
-  this audit, and SUP1's current moving-support work is independent.
-  Decide attraction versus attachment, airborne behavior and physical
-  posture before generalizing. Exact analytic curves, broad field
-  composition, terrain feet and planetary AI are separate choices.
+  is tentative. CV1's grounding contract now uses ECP's accepted mechanical
+  pose. CV2 prepares authored curves with bounded native geometry. CV3 first
+  makes continuous down an honest ordinary-walker capability; CV4 can then
+  prove one static circular world. CV5 adds a named surface field only if
+  a scene needs it. No CV card is selected here; SUP1's changing-support
+  motion remains independent. Decide attraction versus attachment, airborne
+  behavior and physical posture before generalizing. Analytic curves, broad
+  field composition and planetary AI are separate choices.
 
 ### Persistent systemic world
 

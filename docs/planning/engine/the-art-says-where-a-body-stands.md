@@ -37,6 +37,26 @@ other fact of where things are on the giant was read from the drawing by a
 person (an agent, with a script it threw away) and typed into another file.
 When the drawing changes, those files do not.
 
+### Extension to character collision profiles (2026-11-27)
+
+[ECP](environmental-collision-profiles.md#spatial-correspondence-one-accepted-mechanical-pose)
+extends this rule from the giant's support and rectangular body dimensions
+to selectable environmental profiles. Publish contact features, occupied
+material and gameplay rig anchors as prepared data from the same authored
+character geometry. Use fixed profiles first. Later state and animation
+tracks may supply changes at the mechanical pose clock. Do not infer
+physical dimensions from rendered alpha or duplicate the art's measurements
+in per-character controller code.
+
+Environment, combat and broad-phase geometry have separate meanings, but
+they derive from the accepted body placement and gameplay pose. Do not
+shift the complete art relative to those facts to hide a slope contact gap.
+A planted sole, solid torso, damageable limb or held attack must read at its
+mechanical place within the declared approximation. Decorative parts remain
+free. Terrain-dependent changes that alter occupancy need native admission;
+baked and rigged art consume the corresponding accepted pose. This is a
+proposed contract, not a receipt that the new profiles exist.
+
 ## The debts
 
 ### 1. Where a body can stand on the giant is typed by hand

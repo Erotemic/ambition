@@ -249,9 +249,13 @@ links to.
   The debts of the GNU-ton giant (2026-10-11) and the design that pays
   them: a sheet says each place on its body. Not built.
 - [`engine/slopes-feet-ride-surfaces.md`](engine/slopes-feet-ride-surfaces.md)
-  Fixed slopes and rigid moving lines are built; lasting support and true
-  supported paths remain. Selected SUP1 will retain GNU's changing shape and
-  source phase. The picture-on-middle goal still needs its pose handoff.
+  Fixed slopes and moving lines are built. SUP1 retains the changing shape
+  and its motion interval; see the dated delivery status. ECP owns the new
+  profile, static join, continuous navigation and shared grounding work.
+- [`engine/environmental-collision-profiles.md`](engine/environmental-collision-profiles.md)
+  Proposed ECP track: Hobford diagnosis, connected terrain, rectangular,
+  fixed/dynamic fighter ECB and paired-support profiles, continuous
+  navigation, authoritative pose and performance gates.
 - [`engine/curved-surfaces-and-local-gravity.md`](engine/curved-surfaces-and-local-gravity.md)
   Tentative decision aid: grounded appearance, compiled curves, finite-body
   paths, continuous local-frame walking and an optional static planet.

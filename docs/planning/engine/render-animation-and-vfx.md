@@ -414,8 +414,9 @@ missing implementation nor proof that these other costs are small.
 
 ### R9 - debris with material and shape
 
-**Proposed.** Use a wooden breakable and the cracked seam in the Elemental
-Mine to prove the authoring path and the visual result.
+**Proposed.** Use the Goblin Mob Lab to prove combat readability. Use a
+wooden breakable and the cracked seam in the Elemental Mine to prove the
+authoring path and the visual result.
 
 #### Current path
 
@@ -440,6 +441,39 @@ Mine to prove the authoring path and the visual result.
 - The [mine seam](../../../game/ambition_map_assets/ambition_content/generators/elemental_mine/make_specs.py)
   uses the default wooden breakable look. In a High capture, it breaks into
   small brown rectangles that bounce, rest on the floor and disappear.
+
+#### Combat readability in crowds
+
+Fix the clutter in the Goblin Mob Lab (`goblin_encounter`) before adding
+more detail to routine combat. A High capture shows a live goblin
+overlapping the bodies and red rectangles from earlier kills. The
+[ordinary death path](../../../crates/ambition_platformer2d_actor/src/body/damage/actor_hit.rs)
+emits 16 sparks and asks for seven rigid pieces with a four-second recipe.
+The [Ambition room rule](../../../game/ambition_content/assets/data/room_rules.ron)
+keeps defeated goblins on the last frame of their death row for the life
+of the room. A kill can also leave a collectible. The particle budget
+alone can reduce the debris and still leave the pile of bodies in view.
+
+- Start with the ordinary death row, its sound and one short accent.
+  Reserve rigid fragments for an authored death or a break that shows
+  material coming apart. Give rapid kills in one area a shared visual
+  budget. Fade the oldest settled pieces first, so the latest hit still
+  reads. Apply the same priority at all quality tiers.
+- Give ordinary remains in crowd fights a short time to settle and fade
+  behind live fighters. Use the existing corpse rule to compare a short
+  exit with the current persistent pose. Keep explicit persistent remains
+  on the authored path. Preserve the defeat event, collectible value and
+  access to drops as the cosmetic layers clear.
+- Run all three Mob Lab waves. Repeat a cluster of kills in the same floor
+  area and capture it while the next goblin attacks. Inspect corpse poses,
+  particles, rigid pieces and drops in the same frames. Check whether the
+  player can identify the live goblin, read its attack and move through
+  the fight. Compare movement with cosmetic effects enabled and disabled
+  to detect a separate contact problem.
+- Repeat the load test in the 200-fighter `dense_melee_pit`. Measure
+  peak and settled counts during the fight and after combat stops.
+  Leave the priority for actors, attack warnings and pickups in force
+  when the cosmetic budget is full.
 
 #### First playable slice
 

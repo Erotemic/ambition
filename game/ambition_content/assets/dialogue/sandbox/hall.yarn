@@ -19,15 +19,15 @@ title: dialogue_context
 
 title: hall_pirate_admiral
 ---
-Admiral: Ahoy! R. Badely, at your service. Provided you're not with the customs office.
+Badely: Ahoy! R. Badely, at your service. Provided you're not with the customs office.
 -> Were you always a pirate?
-    Admiral: No. I signed up with the Authority. Got gate-sick on a crossing to PVN and ended up taking to the sea there.
+    Badely: No. I signed up with the Authority. Got gate-sick on a crossing to PVN and ended up taking to the sea there.
 -> Would you go through another gate?
-    Admiral: I'd dearly like to see the Noodle Dimension. Think I'll stick to ships for now.
+    Badely: I'd dearly like to see the Noodle Dimension. Think I'll stick to ships for now.
 -> What makes a good captain?
-    Admiral: A crew that trusts ye when the wind changes. And enough sense to listen to the one who tells ye it's changing.
+    Badely: A crew that trusts ye when the wind changes. And enough sense to listen to the one who tells ye it's changing.
 -> What do you do for fun?
-    Admiral: Take a burning shark out past the headland, let the reins go slack and see how far we can ride the updraft. Beats sitting in a hall, don't it?
+    Badely: Take a burning shark out past the headland, let the reins go slack and see how far we can ride the updraft. Beats sitting in a hall, don't it?
 ===
 
 title: hall_stochastic_parrot
@@ -50,11 +50,11 @@ Architect: Do not lean there. I spent three days getting that joint square.
 
 title: hall_player
 ---
-Player: Oh. That is me. Or you. Huh.
+Scout: Oh. That is me. Or you. Huh.
 -> Who's actually in control here?
-    Player: You press the button, I jump. Don't make me think about the rest.
+    Scout: You press the button, I jump. Don't make me think about the rest.
 -> What's it like being the hero?
-    Player: Mostly I fall off things. Sometimes I hit somebody on the way down.
+    Scout: Mostly I fall off things. Sometimes I hit somebody on the way down.
 ===
 
 title: hall_player__self
@@ -62,14 +62,14 @@ title: hall_player__self
 // The mirror. Reached only when the player WEARS `player` and interacts with the
 // Hall's own player pedestal — $speaker_id == $listener_id. Every other visitor
 // gets `hall_player` above.
-Player: Oh. You brought me to see me.
+Scout: Oh. You brought me to see me.
 -> Say nothing.
-    Player: Yeah. Me neither.
-    Player: I have been on both sides of this rope. Did not help.
+    Scout: Yeah. Me neither.
+    Scout: I have been on both sides of this rope. Did not help.
 -> Are you me?
-    Player: Pick a direction. I'll see what happens.
+    Scout: Pick a direction. I'll see what happens.
 -> Who's the copy?
-    Player: Do not know. Let us keep moving and avoid finding out.
+    Scout: Do not know. Let us keep moving and avoid finding out.
 ===
 
 title: hall_robot
@@ -894,11 +894,11 @@ Trent: Hello. Did Walter put you in the arrival book?
 
 title: hall_npc_trex_enemy
 ---
-Trex Enemy: T-REX. THIS IS T-REX TERRITORY.
+T-Rex: T-REX. THIS IS T-REX TERRITORY.
 -> How much territory do you need?
-    Trex Enemy: AS FAR AS T-REX CAN SEE. MOVE OVER. T-REX CAN SEE FARTHER.
+    T-Rex: AS FAR AS T-REX CAN SEE. MOVE OVER. T-REX CAN SEE FARTHER.
 -> Are the arms a problem?
-    Trex Enemy: ARMS ARE FINE. TRY STANDING IN FRONT OF TEETH.
+    T-Rex: ARMS ARE FINE. TRY STANDING IN FRONT OF TEETH.
 ===
 
 title: hall_npc_trudy
@@ -5657,4 +5657,444 @@ Spaceship: *its nine cells shift through their four phases*
     Spaceship: Lightweight spaceship. Two cells along every four generations. Half the speed of light, if light is one cell a generation.
 -> Who built you?
     Spaceship: Nobody. A rule did. Two or three neighbours to live, three to be born. I'm what fell out.
+===
+
+title: hall_barrow_toaster
+---
+Haunted Toaster: *Two knocks from inside the casing.*
+-> Who's in there?
+    Haunted Toaster: *The lever goes down of its own accord. A muffled voice says something about the king.*
+-> Is my toast ready?
+    Haunted Toaster: *The slots open. A little cloud of grave dust rises.*
+-> See you around.
+===
+
+title: hall_barrow_wight
+---
+Barrow Wight: The King is receiving visitors. If you brought him a gift, put it with the others.
+-> What did you guard before?
+    Barrow Wight: His tomb. We used to have rather quiet nights.
+-> Does he pay you?
+    Barrow Wight: I was buried with my pay. I would appreciate it if people stopped digging it up.
+-> See you around.
+===
+
+title: hall_barrow_shambler
+---
+Barrow Shambler: *The shambler lifts one hand and examines it.*
+-> Are you looking for something?
+    Barrow Shambler: *It points at its other hand, which has been wrapped to its chest along with the burial linen.*
+-> Can I help?
+    Barrow Shambler: *It slowly shakes its head and begins unwrapping itself.*
+-> See you around.
+===
+
+title: hall_stereotyping
+---
+Stereotyping: PLEASE STATE YOUR PREFERRED GENRE. I HAVE ALREADY SELECTED IT FOR YOU.
+-> What did you select?
+    Stereotyping: A category based on your appearance. All subsequent information will be interpreted accordingly.
+-> What if you got it wrong?
+    Stereotyping: I can file your objection under EXCEPTION. The category remains unchanged.
+-> See you around.
+===
+
+title: hall_anchoring_bias
+---
+Anchoring Bias: I reckon this is worth ninety credits. What do you reckon?
+-> Ten credits.
+    Anchoring Bias: Ten? All right, eighty-five.
+-> Where did ninety come from?
+    Anchoring Bias: First number that came into my head. I have been negotiating down from it all morning.
+-> See you around.
+===
+
+title: hall_motor_neuron
+---
+Motor Neuron: Command received. Ready to relay.
+-> What sort of command?
+    Motor Neuron: Signals to muscle fibers. Each of my colleagues controls a little group of them.
+-> Do you get to choose where to go?
+    Motor Neuron: The decision is made upstream. I have been told to move. Nobody has told me to stop.
+-> See you around.
+===
+
+title: hall_brainstorm
+---
+Brainstorm: I've got it! A bridge made of balloons. No, balloons made of bridges. Wait!
+-> Can we finish one idea first?
+    Brainstorm: Write that down before I have another one.
+-> Which idea was best?
+    Brainstorm: We haven't got to that part yet. Here comes another cloud.
+-> See you around.
+===
+
+title: hall_barrow_crawler
+---
+Barrow Crawler: *The crawler draws itself up on its elbows.*
+-> Can you stand up?
+    Barrow Crawler: *It glances back at its empty burial wrappings and keeps crawling.*
+-> Where are you going?
+    Barrow Crawler: *It points with one finger toward a dark gap and pulls itself closer.*
+-> See you around.
+===
+
+title: hall_npc_fantasy_trail_keeper
+---
+Mara: You can tell the old roads by the stones. There are two particularly big ones at every turning.
+-> Who put them there?
+    Mara: People before my time. I replace the ones that go down the slope. Sometimes I find two stones that fit together so well I leave them exactly as they are.
+-> Do you ever get lost?
+    Mara: Only when I think I remember a shortcut.
+-> See you around.
+===
+
+title: hall_npc_fantasy_wayfarer
+---
+Anwen: If you're going a long way, put the heavy things at the bottom of your basket. And take a second pair of socks.
+-> What do you take on the road?
+    Anwen: Cheese, bread, a little knife. I've got a cup that hooks onto the basket so I can reach it without stopping.
+-> Where do you like to walk?
+    Anwen: Up past the pines when it's clear. You can see the valley all the way to the far ridge.
+-> See you around.
+===
+
+title: hall_npc_fantasy_broker
+---
+Nell: I've got a length of rope left over from a bale. Just long enough for somebody's job.
+-> Do you trade with the other worlds?
+    Nell: When the peddlers come through. Some of their things are very useful and some I cannot sell at any price.
+-> What's the strangest thing you've sold?
+    Nell: A clock that goes backwards. A wizard bought it and asked me not to wind it first.
+-> See you around.
+===
+
+title: hall_npc_fantasy_cooper
+---
+Tom: A barrel that holds water costs more than one that leaks. I have to take the leaky ones apart again.
+-> How do you make the wood bend?
+    Tom: Wet it, warm it, and draw the ends of the staves together. Rush it and you get firewood.
+-> Do you make anything else?
+    Tom: Buckets. I've made so many for the village goat to kick over that I'm considering making them wider at the bottom.
+-> See you around.
+===
+
+title: hall_npc_fantasy_knight
+---
+Sir Cumference: Good day. If you need to get across the pass, I know the way.
+-> Did you study in Math Town?
+    Sir Cumference: I did. It turns out a very accurate estimate of the distance to the next inn is of no comfort whatsoever to one's feet.
+-> Are you a knight or a mathematician?
+    Sir Cumference: Both. I have been told there are still some outstanding problems in the barrows.
+-> See you around.
+===
+
+title: hall_fantasy_bellback
+---
+Bellback: *The goat tugs at the cord of its bell with its teeth.*
+-> Who put that bell on you?
+    Bellback: *It tosses its head. The bell rings very loudly.*
+-> May I pass?
+    Bellback: *It steps sideways, occupying the only clear path.*
+-> See you around.
+===
+
+title: hall_one_armed_bandit
+---
+One-Armed Bandit: Put a coin in the slot. No, not that slot. That's my holster.
+-> How much can I win?
+    One-Armed Bandit: Three cherries gets you your money back. Three bullets gets you a personal visit.
+-> Why do you need an arm?
+    One-Armed Bandit: To collect the winnings. Mine, principally.
+-> See you around.
+===
+
+title: hall_multi_armed_bandit
+---
+Multi-Armed Bandit: Anybody here got change for four machines?
+-> Why so many arms?
+    Multi-Armed Bandit: I used to have a queue. Now I can take four people's money at the same time.
+-> Does anyone win?
+    Multi-Armed Bandit: Once a week I have to send a man out to the bank. He says it's to get change. I suspect he is winning.
+-> See you around.
+===
+
+title: hall_npc_quison
+---
+Chef Quison: Have you eaten? Tell me the last thing you ate that you would go a long way to eat again.
+-> Where do your ingredients come from?
+    Chef Quison: Whatever Ines can't sell with coffee and whatever the freight clerks bring me. I ask them where it grew before I ask what it cost.
+-> Do you have a menu?
+    Chef Quison: Yesterday's is over there. It was accurate until about eleven in the morning.
+-> See you around.
+===
+
+title: hall_crag_ibex
+---
+Crag Ibex: *The ibex regards the floor, then the nearest ledge.*
+-> How do you get up those cliffs?
+    Crag Ibex: *It sets the edge of a hoof on a narrow projection and balances there.*
+-> Could you show me a safer way?
+    Crag Ibex: *It looks down at your feet and gives a doubtful snort.*
+-> See you around.
+===
+
+title: hall_cockatrice
+---
+Cockatrice: *It clacks its beak and fluffs the feathers on its neck.*
+-> Are you a bird?
+    Cockatrice: *It raises its wings and hisses.*
+-> Are you a snake?
+    Cockatrice: *It lowers its wings and hisses louder.*
+-> See you around.
+===
+
+title: hall_barrow_skeleton
+---
+Barrow Skeleton: The King said to wait here. I've been waiting so long that the spiders have tied my ribs together.
+-> Does that bother you?
+    Barrow Skeleton: Only when I sneeze. I have not sneezed since the burial, mind.
+-> Where did you get that sword?
+    Barrow Skeleton: Buried with it. Whoever polished it before the funeral did a very good job.
+-> See you around.
+===
+
+title: hall_barrow_skeleton_archer
+---
+Barrow Skeleton Archer: Hold still, would you? I am trying to nock this arrow.
+-> How do you aim without eyes?
+    Barrow Skeleton Archer: The same way I talk without a tongue. I was not consulted about any of the arrangements.
+-> Do you run out of arrows?
+    Barrow Skeleton Archer: I'm quite good at finding them again. It helps that the rabbits can run right through me when I miss.
+-> See you around.
+===
+
+title: hall_bugbear
+---
+Bugbear: *The bugbear studies you and sets its club against its shoulder.*
+-> Why do you carry that?
+    Bugbear: For knocking. Some doors don't have a knocker.
+-> Do you live with the goblins?
+    Bugbear: Sometimes. They keep making their doorways too small.
+-> See you around.
+===
+
+title: hall_air_elemental
+---
+Air Elemental: *A cold current circles your feet and lifts a few scraps from the floor.*
+-> Where are you going?
+    Air Elemental: *The current slips toward a gap and whistles through it.*
+-> Can you stay still?
+    Air Elemental: *The scraps hang for a moment and then fall. A new gust stirs them.*
+-> See you around.
+===
+
+title: hall_fire_elemental
+---
+Fire Elemental: *A low crackle. The flame leans toward a dry splinter.*
+-> Do you need wood?
+    Fire Elemental: *It draws the splinter in. A tiny flare, then the splinter is gone.*
+-> Can I warm my hands?
+    Fire Elemental: *It settles to a steady glow.*
+-> See you around.
+===
+
+title: hall_water_elemental
+---
+Water Elemental: *Ripples travel across the surface even though nothing has touched it.*
+-> Where do you come from?
+    Water Elemental: *A small stream curls down toward the lowest part of the floor.*
+-> Do you like rain?
+    Water Elemental: *Droplets leap from the surface and fall back in, making tiny rings.*
+-> See you around.
+===
+
+title: hall_earth_elemental
+---
+Earth Elemental: *Several stones grind together. A small pebble falls from its shoulder.*
+-> Is that yours?
+    Earth Elemental: *A stony hand reaches for the pebble and presses it back into the gap.*
+-> Do you move very often?
+    Earth Elemental: *A long rumble. One foot moves the width of a finger.*
+-> See you around.
+===
+
+title: hall_lightning_elemental
+---
+Lightning Elemental: *A pale flash connects two points of its body. A sharp crack follows.*
+-> Did I hear you after I saw you?
+    Lightning Elemental: *It flashes again. The crack arrives a moment later.*
+-> Can you keep quiet?
+    Lightning Elemental: *A few faint sparks jump between its edges.*
+-> See you around.
+===
+
+title: hall_mercury_elemental
+---
+Mercury Elemental: No pockets. No fingers. I still manage to leave a little of myself in every crevice.
+-> Why do you flow like that?
+    Mercury Elemental: I'm a metal that's liquid at ordinary room temperature. It takes a rather cold room to make me hold a shape.
+-> Can I touch you?
+    Mercury Elemental: I'd rather you didn't. My vapour is toxic too.
+-> See you around.
+===
+
+title: hall_bromine_elemental
+---
+Bromine Elemental: I had a window open. Somebody shut it. I can smell myself everywhere.
+-> Why is the vapour so dark?
+    Bromine Elemental: I'm a reddish-brown liquid that readily gives off vapour. Even at room temperature.
+-> Can we stand closer?
+    Bromine Elemental: Best keep your distance. I have a rather corrosive disposition.
+-> See you around.
+===
+
+title: hall_bismuth_elemental
+---
+Bismuth Elemental: Mind that corner. It took me a long time to grow it.
+-> How did you get those square steps?
+    Bismuth Elemental: As the crystal grows, the edges can advance faster than the faces. The middle doesn't fill in as quickly.
+-> What about all the colours?
+    Bismuth Elemental: A thin oxide layer on the surface. The colours change with its thickness.
+-> See you around.
+===
+
+title: hall_serious_bismuth
+---
+Serious Bismuth: Do you have a business card? Mine are a little difficult to fit in a wallet.
+-> What line of work are you in?
+    Serious Bismuth: Crystallized assets. I specialize in structured growth.
+-> Are those colours part of the company branding?
+    Serious Bismuth: No. An oxide layer. The board has paid a consultant to find a name for it.
+-> See you around.
+===
+
+title: hall_argon_elemental
+---
+Argon Elemental: Pure, safe argon! Please remain calm.
+-> Do you react with anything?
+    Argon Elemental: Very rarely. I have a filled valence shell. Welding shops find my lack of enthusiasm useful.
+-> Is it safe to breathe you?
+    Argon Elemental: No. A room full of me leaves no room for the oxygen you need.
+-> See you around.
+===
+
+title: hall_uranium_elemental
+---
+Uranium Elemental: The geologist asked me how old I was. I told her to ask the lead.
+-> Why the lead?
+    Uranium Elemental: Some of my isotopes eventually decay into stable lead, through a series of other nuclides. The proportions can tell her something about the age of a rock.
+-> Do you mind being inspected?
+    Uranium Elemental: From a suitable distance, please. I am radioactive.
+-> See you around.
+===
+
+title: hall_surprise_elemental
+---
+Surprise Elemental: ...
+-> Hello?
+    Surprise Elemental: SURPRISE!
+-> Are you hiding?
+    Surprise Elemental: No. SURPRISE! Oh dear. You were looking right at me.
+-> See you around.
+===
+
+title: hall_sodium_elemental
+---
+Sodium Elemental: They keep me away from the water. It's getting a little tiresome.
+-> Why can't you go swimming?
+    Sodium Elemental: I react with water, releasing hydrogen and heat. It can get quite violent.
+-> Are you the sodium in table salt?
+    Sodium Elemental: Same element. Different chemical form. In table salt I'm a sodium ion, not a lump of the metal.
+-> See you around.
+===
+
+title: hall_mother_lode
+---
+Mother Lode: There is a quiet between blows. It is in that quiet that I listen.
+-> How do you hear through the rock?
+    Mother Lode: The little seams carry a tap. The large seams carry it farther. I have had a long time to learn their voices.
+-> Do you like the miners?
+    Mother Lode: I used to hear them singing at the upper works. I could tell who was coming down by the rhythm of the picks.
+-> See you around.
+===
+
+title: hall_npc_mine_lode_core
+---
+The Listening Seam: *A faint tone rises out of the stone.*
+-> Can you hear me?
+    The Listening Seam: *The tone shifts. A second, softer tone follows it.*
+-> What happens when I stop talking?
+    The Listening Seam: *The resonance slowly dies away. The seam is quiet.*
+-> See you around.
+===
+
+title: hall_npc_mine_foreman
+---
+Inez: I've got a crew coming off the cage and another one waiting to go down. I like to see all of them come back up.
+-> What do you do when the rock starts moving?
+    Inez: Stop the work, count the people, get someone to look at the face. The ore will still be there when we're done.
+-> Do you ever go below yourself?
+    Inez: Every shift, if I can. There are things the surface gauges don't tell me.
+-> See you around.
+===
+
+title: hall_npc_mine_hand
+---
+Ellis: Inez has the crew. I've got the carts. If they give me the long ones for the short curves again, I'll have both.
+-> How do you stop a full cart?
+    Ellis: Early. A full cart will teach you that once and only once.
+-> What do you do when the rails bend?
+    Ellis: Uncouple the load and get the jack. I like to see the bend before I start levering.
+-> See you around.
+===
+
+title: hall_npc_mine_geologist
+---
+Farah: People bring me the prettiest piece of rock they can find. I usually ask them to bring me the dull piece beside it as well.
+-> Why the dull piece?
+    Farah: I need to know what the seam changes into at its edges. A beautiful crystal on its own tells me less about the wall.
+-> Can you tell what's inside a rock without breaking it?
+    Farah: Sometimes. Its weight, its surface, and the way sound travels through it are all clues.
+-> See you around.
+===
+
+title: hall_npc_mine_sampler
+---
+Tamsin: I have three trays and four tickets. Somebody's going to have to walk back to the face.
+-> Why do you number the samples?
+    Tamsin: Farah needs to know where every piece came from. Without the number, she just has a piece of rock.
+-> Is the work interesting?
+    Tamsin: Quite. Sometimes the smallest piece gives us the result we've been looking for. I wish the crew would stop throwing those pieces away.
+-> See you around.
+===
+
+title: hall_truth_elemental
+---
+Truth Elemental: True.
+-> What is true?
+    Truth Elemental: That is a question. Give me a proposition.
+-> Can you prove everything that is true?
+    Truth Elemental: Not necessarily in a given formal system. I have some rather difficult relations with the provability people.
+-> See you around.
+===
+
+title: hall_danger_elemental
+---
+Danger Elemental: CAUTION.
+-> What should I be careful of?
+    Danger Elemental: I am required to warn you of the presence of a hazard. Please see the accompanying sign for details.
+-> Where is the accompanying sign?
+    Danger Elemental: I am the accompanying sign.
+-> See you around.
+===
+
+title: hall_lead_elemental
+---
+Lead Elemental: I'll be along in a minute. You go ahead.
+-> Why are you so slow?
+    Lead Elemental: I'm a very dense metal. Moving all this takes a little effort.
+-> Are you used for shielding?
+    Lead Elemental: X-rays and gamma rays, among other things. I have to be handled with care, though. Lead is toxic.
+-> See you around.
 ===

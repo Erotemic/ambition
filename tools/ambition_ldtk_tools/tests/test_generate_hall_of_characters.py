@@ -303,3 +303,37 @@ def test_an_exhibit_named_twice_in_the_order_is_refused():
     from ambition_ldtk_tools.generate_hall_of_characters import parse_wings
     with pytest.raises(ValueError, match="named twice"):
         parse_wings("[A]\nrobot\n[B]\nrobot\n")
+
+
+def test_every_seated_character_has_an_authored_conversation():
+    """Every generated pedestal has a dialogue ID that the game can start."""
+    import re
+
+    from ambition_ldtk_tools.generate_hall_of_characters import (
+        CATALOG_PATH,
+        ORDER_PATH,
+        PROVIDER_CATALOGS,
+        assemble_hall,
+    )
+
+    main, basement, giants, dialogue_ids, _ = assemble_hall(
+        CATALOG_PATH.read_text(),
+        [path.read_text() for path in PROVIDER_CATALOGS],
+        ORDER_PATH.read_text(),
+    )
+    seats = main + basement + giants
+    assert len(seats) == len(set(seats)), "duplicate Hall exhibits"
+    dialogue_dir = CATALOG_PATH.parent.parent / "dialogue"
+    titles = {
+        title
+        for path in dialogue_dir.rglob("*.yarn")
+        for title in re.findall(r"^title:\s*([A-Za-z_0-9]+)\s*$", path.read_text(), re.M)
+    }
+    missing = [cid for cid in seats if dialogue_ids.get(cid) not in titles]
+    assert not missing, f"write or bind Hall conversations for: {missing}"
+    pedestals = {
+        entity["fields"]["character_id"]: entity["fields"]["dialogue_id"]
+        for entity in build_spec(main, basement, dialogue_ids, giants)["entities"]
+        if entity["type"] == "NpcSpawn"
+    }
+    assert pedestals == {cid: dialogue_ids[cid] for cid in seats}

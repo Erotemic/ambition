@@ -141,6 +141,7 @@
         ),
         "smash_george_booul": (
             display_name: "George Booul",
+            hall_dialogue_id: Some("hall_smash_george_booul"),
             manifest: "sprites/george_booul_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

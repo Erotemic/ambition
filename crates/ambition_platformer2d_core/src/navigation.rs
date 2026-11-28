@@ -125,6 +125,11 @@ pub enum LegPhase {
     /// In the air after the air jump of a [`NavLegKind::DoubleHop`], or
     /// falling after the flight of a [`NavLegKind::Fly`].
     SecondAir,
+    /// The air jump of a [`NavLegKind::DoubleHop`] is pressed and has not
+    /// lifted the body yet. A press reaches the body a frame late when the
+    /// key must first come up to make an edge (a held jump), and a body that
+    /// is still falling then has not missed.
+    AirJump,
 }
 
 /// What [`follow_leg`] reads of the body.
@@ -338,7 +343,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             };
             (input, LegProgress::Going(LegPhase::Air))
         }
-        LegPhase::Air | LegPhase::SecondAir => {
+        LegPhase::Air | LegPhase::SecondAir | LegPhase::AirJump => {
             if facts.on_ground {
                 // At the height of the landing AND on its surface. The height
                 // alone said "arrived" on any surface of that height (found
@@ -355,7 +360,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             // it lifts the body highest. Before it, the body is below a
             // landing that one jump does not reach, and that is not a miss.
             // A wall climb takes it too, to come to the face higher.
-            if matches!(leg.kind, NavLegKind::DoubleHop | NavLegKind::WallClimb) && phase == LegPhase::Air {
+            if matches!(leg.kind, NavLegKind::DoubleHop | NavLegKind::WallClimb) && matches!(phase, LegPhase::Air | LegPhase::AirJump) {
                 let input = LegInput {
                     axis: steer_to(leg.land, 16.0),
                     full_speed: true,
@@ -367,7 +372,15 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                     dash_pressed: false,
                     axis_down: 0.0,
                 };
-                let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
+                // Pressed: wait for the lift before the second arc is judged.
+                // Rising after the press is the second arc.
+                let next = match (phase, falling) {
+                    (LegPhase::Air, false) => LegPhase::Air,
+                    (_, true) if climb => LegPhase::SecondAir,
+                    (_, true) => LegPhase::AirJump,
+                    (LegPhase::AirJump, false) => LegPhase::SecondAir,
+                    (_, false) => LegPhase::Air,
+                };
                 return (input, LegProgress::Going(next));
             }
             // The dash of a dash hop: at the top of the arc, straight toward

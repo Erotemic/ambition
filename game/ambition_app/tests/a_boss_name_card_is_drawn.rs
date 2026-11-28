@@ -78,12 +78,17 @@ fn name_rect(app: &mut App) -> Option<(UVec2, UVec2)> {
 
 /// Pixels inside `rect` in the name's colour (srgb 0.97, 0.93, 0.86).
 fn name_coloured(image: &Image, (min, max): (UVec2, UVec2)) -> usize {
+    // Match the solid name color to exclude nearby dialogue colors.
+    const TOLERANCE: f32 = 0.012;
     let size = image.size();
     let mut count = 0;
     for y in min.y..max.y.min(size.y) {
         for x in min.x..max.x.min(size.x) {
             let color = image.get_color_at(x, y).expect("inside the image").to_srgba();
-            if (color.red - 0.97).abs() < 0.06 && (color.green - 0.93).abs() < 0.06 && (color.blue - 0.86).abs() < 0.06 {
+            if (color.red - 0.97).abs() < TOLERANCE
+                && (color.green - 0.93).abs() < TOLERANCE
+                && (color.blue - 0.86).abs() < TOLERANCE
+            {
                 count += 1;
             }
         }
@@ -213,6 +218,7 @@ fn two_views_in_two_boss_rooms_each_draw_their_bosss_card() {
         app.update();
     }
     let after = captured(&mut app);
+    assert!(name_rects(&mut app).is_empty(), "both name cards have left their views");
     for rect in rects {
         let (lit, control) = (name_coloured(&during, rect), name_coloured(&after, rect));
         println!("two views: name rect {rect:?}: {lit} name-coloured pixels with the card, {control} after it");

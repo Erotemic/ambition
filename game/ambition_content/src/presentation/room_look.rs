@@ -63,6 +63,7 @@ use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, LoadingZoneActivation, RoomSpec};
 use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLabel, WorldLabel};
+use ambition_render::rendering::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
 use ambition_render::rendering::terrain_skin::TerrainSkinMesh;
 use ambition_render::rendering::{
     apply_entity_art, present_live_room_visuals, BlockVisual, EntityArt, LoadingZoneVisual, RoomVisual, DOOR_SPRITE_ASPECT,
@@ -305,8 +306,8 @@ fn show_two_state_skins(
         &TerrainSkinMesh,
         &ChildOf,
         &mut Visibility,
-        Option<&MeshMaterial2d<ColorMaterial>>,
-        Option<&MeshMaterial2d<RoomSkinMaterial>>,
+        Option<&PreparedPlanarMesh<ColorMaterial>>,
+        Option<&PreparedPlanarMesh<RoomSkinMaterial>>,
         Option<&TwoStateSkin>,
     )>,
     plain: Res<Assets<ColorMaterial>>,
@@ -335,7 +336,7 @@ fn show_two_state_skins(
         let shown = if in_budget {
             match (colour, shaded) {
                 (Some(colour), _) => {
-                    let Some(texture) = plain.get(&colour.0).and_then(|material| material.texture.clone()) else {
+                    let Some(texture) = plain.get(&colour.material).and_then(|material| material.texture.clone()) else {
                         continue;
                     };
                     let field = fields.of(stamp.0);
@@ -348,16 +349,19 @@ fn show_two_state_skins(
                     });
                     commands
                         .entity(entity)
-                        .try_remove::<MeshMaterial2d<ColorMaterial>>()
-                        .try_insert((MeshMaterial2d(material), TwoStateSkin { room: stamp.0, plain: colour.0.clone() }));
+                        .try_remove::<PreparedPlanarMesh<ColorMaterial>>()
+                        .try_insert((
+                            PreparedPlanarMesh { mesh: colour.mesh.clone(), material },
+                            TwoStateSkin { room: stamp.0, plain: colour.material.clone() },
+                        ));
                 }
                 (None, Some(shaded)) => {
                     // A picture of the skin that is another handle now (a
                     // reload) is the one the skin shows.
                     let wanted = two.and_then(|two| plain.get(&two.plain)).and_then(|material| material.texture.clone());
                     if let Some(wanted) = wanted {
-                        if skins.get(&shaded.0).is_some_and(|material| material.skin != wanted) {
-                            if let Some(mut material) = skins.get_mut(&shaded.0) {
+                        if skins.get(&shaded.material).is_some_and(|material| material.skin != wanted) {
+                            if let Some(mut material) = skins.get_mut(&shaded.material) {
                                 material.skin = wanted;
                             }
                         }
@@ -365,8 +369,8 @@ fn show_two_state_skins(
                     // A skin shaded before its room's field was made, or
                     // since the field was made again, reads the field now.
                     let field = fields.of(stamp.0);
-                    if skins.get(&shaded.0).is_some_and(|material| material.field != field.image) {
-                        if let Some(mut material) = skins.get_mut(&shaded.0) {
+                    if skins.get(&shaded.material).is_some_and(|material| material.field != field.image) {
+                        if let Some(mut material) = skins.get_mut(&shaded.material) {
                             material.grid = field.grid;
                             material.field = field.image;
                         }
@@ -376,11 +380,11 @@ fn show_two_state_skins(
             }
             true
         } else {
-            if let (Some(_), Some(two)) = (shaded, two) {
+            if let (Some(shaded), Some(two)) = (shaded, two) {
                 commands
                     .entity(entity)
-                    .try_remove::<(MeshMaterial2d<RoomSkinMaterial>, TwoStateSkin)>()
-                    .try_insert(MeshMaterial2d(two.plain.clone()));
+                    .try_remove::<(PreparedPlanarMesh<RoomSkinMaterial>, TwoStateSkin)>()
+                    .try_insert(PreparedPlanarMesh { mesh: shaded.mesh.clone(), material: two.plain.clone() });
             }
             (behind_front(world, ae::Vec2::new(mesh.centre.x, mesh.centre.y), advance) > 0.0) == corrupt
         };
@@ -905,6 +909,7 @@ pub fn install(app: &mut App) {
     }
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<RoomSkinMaterial>::default());
+        install_planar_mesh_2d::<RoomSkinMaterial>(app);
         #[cfg(feature = "card_view")]
         {
             ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkinMaterial>(app);
@@ -1137,7 +1142,7 @@ fn spread_room_states(
     mut spreads: Query<(&InRoomInstance, &mut RoomLookSpread)>,
     quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomStateMaterial>)>,
     mut materials: ResMut<Assets<RoomStateMaterial>>,
-    skins: Query<(&TwoStateSkin, &MeshMaterial2d<RoomSkinMaterial>)>,
+    skins: Query<(&TwoStateSkin, &PreparedPlanarMesh<RoomSkinMaterial>)>,
     mut skin_materials: Option<ResMut<Assets<RoomSkinMaterial>>>,
     sky_quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomSkyMaterial>)>,
     mut sky_materials: Option<ResMut<Assets<RoomSkyMaterial>>>,
@@ -1206,7 +1211,7 @@ fn spread_room_states(
             if skin.room != stamp.0 {
                 continue;
             }
-            if let Some(mut material) = skin_materials.get_mut(&material.0) {
+            if let Some(mut material) = skin_materials.get_mut(&material.material) {
                 material.front = front;
             }
         }

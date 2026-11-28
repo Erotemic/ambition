@@ -24,7 +24,8 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
+use bevy::sprite_render::ColorMaterial;
+use super::planar_mesh::PreparedPlanarMesh;
 
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxTheme, RoomDressingPart};
@@ -338,7 +339,7 @@ pub fn build_chain_earth_meshes(
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<ColorMaterial>>>,
     assets: Option<Res<GameAssets>>,
-    open: Query<(Entity, &ChainEarth, Has<Mesh2d>), Without<ChainEarthSettled>>,
+    open: Query<(Entity, &ChainEarth, Has<PreparedPlanarMesh<ColorMaterial>>), Without<ChainEarthSettled>>,
 ) {
     if open.is_empty() {
         return;
@@ -362,20 +363,22 @@ pub fn build_chain_earth_meshes(
         match fill {
             Some(Some(image)) => {
                 visual.try_insert((
-                    Mesh2d(meshes.add(earth_mesh(earth, true))),
-                    MeshMaterial2d(materials.add(ColorMaterial {
-                        texture: Some(image),
-                        ..ColorMaterial::from_color(Color::WHITE)
-                    })),
+                    PreparedPlanarMesh {
+                        mesh: meshes.add(earth_mesh(earth, true)),
+                        material: materials.add(ColorMaterial {
+                            texture: Some(image),
+                            ..ColorMaterial::from_color(Color::WHITE)
+                        }),
+                    },
                     ChainEarthSettled,
                 ));
             }
             known => {
                 if !meshed {
-                    visual.try_insert((
-                        Mesh2d(meshes.add(earth_mesh(earth, false))),
-                        MeshMaterial2d(materials.add(ColorMaterial::from_color(Color::WHITE))),
-                    ));
+                    visual.try_insert(PreparedPlanarMesh {
+                        mesh: meshes.add(earth_mesh(earth, false)),
+                        material: materials.add(ColorMaterial::from_color(Color::WHITE)),
+                    });
                 }
                 if known.is_some() {
                     visual.try_insert(ChainEarthSettled);

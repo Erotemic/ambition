@@ -42,7 +42,8 @@
 
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
-use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
+use bevy::sprite_render::ColorMaterial;
+use super::planar_mesh::PreparedPlanarMesh;
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
@@ -1435,8 +1436,7 @@ pub fn lay_room_terrain(
                     let handle = meshes.add(mesh);
                     let entity = commands
                         .spawn((
-                            Mesh2d(handle.clone()),
-                            MeshMaterial2d(material),
+                            PreparedPlanarMesh { mesh: handle.clone(), material },
                             Transform::from_xyz(0.0, 0.0, key.layer.z()),
                             TerrainSkinMesh { theme, centre: chunk_centre(key) },
                             Name::new("Terrain skin mesh"),
@@ -2053,7 +2053,7 @@ mod tests {
         world.run_system_once(lay_room_terrain).unwrap();
         let meshes = meshes_of(&world, room);
         assert!(!meshes.is_empty());
-        assert!(meshes.iter().all(|mesh| world.entity(*mesh).contains::<Mesh2d>()));
+        assert!(meshes.iter().all(|mesh| world.entity(*mesh).contains::<PreparedPlanarMesh<ColorMaterial>>()));
         assert_eq!(world.entity(room).get::<RoomTerrain>().unwrap().mesh_count(), meshes.len());
         for block in [floor, brick] {
             assert_eq!(world.entity(block).get::<Sprite>().unwrap().color, Color::NONE, "its quads draw it");

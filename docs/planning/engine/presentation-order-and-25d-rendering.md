@@ -861,6 +861,13 @@ shared value preparation are sufficient until source proves otherwise.
    An Ultra fixture checks additive light and blended colors in 2D,
    side-on 2.5D, and oblique 2.5D.
 
+   Chain fills and room terrain use the same mesh preparation. A room
+   keeps its terrain meshes when the quality setting changes their material.
+   The 2D bindings are present only when an active 2D camera needs them.
+   A Medium fixture checks chain fill and textured terrain in 2D,
+   side-on 2.5D, and oblique 2.5D. It checks camera switching with the
+   same mesh handles.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

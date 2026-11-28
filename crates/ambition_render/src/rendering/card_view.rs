@@ -441,8 +441,8 @@ pub struct CardViewPlugin;
 
 impl Plugin for CardViewPlugin {
     fn build(&self, app: &mut App) {
-        if app.get_sub_app(bevy::render::RenderApp).is_some() {
-            bevy::shader::load_shader_library!(app, "card_view/play_plane.wgsl");
+        if !app.is_plugin_added::<crate::platformer_presentation::SharedMeshFragmentPlugin>() {
+            app.add_plugins(crate::platformer_presentation::SharedMeshFragmentPlugin);
         }
         app.init_resource::<CardViewSettings>();
         app.init_resource::<CardMeshes>();

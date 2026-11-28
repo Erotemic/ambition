@@ -1002,9 +1002,13 @@ shared value preparation are sufficient until source proves otherwise.
    the military gate annex, Gravity Lab, Portal Lab, and the central hub.
    The Clean / corrupted exhibit uses the same sky, fog, and front effects
    in both renderers. Medium captures show the front in all three views.
-   The Central Hub has an open difference. A fixed Medium capture at tick
-   160 shows a clean sky behind the developer wing in 2D and a corrupted
-   sky in side-on 2.5D.
+   The Hub sky, blueprint overlay, and Mary-O shimmer use the same mesh
+   fragment inputs and camera projection in both renderers. The plane
+   renderer loads this shader library with the room presentation. This
+   fixes a missing shader import when the card plugin is absent. Medium
+   Central Hub captures at tick 160 show the corrupted sky behind the
+   developer wing in both renderers. Captures also show the Tech-Bros
+   Basement blueprint and the Mary-O starlight shimmer in both renderers.
 
    `capture_scene --renderer` fills the image with the selected renderer.
    Each camera uses the same presented frame. The card view keeps each

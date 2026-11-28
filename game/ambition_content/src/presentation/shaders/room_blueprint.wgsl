@@ -5,14 +5,7 @@
 // goes up through it. All work is in engine world coordinates (y down).
 // Colours are written as display values and converted once, at the end.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::{view, globals}
-#import ambition_render::card_view::camera_on_play_plane
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::{view, globals}
-#endif
+#import ambition_render::shared_mesh_fragment::{MeshFragment, globals, camera_on_play_plane}
 #import ambition_content::room_look::{rand_cell, value_noise, towers, arcade, sky_line_distance, pmod}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
@@ -36,11 +29,7 @@ fn stroke(d: f32, width: f32) -> f32 {
 }
 
 fn camera_engine() -> vec2<f32> {
-#ifdef AMBITION_CARD_MESH
-    let c = camera_on_play_plane(view.world_position, view.world_from_view[2].xyz);
-#else
-    let c = view.world_position.xy;
-#endif
+    let c = camera_on_play_plane();
     return vec2<f32>(c.x + room.x * 0.5, room.y * 0.5 - c.y);
 }
 
@@ -235,7 +224,7 @@ fn overlay(p: vec2<f32>) -> vec4<f32> {
 
 // ------------------------------------------------------------------ main --
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let w = mesh.world_position.xy;
     let p = vec2<f32>(w.x + room.x * 0.5, room.y * 0.5 - w.y);
     let role = room.z;
@@ -259,7 +248,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 // (`CompositingSpace::Srgb`) the shaded colour is written sRGB-encoded, as
 // Bevy's own sprite and mesh shaders write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

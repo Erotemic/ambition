@@ -903,6 +903,11 @@ shared value preparation are sufficient until source proves otherwise.
    Medium captures show Wolfenstein's dark room and wake-up flash in
    2D and side-on 2.5D.
 
+   The feature, boss cue, and boss frame indexes share room-qualified
+   storage. Each boss occurrence supplies its own animation frame,
+   wounds, and hazard column. Hazard columns use the frame's room and
+   geometry table, so they can draw before the boss art is available.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

@@ -107,3 +107,55 @@ fn boss_draw_cursor_is_published_and_advances() {
         "the published cursor diverged from the sim cursor {disagreements} times — the read-model must mirror the same-tick component value the geometry sample uses"
     );
 }
+
+#[test]
+fn two_live_copies_publish_and_retire_their_own_boss_frames() {
+    use ambition_platformer2d::combat::components::FeatureId;
+    use ambition_platformer2d::platformer::lifecycle::{spawn_live_room, InRoomInstance, LiveRoomInstance};
+    use ambition_platformer2d::sim_view::{rebuild_boss_frame_index, BossFrameIndex};
+    use bevy::ecs::system::RunSystemOnce;
+    use bevy::prelude::{Entity, Name};
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()),
+    )
+    .expect("sandbox sim builds");
+
+    let player = read_player_pos(sim.world_mut());
+    let ids = ["east_mockingbird", "west_mockingbird"];
+    for (i, id) in ids.into_iter().enumerate() {
+        sim.spawn_boss_at(
+            id,
+            "mockingbird",
+            (player.x + 80.0 * i as f32, player.y - 60.0),
+            (30.0, 30.0),
+            BossBrain::PhaseScript { script_id: "mockingbird".to_owned() },
+        );
+    }
+    sim.step(AgentAction::default());
+    let world = sim.world_mut();
+    let mut bosses = world.query_filtered::<(Entity, &FeatureId), bevy::prelude::With<BossAnimFrame>>();
+    let bodies = ids.map(|id| {
+        bosses.iter(world).find(|(_, feature)| feature.as_str() == id).expect("boss with a draw cursor").0
+    });
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    spawn_live_room(world, second, Name::new("Second boss room"));
+    let same_id = "mockingbird_placement";
+    for (body, room, frame) in [(bodies[0], first, 1), (bodies[1], second, 3)] {
+        world.entity_mut(body).insert((FeatureId(same_id.to_owned()), InRoomInstance(room)));
+        world.get_mut::<BossAnimFrame>(body).unwrap().frame = frame;
+    }
+
+    world.run_system_once(rebuild_boss_frame_index).unwrap();
+    let frames = world.resource::<BossFrameIndex>();
+    assert!(frames.get(same_id).is_none());
+    assert_eq!(frames.get_in(same_id, Some(first)).unwrap().cursor_frame, 1);
+    assert_eq!(frames.get_in(same_id, Some(second)).unwrap().cursor_frame, 3);
+
+    world.despawn(bodies[0]);
+    world.run_system_once(rebuild_boss_frame_index).unwrap();
+    let frames = world.resource::<BossFrameIndex>();
+    assert!(frames.get_in(same_id, Some(first)).is_none());
+    assert_eq!(frames.get(same_id).unwrap().cursor_frame, 3);
+}

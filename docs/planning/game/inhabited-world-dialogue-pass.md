@@ -464,3 +464,40 @@ NPC lines and commands. No new choices, story events, flags, or facts are
 introduced. Explicit action prompts and the historical gallery are outside
 the scope of this pass. Rephrasing questions may still affect how players
 interpret a choice, so in-game review remains useful.
+
+## Follow-up: ambient and combat barks
+
+Barks are not miniature conversations. The player can hear the same line
+several times in one fight or on repeated visits to the same room. Use a
+short physical or emotional reaction for on-hit speech, a clear response
+when a peaceful character is provoked, and something the character might
+say while going about their business for idle speech. A line can still be
+funny without incorporating the whole character premise. Keep longer Hall
+lines when they are a good joke or a worthwhile explanation, not simply to
+fill a pool. Leave the intentionally repetitive Echo and Argon catchphrases
+alone; Argon's Hall line distinguishes inertness from breathable air.
+
+Polish Roo's and his crew's existing voices, Zorlack's shipment assignment,
+the recurring surveyors and mechanics, civilian and military Authority
+workers, the Math and Science casts, and a selection of enemies and boss
+characters. Keep Roo's exact catalog exemplar lines tested in
+`character_roster/tests.rs`, and keep the boss concert's established
+Geppetto and subagent lines. Full Stack's Hall barks refer to his bass.
+Correct the two sums of cubes in Nujan's 1729 line, Noether's symmetry
+statements, and misleading or over-literal technical descriptions in the
+spectral and neural characters' Hall pools. Keep the Mockingbird's existing
+voice pending the encounter redesign. Do not give ordinary characters
+knowledge of the player, combat state, or quest progress they cannot know.
+Incidental mutterings about current work remain provisional.
+
+This pass only changes strings in existing `barks` arrays. Pool lengths,
+field structure, selection/rotation, fallback dialogue, and all other
+character data are unchanged. Ordinary peaceful NPC idle intervals are
+12--20 seconds and Hall intervals are 28--52 seconds in the existing
+`tick_npc_idle_barks` implementation; there is no tuning change here.
+The shared fallback dialogue is intentionally outside the pass: the
+catalog may use it for any bark situation without a dedicated pool. A
+separate review should assess whether those lines need situation-specific
+pools, and whether walk-away (`conversation_cut`) lines are appropriate
+for particular characters. Verify actual bubble readability and density
+in-game before changing cadence or introducing additional bark triggers.

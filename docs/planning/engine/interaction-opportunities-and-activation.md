@@ -180,7 +180,38 @@ the primary seat's gesture to obtain the same domain legality.
 
 ## Physical touch retains its admitted material map
 
-**Source follow-up at `00bf92c22142`, 2026-11-22; planned.** Landed I1/I2
+**Landed 2026-11-27.** `InteractReach::of` takes the body's
+`MotionAdmission` (`BodyGeometry::motion_for`), passed by all five callers:
+- selection;
+- the switch executor;
+- the chest executor;
+- the chest fixture;
+- the reach observer.
+
+When an opening cuts the body, a chest or switch is touched only by an
+admitted part (`MotionAdmission::occupied`, the query water uses), with
+strict overlap. The witness is the first part that touches the target, and
+parts in the root's own chart come first. The target's centre is carried
+back through that part's map, and the facing gate and the preference read
+it there. Selection ranks touched targets by `touch_preference`. The
+executors revalidate with the same rule at their cut. A refusal reaches
+nothing physical ("the body's material was refused"). It is never a
+root-box fallback. An uncut body keeps the ordinary box path.
+
+`front()` now steps out by the body's material projected on its side axis
+(`projected_half_extent`), not the world-axis envelope. An unrotated body
+reads as before. Talk reach, doors, boarding and pickup are unchanged.
+
+Witness: `ambition_platformer2d_interaction` `touch_through_openings_tests`.
+- The far switch is touched, faced and near in preference.
+- The switch behind the entry is not touched.
+- With no opening, the root-box control touches it.
+- A body facing away from the opening is refused.
+
+The observer still draws the root box. Drawing the parts is step 4 of the
+[query audit](world-geometry-and-spatial-semantics.md#bounded-delivery-and-evidence).
+
+*Original plan, 2026-11-22:* Landed I1/I2
 already give selection, execution revalidation and inspection one owner.
 [`InteractReach`](../../../crates/ambition_platformer2d_interaction/src/lib.rs)
 still uses the whole root AABB for chest/switch touch, and the root position,

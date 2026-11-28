@@ -404,6 +404,41 @@ impl WaterRegion {
     pub fn new(aabb: Aabb, kind: WaterKind, spec: WaterVolumeSpec) -> Self {
         Self { aabb, kind, spec }
     }
+
+    /// The contact of a body whose highest point in this water is at `top`.
+    /// y grows downward: a top at the surface is barely dipping in
+    /// (submersion ≈ 0); a top below it by the body's full `height` is fully
+    /// submerged (submersion = 1).
+    fn contact(&self, top: f32, height: f32) -> WaterContact {
+        let surface_y = self.aabb.top();
+        let depth_into_water = (top - surface_y).max(0.0);
+        WaterContact {
+            kind: self.kind,
+            region_aabb: self.aabb,
+            surface_y,
+            submersion: (depth_into_water / height.max(1.0)).clamp(0.0, 1.0),
+            spec: self.spec,
+        }
+    }
+}
+
+/// Do the convex `polygon` and `aabb` overlap by more than a touch? Separating
+/// axes: the box's two and each edge normal of the polygon. A shared face or
+/// corner is apart, as `Aabb::strict_intersects` has it, so a turned part
+/// whose bounds overlap a region it only touches is not in it.
+pub fn convex_strictly_overlaps(polygon: &[Vec2], aabb: Aabb) -> bool {
+    if polygon.is_empty() { return false; }
+    let apart = |axis: Vec2| {
+        let (lo, hi) = polygon.iter().map(|p| p.dot(axis))
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), d| (lo.min(d), hi.max(d)));
+        let corners = [aabb.min, Vec2::new(aabb.max.x, aabb.min.y), aabb.max, Vec2::new(aabb.min.x, aabb.max.y)];
+        let (box_lo, box_hi) = corners.iter().map(|p| p.dot(axis))
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), d| (lo.min(d), hi.max(d)));
+        hi <= box_lo || box_hi <= lo
+    };
+    if apart(Vec2::X) || apart(Vec2::Y) { return false; }
+    let edges = polygon.iter().zip(polygon.iter().cycle().skip(1));
+    !edges.map(|(a, b)| (*b - *a).perp()).filter(|n| *n != Vec2::ZERO).any(apart)
 }
 
 /// Snapshot of "the player's relationship to water" for one frame.
@@ -1825,20 +1860,23 @@ impl World {
             .water_regions
             .iter()
             .find(|r| r.aabb.strict_intersects(body))?;
-        let surface_y = region.aabb.top();
-        let body_h = body.height().max(1.0);
-        // y grows downward in this engine: a body whose top equals
-        // the surface is barely dipping in (submersion ≈ 0); a body
-        // whose top is below the surface by its full height is fully
-        // submerged (submersion = 1).
-        let depth_into_water = (body.top() - surface_y).max(0.0);
-        let submersion = (depth_into_water / body_h).clamp(0.0, 1.0);
-        Some(WaterContact {
-            kind: region.kind,
-            region_aabb: region.aabb,
-            surface_y,
-            submersion,
-            spec: region.spec,
+        Some(region.contact(body.top(), body.height()))
+    }
+
+    /// The water a body's admitted material is in: `parts` are its occupied
+    /// world polygons (`MotionAdmission::occupied`), cut at the openings it
+    /// is in and carried through them. The first region in native order that
+    /// any part overlaps by more than a touch wins, as in [`Self::water_at`].
+    /// Depth is measured as there: down from that region's surface to the
+    /// highest point of the parts in it, over `height`, the body's root box
+    /// height. One whole box part answers as `water_at` of that box.
+    pub fn water_touched(&self, parts: &[crate::frame::thread::OccupiedPart], height: f32) -> Option<WaterContact> {
+        self.water_regions.iter().find_map(|region| {
+            let top = parts.iter()
+                .filter(|part| part.strictly_overlaps(region.aabb))
+                .flat_map(|part| part.region.iter().map(|p| p.y))
+                .reduce(f32::min)?;
+            Some(region.contact(top, height))
         })
     }
 

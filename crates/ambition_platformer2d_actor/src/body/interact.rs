@@ -302,7 +302,7 @@ pub fn interact_ecs_actors_and_switches(
     // than a body to talk to, or not.
     // And the tick and the quest-cause log, which date a talk in the talker's
     // room (ISL-2d).
-    (mut switch_activated, rooms, seats, tick, mut quest_causes, objects, mut committed, selection): (
+    (mut switch_activated, rooms, seats, tick, mut quest_causes, objects, mut committed, selection, geometry): (
         MessageWriter<SwitchActivated>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<&ambition_characters::control::DrivingParticipant>,
@@ -312,6 +312,9 @@ pub fn interact_ecs_actors_and_switches(
         MessageWriter<ambition_platformer2d_interaction::ActivationCommitted>,
         // What each body's press is selected for, at the input cut.
         Option<Res<ambition_platformer2d_interaction::InteractSelection>>,
+        // The openings that cut a body: a switch is touched by its admitted
+        // material, as the selection had it.
+        Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     ),
     mut vfx: VfxWriter,
 ) {
@@ -340,7 +343,8 @@ pub fn interact_ecs_actors_and_switches(
         // A body reaches an NPC or a switch only in its own live room (OW1
         // cut 7b): two live rooms can hold one at the same position.
         let subject_room = live_rooms.of(subject);
-        let reach = InteractReach::of(subject_kin, subject_step, subject_frame, subject_room);
+        let reach = InteractReach::of(subject_kin, subject_step, subject_frame, subject_room,
+            geometry.as_deref().and_then(|geometry| geometry.motion_for(subject, subject_room)));
         // The door this body stands in, if any (`LiveRoomSpecs::nearest_door_under`).
         let door = rooms.nearest_door_under(subject, reach.collision_box(), subject_kin.pos);
         // WHO is doing the talking. A possessed body speaks as the character it IS;

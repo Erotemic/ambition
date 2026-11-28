@@ -78,6 +78,7 @@ mod swimming;
 mod sweep_sample;
 mod transit_record;
 mod wall_collision;
+mod water_through_openings;
 mod wire;
 mod grapple;
 mod world_edges;

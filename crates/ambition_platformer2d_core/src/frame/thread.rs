@@ -700,6 +700,23 @@ fn partition_from(
     result
 }
 
+/// One admitted part of a body's material ([`MotionAdmission::occupied`]):
+/// its world polygon, the links it went through, and the map that takes a
+/// point of its chart back to the root's chart.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OccupiedPart {
+    pub region: Vec<Vec2>,
+    pub path: Vec<u32>,
+    pub to_root: Sim2,
+}
+
+impl OccupiedPart {
+    /// Does this part overlap `aabb` by more than a touch?
+    pub fn strictly_overlaps(&self, aabb: crate::Aabb) -> bool {
+        crate::world::convex_strictly_overlaps(&self.region, aabb)
+    }
+}
+
 /// The aperture snapshot used by one body's movement operation.
 #[derive(Clone, Copy)]
 pub struct MotionAdmission<'a> {
@@ -757,6 +774,42 @@ pub fn step_window(admission: Option<MotionAdmission<'_>>) -> [f64; 2] {
 }
 
 impl MotionAdmission<'_> {
+    /// The world regions `source`, rooted at `root`, occupies at the start
+    /// of this admission's window: each admitted part's polygon, cut at the
+    /// openings it is in and carried through them. `None` when no link cuts
+    /// it: the whole material in its own chart, which a caller's direct
+    /// query of the root already answers exactly. A refusal is no answer, not
+    /// an empty body.
+    pub fn occupied(&self, source: MaterialPrimitive<'_>, root: Vec2) -> Result<Option<Vec<OccupiedPart>>, Refusal> {
+        let numeric = |path: &[u32], fault| Refusal { path: path.to_vec(), link: None, reason: RefusalReason::Numeric(fault) };
+        let posed: Vec<PortalLink>;
+        let links = if self.links.iter().any(|link| link.moves()) {
+            let time = self.span.window[0];
+            posed = self.links.iter().map(|link| {
+                let pose = link.snapshot_at(time).map_err(|fault| numeric(&[], fault))?;
+                Ok(PortalLink { depth: pose.depth, ..PortalLink::new(pose.enter, pose.exit, pose.key) })
+            }).collect::<Result<_, Refusal>>()?;
+            &posed[..]
+        } else { self.links };
+        let pieces = partition(source, root, links, self.first, self.budget, self.convention)?;
+        if let [whole] = &pieces[..] {
+            if whole.path.is_empty() && whole.source_bounds.is_empty() { return Ok(None); }
+        }
+        let mut parts = pieces.iter().filter_map(|piece| {
+            let region = piece.source_region_wide()?;
+            let part = (|| Ok(OccupiedPart {
+                region: region.into_iter().map(|p| piece.to_piece.point_from_wide(p)).collect::<Result<Vec<_>, _>>()?,
+                path: piece.path.clone(),
+                to_root: piece.path_transform()?.inverse()?,
+            }))();
+            Some(part.map_err(|fault| numeric(&piece.path, fault)))
+        }).collect::<Result<Vec<_>, _>>()?;
+        // The parts in the root's own chart come first: a reader that takes
+        // the first part reaching a target prefers the uncarried one.
+        parts.sort_by_key(|part| part.path.len());
+        Ok(Some(parts))
+    }
+
     /// Carry physical velocity through the recorded contact path.
     pub fn carry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2, time: f64) -> Result<Vec2, Refusal> {
         for (index, key) in path.iter().copied().enumerate() {

@@ -25,10 +25,11 @@ calling it done, and go on to the next.
    P3 is done (2026-11-27): aperture-rim contact is one cast primitive
    (`material_cast/rim.rs`), with adapters for character and ground-item
    movement, and the post-step snag writer is deleted. T3 landed the same
-   day: a room's replay keeps the hidden rooms' portal publication. What
-   remains in the row is the SUP1 cases that still read the rigid fit, and
-   the material-membership cut for water and switches. RV3 is handled
-   separately.
+   day: a room's replay keeps the hidden rooms' portal publication. Water
+   membership and chest/switch touch read the body's admitted parts (also
+   2026-11-27). What remains in the row is the SUP1 cases that still read
+   the rigid fit, then climbing through the same query (audit step 3). RV3
+   is handled separately.
 2. **Hobford polish (Jon, 2026-11-14).** [Hobford polish](game/hobford-polish.md)
    with [LEVEL-1](#level-1--the-lab-raid-and-the-first-level-after-it) and [LEVEL-TRUTH](#level-truth--authored-level-data-in-the-map-submodule-one-owner-per-room) for the level data. Story
    sequences SS1–SS6 and dark rooms and tunnels (DR1–DR3, TN1–TN3) are done;
@@ -2078,8 +2079,10 @@ adds two bounded continuations in this lane. T3 landed 2026-11-27: a
 room's replay replaces only that room's portal publication, and keeps each
 hidden room's links and each hidden body's entries
 ([receipt](engine/portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population)).
-Current material overlap makes water membership and physical switch touch
-read accepted parts, retaining their maps for response and preference.
+Water membership and chest/switch touch read accepted parts (landed
+2026-11-27, [receipt](engine/world-geometry-and-spatial-semantics.md#bounded-delivery-and-evidence)).
+Touch keeps the part's map for facing and preference. Climbing (step 3) and
+the observers and cost counts (step 4) remain.
 Keep discrete sampling, strict overlap and exact-box fast paths. These cuts
 do not wait for all P2–P6 work or select a universal zone redesign.
 

@@ -73,10 +73,13 @@ pub fn open_ecs_chests(
     mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     // And what each body's press is selected for (interaction I2).
-    (mut owned, items, selection): (
+    // And the openings that cut a body: a chest is touched by its admitted
+    // material, as the selection had it.
+    (mut owned, items, selection, geometry): (
         Option<ResMut<ambition_items::OwnedItems>>,
         ambition_items::ItemCatalogRead,
         Option<Res<ambition_platformer2d_interaction::InteractSelection>>,
+        Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     ),
     // What a chest gave: a retracted defeat takes back a boss reward
     // chest's, and a restore keeps an ordinary chest's while one of the
@@ -125,6 +128,7 @@ pub fn open_ecs_chests(
             subject_step,
             subject_frame,
             rooms.of(subject),
+            geometry.as_deref().and_then(|geometry| geometry.motion_for(subject, rooms.of(subject))),
         );
         // The press opens the chest it is selected for
         // (`select_interactions`, which ranked it against bodies, switches,

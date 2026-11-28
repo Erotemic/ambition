@@ -7,9 +7,12 @@ use serde_json::json;
 pub fn snapshot(world: &World) -> serde_json::Value {
     let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     use engine::characters::actor::{BodyHealth, CharacterForm};
+    use engine::platformer::camera_layers::MainCamera;
     use engine::platformer::lifecycle::{live_room_of, sole_live_room_entity, InRoomInstance, LiveRoomInstance};
     use engine::sprite_sheet::character::CharacterAnimator;
     use engine::render::rendering::actors::{BoundActorArt, BoundSpriteQuality, PlayerSpriteCharacter};
+    use engine::render::rendering::card_view::CardViewCamera;
+    use engine::render::rendering::cast_bubble::CastBubbleDisc;
     let sole_room = sole_live_room_entity(world).and_then(|room| world.get::<LiveRoomInstance>(room)).copied();
     let carry_load = world.get_resource::<engine::portal_presentation::PortalCarryAtlas>().map(|atlas| json!({
         "families":atlas.load.families,"texture_bytes":atlas.load.texture_bytes,
@@ -19,12 +22,32 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     let mut bodies = Vec::new();
     let mut visuals = Vec::new();
     let mut views = Vec::new();
+    let mut gameplay_outputs = Vec::new();
+    let mut visible_cast_bubbles = 0;
     let mut material_parts = Vec::new();
     let mut strikes = Vec::new();
     let mut items = Vec::new();
     let mut portal_drawables = Vec::new();
     let mut apertures = Vec::new();
     for entity in world.iter_entities() {
+        if let Some(camera) = entity.get::<Camera>() {
+            let renderer = if entity.contains::<CardViewCamera>() {
+                Some("card")
+            } else {
+                entity.contains::<MainCamera>().then_some("plane")
+            };
+            if let Some(renderer) = renderer {
+                gameplay_outputs.push(json!({
+                    "renderer": renderer,
+                    "active": camera.is_active,
+                    "target_size": camera.physical_target_size().map(|size| size.to_array()),
+                    "viewport_size": camera.physical_viewport_size().map(|size| size.to_array()),
+                }));
+            }
+        }
+        if entity.contains::<CastBubbleDisc>() && entity.get::<Visibility>() == Some(&Visibility::Visible) {
+            visible_cast_bubbles += 1;
+        }
         if let Some(portal) = entity.get::<engine::portal::PlacedPortal>() {
             apertures.push(json!({"channel":portal.channel.name(), "position":portal.pos.to_array(),
                 "normal":portal.normal.to_array(), "half_length":portal.half_length,
@@ -185,6 +208,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     bodies.sort_by_key(|row| row.to_string());
     visuals.sort_by_key(|row| row.to_string());
     views.sort_by_key(|row| row.to_string());
+    gameplay_outputs.sort_by_key(|row| row.to_string());
     let music = world.get_resource::<engine::audio::music::MusicDirectorState>().map(|director| json!({
         "mode": format!("{:?}", director.mode), "cue": director.active_cue_id,
         "base_track": world.get_resource::<engine::audio::library::MusicPlaybackState>().map(|state| state.active_track()),
@@ -201,6 +225,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "content_fingerprint": content,
         "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
         "portal_carry_load":carry_load,
+        "gameplay_outputs": gameplay_outputs, "visible_cast_bubbles": visible_cast_bubbles,
         "apertures":apertures,
         "bodies": bodies, "items": items, "visuals": visuals, "views": views, "music": music, "material_parts": material_parts, "strikes": strikes, "portal_drawables": portal_drawables})
 }

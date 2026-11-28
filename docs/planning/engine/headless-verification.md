@@ -86,6 +86,11 @@ capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
 
 - `--route` photographs routes (launcher, startup cards, versus stage).
   `--press` drives keys and touches through the route's own lobby.
+- On a gameplay route, use `--renderer plane`, `--renderer side-on`,
+  `--renderer oblique`, or `--card-view`. The host supplies the view and HUD.
+  Use the same `--at-tick` and scene options to compare two outputs. In a
+  match, `--player-at` moves the fighter in the first seat. `--art-snapshot`
+  records the active gameplay cameras and the number of visible fighter bubbles.
 - `--press-during N` opens the shutter N press-driving frames into the
   sequence. It exits 2 when the sequence ends before frame N, and it is
   refused without `--press` or with 0. `scripts/checks/verify_press_during_capture.sh`

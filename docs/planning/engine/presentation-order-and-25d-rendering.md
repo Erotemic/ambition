@@ -924,6 +924,12 @@ shared value preparation are sufficient until source proves otherwise.
    The Smash fighter bubble uses the primary output's projection and the
    fighter's presented position. A test switches between 2D, side-on,
    oblique, and inset views at the same fighter position.
+   Medium captures of `--route smash_gameplay` show the bubble in 2D and
+   side-on 2.5D after the fighter moves past the edge. At tick 150 with
+   `--player-at 950,260@148`, the tilted view still shows part of the
+   fighter and hides the bubble. All four captures use the same simulation
+   state and logical view. The first-use bubble draw can take extra frames
+   on software Vulkan.
 
    Ground shadows use the shared presented body position. Each shadow uses
    the floor and art of its live room. A test checks the sprite and card

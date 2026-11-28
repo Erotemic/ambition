@@ -225,7 +225,7 @@ struct SceneCaptureConfig {
     /// flash (`--player-flash TICK`), so where its flash is drawn can be
     /// photographed without a blow that lands on it.
     player_flash_from: Option<u64>,
-    /// The renderer to use for a room capture.
+    /// The renderer for the gameplay view.
     renderer: CardViewMode,
     /// The fog in front of the sky of the two-state room look
     /// (`--look-depth FOG,PATCHES`), to tune it with photographs: the numbers
@@ -301,6 +301,8 @@ struct SceneCaptureRuntime {
     /// Route mode only: the shell has been told where to go. One request, not
     /// one per frame — a `GoTo` every update would restart the route forever.
     route_requested: bool,
+    /// The shell reached the route where the capture starts.
+    route_ready: bool,
     /// How far through `--press` the driver is, and whether the tapped key is
     /// still held. A press and its release are two frames because the driven
     /// surfaces read edges.
@@ -414,14 +416,14 @@ OPTIONS:
                         TICK on, as a blow that lands lights it
     --card-view         draw the orthographic 3D card view (RV2) beside the
                         2D view, in the lower right of the same window
-    --renderer KIND     fill the image with plane (default), side-on, or
-                        oblique. Use the same scene options for each view.
+    --renderer KIND     draw the gameplay view in plane (default), side-on,
+                        or oblique. Works for rooms and gameplay routes.
     --at-tick TICK      take the first shot at this simulation tick. Take
                         later shots by --stride ticks. Enables --tick-per-frame.
     --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest or moving at VX,VY px/s;
-                        repeat for more places
+                        repeat for more places. In a match, use the first seat.
     --grapple X,Y[@TICK]
                         hang the player on the grapple's rope from world X,Y
                         on sim tick TICK [default: 1], as a bite there does,
@@ -608,6 +610,7 @@ fn main() {
 
     let mut app = build_capture_app(&config);
 
+    install_capture_presentation(&mut app, &config);
     match config.route.clone() {
         Some(route_id) => install_route_capture(&mut app, route_id),
         None => install_room_capture(&mut app),
@@ -617,6 +620,27 @@ fn main() {
     if let AppExit::Error(code) = app.run() {
         std::process::exit(i32::from(code.get()));
     }
+}
+
+fn install_capture_presentation(app: &mut App, config: &SceneCaptureConfig) {
+    if config.tick_per_frame {
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(one_tick()));
+        app.add_systems(Last, pace_the_clock_by_the_shots);
+    }
+    eprintln!("capture_scene: gameplay renderer {:?}", config.renderer);
+    if config.renderer != CardViewMode::Plane {
+        app.insert_resource(CardViewSettings::for_game(config.renderer));
+        app.add_plugins(CardViewPlugin);
+    }
+    app.init_resource::<PendingArtSnapshot>()
+        .add_systems(Last, write_art_snapshot);
+    app.add_systems(
+        PostUpdate,
+        target_dump::prepare_readback
+            .after(ambition_platformer2d::portal_presentation::carry_through_pairs)
+            .before(bevy::asset::AssetEventSystems),
+    );
+    app.add_systems(Last, target_dump::dump_targets);
 }
 
 /// The one app this tool builds.
@@ -1107,15 +1131,19 @@ fn hold_player_flash(
     }
 }
 
-/// `--player-at`: put the primary player at the configured point on its tick,
+/// `--player-at`: put the first match seat or primary player at a point on its tick,
 /// at rest or launched, through the motion authority (ADR 0024). A sim system that names
 /// its tick, as [`place_player_beside`] is.
 fn place_player_at(
     config: Res<SceneCaptureConfig>,
     tick: Res<ambition_platformer2d::time::SimTick>,
     mut player: Query<
-        (ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel),
-        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+        (ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel,
+            Option<&ambition_platformer2d::actor::MatchSeat>),
+        Or<(
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+            With<ambition_platformer2d::actor::MatchSeat>,
+        )>,
     >,
 ) {
     // A body that climbs is held in its place for some ticks more: the mode
@@ -1128,9 +1156,13 @@ fn place_player_at(
     else {
         return;
     };
-    let Ok((mut clusters, mut model)) = player.single_mut() else {
+    let mut subjects = player.iter_mut().filter(|(_, _, seat)| seat.is_none_or(|seat| seat.0 == 0));
+    let Some((mut clusters, mut model, _)) = subjects.next() else {
         return;
     };
+    if subjects.next().is_some() {
+        return;
+    }
     let mut clusters = clusters.as_clusters_mut();
     let launch = if vel == Vec2::ZERO {
         ae::movement::TransitVelocity::Zero
@@ -1584,10 +1616,6 @@ fn draw_no_limbs(
 
 /// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
-    if app.world().resource::<SceneCaptureConfig>().tick_per_frame {
-        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(one_tick()));
-        app.add_systems(Last, pace_the_clock_by_the_shots);
-    }
     if app.world().resource::<SceneCaptureConfig>().portal_effect_off {
         app.add_systems(Update, |mut selection: ResMut<ambition_platformer2d::portal_presentation::PortalEffectSelection>| {
             selection.active = ambition_platformer2d::portal_presentation::PortalVisualEffect::Off;
@@ -1595,12 +1623,6 @@ fn install_room_capture(app: &mut App) {
     }
     if !app.world().resource::<SceneCaptureConfig>().carry {
         app.insert_resource(ambition_platformer2d::portal_presentation::PortalCarrySelection { enabled: false });
-    }
-    let renderer = app.world().resource::<SceneCaptureConfig>().renderer;
-    eprintln!("capture_scene: room renderer {renderer:?}");
-    if renderer != CardViewMode::Plane {
-        app.insert_resource(CardViewSettings::for_game(renderer));
-        app.add_plugins(CardViewPlugin);
     }
     if app.world().resource::<SceneCaptureConfig>().limbs_unseen.is_some() {
         use ambition_platformer2d::render::rendering::actors::rigged::{RiggedDriveSet, follow_limb_twins};
@@ -1660,11 +1682,6 @@ fn install_room_capture(app: &mut App) {
             hide_the_front_parallax.before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
     }
-    app.add_systems(PostUpdate, target_dump::prepare_readback
-        .after(ambition_platformer2d::portal_presentation::carry_through_pairs)
-        .before(bevy::asset::AssetEventSystems));
-    app.add_systems(Last, target_dump::dump_targets);
-    app.init_resource::<PendingArtSnapshot>().add_systems(Last, write_art_snapshot);
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
@@ -2540,9 +2557,6 @@ impl SceneCaptureConfig {
             if !fractures.is_empty() {
                 return Err("--fracture requires a room".into());
             }
-            if renderer != CardViewMode::Plane || at_tick.is_some() {
-                return Err("Select a room to use --renderer, --card-view, or --at-tick".to_string());
-            }
             // Classify positionals instead of counting them, so an unexpected
             // argument is named before any work happens.
             let mut output: Option<PathBuf> = None;
@@ -2587,7 +2601,7 @@ impl SceneCaptureConfig {
                 gate_dials: Vec::new(),
                 hour: None,
                 wears: Vec::new(),
-                player_at: Vec::new(),
+                player_at,
                 player_dies: Vec::new(),
                 squash: None,
                 grapple: None,
@@ -2607,8 +2621,8 @@ impl SceneCaptureConfig {
                 limbs_unseen: None,
                 carry: true,
                 gear: Vec::new(),
-                tick_per_frame: false,
-                at_tick: None,
+                tick_per_frame: tick_per_frame || at_tick.is_some(),
+                at_tick,
                 guards: Vec::new(),
                 body_warp: None,
                 dev_overlays,
@@ -2621,7 +2635,7 @@ impl SceneCaptureConfig {
                 boss_hp,
                 boss_blows: Vec::new(),
                 player_flash_from: None,
-                renderer: CardViewMode::Plane,
+                renderer,
                 look_depth,
                 camera_zoom,
                 camera_roll,
@@ -2969,6 +2983,10 @@ fn install_route_capture(app: &mut App, route_id: String) {
         std::process::exit(2);
     }
 
+    if !app.world().resource::<SceneCaptureConfig>().player_at.is_empty() {
+        let sim_schedule = app.sim_schedule();
+        app.add_systems(sim_schedule, place_player_at);
+    }
     app.add_systems(Startup, setup_route_capture_target);
     app.add_systems(
         Update,
@@ -2998,25 +3016,27 @@ fn go_to_route(
     router: Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut commands: Commands,
 ) {
-    if runtime.route_requested {
+    if runtime.route_ready {
         return;
     }
-    let Some(route) = config.route.clone() else {
-        runtime.route_requested = true;
+    let Some(route) = config.route.as_deref() else {
         return;
     };
     let Some(active) = router.active.as_ref() else {
         // The shell has not settled yet; do not race its boot.
         return;
     };
-    runtime.route_requested = true;
     if active.route_id.as_str() == route {
+        runtime.route_ready = true;
         eprintln!(
-            "capture_scene: the shell is already on '{route}'; photographing it \
-             as booted rather than re-activating it"
+            "capture_scene: the shell reached '{route}'"
         );
         return;
     }
+    if runtime.route_requested {
+        return;
+    }
+    runtime.route_requested = true;
     // A smash move must be photographed under smash rules, so seat a cast.
     // `--route smash_gameplay` with no roster shows an empty stage. This uses
     // the same two steps as `moveset_takes::reseat` (a roster resource and
@@ -3037,9 +3057,7 @@ fn go_to_route(
             );
         }
     }
-    commands.write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-        ambition_platformer2d::game_shell::ShellRouteId::new(route),
-    ));
+    commands.write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(route.into()));
 }
 
 /// Create the image a route capture draws into, and nothing else.
@@ -3077,55 +3095,47 @@ fn setup_route_capture_target(
 /// A shell route has no cameras at `Startup` — it spawns them when the route composes, several
 /// frames in. The count is printed for that reason.
 ///
-/// Only the cameras that draw to a window are the route's view. A camera that
-/// draws into its own image (a rigged body's impostor atlas, a portal's view
-/// cone) is part of the picture's making and keeps its target: retargeted, its
-/// atlas stops being drawn, and on a frame where Bevy has sized its view for
-/// its own image but it draws into this one, the render pass fails validation
-/// and the app quits.
+/// Retarget the route's window cameras. The route controls their visibility
+/// and clear colors. Card cameras get their targets from their plane cameras.
 fn adopt_route_cameras(
     mut commands: Commands,
     target: Option<Res<SceneCaptureTarget>>,
     mut runtime: ResMut<SceneCaptureRuntime>,
-    mut cameras: Query<(Entity, &mut Camera, Option<&RenderTarget>)>,
+    mut cameras: Query<
+        (Entity, &Camera, &mut RenderTarget, Option<&mut Projection>, Option<&Msaa>),
+        Without<CardViewCamera>,
+    >,
+    cards: Query<(&Camera, &RenderTarget), With<CardViewCamera>>,
 ) {
     let Some(target_res) = target else {
         return;
     };
     let target = RenderTarget::Image(ImageRenderTarget::from(target_res.image.clone()));
-    // One target, several cameras, so only the first may clear it. A shell
-    // route composes a stack (world, UI, overlays); ordering by
-    // `Camera::order` and clearing only on the lowest composites the stack.
-    let mut ordered: Vec<(Entity, isize)> = cameras
-        .iter()
-        .filter(|(_, _, drawn_to)| match drawn_to {
-            Some(RenderTarget::Image(image)) => image.handle == target_res.image,
-            _ => true,
-        })
-        .map(|(entity, camera, _)| (entity, camera.order))
-        .collect();
-    ordered.sort_by_key(|(entity, order)| (*order, entity.index()));
-    for (rank, (entity, order)) in ordered.iter().enumerate() {
-        if let Ok((_, mut camera, _)) = cameras.get_mut(*entity) {
-            camera.is_active = true;
-            camera.clear_color = if rank == 0 {
-                ClearColorConfig::Default
-            } else {
-                ClearColorConfig::None
-            };
+    let mut ready = 0;
+    for (entity, camera, mut output, projection, msaa) in &mut cameras {
+        if matches!(&*output, RenderTarget::Window(_)) {
+            *output = target.clone();
+            // Bevy measures the target when the projection changes.
+            if let Some(mut projection) = projection {
+                projection.set_changed();
+            }
+        } else if output.as_image() == Some(&target_res.image) {
+            ready += usize::from(camera.is_active && camera.physical_target_size().is_some());
+        } else {
+            continue;
         }
-        commands.entity(*entity).insert((target.clone(), Msaa::Off));
-        eprintln!(
-            "capture_scene: camera {rank} (order {order}) -> capture image{}",
-            if rank == 0 { ", clears" } else { ", overlays" }
-        );
+        if msaa != Some(&Msaa::Off) {
+            commands.entity(entity).try_insert(Msaa::Off);
+        }
     }
-    if ordered.len() != runtime.cameras_adopted {
-        eprintln!(
-            "capture_scene: retargeted {} camera(s) to the capture image",
-            ordered.len()
-        );
-        runtime.cameras_adopted = ordered.len();
+    ready += cards.iter().filter(|(camera, output)| {
+        camera.is_active
+            && camera.physical_target_size().is_some()
+            && output.as_image() == Some(&target_res.image)
+    }).count();
+    if ready != runtime.cameras_adopted {
+        eprintln!("capture_scene: {ready} active camera(s) on the capture image");
+        runtime.cameras_adopted = ready;
     }
 }
 
@@ -3907,6 +3917,9 @@ fn request_capture(
         }
         return;
     }
+    if config.route.is_some() && !runtime.route_ready {
+        return;
+    }
     if runtime.press_during_missed {
         runtime.failed = true;
         runtime.requested = true;
@@ -4221,7 +4234,12 @@ fn fail_after_timeout(
     // Whatever the readiness policies may legitimately still be waiting for,
     // plus the same slack the readback itself gets.
     // Scripted input frames do not use the readback budget.
-    let budget = config.warmup_frames.max(1)
+    let last_tick = config.at_tick.map_or(0, |first| {
+        let offset = (config.frames.saturating_sub(1) as u64).saturating_mul(u64::from(config.stride));
+        let tick = first.saturating_add(offset);
+        u32::try_from(tick).unwrap_or(u32::MAX)
+    });
+    let budget = config.warmup_frames.max(1).max(last_tick)
         .saturating_add(runtime.press_frames)
         .saturating_add(ROUTE_CAMERA_GRACE_FRAMES);
     if runtime.frames > budget || runtime.wait_frames > 600 {
@@ -4285,6 +4303,34 @@ fn looks_like_image_path(value: &str) -> bool {
 fn parse_image_size(text: &str) -> Option<UVec2> {
     let (w, h) = text.split_once('x').or_else(|| text.split_once('X'))?;
     Some(UVec2::new(w.trim().parse().ok()?, h.trim().parse().ok()?))
+}
+
+#[cfg(test)]
+#[test]
+fn capture_preserves_camera_ownership_on_a_route() {
+    use bevy::ecs::system::RunSystemOnce;
+
+    let mut world = World::new();
+    let mut images = Assets::<Image>::default();
+    let capture = images.add(Image::default());
+    let private = images.add(Image::default());
+    world.insert_resource(SceneCaptureTarget { image: capture.clone() });
+    world.init_resource::<SceneCaptureRuntime>();
+    let plane = world.spawn((Camera2d, Camera {
+        is_active: false,
+        clear_color: ClearColorConfig::None,
+        ..default()
+    })).id();
+    let atlas = world.spawn((Camera2d, RenderTarget::Image(private.clone().into()))).id();
+    let card = world.spawn((Camera3d::default(), CardViewCamera)).id();
+
+    world.run_system_once(adopt_route_cameras).unwrap();
+    let plane_camera = world.get::<Camera>(plane).unwrap();
+    assert!(!plane_camera.is_active);
+    assert!(matches!(plane_camera.clear_color, ClearColorConfig::None));
+    assert_eq!(world.get::<RenderTarget>(plane).unwrap().as_image(), Some(&capture));
+    assert_eq!(world.get::<RenderTarget>(atlas).unwrap().as_image(), Some(&private));
+    assert!(matches!(world.get::<RenderTarget>(card), Some(RenderTarget::Window(_))));
 }
 
 #[cfg(test)]

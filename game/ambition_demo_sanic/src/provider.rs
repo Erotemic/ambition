@@ -107,6 +107,20 @@ pub struct SanicExperiencePlugin;
 impl Plugin for SanicExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_sanic_content(app);
+        // A development build reads the three acts off disk, so the
+        // developer's world reload reads them again into the running session.
+        ambition_platformer2d::provider::declare_world_reload_source(
+            app,
+            SANIC_EXPERIENCE,
+            ambition_platformer2d::provider::WorldReloadSource {
+                files: [&crate::SPEEDWAY_WORLD, &crate::HIGHWAY_WORLD, &crate::DARKNESS_WORLD]
+                    .into_iter()
+                    .filter(|world| world.embedded.is_none())
+                    .map(|world| std::path::PathBuf::from(world.file))
+                    .collect(),
+                read: read_sanic_world,
+            },
+        );
         let pack = crate::pack::PACK.selected_in(app.world());
         let text = crate::text::sanic_text_in(&pack);
         PlatformerExperienceAuthoring::new(
@@ -187,6 +201,35 @@ fn sanic_prepared_session_world(
         source.geometry,
         source.starting_character,
     )
+}
+
+/// The three acts, read from their files at `paths` (speedway, highway,
+/// darkness): what the developer's world reload publishes into the running
+/// session.
+fn read_sanic_world(
+    world: &World,
+    paths: &[std::path::PathBuf],
+    active: &PreparedPlatformerSource,
+) -> Result<PreparedPlatformerSource, Vec<String>> {
+    let [speedway, highway, darkness] = paths else {
+        return Err(vec![format!("Sanic's world is three act files; {} are watched", paths.len())]);
+    };
+    let read = |path: &std::path::PathBuf| {
+        std::fs::read_to_string(path).map_err(|error| vec![format!("{} is not readable: {error}", path.display())])
+    };
+    let sprite_content = world
+        .get_resource::<ambition_platformer2d::sprite_sheet::SpriteContent>()
+        .ok_or_else(|| vec!["the sprite content is not installed".to_string()])?;
+    let generation = crate::pack::PACK.selected_in(world);
+    let rooms = vec![
+        crate::sanic_speedway_from(&generation, sprite_content, &read(speedway)?)?,
+        crate::sanic_highway_from(&generation, sprite_content, &read(highway)?)?,
+        crate::sanic_darkness_from(&generation, sprite_content, &read(darkness)?)?,
+    ];
+    let room_set = RoomSet::try_from_parts(active.active_room_id(), rooms, Vec::new())
+        .map_err(|refused| vec![refused.to_string()])?;
+    let geometry = ae::RoomGeometry(room_set.activation_spec().world.clone());
+    Ok(active.with_world(room_set, geometry))
 }
 
 /// The slot id Sanic's ring tally publishes into. Opaque to the engine.

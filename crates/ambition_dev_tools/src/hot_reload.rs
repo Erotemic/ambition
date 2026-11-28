@@ -35,6 +35,9 @@ pub struct WorldSourceHotReload {
     /// `None` for bundled / web / embedded profiles — the watcher is
     /// effectively disabled there.
     pub watch_path: Option<PathBuf>,
+    /// The provider's other world files, after `watch_path`: a change to any
+    /// of them is a change to the world.
+    pub also_watched: Vec<PathBuf>,
     /// The world provider whose file `watch_path` is: the running session's.
     /// The watch follows the session to another provider's world.
     pub world_provider: Option<String>,
@@ -50,6 +53,7 @@ impl Default for WorldSourceHotReload {
             last_errors: Vec::new(),
             applied_count: 0,
             watch_path: None,
+            also_watched: Vec::new(),
             world_provider: None,
         }
     }
@@ -83,18 +87,38 @@ impl WorldSourceHotReload {
         }
     }
 
-    /// Watch `world_provider`'s file (`None`: it has none to watch, for
+    /// Watch `world_provider`'s files (none: it has none to watch, for
     /// `reason`). The developer's auto-apply choice and the count of applied
-    /// reloads carry over; a change pending for the previous file does not.
-    pub fn follow(&mut self, world_provider: &str, file: Option<PathBuf>, reason: impl Into<String>) {
-        let mut next = match file {
+    /// reloads carry over; a change pending for the previous files does not.
+    pub fn follow(&mut self, world_provider: &str, files: Vec<PathBuf>, reason: impl Into<String>) {
+        let mut files = files.into_iter();
+        let mut next = match files.next() {
             Some(path) => Self::watching(path),
             None => Self::unavailable(reason),
         };
+        next.also_watched = files.collect();
+        if next.watch_path.is_some() {
+            next.last_modified = next.newest_modified().ok();
+        }
         next.auto_apply = self.auto_apply;
         next.applied_count = self.applied_count;
         next.world_provider = Some(world_provider.to_string());
         *self = next;
+    }
+
+    /// Every watched file: `watch_path`, then `also_watched`.
+    pub fn watched(&self) -> Vec<PathBuf> {
+        self.watch_path.iter().chain(&self.also_watched).cloned().collect()
+    }
+
+    /// The latest modification time of the watched files.
+    fn newest_modified(&self) -> Result<SystemTime, String> {
+        let mut newest = None;
+        for path in self.watched() {
+            let modified = modified_time_for(&path)?;
+            newest = Some(newest.map_or(modified, |held: SystemTime| held.max(modified)));
+        }
+        newest.ok_or_else(|| "no world file is watched".to_string())
     }
 
     pub fn mark_pending(&mut self, modified: SystemTime) {
@@ -168,11 +192,11 @@ pub fn poll_world_source_changes(
         return;
     }
     *poll_timer = 0.35;
-    // Reading the armed path is not a change to it.
-    let Some(path) = state.bypass_change_detection().watch_path.clone() else {
+    // Reading the armed paths is not a change to them.
+    if state.bypass_change_detection().watch_path.is_none() {
         return; // Profile doesn't support watching — stay idle.
-    };
-    let Ok(modified) = modified_time_for(&path) else {
+    }
+    let Ok(modified) = state.bypass_change_detection().newest_modified() else {
         return;
     };
     let last_modified = state.bypass_change_detection().last_modified;

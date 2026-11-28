@@ -177,13 +177,16 @@ publication rebuilds the live rooms from it. Ambition's reader is its LDtk
 project (`ambition_content::world_preparation`); Mary-O's is her world file
 through her own room conversion. Before this, a hosted Mary-O watched
 Ambition's file, and F11 refused with "would delete the current room".
-Witness: `a_world_reload_in_her_running_session_reads_her_world` (her
-watch, then an edited 1-1 biome reaching her live room).
+A provider may state several files (Sanic's three acts): the watch polls
+them all (`WorldSourceHotReload::watched`), and the reader takes them in
+the declared order. Sanic's acts build from text through
+`sanic_*_from`, which refuse a bad file instead of panicking.
+Witnesses: `a_world_reload_in_her_running_session_reads_her_world` (her
+watch, then an edited 1-1 biome reaching her live room) and
+`a_world_reload_in_a_running_sanic_reads_its_three_acts`.
 
-**Still open:** Sanic's world is three act files under one provider, and
-the watch holds one path; it needs a watch of several files. A world
-provider that states no source is refused by name. The standalone demo
-binaries do not install the developer reload.
+**Still open:** a world provider that states no source is refused by name.
+The standalone demo binaries do not install the developer reload.
 Runtime sprite publication is separate from reading tables without a rebuild;
 see the visual-generation acceptance in I3 below.
 
@@ -272,8 +275,8 @@ refused and requires restart.
 - I3c scenario pin/replay, changed-section explanation, activation status,
   and generation-aware cancellation. Keep refusal, unchanged-content and
   sealed-candidate behavior explicit.
-- Running-demo world reload: Mary-O's landed 2026-11-28 (see "Still
-  open" above); Sanic's needs a watch of several files.
+- Running-demo world reload: Mary-O's and Sanic's landed 2026-11-28 (see
+  "Running-demo world reload" above).
 
 **Reference contracts:** `content-generation-and-reload.md`,
 `immutable-content-and-transactional-construction.md`, `netcode.md`.

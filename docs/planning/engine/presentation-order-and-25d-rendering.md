@@ -1157,6 +1157,15 @@ shared value preparation are sufficient until source proves otherwise.
    resident images and 834 MB of decoded data in each mode. The camera
    census counts both gameplay output types. Hardware measurements are open.
 
+   The card renderer allocates a rig container when the sample has a draw.
+   Sheet bodies and scenery with one quad use the union of the card outputs
+   to select draws. The test uses each card's depth and extent in the output's
+   projection. A card that leaves the view releases its mesh and material
+   handles and keeps its entity for reuse. In the Hall's side-on capture,
+   the same 224 mesh entities were visible with 1,049 mesh entities in the
+   scene, down from 1,855. The count of empty rig containers went from 448
+   to zero. The frame-time change on llvmpipe was small.
+
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.
 Keep the maintainer's product order in the queue.

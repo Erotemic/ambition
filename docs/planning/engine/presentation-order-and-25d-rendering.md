@@ -1011,6 +1011,9 @@ shared value preparation are sufficient until source proves otherwise.
    portal can request the quad before the 2D draw binding exists. Medium
    captures show the flash behind the workshop cart rail and on both ends
    of a portal crossing. High captures check the shader glow in both views.
+   The 2D sort pass reads the current mesh depth and the prepared material
+   bias for retained draws. A Medium capture checks the flash as Scout
+   moves from the cart to the floor and back.
 
    Cards and sprite effects use the same texture region. A crop uses
    coordinates relative to the atlas cell. An Ultra capture checks both

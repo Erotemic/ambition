@@ -863,22 +863,10 @@ fn overlay_transform_from_source(
     anchor: Option<&Anchor>,
     render_size: Vec2,
 ) -> Transform {
-    // The source's own scale is its body material (portal scale, and a
-    // negative x for a reflected body), so the quad and its anchor offset
-    // take it too: a blink drawn at the authored size outlined a shrunk body
-    // at full size.
-    let anchor_offset = anchor_to_mesh_offset(anchor, render_size) * source.scale.truncate();
-    let world_offset = source.rotation.mul_vec3(anchor_offset.extend(0.0));
-    let mut transform = *source;
-    transform.translation += world_offset;
+    let anchor = anchor.map_or(Vec2::ZERO, |anchor| anchor.0);
+    let mut transform = ambition_sprite_fx::place_anchored_quad(source, anchor, render_size);
     transform.translation.z += FLASH_OVERLAY_Z_BIAS;
-    transform.scale = (render_size * source.scale.truncate()).extend(source.scale.z);
     transform
-}
-
-fn anchor_to_mesh_offset(anchor: Option<&Anchor>, render_size: Vec2) -> Vec2 {
-    let anchor = anchor.map(|a| a.0).unwrap_or(Vec2::ZERO);
-    -anchor * render_size
 }
 
 fn flip_flag(sprite: &Sprite) -> f32 {

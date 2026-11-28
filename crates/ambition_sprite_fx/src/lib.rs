@@ -30,6 +30,10 @@ use bevy::render::render_resource::AsBindGroup;
 use bevy::shader::ShaderRef;
 use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 
+mod quad;
+
+pub use quad::{anchored_quad_corners, place_anchored_quad};
+
 /// One simple visual manipulation of a sprite's own pixels.
 ///
 /// Attach beside a `Sprite`. [`apply_free_sprite_effects`] applies the ones the
@@ -379,10 +383,8 @@ pub fn draw_following_sprite_effects(
                 )
             })
             .clone();
-        // The sprite's quad pivots on its anchor: the frame's centre is
-        // `-anchor * size` from the entity.
-        let offset = -anchor.map_or(Vec2::ZERO, |anchor| anchor.0) * basis.size;
-        let placed = Transform::from_translation(offset.extend(0.0)).with_scale(basis.size.extend(1.0));
+        let anchor = anchor.map_or(Vec2::ZERO, |anchor| anchor.0);
+        let placed = place_anchored_quad(&Transform::IDENTITY, anchor, basis.size);
         match source.and_then(|source| quads.get_mut(source.quad).ok()) {
             Some((mut transform, mut drawn)) => {
                 transform.set_if_neq(placed);

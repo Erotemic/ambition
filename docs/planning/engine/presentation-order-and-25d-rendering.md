@@ -1022,6 +1022,11 @@ shared value preparation are sufficient until source proves otherwise.
    all six modes with wide and tall bounds, a crop, a flip, and an offset
    anchor. The 2D and side-on images agree within one color value per channel.
 
+   Sprite cards, following effects, hit flashes, and portal pieces use the
+   same quad placement rules. Ambition's creature overlays apply the source
+   scale to both the anchor offset and the quad. A test checks a scaled,
+   reflected frame with an offset anchor.
+
    Card caches keep meshes and materials that a draw used recently.
    Hidden sprite cards release their handles. The last view releases the card
    products when it closes. The cache uses the same rounded color for
@@ -1087,6 +1092,9 @@ shared value preparation are sufficient until source proves otherwise.
    A backdrop uses the routed width of the inset. When the view switches
    from a zoomed inset to full-screen 2.5D, the backdrop uses the same
    size and offset as the 2D view.
+   A Medium desktop run in Portal Lab switched through all four modes with
+   the pause cube open. The inset and cube drew after a resize from
+   1600×900 to 1280×800. Escape closed the cube in the same room.
 
    Each portal capture draws its own backdrop from the room it serves.
    Local views, card outputs, menus, and portal captures use separate

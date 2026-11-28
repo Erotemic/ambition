@@ -464,12 +464,8 @@ fn overlay_transform_from_source(
 /// at `source` with `anchor` and `render_size`, `z_bias` in front of it. Shared
 /// by the content overlays that draw over an actor's sprite.
 pub(crate) fn sibling_quad_transform(source: &Transform, anchor: Option<Vec2>, render_size: Vec2, z_bias: f32) -> Transform {
-    let anchor_offset = -anchor.unwrap_or(Vec2::ZERO) * render_size;
-    let world_offset = source.rotation.mul_vec3(anchor_offset.extend(0.0));
-    let mut transform = *source;
-    transform.translation += world_offset;
+    let mut transform = ambition_sprite_fx::place_anchored_quad(source, anchor.unwrap_or(Vec2::ZERO), render_size);
     transform.translation.z += z_bias;
-    transform.scale = render_size.extend(1.0);
     transform
 }
 
@@ -494,4 +490,28 @@ fn seed_from_id(id: &str) -> f32 {
         hash = hash.wrapping_mul(0x01000193);
     }
     (hash & 0x00ff_ffff) as f32 / 16_777_216.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sibling_quad_transform;
+    use bevy::math::{Quat, Vec2, Vec3};
+    use bevy::transform::components::Transform;
+
+    #[test]
+    fn a_reflected_sprites_overlay_covers_the_scaled_frame() {
+        let sprite = Transform::from_xyz(4.0, 9.0, 10.0)
+            .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2))
+            .with_scale(Vec3::new(-0.5, 2.0, 1.0));
+        let quad = sibling_quad_transform(
+            &sprite,
+            Some(Vec2::new(0.25, -0.5)),
+            Vec2::new(56.0, 22.0),
+            0.9,
+        );
+        assert!(quad.transform_point(Vec3::new(-0.5, 0.5, 0.0))
+            .abs_diff_eq(Vec3::new(-40.0, 30.0, 10.9), 1e-4));
+        assert!(quad.transform_point(Vec3::new(0.5, -0.5, 0.0))
+            .abs_diff_eq(Vec3::new(4.0, 2.0, 10.9), 1e-4));
+    }
 }

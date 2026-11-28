@@ -252,7 +252,7 @@ pub fn sync_flames(
             render_size,
             FLAME_Z_BIAS,
         );
-        overlay_transform.scale = (render_size * FLAME_SPREAD).extend(1.0);
+        overlay_transform.scale *= Vec2::splat(FLAME_SPREAD).extend(1.0);
         *overlay_visibility = Visibility::Visible;
         if let Some(mut material) = materials.get_mut(&draw.material) {
             material.uv_rect = uv_rect;

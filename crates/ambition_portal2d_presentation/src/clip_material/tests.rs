@@ -130,33 +130,26 @@ fn frame_basis_none_when_texture_missing() {
     assert!(sprite_frame_basis(&sprite, &layouts, &images).is_none());
 }
 
-/// The embedded WGSL parses and validates under the same naga wgpu runs at
-/// runtime — a shader typo fails here instead of on first launch. Bevy's
-/// preprocessor directives are stubbed the way Bevy resolves them (the
-/// mesh2d vertex-output import, the bind-group substitution), for a camera
-/// blending in either space (`SRGB_OUTPUT` defined or not).
+/// Validate the shader with the shared fragment inputs for each backend.
 #[test]
 fn portal_clip_wgsl_parses_and_validates() {
-    let vertex_output = r#"
-struct VertexOutput {
-@builtin(position) position: vec4<f32>,
-@location(0) world_position: vec4<f32>,
-@location(1) world_normal: vec3<f32>,
-@location(2) uv: vec2<f32>,
-}
-"#;
+    let fragment_inputs = include_str!("../../../ambition_sprite_fx/src/shaders/mesh_fragment.wgsl")
+        .replace("#define_import_path ambition_sprite_fx::mesh_fragment", "")
+        .replace("#import bevy_render::view::View",
+            "struct View { world_from_view: mat4x4<f32>, world_position: vec3<f32> }")
+        .replace("#import bevy_render::globals::Globals", "struct Globals { time: f32 }");
     let linear_to_srgb = "fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> { return pow(color, vec3<f32>(1.0 / 2.2)); }";
     for (card_mesh, srgb_output) in [(false, false), (false, true), (true, false), (true, true)] {
-        let definitions = [("AMBITION_CARD_MESH", card_mesh), ("SRGB_OUTPUT", srgb_output)];
-        let vertex_import = if card_mesh {
-            "#import bevy_pbr::forward_io::VertexOutput"
-        } else {
-            "#import bevy_sprite::mesh2d_vertex_output::VertexOutput"
-        };
+        let definitions = [
+            ("AMBITION_CARD_MESH", card_mesh),
+            ("SRGB_OUTPUT", srgb_output),
+            ("VERTEX_UVS_A", true),
+            ("VERTEX_COLORS", false),
+        ];
         let source = include_str!("../shaders/portal_clip.wgsl")
-            .replace(vertex_import, vertex_output)
+            .replace("#import ambition_sprite_fx::mesh_fragment::MeshFragment", &fragment_inputs)
             .replace("#import bevy_render::color_operations::linear_to_srgb", linear_to_srgb)
-            .replace("#{MATERIAL_BIND_GROUP}", "2");
+            .replace("#{MATERIAL_BIND_GROUP}", if card_mesh { "3" } else { "2" });
         let source = resolve_ifdefs(&source, &definitions);
         let module = naga::front::wgsl::parse_str(&source)
             .unwrap_or_else(|error| panic!("portal_clip.wgsl parses with {definitions:?}: {error}"));

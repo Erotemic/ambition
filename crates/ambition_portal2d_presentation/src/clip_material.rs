@@ -10,6 +10,8 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 
 use crate::PortalWorldFrame;
 
+pub use ambition_sprite_fx::place_anchored_quad as clip_piece_transform;
+
 /// Texture and colour for a clipped material region.
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone, PartialEq)]
 pub struct PortalClipMaterial {
@@ -282,20 +284,6 @@ pub fn clip_plane_render(frame: &PortalWorldFrame, point: Vec2, normal: Vec2) ->
 // `SpriteFrameBasis` / `sprite_frame_basis` live in `ambition_sprite_fx` (they
 // are not portal concepts) and are re-exported so callers are unchanged.
 pub use ambition_sprite_fx::{sprite_frame_basis, SpriteFrameBasis};
-
-/// Pose a piece quad so it draws exactly where the source sprite would: the
-/// unit rect is scaled to the drawn size, and the sprite's anchor becomes a
-/// rotated world offset (a mesh quad is center-origin; a sprite pivots on its
-/// anchor). `base` carries translation (incl. z), rotation, and any extra
-/// sprite scale.
-pub fn clip_piece_transform(base: &Transform, anchor: Vec2, size: Vec2) -> Transform {
-    let offset = base.rotation * (-anchor * size * base.scale.truncate()).extend(0.0);
-    Transform {
-        translation: base.translation + offset,
-        rotation: base.rotation,
-        scale: (size * base.scale.truncate()).extend(1.0),
-    }
-}
 
 #[cfg(test)]
 mod tests;

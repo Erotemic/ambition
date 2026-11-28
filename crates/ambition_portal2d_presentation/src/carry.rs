@@ -705,7 +705,7 @@ pub fn carry_through_pairs(
                 (carry.z, PortalCarryOrder::Entry(carry.drawable), "Portal carry piece (here)")
             };
             let base = Transform { translation: carry.frame.to_render(mapped_middle, depth),
-                rotation: Quat::from_rotation_z(copy.rolled(0.0)), scale: Vec3::splat(copy.scale) };
+                rotation: Quat::from_rotation_z(copy.rolled(0.0)), scale: Vec2::splat(copy.scale).extend(1.0) };
             let flip = copy.flip_x;
             let pose = clip_piece_transform(&base, Vec2::ZERO, source_size);
             pool.0.draw(

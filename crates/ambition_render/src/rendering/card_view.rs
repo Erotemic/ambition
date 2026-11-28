@@ -738,8 +738,7 @@ impl TextureQuad {
     }
 
     fn corners(self) -> (Vec2, Vec2) {
-        let half = Vec2::splat(0.5);
-        ((-half - self.anchor) * self.size, (half - self.anchor) * self.size)
+        ambition_sprite_fx::anchored_quad_corners(self.size, self.anchor)
     }
 
     fn vertices(self) -> ([[f32; 3]; 4], [[f32; 2]; 4]) {

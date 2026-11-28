@@ -492,7 +492,8 @@ authored or provider-staged occurrence) and comes back when a body with
 that identity is built again.
 
 **Open:** `Checkpoint` eligibility (no road; such a schema is refused at
-admission); durable references to unloaded entities; measurement of record
+admission). No shipped module schema declares it, so it waits for a
+customer; durable references to unloaded entities; measurement of record
 visits and copied bytes.
 
 **Rules:** schema descriptors live in immutable generation metadata. Register
@@ -549,8 +550,16 @@ for Bevy internals or several production language bindings.
 
 - The shipped app's own local session (the `LocallyRebasable` arm) taking a
   module reload has no test; the harness cannot construct that ownership.
-- Deterministic cancellation and occurrence cleanup: a despawn, interrupted
-  move or room retirement must not leak references or repeat requests.
+- Deterministic cancellation and occurrence cleanup, measured 2026-11-28
+  with no defect found. A module's records are components of their entity,
+  so a despawn or a room retirement takes them; a request queued for a gone
+  entity yields nothing
+  (`private_behavior_records_share_a_subject_without_sharing_state_or_receipts`).
+  A cancellation is its own control request (AC2). A special is invoked
+  once per action message and carries its move instance, so an interrupted
+  move cannot repeat it. A held status keeps invoking its module each tick
+  (`ambition.body.status_tick`), which ends it. A new move-invoked port must
+  state its own interruption rule.
 - Source-map diagnostics in the agent tool road.
 - The graph fixture is not a shipped mechanic.
 

@@ -14,11 +14,14 @@
 //!   named, and the running pack stays.
 //! - A save that changes no content publishes nothing.
 //! - The game names the schemas it reads where it uses them (`live`), and the
-//!   schemas it read once at start but can state again (`restated`: each with
-//!   the function that states it again from the new generation). A change to
+//!   schemas it read once at start but can state again (`restated`: each
+//!   owner's product, admitted again from the new generation). A change to
 //!   another schema is refused: the game read that schema once when it
 //!   started (its cast, its move tables, its audio), so a publication would
 //!   give a mix of two generations. Restart to play that edit.
+//! - A publication is all of its owners or none: every affected product is
+//!   admitted from the candidate before the pack is selected, and one
+//!   refusal keeps the running pack and every product.
 //! - Nothing is published while a route is preparing a session. Between
 //!   sessions each admitted change is published. Inside a session only a
 //!   change to `live` schemas is, and only where the rollback timeline allows
@@ -45,9 +48,9 @@ const POLL_FRAMES: u32 = 20;
 /// rules for when).
 ///
 /// `live` are the schemas the game reads where it uses them, each through
-/// `pack.prepared()` at that time. `restated` are the schemas it read once at
-/// start, each with the function that states it again. With an embedded pack
-/// it adds nothing.
+/// `pack.prepared()` at that time. `restated` are the products it built once
+/// at start, each with the schemas it reads and how it is admitted again
+/// ([`Restater`]). With an embedded pack it adds nothing.
 ///
 /// Add it where the game reads the pack: a second add of one pack adds its
 /// schemas to the same watch, so the code that reads a schema at start can
@@ -60,14 +63,26 @@ pub struct EmbeddedPackReloadPlugin {
     pub restated: Vec<Restater>,
 }
 
-/// A schema the game read once at start, and how to state it again.
+/// An owner's product the game built once at start from some of the pack's
+/// schemas, and how to build it again.
+///
+/// A publication prepares every affected owner from the candidate before it
+/// changes anything: each preparation reads the World and admits its product
+/// or refuses it. Only when all of them admit is the pack selected and each
+/// [`Commit`] run, so a refusal leaves the old pack and every product as they
+/// were.
 #[derive(Clone)]
 pub struct Restater {
-    pub schema: &'static str,
-    /// States the schema again from the published generation. It runs
-    /// between two sessions, after the publication, when the schema changed.
-    pub restate: std::sync::Arc<dyn Fn(&mut World, &PreparedContentPack) + Send + Sync>,
+    /// The schemas the product is read from. An edit to any of them prepares
+    /// it once, however many of them changed.
+    pub schemas: Vec<&'static str>,
+    /// Admit the product from the candidate generation, changing nothing.
+    pub prepare: std::sync::Arc<dyn Fn(&World, &PreparedContentPack) -> Result<Commit, String> + Send + Sync>,
 }
+
+/// An admitted product's installation. It runs after the candidate is
+/// selected, with that generation, and it cannot refuse.
+pub type Commit = Box<dyn FnOnce(&mut World, &PreparedContentPack) + Send>;
 
 impl EmbeddedPackReloadPlugin {
     /// The pack's `room_rules`, declared in `scope` once at start
@@ -113,7 +128,9 @@ impl EmbeddedPackReloadPlugin {
         use crate::sprite_sheet::prop_sheets::{lowered_prop_sheets, PROP_SHEETS_SCHEMA};
         let rows = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();
         Self::owning_rows(pack, PROP_SHEETS_SCHEMA, rows(&pack.prepared()).into_keys().collect(), move |world, owned, pack| {
-            crate::game_assets::restate_prop_sheet_rows(world, world_provider, owned, &rows(pack))
+            let admitted = crate::game_assets::admit_prop_sheet_rows(world, world_provider, owned, &rows(pack))?;
+            let kinds = admitted.kinds.clone();
+            Ok((kinds, Box::new(move |world: &mut World| crate::game_assets::commit_prop_sheet_rows(world, admitted))))
         })
     }
 
@@ -126,9 +143,7 @@ impl EmbeddedPackReloadPlugin {
         use crate::sprite_sheet::prop_sheets::{lowered_platform_looks, PLATFORM_LOOKS_SCHEMA};
         let rows = |pack: &PreparedContentPack| lowered_platform_looks(pack).cloned().unwrap_or_default();
         Self::owning_rows(pack, PLATFORM_LOOKS_SCHEMA, rows(&pack.prepared()).into_keys().collect(), move |world, owned, pack| {
-            world
-                .get_resource_or_insert_with(PlatformLooks::default)
-                .restate(owned.iter().map(String::as_str), &rows(pack))
+            on_a_copy::<PlatformLooks>(world, |looks| looks.restate(owned.iter().map(String::as_str), &rows(pack)))
         })
     }
 
@@ -140,9 +155,7 @@ impl EmbeddedPackReloadPlugin {
         use crate::projectiles::ProjectileVisualCatalog;
         let rows = |pack: &PreparedContentPack| lowered_projectile_looks(pack).cloned().unwrap_or_default();
         Self::owning_rows(pack, PROJECTILE_VISUALS_SCHEMA, rows(&pack.prepared()).into_keys().collect(), move |world, owned, pack| {
-            world
-                .get_resource_or_insert_with(ProjectileVisualCatalog::default)
-                .restate(owned.iter().map(String::as_str), &rows(pack))
+            on_a_copy::<ProjectileVisualCatalog>(world, |catalog| catalog.restate(owned.iter().map(String::as_str), &rows(pack)))
         })
     }
 
@@ -154,9 +167,7 @@ impl EmbeddedPackReloadPlugin {
         let scripts = |pack: &PreparedContentPack| lowered_cutscenes(pack).cloned().unwrap_or_default();
         let owned = scripts(&pack.prepared()).into_iter().map(|script| script.id).collect();
         Self::owning_rows(pack, CUTSCENE_LIBRARY_SCHEMA, owned, move |world, owned, pack| {
-            world
-                .get_resource_or_insert_with(CutsceneLibrary::default)
-                .restate(owned.iter().map(String::as_str), &scripts(pack))
+            on_a_copy::<CutsceneLibrary>(world, |library| library.restate(owned.iter().map(String::as_str), &scripts(pack)))
         })
     }
 
@@ -167,23 +178,28 @@ impl EmbeddedPackReloadPlugin {
         use crate::audio::content_schema::{
             lowered_music_registry, lowered_sfx_registry, MUSIC_REGISTRY_SCHEMA, SFX_REGISTRY_SCHEMA,
         };
-        let publish = move |world: &mut World, pack: &PreparedContentPack| {
-            let music = lowered_music_registry(pack).cloned();
-            let sfx = lowered_sfx_registry(pack).cloned();
-            if let Err(problem) = crate::audio::catalog::publish_provider_audio(world, provider, music, sfx) {
-                error!("the reload of `{}` keeps the audio of `{provider}`: {problem}", pack.id.0);
-            }
-        };
-        // Each restater publishes both registries, so an edit to both runs
-        // the same publication twice, with the same result. A registry the
-        // pack does not state has no restater.
+        // One product from both registries: an edit to both prepares it once.
+        // A registry the pack does not state is not read.
         let stated = &pack.prepared().schemas;
-        let restated = [MUSIC_REGISTRY_SCHEMA, SFX_REGISTRY_SCHEMA]
+        let schemas: Vec<&'static str> = [MUSIC_REGISTRY_SCHEMA, SFX_REGISTRY_SCHEMA]
             .into_iter()
             .filter(|schema| stated.keys().any(|stated| stated.0 == *schema))
-            .map(|schema| Restater::new(schema, publish))
             .collect();
-        Self { pack, live: &[], restated }
+        if schemas.is_empty() {
+            return Self { pack, live: &[], restated: Vec::new() };
+        }
+        let prepare = move |world: &World, pack: &PreparedContentPack| -> Result<Commit, String> {
+            let Some(registry) = world.get_resource::<crate::audio::catalog::AudioCatalogRegistry>() else {
+                return Ok(Box::new(|_: &mut World, _: &PreparedContentPack| {}));
+            };
+            let revised = registry
+                .with_replaced(provider, lowered_music_registry(pack).cloned(), lowered_sfx_registry(pack).cloned())
+                .map_err(|problem| format!("the audio of `{provider}` refuses it: {problem}"))?;
+            Ok(Box::new(move |world: &mut World, _: &PreparedContentPack| {
+                crate::audio::catalog::publish_revised_audio(world, provider, revised);
+            }))
+        };
+        Self { pack, live: &[], restated: vec![Restater { schemas, prepare: std::sync::Arc::new(prepare) }] }
     }
 
     /// The pack's `world_item_art`, registered once at start
@@ -194,9 +210,9 @@ impl EmbeddedPackReloadPlugin {
         use crate::platformer::world_item_art::WorldItemArtManifest;
         let owned = super::world_item_art_entries(&pack.prepared()).into_iter().map(|entry| entry.sprite_id).collect();
         Self::owning_rows(pack, WORLD_ITEM_ART_SCHEMA, owned, |world, owned, pack| {
-            Ok(world
-                .get_resource_or_insert_with(WorldItemArtManifest::default)
-                .restate(owned.iter().map(String::as_str), super::world_item_art_entries(pack)))
+            on_a_copy::<WorldItemArtManifest>(world, |manifest| {
+                Ok(manifest.restate(owned.iter().map(String::as_str), super::world_item_art_entries(pack)))
+            })
         })
     }
 
@@ -219,49 +235,54 @@ impl EmbeddedPackReloadPlugin {
         let built: Vec<String> = ambition_characters::actor::character_catalog::lowered_catalog(&pack.prepared())
             .map(|catalog| catalog.characters.keys().cloned().collect())
             .unwrap_or_default();
-        let built = std::sync::Mutex::new(built);
-        let restage = std::sync::Arc::new(move |world: &mut World, pack: &PreparedContentPack| {
-            let mut built = built.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            match reload.restage(world, pack, &built) {
-                Ok(Some(now)) => *built = now,
-                Ok(None) => {}
-                Err(problem) => error!("the reload of `{}` keeps its cast: {problem}", pack.id.0),
-            }
-        });
-        // Each restater stages the whole cast, so an edit to two families
-        // publishes once and then finds the cast unchanged. A family the pack
-        // does not state has no restater.
+        let built = std::sync::Arc::new(std::sync::Mutex::new(built));
+        // One product from every family: an edit to two of them prepares the
+        // cast once. A family the pack does not state is not read.
         let stated = &pack.prepared().schemas;
-        let restated = [CHARACTER_CATALOG_SCHEMA, MOVESET_SCHEMA, SMASH_FIGHTER_SCHEMA]
+        let schemas: Vec<&'static str> = [CHARACTER_CATALOG_SCHEMA, MOVESET_SCHEMA, SMASH_FIGHTER_SCHEMA]
             .into_iter()
             .filter(|schema| stated.keys().any(|stated| stated.0 == *schema))
-            .map(|schema| Restater { schema, restate: restage.clone() })
             .collect();
-        Self { pack, live: &[], restated }
+        if schemas.is_empty() {
+            return Self { pack, live: &[], restated: Vec::new() };
+        }
+        let prepare = move |world: &World, pack: &PreparedContentPack| -> Result<Commit, String> {
+            let previous = built.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+            let admitted = reload.prepare(world, pack, &previous).map_err(|problem| format!("the cast refuses it: {problem}"))?;
+            let built = built.clone();
+            Ok(Box::new(move |world: &mut World, _: &PreparedContentPack| {
+                if let Some((admitted, now)) = admitted {
+                    ambition_characters::prepared::publish_admitted_revision(world, admitted);
+                    *built.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = now;
+                }
+            }))
+        };
+        Self { pack, live: &[], restated: vec![Restater { schemas, prepare: std::sync::Arc::new(prepare) }] }
     }
 
     /// A restater for rows this pack shares a catalog with other providers
     /// in: it remembers the ids the pack owns (`owned`, from the start), so a
-    /// restatement replaces only those. On a refusal (an id of another
-    /// provider) the catalog keeps the pack's rows, as Ambition's reload does.
+    /// restatement replaces only those. `admit` restates them without
+    /// changing the World, returning the ids owned then and the installation.
+    /// A refusal (an id of another provider) refuses the publication.
     fn owning_rows(
         pack: &'static EmbeddedPack,
         schema: &'static str,
         owned: Vec<String>,
-        restate: impl Fn(&mut World, &[String], &PreparedContentPack) -> Result<Vec<String>, String> + Send + Sync + 'static,
+        admit: impl Fn(&World, &[String], &PreparedContentPack) -> Result<(Vec<String>, Box<dyn FnOnce(&mut World) + Send>), String>
+            + Send + Sync + 'static,
     ) -> Self {
-        let owned = std::sync::Mutex::new(owned);
-        Self {
-            pack,
-            live: &[],
-            restated: vec![Restater::new(schema, move |world, pack| {
-                let mut owned = owned.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-                match restate(world, &owned, pack) {
-                    Ok(now) => *owned = now,
-                    Err(problem) => error!("the reload of `{}` keeps its `{schema}` rows: {problem}", pack.id.0),
-                }
-            })],
-        }
+        let owned = std::sync::Arc::new(std::sync::Mutex::new(owned));
+        let prepare = move |world: &World, pack: &PreparedContentPack| -> Result<Commit, String> {
+            let previous = owned.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+            let (now, install) = admit(world, &previous, pack).map_err(|problem| format!("its `{schema}` rows refuse it: {problem}"))?;
+            let owned = owned.clone();
+            Ok(Box::new(move |world: &mut World, _: &PreparedContentPack| {
+                install(world);
+                *owned.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = now;
+            }))
+        };
+        Self { pack, live: &[], restated: vec![Restater { schemas: vec![schema], prepare: std::sync::Arc::new(prepare) }] }
     }
 }
 
@@ -276,16 +297,17 @@ pub struct CastReload {
 }
 
 impl CastReload {
-    /// Stage and publish the cast `pack` states. `built` are the rows the
-    /// last publication built. Returns the rows built now, or `None` when the
-    /// cast did not change.
-    fn restage(&self, world: &mut World, pack: &PreparedContentPack, built: &[String]) -> Result<Option<Vec<String>>, String> {
+    /// Admit the cast `pack` states, staged in a revision of its own, so it
+    /// consumes no other caller's staged edits and changes nothing. `built`
+    /// are the rows the last publication built. Returns the admitted revision
+    /// and the rows it builds, or `None` when the cast did not change.
+    fn prepare(&self, world: &World, pack: &PreparedContentPack, built: &[String])
+        -> Result<Option<(ambition_characters::prepared::AdmittedRevision, Vec<String>)>, String> {
 
     let sprite_content = world.resource::<ambition_sprite_sheet::SpriteContent>().clone();
         use ambition_characters::actor::character_catalog::{lowered_catalog, CharacterCatalogRegistry};
         use ambition_characters::prepared::{
-            publish_admitted_revision, stage_character_revision_in, take_admitted_revision_with_catalog,
-            CandidateCatalog, CharacterBindings, RevisionAdmission, StagedCastRevision,
+            admit_revision_with_catalog, CandidateCatalog, CharacterBindings, RevisionAdmission, StagedCastRevision,
         };
 
         // An absent table is reported, not taken as empty: a revision
@@ -312,19 +334,13 @@ impl CastReload {
             .map(|id| ambition_entity_catalog::CharacterId::new(id.as_str()))
             .collect();
         let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
+        let mut revision = StagedCastRevision::default();
         for definition in super::cast_definitions(&sprite_content, pack, catalog, &self.provider, &self.carried, rigs_admitted) {
             let bindings = crate::assets::materialization::definition::with_engine_vocabularies(&sprite_content, CharacterBindings::default());
-            if let Err(problem) = stage_character_revision_in(world, definition, &bindings) {
-                // Nothing of this revision stays staged for a later one.
-                world.remove_resource::<StagedCastRevision>();
-                return Err(format!("a character cannot be staged: {problem}"));
-            }
+            revision.stage(definition, &bindings).map_err(|problem| format!("a character cannot be staged: {problem}"))?;
         }
-        match take_admitted_revision_with_catalog(world, &support, &CandidateCatalog { registry, assembled, retired }) {
-            RevisionAdmission::Admitted(admitted) => {
-                publish_admitted_revision(world, admitted);
-                Ok(Some(now))
-            }
+        match admit_revision_with_catalog(world, &support, &CandidateCatalog { registry, assembled, retired }, &revision) {
+            RevisionAdmission::Admitted(admitted) => Ok(Some((admitted, now))),
             RevisionAdmission::Unchanged { .. } | RevisionAdmission::NothingStaged => Ok(None),
             RevisionAdmission::Refused { refusals, .. } => Err(format!(
                 "the cast revision is refused: {}",
@@ -335,12 +351,30 @@ impl CastReload {
 }
 
 impl Restater {
+    /// A product whose restatement cannot refuse: it is stated again from
+    /// the selected generation.
     pub fn new(
         schema: &'static str,
         restate: impl Fn(&mut World, &PreparedContentPack) + Send + Sync + 'static,
     ) -> Self {
-        Self { schema, restate: std::sync::Arc::new(restate) }
+        let restate = std::sync::Arc::new(restate);
+        let prepare = move |_: &World, _: &PreparedContentPack| -> Result<Commit, String> {
+            let restate = restate.clone();
+            Ok(Box::new(move |world: &mut World, pack: &PreparedContentPack| restate(world, pack)))
+        };
+        Self { schemas: vec![schema], prepare: std::sync::Arc::new(prepare) }
     }
+}
+
+/// Restate a shared catalog on a copy of the World's: the copy and the
+/// installation that replaces the catalog with it.
+fn on_a_copy<R: Resource + Clone + Default>(
+    world: &World,
+    restate: impl FnOnce(&mut R) -> Result<Vec<String>, String>,
+) -> Result<(Vec<String>, Box<dyn FnOnce(&mut World) + Send>), String> {
+    let mut copy = world.get_resource::<R>().cloned().unwrap_or_default();
+    let now = restate(&mut copy)?;
+    Ok((now, Box::new(move |world: &mut World| { world.insert_resource(copy); })))
 }
 
 impl Plugin for EmbeddedPackReloadPlugin {
@@ -351,7 +385,7 @@ impl Plugin for EmbeddedPackReloadPlugin {
         // A name the pack does not state is a typo, and it would refuse each
         // edit to the schema it meant.
         let pack = self.pack.prepared();
-        for schema in self.live.iter().chain(self.restated.iter().map(|restater| &restater.schema)) {
+        for schema in self.live.iter().chain(self.restated.iter().flat_map(|restater| &restater.schemas)) {
             assert!(
                 pack.schemas.keys().any(|stated| stated.0 == *schema),
                 "the live schema `{schema}` is not a schema of the pack `{}`; it states {:?}",
@@ -469,12 +503,12 @@ impl EmbeddedPackWatch {
     }
 
     fn takes_part(&self, schema: &str) -> bool {
-        self.live.contains(&schema) || self.restated.iter().any(|restater| restater.schema == schema)
+        self.live.contains(&schema) || self.restated.iter().any(|restater| restater.schemas.contains(&schema))
     }
 
     /// The schemas this watch publishes: the live ones and the restated ones.
     pub fn schemas(&self) -> impl Iterator<Item = &'static str> + '_ {
-        self.live.iter().copied().chain(self.restated.iter().map(|restater| restater.schema))
+        self.live.iter().copied().chain(self.restated.iter().flat_map(|restater| restater.schemas.iter().copied()))
     }
 
     /// An admitted change waits for the end of the session.
@@ -586,50 +620,62 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
         return;
     }
     let in_session = if in_a_session { in_session_publication(world) } else { InSession::NotInOne };
-    let mut to_restate = Vec::new();
     let mut published = Vec::new();
     let mut rebase = false;
-    for watch in &mut world.resource_mut::<EmbeddedPackWatches>().0 {
-        let Some(staged) = watch.staged.as_ref() else {
-            continue;
-        };
-        let changed = changed_domains(&watch.pack.prepared(), staged);
-        // Inside a session, only a change to schemas the game reads where it
-        // uses them, and only where the timeline allows it. A restated schema
-        // (the cast, the tables a start registered) waits for the session's
-        // end: the session's bodies and rows were built from it.
-        let only_live = changed.iter().all(|schema| watch.live.contains(&schema.0.as_str()));
-        match in_session {
-            InSession::NotInOne => {}
-            InSession::Publish if only_live => {}
-            InSession::PublishAndRebase if only_live => rebase = true,
-            _ => continue,
+    world.resource_scope(|world, mut watches: Mut<EmbeddedPackWatches>| {
+        for watch in &mut watches.0 {
+            let Some(staged) = watch.staged.as_ref() else {
+                continue;
+            };
+            let changed = changed_domains(&watch.pack.prepared(), staged);
+            // Inside a session, only a change to schemas the game reads where
+            // it uses them, and only where the timeline allows it. A restated
+            // schema (the cast, the tables a start registered) waits for the
+            // session's end: the session's bodies and rows were built from it.
+            let only_live = changed.iter().all(|schema| watch.live.contains(&schema.0.as_str()));
+            match in_session {
+                InSession::NotInOne => {}
+                InSession::Publish if only_live => {}
+                InSession::PublishAndRebase if only_live => {}
+                _ => continue,
+            }
+            // Every affected owner admits its product from the candidate
+            // before anything changes, each once. One refusal keeps the whole
+            // publication out: the old pack and every product stay.
+            let affected = watch.restated.iter()
+                .filter(|restater| changed.iter().any(|schema| restater.schemas.contains(&schema.0.as_str())));
+            let commits: Result<Vec<Commit>, String> = affected.map(|restater| (restater.prepare)(world, staged)).collect();
+            let Some(generation) = watch.staged.take() else {
+                continue;
+            };
+            let commits = match commits {
+                Ok(commits) => commits,
+                Err(why) => {
+                    let why = format!("the edit to the pack `{}` is refused, and the running pack stays: {why}", generation.id.0);
+                    error!("{why}");
+                    acknowledge("refused", &watch.pack.prepared(), "");
+                    watch.refused = Some(why);
+                    continue;
+                }
+            };
+            rebase |= in_session == InSession::PublishAndRebase;
+            info!("the pack `{}` is published again from its files", generation.id.0);
+            watch.pack.publish(generation);
+            let selected = watch.pack.prepared();
+            for commit in commits {
+                commit(world, &selected);
+            }
+            published.push(watch.pack);
+            watch.published += 1;
         }
-        let Some(generation) = watch.staged.take() else {
-            continue;
-        };
-        info!("the pack `{}` is published again from its files", generation.id.0);
-        watch.pack.publish(generation);
-        published.push(watch.pack);
-        watch.published += 1;
-        to_restate.extend(
-            watch
-                .restated
-                .iter()
-                .filter(|restater| changed.iter().any(|schema| schema.0 == restater.schema))
-                .map(|restater| (watch.pack, restater.restate.clone())),
-        );
-    }
-    for (pack, restate) in to_restate {
-        restate(world, &pack.prepared());
-    }
+    });
     #[cfg(feature = "rollback")]
     if rebase {
         crate::rollback::rebase_local_timeline_onto_published_content(world);
     }
     #[cfg(not(feature = "rollback"))]
     let _ = rebase;
-    // After the restaters and the rebase: from here the generation is played.
+    // After the products and the rebase: from here the generation is played.
     for pack in published {
         acknowledge("published", &pack.prepared(), "");
     }
@@ -1069,6 +1115,49 @@ mod tests {
         let catalog = app.world().resource::<AudioCatalogRegistry>();
         assert_eq!(catalog.music_for("probe"), lowered_music_registry(&authority), "the provider's music is the saved file's");
         assert_eq!(catalog.music_for("host").cloned(), host_music, "another provider's music stays");
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(host_root);
+    }
+
+    /// ⭐ A publication is all of its owners or none. One save edits the
+    /// rules and the music, and the music's new track takes another
+    /// provider's id for another recording. The whole edit is refused: the
+    /// old pack, its rules and its music stay selected, nothing is counted
+    /// as published, and the refusal names the owner that refused.
+    #[test]
+    fn a_refused_owner_keeps_the_whole_publication_out() {
+        use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogRegistry};
+        let root = std::env::temp_dir().join(format!("live_reload_atomic_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(root.join("pack.ron"), r#"(id: "live_reload_probe", version: "0.1.0", namespace: "probe", requires: [],
+            sources: [(path: "data/room_rules.ron", schema: "room_rules", version: 1),
+                      (path: "data/music_registry.ron", schema: "music_registry", version: 1)])"#).unwrap();
+        std::fs::write(root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(12))").unwrap();
+        let music = |tracks: &str| format!(r#"(default_track: "probe_theme", tracks: [(id: "probe_theme", display_name: "Probe Theme"){tracks}])"#);
+        std::fs::write(root.join("data/music_registry.ron"), music("")).unwrap();
+        let leaked: &'static str = Box::leak(root.to_string_lossy().into_owned().into_boxed_str());
+        let pack: &'static EmbeddedPack = Box::leak(Box::new(EmbeddedPack::rooted(leaked, None)));
+        let (host, host_root) = pack_with("atomic_host", "data/music_registry.ron", "music_registry",
+            r#"(default_track: "host_theme", tracks: [(id: "host_theme", display_name: "Host Theme")])"#);
+
+        let mut app = app_watching(pack, &["room_rules"]);
+        app.register_audio_catalog_fragment(pack.audio("probe"));
+        app.register_audio_catalog_fragment(host.audio("host"));
+        app.add_plugins(EmbeddedPackReloadPlugin::audio(pack, "probe"));
+        let (rules, catalog) = (heavy(&pack.prepared()), app.world().resource::<AudioCatalogRegistry>().music_for("probe").cloned());
+
+        std::fs::write(root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))").unwrap();
+        save_and_look(&mut app, &root.join("data/music_registry.ron"),
+            &music(r#", (id: "host_theme", display_name: "Taken", asset_path: Some("audio/music/taken.ogg"))"#));
+        app.update();
+        let watch = watch_of(&app, pack);
+        assert_eq!(watch.published, 0, "a refused owner counts nothing as published");
+        assert!(!watch.is_staged(), "the refused edit is not kept to be tried again");
+        let refused = watch.refused.clone().unwrap_or_default();
+        assert!(refused.contains("audio") && refused.contains("host_theme"), "the refusal names its owner and why: {refused:?}");
+        assert_eq!(heavy(&pack.prepared()), rules, "the old pack's rules stay selected");
+        assert_eq!(app.world().resource::<AudioCatalogRegistry>().music_for("probe").cloned(), catalog, "the old music stays");
         let _ = std::fs::remove_dir_all(root);
         let _ = std::fs::remove_dir_all(host_root);
     }

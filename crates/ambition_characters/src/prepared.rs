@@ -625,16 +625,25 @@ pub fn stage_character_revision_in(
     definition: CharacterDefinition,
     bindings: &CharacterBindings,
 ) -> Result<(), CharacterRegistrationError> {
-    if definition.id.as_str().trim().is_empty() {
-        return Err(CharacterRegistrationError::BlankId);
+    world.get_resource_or_insert_with(StagedCastRevision::default).stage(definition, bindings)
+}
+
+impl StagedCastRevision {
+    /// Stage one character edit in this revision. A reload preparing a
+    /// revision of its own stages into a value it holds, so admitting it
+    /// ([`admit_revision_with_catalog`]) consumes no other caller's edits.
+    pub fn stage(
+        &mut self,
+        definition: CharacterDefinition,
+        bindings: &CharacterBindings,
+    ) -> Result<(), CharacterRegistrationError> {
+        if definition.id.as_str().trim().is_empty() {
+            return Err(CharacterRegistrationError::BlankId);
+        }
+        let staged = prepare_for_registration(definition, bindings).staged;
+        self.by_id.insert(ambition_entity_catalog::CharacterId::new(staged.id()), staged);
+        Ok(())
     }
-    let staged = prepare_for_registration(definition, bindings).staged;
-    let id = ambition_entity_catalog::CharacterId::new(staged.id());
-    world
-        .get_resource_or_insert_with(StagedCastRevision::default)
-        .by_id
-        .insert(id, staged);
-    Ok(())
 }
 
 /// Activate the staged revision, or refuse it and keep the last-good cast.
@@ -903,6 +912,20 @@ pub fn admit_staged_revision_with_catalog(
     support: &ambition_entity_catalog::TechniqueSupport,
     catalog: &CandidateCatalog,
 ) -> RevisionAdmission {
+    let none = StagedCastRevision::default();
+    let revision = world.get_resource::<StagedCastRevision>().unwrap_or(&none);
+    admit_revision_with_catalog(world, support, catalog, revision)
+}
+
+/// [`admit_staged_revision_with_catalog`] of a revision the caller holds,
+/// not the world's staged one: it reads the world and changes nothing, so a
+/// reload can admit its cast before it decides to publish anything.
+pub fn admit_revision_with_catalog(
+    world: &bevy::ecs::world::World,
+    support: &ambition_entity_catalog::TechniqueSupport,
+    catalog: &CandidateCatalog,
+    revision: &StagedCastRevision,
+) -> RevisionAdmission {
     use crate::actor::character_catalog as cc;
     let Some(overrides) = world.get_resource::<StagedCharacterOverrides>() else {
         return RevisionAdmission::NothingStaged;
@@ -911,10 +934,7 @@ pub fn admit_staged_revision_with_catalog(
         return RevisionAdmission::NothingStaged;
     };
     let previous = active.generation();
-    let staged: Vec<StagedCharacter> = world
-        .get_resource::<StagedCastRevision>()
-        .map(|revision| revision.by_id.values().cloned().collect())
-        .unwrap_or_default();
+    let staged: Vec<StagedCharacter> = revision.by_id.values().cloned().collect();
     let assembled = &catalog.assembled;
     let same_authorities = world.get_resource::<cc::CharacterCatalog>() == Some(&assembled.catalog)
         && world.get_resource::<cc::BrainProfileRegistry>() == Some(&assembled.brain_profiles)

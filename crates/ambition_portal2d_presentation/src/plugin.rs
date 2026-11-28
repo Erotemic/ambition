@@ -143,6 +143,7 @@ impl Plugin for PortalPresentationPlugin {
         }
         #[cfg(feature = "effect_view_cones")]
         if self.view_cones {
+            view_cones::first_capture::install(app);
             app.add_systems(
                 Startup,
                 view_cones::warm_the_window_material

@@ -903,6 +903,7 @@ fn mapped_camera_frame(
     Some(geometry::CaptureCameraFrame { center, size, axis, shown: view.size })
 }
 
+pub(super) mod first_capture;
 mod geometry;
 mod mesh;
 

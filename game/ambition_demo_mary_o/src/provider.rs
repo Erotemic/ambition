@@ -176,6 +176,19 @@ impl Plugin for MaryOExperiencePlugin {
         let mary_o_generation = crate::pack::PACK.selected_in(app.world());
         let mary_o_pack: &ambition_platformer2d::content::PreparedContentPack = &mary_o_generation;
         crate::install_mary_o_content(app);
+        // A development build reads her world off disk, so the developer's
+        // world reload reads it again into her running session.
+        ambition_platformer2d::provider::declare_world_reload_source(
+            app,
+            MARY_O_EXPERIENCE,
+            ambition_platformer2d::provider::WorldReloadSource {
+                file: crate::MARY_O_WORLD
+                    .embedded
+                    .is_none()
+                    .then(|| std::path::PathBuf::from(crate::MARY_O_WORLD.file)),
+                read: read_mary_o_world,
+            },
+        );
         #[cfg(feature = "render")]
         {
             crate::quasar_shader::install(app);
@@ -274,6 +287,23 @@ fn mary_o_prepared_session_world(
         source.geometry,
         source.starting_character,
     ))
+}
+
+/// Her world, read from the file at `path` with her rules: what the
+/// developer's world reload publishes into her running session.
+fn read_mary_o_world(
+    world: &bevy::prelude::World,
+    path: &std::path::Path,
+    active: &PreparedPlatformerSource,
+) -> Result<PreparedPlatformerSource, Vec<String>> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|error| vec![format!("{} is not readable: {error}", path.display())])?;
+    let rules_row = crate::rules::mary_o_rules_of(crate::pack::PACK.selected_in(world));
+    let (rooms, links) = crate::levels_and_links_of(&rules_row, &text)?;
+    let room_set = RoomSet::try_from_parts(active.active_room_id(), rooms, links)
+        .map_err(|refused| vec![refused.to_string()])?;
+    let geometry = ae::RoomGeometry(room_set.activation_spec().world.clone());
+    Ok(active.with_world(room_set, geometry))
 }
 
 /// Slot ids Mary-O publishes into. Opaque to the engine.

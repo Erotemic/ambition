@@ -399,14 +399,24 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         // `DeveloperRuntimeState` and the chain used to decide that between
         // them; an edge across a `run_if` boundary is honoured whether or not
         // the gated system runs.
+        .init_resource::<super::dev_runtime::StagedWorldCandidate>()
         .add_systems(Update, handle_debug_hotkeys.before(handle_ldtk_hot_reload))
         .add_systems(
             Update,
             (
-                // Ambition's LDtk world; a hub without Ambition has none.
-                handle_ldtk_hot_reload.run_if(
-                    resource_exists::<ambition_platformer2d::world::world_manifest::WorldManifest>,
-                ),
+                // The developer world reload of the running session's world,
+                // whichever provider's: the watch follows that provider, its
+                // reader reads the file, and the publication rebuilds the live
+                // rooms. A hub without Ambition has no world manifest.
+                (
+                    super::dev_runtime::follow_the_running_world,
+                    super::dev_runtime::read_the_world_reload_candidate,
+                    handle_ldtk_hot_reload,
+                )
+                    .chain()
+                    .run_if(
+                        resource_exists::<ambition_platformer2d::world::world_manifest::WorldManifest>,
+                    ),
                 ambition_platformer2d::trace_recorder::handle_trace_hotkey,
                 // `handle_map_menu_hotkeys` LEFT THIS CHAIN: `MapStatePlugin`
                 // installs it now, ordered against the simulation phase rather

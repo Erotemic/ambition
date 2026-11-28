@@ -1832,10 +1832,13 @@ that watched the edit, systems bind `SelectedPacks` once, and helpers in
 Mary-O, Smash, Sanic and versus take the row they read. See the owner's
 receipt.
 
-**Next action:** a running demo's world reload. F11/F12 reloads the
-Ambition world only, so an edit to a demo's authored world still costs a
-restart ([fast iteration](engine/fast-iteration-implementation.md), "Still
-open"). After it, the owner pages' open items: I5 durable-record
+**Running-demo world reload (2026-11-28):** F11/F12 reloads the running
+session's world through its provider's declared reader; Mary-O's world
+reloads in her running session. See the
+[fast iteration](engine/fast-iteration-implementation.md) receipt.
+
+**Next action:** Sanic's world reload, which needs a watch of several files
+(its acts are three). Then the owner pages' open items: I5 durable-record
 eligibility, I6's native-ABI comparison (M1), and I7's deterministic
 cancellation and cleanup.
 

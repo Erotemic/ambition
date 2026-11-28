@@ -10,7 +10,6 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
-use ambition_platformer2d::world::world_manifest;
 
 /// Presentation-side debug hotkey reader.
 ///
@@ -81,7 +80,9 @@ fn local_ggrs_restart_policy(
 
 pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands<'_, '_>,
-    mut hotkey_actions: MessageReader<DeveloperAction>,
+    // The world the running session's provider read, when a reload was asked
+    // for (`read_the_world_reload_candidate`).
+    mut candidate: ResMut<StagedWorldCandidate>,
     // ⛔ READ ONLY. A hot reload does not write the live geometry or the room
     // set here (A10 stages them behind the room transaction's verdict — see
     // `replace_live_world`), so these are shared borrows, and the reload's
@@ -128,12 +129,10 @@ pub(super) fn handle_ldtk_hot_reload(
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     catalogs: (
-        Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
         Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition_platformer2d::construction::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d::publication::construction::RoomContentStagingRegistry>,
         Res<ambition_platformer2d::construction::ActorConstructionRegistry>,
-        Res<world_manifest::WorldManifest>,
         Option<
             Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
         >,
@@ -172,46 +171,10 @@ pub(super) fn handle_ldtk_hot_reload(
         Option<Res<ambition_platformer2d::rollback::RollbackSessionOwnership>>,
     ),
 ) {
-    let mut requested = false;
-    for action in hotkey_actions.read() {
-        match action {
-            DeveloperAction::ToggleLdtkAutoApply => {
-                ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
-                ldtk_reload.last_status = format!(
-                    "LDtk auto-apply {}",
-                    if ldtk_reload.auto_apply {
-                        "enabled"
-                    } else {
-                        "disabled"
-                    }
-                );
-            }
-            DeveloperAction::ApplyLdtkReload => requested = true,
-            _ => {}
-        }
-    }
-
-    let should_apply = requested || (ldtk_reload.pending && ldtk_reload.auto_apply);
-    if !should_apply {
+    if candidate.0.is_none() {
         return;
     }
 
-    // Hot reload reads the same `watch_path` the file-change poller
-    // armed at startup (per the catalog's
-    // `Platformer2dAssetCatalog::hot_reload_local_path`). If the active
-    // asset profile doesn't support filesystem watching the
-    // `watch_path` is `None` and the reload is silently skipped.
-    let Some(watch_path) = ldtk_reload.watch_path.clone() else {
-        eprintln!(
-            "LDtk hot reload pressed but watch_path is unset; the active asset profile \
-             does not support filesystem watching"
-        );
-        ldtk_reload.pending = false;
-        return;
-    };
-
-    // The room the reload keeps the player in. With no live room there is
-    // nothing to reload into, and the press does nothing, as before.
     let (Some(live_room), Some(current_room)) = (primary_room.room(), primary_room.spec()) else {
         return;
     };
@@ -241,6 +204,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Ok(restart) => restart,
         Err(error) => {
             eprintln!("LDtk hot reload rejected: {error}");
+            candidate.0 = None;
             ldtk_reload.mark_failed(vec![error.to_owned()]);
             return;
         }
@@ -266,6 +230,17 @@ pub(super) fn handle_ldtk_hot_reload(
     if let Ok(mut cluster_item) = player_q.single_mut() {
         let Some(session_scope) = commands.spawn_scope() else {
             return;
+        };
+        let candidate_source = match candidate.0.take() {
+            Some(Ok(source)) => source,
+            Some(Err(errors)) => {
+                for error in &errors {
+                    eprintln!("LDtk hot reload rejected: {error}");
+                }
+                ldtk_reload.mark_failed(errors);
+                return;
+            }
+            None => return,
         };
         let mut clusters = cluster_item.as_clusters_mut();
         let snapshot_schema = content_identity
@@ -297,16 +272,14 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut clusters,
             tuning.0,
             &room_visuals,
-            &watch_path,
+            candidate_source,
             &catalogs.0,
             &catalogs.1,
             &catalogs.2,
             &catalogs.3,
-            &catalogs.4,
-            &catalogs.5,
-            catalogs.6.as_deref(),
-            catalogs.7 .0.as_deref(),
-            catalogs.7 .1.as_deref(),
+            catalogs.4.as_deref(),
+            catalogs.5 .0.as_deref(),
+            catalogs.5 .1.as_deref(),
             &content_identity.0,
             // ⚠ `content_identity.1` (the prepared IDENTITY) is no longer handed
             // in: the reload writes it behind the room's verdict now, through the
@@ -421,35 +394,28 @@ pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
     info!("LDtk hot reload released the local GGRS baseline; the session owner will rebase it");
 }
 
-pub(super) struct LdtkReloadTransaction {
-    project: ldtk_world::LdtkProject,
+pub(super) struct WorldReloadTransaction {
+    /// The provider's candidate world, before it is put into the player's room.
+    source: ambition_platformer2d::runtime::PreparedPlatformerSource,
     next_room_set: world_rooms::RoomSet,
     next_spec: world_rooms::RoomSpec,
     safe_player_pos: ae::Vec2,
 }
 
-pub(super) fn prepare_ldtk_reload_transaction(
-    watch_path: &std::path::Path,
-    catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
-    manifest: &world_manifest::WorldManifest,
+/// Put the provider's candidate world into the player's room and check that it
+/// can be played there. Nothing here writes the world.
+pub(super) fn prepare_world_reload_transaction(
+    source: ambition_platformer2d::runtime::PreparedPlatformerSource,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
-) -> Result<LdtkReloadTransaction, Vec<String>> {
-    let project = ldtk_world::LdtkProject::load_from_disk_at(watch_path, catalog, manifest)
-        .map_err(|error| vec![error])?;
-    let report = project.validate(&crate::composed_ldtk_vocabulary());
-    report.print_to_stderr();
-    if !report.is_ok() {
-        return Err(report.errors);
-    }
-
-    let mut next_room_set = project.to_room_set(manifest, &crate::composed_ldtk_vocabulary())?;
+) -> Result<WorldReloadTransaction, Vec<String>> {
+    let mut next_room_set = source.room_set().clone();
     // The reloaded set activates into the room the player is in, so the
     // replacement world is normalized to it (a prepared fact, not `start`).
     if next_room_set.set_activation_by_id(current_room_id).is_none() {
         return Err(vec![format!(
-            "LDtk reload would delete current active area '{current_room_id}'. Move the player elsewhere or restore that activeArea before applying."
+            "the world reload would delete the current room '{current_room_id}'. Move the player elsewhere or restore that room before applying."
         )]);
     }
     let next_spec = next_room_set.activation_spec().clone();
@@ -457,9 +423,9 @@ pub(super) fn prepare_ldtk_reload_transaction(
     let mut hard_errors = Vec::new();
     for warning in next_room_set.layout_warnings() {
         if warning.contains("references missing") {
-            hard_errors.push(format!("LDtk reload graph error: {warning}"));
+            hard_errors.push(format!("world reload graph error: {warning}"));
         } else {
-            bevy::log::debug!(target: "ambition_platformer2d::room_layout", "LDtk reload: {warning}");
+            bevy::log::debug!(target: "ambition_platformer2d::room_layout", "world reload: {warning}");
         }
     }
     if !hard_errors.is_empty() {
@@ -468,12 +434,102 @@ pub(super) fn prepare_ldtk_reload_transaction(
 
     let safe_player_pos =
         world_rooms::validated_spawn(&next_spec.world, preserved_pos, player_size);
-    Ok(LdtkReloadTransaction {
-        project,
+    Ok(WorldReloadTransaction {
+        source,
         next_room_set,
         next_spec,
         safe_player_pos,
     })
+}
+
+/// The developer asked for a world reload (F11, or auto-apply over a saved
+/// file): read the running session's world with its provider's reader, for
+/// [`handle_ldtk_hot_reload`] to publish. Exclusive, because a reader reads
+/// what its provider needs from the World.
+pub(super) fn read_the_world_reload_candidate(
+    world: &mut World,
+    mut cursor: Local<bevy::ecs::message::MessageCursor<DeveloperAction>>,
+) {
+    let mut requested = false;
+    let mut toggles = 0_u32;
+    if let Some(messages) = world.get_resource::<bevy::ecs::message::Messages<DeveloperAction>>() {
+        for action in cursor.read(messages) {
+            match action {
+                DeveloperAction::ToggleLdtkAutoApply => toggles += 1,
+                DeveloperAction::ApplyLdtkReload => requested = true,
+                _ => {}
+            }
+        }
+    }
+    let Some(mut watch) = world.get_resource_mut::<ambition_platformer2d::dev_tools::WorldSourceHotReload>() else {
+        return;
+    };
+    for _ in 0..toggles {
+        watch.auto_apply = !watch.auto_apply;
+        watch.last_status = format!(
+            "world auto-apply {}",
+            if watch.auto_apply { "enabled" } else { "disabled" }
+        );
+    }
+    if !(requested || (watch.pending && watch.auto_apply)) {
+        return;
+    }
+    let Some(path) = watch.watch_path.clone() else {
+        eprintln!(
+            "world reload asked for but nothing is watched; the active asset profile \
+             or the running world's provider has no file to read"
+        );
+        watch.pending = false;
+        return;
+    };
+    if world.get_resource::<StagedWorldCandidate>().is_some_and(|staged| staged.0.is_some()) {
+        return;
+    }
+    let Some(active) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::runtime::PreparedContent,
+    >(world)
+    .map(|content| content.source().clone()) else {
+        return;
+    };
+    let provider = active.catalogs().world_provider.clone();
+    let reader = world
+        .get_resource::<ambition_platformer2d::provider::WorldReloadSources>()
+        .and_then(|sources| sources.of(&provider))
+        .map(|source| source.read);
+    let read = match reader {
+        Some(read) => read(world, &path, &active),
+        None => Err(vec![format!(
+            "the world of `{provider}` states no reload source; restart the game to play an edit"
+        )]),
+    };
+    world.get_resource_or_insert_with(StagedWorldCandidate::default).0 = Some(read);
+}
+
+/// The world a reload read, waiting for [`handle_ldtk_hot_reload`].
+#[derive(Resource, Default)]
+pub(super) struct StagedWorldCandidate(
+    Option<Result<ambition_platformer2d::runtime::PreparedPlatformerSource, Vec<String>>>,
+);
+
+/// The watch follows the running session's world provider: it reads that
+/// provider's file, or names why there is none.
+pub(super) fn follow_the_running_world(
+    content: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::PreparedContent,
+    >,
+    sources: Option<Res<ambition_platformer2d::provider::WorldReloadSources>>,
+    mut watch: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
+) {
+    let provider = &content.source().catalogs().world_provider;
+    if watch.world_provider.as_deref() == Some(provider.as_str()) {
+        return;
+    }
+    let file = sources.as_deref().and_then(|sources| sources.of(provider)).and_then(|source| source.file.clone());
+    watch.follow(
+        provider,
+        file,
+        format!("world reload inactive: `{provider}` states no world file to watch"),
+    );
 }
 
 /// ⛔⛤ **THE PARAMETERS THIS NO LONGER TAKES ARE THE POINT OF THE CHANGE.** The
@@ -508,13 +564,12 @@ pub(super) fn reload_ldtk_world_from_disk(
         ),
         RoomResident,
     >,
-    watch_path: &std::path::Path,
-    catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
+    // The running provider's world as its file now states it.
+    candidate_source: ambition_platformer2d::runtime::PreparedPlatformerSource,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     placement_lowering: &ambition_platformer2d::construction::placements::PlacementLoweringRegistry,
     content_staging: &ambition_platformer2d::publication::construction::RoomContentStagingRegistry,
     construction_recipes: &ambition_platformer2d::construction::ActorConstructionRegistry,
-    world_manifest: &world_manifest::WorldManifest,
     // The published controller policies a PLACEMENT may name. NOT part of
     // `SessionMechanics` — no generation freezes them, on any road, which is why
     // the live transition takes them from the App too.
@@ -543,26 +598,20 @@ pub(super) fn reload_ldtk_world_from_disk(
 ) -> Result<String, Vec<String>> {
     let current_room_id = current_room.id.clone();
     let preserved_pos = clusters.kinematics.pos;
-    let transaction = prepare_ldtk_reload_transaction(
-        watch_path,
-        catalog,
-        world_manifest,
+    let transaction = prepare_world_reload_transaction(
+        candidate_source,
         &current_room_id,
         preserved_pos,
         clusters.kinematics.size(),
     )?;
 
-    let candidate_index = ldtk_world::LdtkRuntimeIndex::from_project(&transaction.project);
-    let candidate_source = prepared_content
-        .source()
-        .with_world(
-            transaction.next_room_set.clone(),
-            RoomGeometry(transaction.next_spec.world.clone()),
-        )
-        // `with_world` carries the OLD index forward on purpose, so the road
-        // that reloaded an LDtk project has to state its replacement. This is
-        // that road, and the reload is exactly what changed the index.
-        .with_installed_ldtk_index(candidate_index.clone());
+    // The index the candidate installs, when its format has one: it is written
+    // to the session behind the publication's verdict, below.
+    let candidate_index = transaction.source.installed_ldtk_index().cloned();
+    let candidate_source = transaction.source.with_world(
+        transaction.next_room_set.clone(),
+        RoomGeometry(transaction.next_spec.world.clone()),
+    );
     let candidate_content = ambition_platformer2d::provider::prepare_world_replacement_candidate(
         prepared_content,
         candidate_source,
@@ -825,9 +874,10 @@ pub(super) fn reload_ldtk_world_from_disk(
         // The content, its identity and its binding move by the one road a
         // running session changes generation by.
         ambition_platformer2d::runtime::publish_session_content(world, committed_content);
-        if let Some(mut index) =
-            session_world_component_mut::<ldtk_world::LdtkRuntimeIndex>(world)
-        {
+        if let (Some(candidate_index), Some(mut index)) = (
+            candidate_index,
+            session_world_component_mut::<ldtk_world::LdtkRuntimeIndex>(world),
+        ) {
             *index = candidate_index;
         }
     };

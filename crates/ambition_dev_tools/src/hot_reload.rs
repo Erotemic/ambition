@@ -35,6 +35,9 @@ pub struct WorldSourceHotReload {
     /// `None` for bundled / web / embedded profiles — the watcher is
     /// effectively disabled there.
     pub watch_path: Option<PathBuf>,
+    /// The world provider whose file `watch_path` is: the running session's.
+    /// The watch follows the session to another provider's world.
+    pub world_provider: Option<String>,
 }
 
 impl Default for WorldSourceHotReload {
@@ -47,6 +50,7 @@ impl Default for WorldSourceHotReload {
             last_errors: Vec::new(),
             applied_count: 0,
             watch_path: None,
+            world_provider: None,
         }
     }
 }
@@ -77,6 +81,20 @@ impl WorldSourceHotReload {
             last_status: reason.into(),
             ..Self::default()
         }
+    }
+
+    /// Watch `world_provider`'s file (`None`: it has none to watch, for
+    /// `reason`). The developer's auto-apply choice and the count of applied
+    /// reloads carry over; a change pending for the previous file does not.
+    pub fn follow(&mut self, world_provider: &str, file: Option<PathBuf>, reason: impl Into<String>) {
+        let mut next = match file {
+            Some(path) => Self::watching(path),
+            None => Self::unavailable(reason),
+        };
+        next.auto_apply = self.auto_apply;
+        next.applied_count = self.applied_count;
+        next.world_provider = Some(world_provider.to_string());
+        *self = next;
     }
 
     pub fn mark_pending(&mut self, modified: SystemTime) {

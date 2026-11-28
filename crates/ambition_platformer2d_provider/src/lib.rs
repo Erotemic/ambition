@@ -14,6 +14,7 @@ pub mod lifecycle;
 pub mod presentation;
 pub mod session_contents;
 pub mod world_source;
+pub mod world_reload;
 mod world_identity;
 
 pub use authoring::PlatformerExperienceAuthoring;
@@ -23,6 +24,7 @@ pub use catalogs::{
     PlatformerAuthoringRegistrationError,
 };
 pub use world_source::{IntoPreparedSource, WorldRefusal};
+pub use world_reload::{declare_world_reload_source, WorldReader, WorldReloadSource, WorldReloadSources};
 pub use composition::ShellComposition;
 pub use session_contents::{SessionContents, SessionContentsCatalog, SessionContentsFn};
 pub use lifecycle::{

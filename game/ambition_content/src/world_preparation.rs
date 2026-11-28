@@ -61,6 +61,35 @@ pub fn ldtk_vocabulary() -> ldtk_world::LdtkVocabulary {
     ldtk_world::LdtkVocabulary::engine()
 }
 
+/// Ambition's world, read from its LDtk project at `path` with its catalog,
+/// manifest and vocabulary: what a developer world reload publishes.
+fn read_ambition_world(
+    world: &bevy::prelude::World,
+    path: &std::path::Path,
+    active: &ambition_platformer2d::runtime::PreparedPlatformerSource,
+) -> Result<ambition_platformer2d::runtime::PreparedPlatformerSource, Vec<String>> {
+    let catalog = world
+        .get_resource::<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>()
+        .ok_or_else(|| vec!["Ambition's asset catalog is not installed".to_string()])?;
+    let manifest = world
+        .get_resource::<ambition_platformer2d::world::world_manifest::WorldManifest>()
+        .ok_or_else(|| vec!["Ambition's world manifest is not installed".to_string()])?;
+    let project = ldtk_world::LdtkProject::load_from_disk_at(path, catalog, manifest)
+        .map_err(|error| vec![error])?;
+    let report = project.validate(&ldtk_vocabulary());
+    report.print_to_stderr();
+    if !report.is_ok() {
+        return Err(report.errors);
+    }
+    let room_set = project.to_room_set(manifest, &ldtk_vocabulary())?;
+    let geometry = ambition_platformer2d::engine_core::RoomGeometry(room_set.activation_spec().world.clone());
+    // `with_world` carries the old index forward, so a format that reloaded
+    // its own index states the replacement.
+    Ok(active
+        .with_world(room_set, geometry)
+        .with_installed_ldtk_index(ldtk_world::LdtkRuntimeIndex::from_project(&project)))
+}
+
 /// The world did not load or did not validate; the diagnostics are above.
 fn preparation_failed() -> ! {
     panic!("Ambition's world failed preparation; see diagnostics above");
@@ -248,6 +277,16 @@ pub(crate) fn prepare_ambition_world(app: &mut App) {
         )),
     };
 
+    let mut hot_reload = hot_reload;
+    hot_reload.world_provider = Some(crate::provider::AMBITION_EXPERIENCE.to_string());
+    ambition_platformer2d::provider::declare_world_reload_source(
+        app,
+        crate::provider::AMBITION_EXPERIENCE,
+        ambition_platformer2d::provider::WorldReloadSource {
+            file: hot_reload.watch_path.clone(),
+            read: read_ambition_world,
+        },
+    );
     app.insert_resource(ldtk_world::ActiveLdtkProject(ldtk_project))
         // Over the default `DevToolsSimPlugin` initialized.
         .insert_resource(hot_reload);

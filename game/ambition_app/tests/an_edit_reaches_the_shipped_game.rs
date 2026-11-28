@@ -3422,3 +3422,77 @@ fn a_newer_save_ends_the_generation_in_flight_and_the_old_one_is_never_seen() {
     assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "a generation is still pending");
     assert!(reload_holds(&app).is_empty(), "a cancelled generation's hold outlived it: {:?}", reload_holds(&app));
 }
+
+/// ⭐ The developer's world reload reads the running game's world: in a
+/// hosted Mary-O session the watch is her world file, not Ambition's, and an
+/// edit to her level reaches the room she is in, with no restart.
+#[test]
+fn a_world_reload_in_her_running_session_reads_her_world() {
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+
+    let mut app = the_shipped_launcher();
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new(ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE),
+        request: None,
+    });
+    crate::common::step_until_route_is_active_and_settled(
+        &mut app,
+        ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE,
+    );
+    let room_id = |app: &mut bevy::prelude::App| {
+        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone())
+    };
+    assert_eq!(room_id(&mut app).as_deref(), Some(ambition_demo_mary_o::LEVEL_1_1_ROOM_ID));
+    let watched = {
+        let watch = app.world().resource::<WorldSourceHotReload>();
+        assert_eq!(
+            watch.world_provider.as_deref(),
+            Some(ambition_demo_mary_o::provider::MARY_O_EXPERIENCE),
+            "the watch follows her session"
+        );
+        watch.watch_path.clone().expect("a development build watches her world file")
+    };
+    assert_eq!(watched, std::path::PathBuf::from(ambition_demo_mary_o::MARY_O_WORLD.file));
+    let biome = |app: &mut bevy::prelude::App| {
+        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .and_then(|spec| spec.metadata.biome.clone())
+    };
+    let before = biome(&mut app);
+    assert_ne!(before.as_deref(), Some("starless"), "the premise: 1-1 is not starless");
+
+    let mut project: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&watched).expect("her world file is readable"))
+            .expect("her world file is JSON");
+    let level = project["levels"]
+        .as_array_mut()
+        .expect("her world has levels")
+        .iter_mut()
+        .find(|level| level["identifier"] == ambition_demo_mary_o::LEVEL_1_1_ROOM_ID)
+        .expect("her world has 1-1");
+    let field = level["fieldInstances"]
+        .as_array_mut()
+        .expect("1-1 has fields")
+        .iter_mut()
+        .find(|field| field["__identifier"] == "biome")
+        .expect("1-1 states a biome");
+    field["__value"] = serde_json::json!("starless");
+    let copy = std::env::temp_dir().join(format!("mary_o_world_reload_{}.ldtk", std::process::id()));
+    std::fs::write(&copy, serde_json::to_string(&project).unwrap()).unwrap();
+    app.world_mut().resource_mut::<WorldSourceHotReload>().watch_path = Some(copy.clone());
+
+    app.world_mut()
+        .write_message(ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction::ApplyLdtkReload);
+    for _ in 0..120 {
+        app.update();
+        let watch = app.world().resource::<WorldSourceHotReload>();
+        if watch.applied_count > 0 || !watch.last_errors.is_empty() {
+            break;
+        }
+    }
+    let _ = std::fs::remove_file(&copy);
+    let watch = app.world().resource::<WorldSourceHotReload>();
+    assert!(watch.last_errors.is_empty(), "the reload was refused: {:?}", watch.last_errors);
+    assert_eq!(watch.applied_count, 1, "the reload applied: {}", watch.last_status);
+    assert_eq!(room_id(&mut app).as_deref(), Some(ambition_demo_mary_o::LEVEL_1_1_ROOM_ID), "she stays in her room");
+    assert_eq!(biome(&mut app).as_deref(), Some("starless"), "her room is the edited one");
+}

@@ -164,8 +164,26 @@ entity manifest is a test-only converter schema. The Oct 11 include census
 found no other ordinary-development embedded non-test data in `crates/` or
 `game/` beyond documented schemas/feature-gated content.
 
-**Still open:** F11/F12 world reload covers the Ambition world, not running
-demo worlds; a demo's authored world edit still requires a demo restart.
+**Running-demo world reload (2026-11-28):** F11/F12 reloads the world of
+the session that is running, whichever provider's. Each world provider
+states its file and a reader (`WorldReloadSources`,
+`ambition_platformer2d_provider::world_reload`). The reader turns the
+watched file into a replacement of the active source's world
+(`PreparedPlatformerSource::with_world`, and the LDtk index for a format
+that has one). The watch follows the running session's provider
+(`follow_the_running_world`). An exclusive step runs the reader when a
+reload is asked for (`read_the_world_reload_candidate`), and the existing
+publication rebuilds the live rooms from it. Ambition's reader is its LDtk
+project (`ambition_content::world_preparation`); Mary-O's is her world file
+through her own room conversion. Before this, a hosted Mary-O watched
+Ambition's file, and F11 refused with "would delete the current room".
+Witness: `a_world_reload_in_her_running_session_reads_her_world` (her
+watch, then an edited 1-1 biome reaching her live room).
+
+**Still open:** Sanic's world is three act files under one provider, and
+the watch holds one path; it needs a watch of several files. A world
+provider that states no source is refused by name. The standalone demo
+binaries do not install the developer reload.
 Runtime sprite publication is separate from reading tables without a rebuild;
 see the visual-generation acceptance in I3 below.
 
@@ -254,8 +272,8 @@ refused and requires restart.
 - I3c scenario pin/replay, changed-section explanation, activation status,
   and generation-aware cancellation. Keep refusal, unchanged-content and
   sealed-candidate behavior explicit.
-- Running-demo world reload is a distinct I2/I3 customer: the source is read
-  off disk, but the existing F11/F12 reload path does not adopt it in place.
+- Running-demo world reload: Mary-O's landed 2026-11-28 (see "Still
+  open" above); Sanic's needs a watch of several files.
 
 **Reference contracts:** `content-generation-and-reload.md`,
 `immutable-content-and-transactional-construction.md`, `netcode.md`.

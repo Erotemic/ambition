@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 #[cfg(feature = "portal_render")]
-use ambition_portal2d_presentation::{PortalCarryOrder, PortalGlow};
+use ambition_portal2d_presentation::{PortalCarryOrder, PortalConeMesh, PortalGlow};
 use bevy::asset::AssetEventSystems;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems};
 use bevy::ecs::system::{SystemParam, SystemParamItem};
@@ -83,6 +83,15 @@ pub(super) fn install(app: &mut App) {
 
 /// A planar material with a fragment shader for the card output.
 pub trait CardMaterialSource: Material2d + PartialEq {
+    /// Select the card render pass for this surface.
+    fn card_alpha_mode(&self) -> AlphaMode {
+        match self.alpha_mode() {
+            AlphaMode2d::Opaque => AlphaMode::Opaque,
+            AlphaMode2d::Mask(cutoff) => AlphaMode::Mask(cutoff),
+            AlphaMode2d::Blend => AlphaMode::Blend,
+        }
+    }
+
     /// A blend state other than the material's alpha mode.
     fn card_blend() -> Option<BlendState> {
         None
@@ -114,7 +123,12 @@ impl CardMaterialSource for AddedLightMaterial {
 #[cfg(feature = "portal_render")]
 impl CardMaterialSource for ambition_portal2d_presentation::PortalGlowMaterial {}
 #[cfg(feature = "portal_render")]
-impl CardMaterialSource for ambition_portal2d_presentation::PortalClipMaterial {}
+impl CardMaterialSource for ambition_portal2d_presentation::PortalClipMaterial {
+    fn card_alpha_mode(&self) -> AlphaMode {
+        // A window and its exit pieces share one plane and use paint order.
+        AlphaMode::Blend
+    }
+}
 
 /// Draw a planar material with the same bindings in the card view. Its fragment
 /// shader must accept the 3D vertex output when `AMBITION_CARD_MESH` is set.
@@ -197,11 +211,7 @@ impl<M: CardMaterialSource> Material for CardMaterial<M> {
     }
 
     fn alpha_mode(&self) -> AlphaMode {
-        match self.0.alpha_mode() {
-            AlphaMode2d::Opaque => AlphaMode::Opaque,
-            AlphaMode2d::Mask(cutoff) => AlphaMode::Mask(cutoff),
-            AlphaMode2d::Blend => AlphaMode::Blend,
-        }
+        self.0.card_alpha_mode()
     }
 
     fn enable_prepass() -> bool {
@@ -381,7 +391,7 @@ fn realize_color_meshes(
 #[derive(SystemParam)]
 struct PortalMeshPlacement<'w, 's> {
     pieces: Query<'w, 's, &'static PortalCarryOrder>,
-    rims: Query<'w, 's, (), With<PortalGlow>>,
+    openings: Query<'w, 's, (), Or<(With<PortalGlow>, With<PortalConeMesh>)>>,
     sources: Query<'w, 's, (
         Option<&'static MovingPlatformVisual>,
         Option<&'static HeldArtOf>,
@@ -491,7 +501,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
             body_depth.unwrap_or_else(|| depths.scenery(z, room))
         };
         #[cfg(feature = "portal_render")]
-        if piece == Some(PortalCarryOrder::Exit) || portal.rims.contains(source) {
+        if piece == Some(PortalCarryOrder::Exit) || portal.openings.contains(source) {
             // Use the window plane for the rim and emerging parts.
             depth = depth.on_play_plane();
         }
@@ -617,6 +627,57 @@ mod tests {
         assert_eq!(card(app.world_mut()), (entity, material.clone()));
         assert_eq!(app.world().resource::<Assets<CardMaterial<AddedLightMaterial>>>()
             .get(&material).unwrap().0.strength, strength);
+    }
+
+    #[cfg(feature = "portal_render")]
+    #[test]
+    fn a_portal_window_keeps_its_card_when_the_capture_image_changes() {
+        use ambition_portal2d_presentation::{PortalClipMaterial, PORTAL_WINDOW_Z};
+
+        let mut app = App::new();
+        app.init_resource::<Assets<Image>>()
+            .init_resource::<Assets<PortalClipMaterial>>()
+            .init_resource::<Assets<CardMaterial<PortalClipMaterial>>>()
+            .init_resource::<CardRootDepths>()
+            .insert_resource(CardViewSettings::for_game(CardViewMode::SideOn))
+            .add_systems(Update, realize_shaded_meshes::<PortalClipMaterial>);
+        let world = app.world_mut();
+        world.spawn(LocalView);
+        let material = world.resource_mut::<Assets<PortalClipMaterial>>().add(
+            PortalClipMaterial::window(Color::WHITE, Handle::default(), Vec3::ZERO),
+        );
+        let source = world.spawn((
+            PortalConeMesh,
+            Mesh2d::default(),
+            MeshMaterial2d(material.clone()),
+            GlobalTransform::from_translation(Vec3::new(20.0, 10.0, PORTAL_WINDOW_Z)),
+            InheritedVisibility::VISIBLE,
+        )).id();
+        let card = |world: &mut World| {
+            let (entity, material, place, paint) = world.query_filtered::<(
+                Entity, &MeshMaterial3d<CardMaterial<PortalClipMaterial>>, &Transform, &CardPaintDepth,
+            ), With<CardWorldMesh>>().single(world).unwrap();
+            assert_eq!(place.translation.z, super::super::PLAY_PLANE_Z);
+            assert!(paint.0 > 0.0);
+            (entity, material.0.clone())
+        };
+        app.update();
+        let product = card(app.world_mut());
+
+        let world = app.world_mut();
+        let image = world.resource_mut::<Assets<Image>>().add(Image::default());
+        let picture = PortalClipMaterial::window(Color::srgb(0.8, 0.9, 1.0), image, Vec3::new(1.0, 0.0, -0.4));
+        world.resource_mut::<Assets<PortalClipMaterial>>().insert(material.id(), picture.clone()).unwrap();
+        app.update();
+        assert_eq!(card(app.world_mut()), product);
+        let adapted = app.world().resource::<Assets<CardMaterial<PortalClipMaterial>>>().get(&product.1).unwrap();
+        assert_eq!(adapted.0, picture);
+        assert_eq!(adapted.alpha_mode(), AlphaMode::Blend);
+        assert_eq!(picture.alpha_mode(), AlphaMode2d::Opaque);
+
+        app.world_mut().despawn(source);
+        app.update();
+        assert!(app.world().get::<CardWorldMesh>(product.0).is_none());
     }
 
     #[cfg(feature = "portal_render")]

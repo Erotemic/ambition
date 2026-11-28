@@ -932,8 +932,9 @@ shared value preparation are sufficient until source proves otherwise.
    Portal windows, rims, and exit pieces project from the same play plane
    in 2.5D. The draw order of each stays in its own layer. An Ultra capture
    checks the projection with both tilt and roll. At the exit boundary,
-   the card window filters only texels on the visible side. This removes
-   a thin line of glow that could show through a clipped body.
+   both outputs filter texels on the visible side of the same capture.
+   The card renderer uses the shared portal material and mesh. The
+   window, rim, and exit pieces keep their paint order.
 
    Text cards use Bevy's layout for the current frame. The layout uses
    the card output's projection and display scale. It covers labels at

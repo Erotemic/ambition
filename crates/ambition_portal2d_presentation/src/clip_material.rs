@@ -33,7 +33,7 @@ impl PortalClipMaterial {
         Self { uv_rect, control, tint, sample_plane: Vec4::ZERO, color_texture }
     }
 
-    /// Draw the RGB of a portal capture in the sorted pass.
+    /// Draw the RGB of a portal capture and filter at the exit plane.
     pub fn window(color: Color, image: Handle<Image>, sample_plane: Vec3) -> Self {
         let mut material = Self::new(
             Vec4::new(0.0, 0.0, 1.0, 1.0),
@@ -215,7 +215,11 @@ impl Material2d for PortalClipMaterial {
     }
 
     fn alpha_mode(&self) -> AlphaMode2d {
-        AlphaMode2d::Blend
+        if self.control.w > 1.5 {
+            AlphaMode2d::Opaque
+        } else {
+            AlphaMode2d::Blend
+        }
     }
 }
 

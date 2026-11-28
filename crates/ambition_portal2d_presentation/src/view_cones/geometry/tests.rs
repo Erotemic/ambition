@@ -70,7 +70,7 @@ fn a_window_samples_the_exit_half_after_rotating_and_cropping() {
     let full = UVec2::splat(256);
     let size = render.crop_capture(full, UVec2::ZERO);
     assert!(size.cmplt(full).all());
-    let plane = render.capture.visible_half(opening, Vec2::X).0;
+    let plane = render.capture.visible_half(opening, Vec2::X);
     let at = |point| plane.dot(Vec2::from_array(render.capture.uv(point)).extend(1.0));
     assert!(at(opening).abs() < 1e-4);
     assert!(at(opening + Vec2::X) > 0.9);

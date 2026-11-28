@@ -87,8 +87,6 @@ mod gameplay;
 mod labels;
 mod paint_order;
 mod world_mesh;
-#[cfg(feature = "portal_render")]
-mod portal_windows;
 
 pub use world_mesh::{install_card_mesh_material, CardMaterialSource};
 pub(crate) use gameplay::PlaneCameraForCard;
@@ -513,15 +511,6 @@ impl Plugin for CardViewPlugin {
                 .after(world_mesh::CardWorldMeshSet)
                 .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility)
                 .run_if(card_outputs_enabled),
-        );
-        #[cfg(feature = "portal_render")]
-        app.add_systems(
-            Update,
-            portal_windows::realize_portal_windows
-                .after(ambition_portal2d_presentation::sync_portal_view_cones)
-                .after(realize_card_bodies)
-                .run_if(card_outputs_enabled)
-                .after(ViewCameraSet),
         );
     }
 }

@@ -143,6 +143,12 @@ impl Plugin for PortalPresentationPlugin {
         }
         #[cfg(feature = "effect_view_cones")]
         if self.view_cones {
+            app.add_systems(
+                Startup,
+                view_cones::warm_the_window_material
+                    .run_if(resource_exists::<Assets<Mesh>>)
+                    .run_if(resource_exists::<Assets<crate::PortalClipMaterial>>),
+            );
             app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
             app.init_resource::<view_cones::PortalViewConeConfig>();
             app.init_resource::<view_cones::PortalViewConeRule>();
@@ -168,7 +174,7 @@ impl Plugin for PortalPresentationPlugin {
                     view_cones::sync_portal_view_cones
                         .run_if(resource_exists::<Assets<Image>>)
                         .run_if(resource_exists::<Assets<Mesh>>)
-                        .run_if(resource_exists::<Assets<ColorMaterial>>),
+                        .run_if(resource_exists::<Assets<crate::PortalClipMaterial>>),
                     // Same guard: `Gizmos` requires `GizmoConfigStore`.
                     view_cones::debug_portal_view_zones
                         .run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>)

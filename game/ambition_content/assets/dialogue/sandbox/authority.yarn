@@ -60,7 +60,7 @@ title: authority_gatekeeper
 <<elseif verdict("world.flag_set", "authority_gatekeeper_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_gatekeeper_met" true>>
     Imre: Gatekeeper Imre, Gate Authority. Papers?
-    Imre: You're a robot. Your papers are you. Fine.
+    Imre: If you've just arrived, keep to this side while I clear the landing area.
     -> What does the Authority do?
         Imre: We survey rings, maintain terminals, and keep records of crossings at our posts. Anybody can dial a working gate if they know the address.
         Imre: People tend to come to us when they need the address, or when something breaks.

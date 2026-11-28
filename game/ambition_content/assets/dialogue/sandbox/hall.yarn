@@ -315,59 +315,59 @@ Merchant: Anything particular you're after?
 title: hall_npc_alice
 ---
 <<portrait_clip "speaking">>
-Alice: Alice. I work for the map office. Bob and I are surveying the hill country. I've got the open ground; he's got the woods.
--> Who do you send messages to?
-    Alice: Bob, usually. We exchange measurements before we join the surveys together. If I give you a note for him, please leave the numbers as they are.
--> Sounds simple enough.
+Alice: Alice. I do field surveys for the map office. Bob and I have been trying to join our maps along the valley floor.
+-> How do you work together?
+    Alice: We take independent measurements along the boundary. If they disagree, we go back out and take them again. Bob's very good at finding the spot where I went wrong.
+-> How do you check his messages?
     <<portrait_clip "focused">>
-    Alice: It was, until Mallory sent Bob a set of measurements I'd never taken. Now I sign them.
+    Alice: We exchanged verification keys in person. Now I can check that a set of measurements was signed by Bob and hasn't been altered. I still check the measurements themselves.
 ===
 
 title: hall_npc_bob
 ---
-Bob: Bob. Have you seen Alice? I've got her chain.
--> What do you do?
-    Bob: Surveying. We do the hills and paths in sections and exchange our measurements. It helps if we both use the same units.
--> Do the notes ever go missing?
-    Bob: Once I got a note in Alice's handwriting telling me to move a benchmark. I asked her about it. Mallory must have had a busy morning.
+Bob: Have you seen Alice? I borrowed her survey chain. I ought to take it back before she comes looking for it.
+-> What are you surveying?
+    Bob: The old paths and the boundaries of the woods. The office map puts a path through a pond. Alice and I are going to walk the edge of it tomorrow.
+-> Do your notes ever go missing?
+    Bob: Once I got a note in Alice's handwriting telling me to move a benchmark. I went to ask her about it. We spent the rest of the afternoon putting it back.
 ===
 
 title: hall_npc_creator
 ---
-Dennis: I'm Dennis. I build robots. This is the longest I've stood still without a spanner in my hand.
--> What were you trying to make?
-    Dennis: A robot that could go out surveying. Walking, climbing, getting back in one piece. I leave the actual maps to the cartographers.
+Dennis: Dennis the Finch. If you've got something that needs fixing, I can have a look.
+-> What sort of robots do you build?
+    Dennis: The survey kind. I can get one over a wall now without having to climb over it myself to fetch it. Getting it to keep useful notes is the harder job.
 -> Do you like making robots?
-    Dennis: Most days. Ask me again when I'm trying to get a screw out of a knee joint.
+    Dennis: Yes. Especially when they've learned something I didn't teach them. Then I have to go back and change the questions in my notebook.
 ===
 
 title: hall_npc_oiler
 ---
 <<portrait_clip "talking">>
-Oiler: Hear that tick? No? Robot shoulder. Give it another minute.
--> What needs fixing?
+Oiler: Come round this side. Better light here.
+-> What do you fix?
     <<portrait_clip "inspecting">>
-    Oiler: Robot shoulder clicks. Sandbag stand leans. Little jobs everywhere.
--> Why not fix them?
-    Oiler: I can hear a loose bearing from here and they will not let me cross the rope. Miserable place.
+    Oiler: Robots, lifts, gates. Whatever comes through the shop door. Sometimes the problem is getting the thing through the door.
+-> Could you teach me?
+    Oiler: Of course. Fia can show you how to check a bearing. Bring me one of the bad ones afterwards and we'll see if we can save it.
 ===
 
 title: hall_npc_fia
 ---
-Fia: You're the one Oiler keeps glaring at. Come here, your left knee is singing.
+Fia: Hello. Come over. You can sit here if you like.
 -> Who are you?
-    Fia: Fia. I work under Oiler. I'm usually at his bench. Let me see you bend that knee.
--> Where are your goggles?
-    Fia: They fog up. I left mine beside the vice.
--> What is the white streak?
-    Fia: Born with it. Probably. Oiler says it showed up the week I first opened a gate panel. Oiler exaggerates.
+    Fia: Fia. I work at Oiler's bench. If he's showing someone how to do a repair, I look after the jobs that come in while he's teaching.
+-> What are you working on?
+    Fia: A knee joint. The owner has been waiting since yesterday. I promised I'd have it ready before they went home.
+-> What's it like working with Oiler?
+    Fia: He's patient. He'll let you take the whole thing apart and wait while you try to find the fault. I like watching the moment he sees that you've found it.
 -> Show me the void.
     <<transform "npc_fia_void">>
-    Fia: Oh. Give me a moment. I can hear you.
-    Fia: I know. I'll change back.
+    Fia: ...Can you still hear me? Yes? Good.
+    Fia: Stay there a moment. I'll change back when you're ready.
 -> Come back.
     <<transform "npc_fia">>
-    Fia: There. Let me get the feeling back in my fingers.
+    Fia: There. My fingers take a little while to warm up.
 ===
 
 title: hall_npc_gate_janitor
@@ -480,11 +480,11 @@ Dark Lord: If you have come to surrender, I accept.
 
 title: hall_npc_eve
 ---
-Eve: Keep talking. I like when Alice and Bob forget I'm here.
+Eve: Oh, hello. Are you waiting for a message too?
 -> What do you listen to?
-    Eve: Everything they send each other, if they leave it readable. Alice has started sealing her survey notes. Most inconvenient.
--> That's unsettling.
-    Eve: Encryption ruins my evening. I still see when they send things, but I can't read the notes.
+    Eve: Alice and Bob send their surveys over the same line. I used to listen to the numbers and try to draw the map before they did. They started encrypting it.
+-> Can you still tell what they're doing?
+    Eve: I can see when a message goes out. I can often tell who it's for. I can't read what's inside anymore.
 ===
 
 title: hall_npc_raid_enforcer
@@ -597,11 +597,11 @@ Judy: Two people swear opposite things. I decide which story survives the hearin
 
 title: hall_npc_mallory
 ---
-Mallory: Eve listens. I edit. If Alice sent you a note, you may want Bob to read it twice.
--> That's malicious.
-    Mallory: I sit between them and change things. Sometimes one word is enough.
+Mallory: Are you taking that to Alice? I'd change the last digit. Just a suggestion.
+-> Why would I do that?
+    Mallory: Bob once spent half an hour looking for a marker I'd added to his instructions. The marker was on Alice's desk the whole time.
 -> How do I stop you?
-    Mallory: Signatures. Hate them. Bob checks every one now.
+    Mallory: Get Alice to sign the instructions and make sure Bob checks the signature with her real public key. He's learned that trick now. Most inconvenient.
 ===
 
 title: hall_npc_mantis_lancer
@@ -1975,23 +1975,23 @@ title: hall_npc_valley_miller
 ---
 Miller: Flour, feed, no credit.
 -> Who comes to the mill?
-    Miller: The innkeeper takes a sack at a time. The man at the barn used to take six and never once brought me a loaf.
+    Miller: The innkeeper takes a sack at a time. Dennis takes six at a time. I've offered to bring them up in the cart, but he always comes down for them himself.
 -> What does the gate bring?
     Miller: Grain I've never seen. I bought a sample of the blue stuff. Turned both stones blue, and the innkeeper wouldn't have the flour.
 ===
 
 title: hall_npc_valley_innkeeper
 ---
-Innkeeper: The Plough's open. It's always open. I'd close it, but nobody's found the key since my mother.
+Innkeeper: The Plough's open. If you need a bed, tell me before I start putting the tables away.
 -> Do you hear the news first?
-    Innkeeper: I hear all of it first. Most of it's about hens.
+    Innkeeper: Usually. Alice and Bob spread their maps over my big table every time they're both in the valley. I can tell which part of the woods is wet without leaving the inn.
 ===
 
 title: hall_npc_valley_trader
 ---
 Trader: Gate goods. Lamp oil, salt, batteries. I used to shoe horses here. Now I sell imports.
 -> Do you miss the forge?
-    Trader: I still shoe the miller's mule. And I made the knight a crossguard for his new sword. I wish he'd brought it in with the switch off.
+    Trader: I still shoe the miller's mule. And I made the knight a crossguard for his new sword. I wish he'd brought it in with the switch off. Dennis has been asking me for a switch small enough to fit in the handle.
 ===
 
 title: hall_npc_valley_gatekeeper
@@ -2000,7 +2000,7 @@ Gatekeeper: Name, origin, purpose.
 -> I'm just looking at the exhibits.
     Gatekeeper: "Looking." I'll write it down. Most of them are like that.
 -> What does a gatekeeper do?
-    Gatekeeper: The gate does not keep records. That is why it needs me.
+    Gatekeeper: I write down who comes through and what they bring. The office at the other end sends me a copy. I try to get the two copies to agree.
 ===
 
 title: hall_npc_valley_shepherd
@@ -5332,7 +5332,7 @@ Marguerite: Take a number.
 -> What do you do here?
     Marguerite: Senior clerk, Records & Processing. Eleven years on one form. It's nearly done.
 -> Is it for a licence?
-    Marguerite: It's an application to be allowed to apply for an amendment to a licence. I could tell you which office receives it, but directions need another form.
+    Marguerite: It's an application to amend a licence. Two surveyors working together would each need a separate licence to give the other a copy of their work. Don't ask me who thought of that.
 ===
 title: hall_moving_goalposts
 ---

@@ -43,7 +43,7 @@ spatial architecture program.
 
 | Source | Established source fact | Owner of the change |
 | --- | --- | --- |
-| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Water membership and chest/switch touch read the admitted material parts (landed 2026-11-27). Climbing still tests the whole root AABB. | Present material occupancy below |
+| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Water membership, chest/switch touch and climbing read the admitted material parts (landed 2026-11-27). | Present material occupancy below |
 | [Interaction reach](../../../crates/ambition_platformer2d_interaction/src/lib.rs) | Touch, facing and preference are shared by selection and consumption, but use root-box/root-chart facts. | [Physical touch](interaction-opportunities-and-activation.md#physical-touch-retains-its-admitted-material-map) |
 | [Standing surfaces](../../../crates/ambition_platformer2d_world/src/navigation/surfaces.rs), [flight map](../../../crates/ambition_platformer2d_world/src/navigation/flight.rs) | Painted fill admits support; polygon bounds remove standing spans; flight occupancy omits chains. | [Static geometry coverage](platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation) |
 | [Room replay](../../../crates/ambition_hosted_world/src/room_rollback.rs), [body publication](../../../crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs), [portal publication](../../../crates/ambition_portal2d/src/passages.rs) | Replay hides foreign rooms. The portal publishers replace only the replayed room and keep the hidden rooms' entries (T3, landed 2026-11-27). | [T3 publication coverage](portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population) |
@@ -234,6 +234,28 @@ known.
    case. Check the native blocks made passable and climb direction.
    Include a turned case to establish the supported response or its explicit
    refusal. Retain source provenance in inspection.
+   **Landed 2026-11-27, response side.** The same `occupied` call feeds water
+   and climbing (`World::climbable_touched`). A region counts when a part
+   overlaps it strictly through a map that keeps the region's up as the
+   body's up (`to_root.direction(-Y)·-Y > 0.999`). Root-chart parts come
+   first, and the first region in native order wins. A region met only
+   through a map that turns or flips up is touched, but admits no climb: it
+   does not enter `climbable`, so it grants no passability.
+
+   The contact's box and metrics stay in the region's own chart, so climb
+   passability is bound to the native blocks inside it. An uncut body keeps
+   `climbable_at` of the step box. A refusal keeps the last contact, as water
+   does.
+
+   Witness: in `water_through_openings.rs`, the same pair under its two map
+   conventions gives one map that keeps up and one that flips it.
+   - Up kept: the far ladder is climbed.
+   - Up flipped: it is refused.
+   - Behind the entry: no ladder.
+   - Root-box control: the reverse.
+
+   Still open: inspection does not yet retain the unsupported touch
+   (step 4).
 4. **Owner observations and cost.** Extend the existing F1/headless observers
    with the actual query result and cut. Count part preparations, candidate
    tests and allocations in ordinary, straddling and no-region scenes. Use

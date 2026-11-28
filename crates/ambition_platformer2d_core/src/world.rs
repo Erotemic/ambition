@@ -512,6 +512,20 @@ impl ClimbableRegion {
         Self { aabb, kind, spec }
     }
 
+    /// The contact of a body on this region. Its box and metrics stay in
+    /// the region's own chart: climb passability is bound to the native
+    /// blocks inside it.
+    fn contact(&self) -> ClimbableContact {
+        ClimbableContact {
+            kind: self.kind,
+            region_aabb: self.aabb,
+            top_y: self.aabb.top(),
+            bottom_y: self.aabb.bottom(),
+            center_x: 0.5 * (self.aabb.min.x + self.aabb.max.x),
+            spec: self.spec,
+        }
+    }
+
     /// Convenience: ladder with default spec.
     pub fn ladder(aabb: Aabb) -> Self {
         Self::new(aabb, ClimbableKind::Ladder, ClimbableSpec::default())
@@ -1893,13 +1907,22 @@ impl World {
             .climbable_regions
             .iter()
             .find(|r| r.aabb.strict_intersects(body))?;
-        Some(ClimbableContact {
-            kind: region.kind,
-            region_aabb: region.aabb,
-            top_y: region.aabb.top(),
-            bottom_y: region.aabb.bottom(),
-            center_x: 0.5 * (region.aabb.min.x + region.aabb.max.x),
-            spec: region.spec,
+        Some(region.contact())
+    }
+
+    /// The climbable a body's admitted material is on (`parts`, as for
+    /// [`Self::water_touched`]): the first region in native order that a
+    /// part overlaps by more than a touch, through a map that keeps the
+    /// region's up as the body's up. The climb moves the body along its own
+    /// chart's axes, so a region met only through a map that turns or
+    /// flips up is not climbed. It is touched, but no response is admitted
+    /// for it, and it grants no passability.
+    pub fn climbable_touched(&self, parts: &[crate::frame::thread::OccupiedPart]) -> Option<ClimbableContact> {
+        self.climbable_regions.iter().find_map(|region| {
+            parts.iter()
+                .filter(|part| part.strictly_overlaps(region.aabb))
+                .any(|part| part.to_root.direction(Vec2::NEG_Y).normalize_or_zero().dot(Vec2::NEG_Y) > 0.999)
+                .then(|| region.contact())
         })
     }
 

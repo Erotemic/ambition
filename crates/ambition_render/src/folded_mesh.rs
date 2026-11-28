@@ -17,7 +17,7 @@
 use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use bevy::{
     asset::RenderAssetUsages,
-    camera::visibility::NoFrustumCulling,
+    camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems},
     math::Vec2,
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     prelude::*,
@@ -162,9 +162,12 @@ struct FoldMaterials {
     blended: Handle<ColorMaterial>,
 }
 
-/// On a [`FoldedMesh`] that has been drawn: the mesh it writes.
+/// Prepared geometry and material for a planar draw.
 #[derive(Component)]
-struct FoldedMeshDrawn(Handle<Mesh>);
+pub(crate) struct PreparedPlanarMesh<M: Asset> {
+    pub mesh: Handle<Mesh>,
+    pub material: Handle<M>,
+}
 
 /// The set the writer runs in: a producer of a [`FoldedMesh`] runs before it.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -211,7 +214,15 @@ impl Plugin for FoldedMeshPlugin {
                 .after(crate::rendering::BodyOwnedDrawableSync)
                 .run_if(session_world_exists),
         );
-        app.add_systems(Update, write_folded_meshes.in_set(FoldedMeshSync));
+        app.add_systems(Update, prepare_folded_meshes.in_set(FoldedMeshSync));
+        app.add_systems(
+            PostUpdate,
+            draw_folded_meshes_2d
+                .run_if(any_with_component::<FoldedMesh>)
+                .after(bevy::camera::CameraUpdateSystems)
+                .after(crate::rendering::view_isolation::isolate_live_rooms)
+                .before(VisibilitySystems::CheckVisibility),
+        );
     }
 }
 
@@ -283,10 +294,9 @@ fn mesh_of(tris: &Tris) -> Mesh {
     mesh
 }
 
-/// Fold each changed [`FoldedMesh`] through its room's portals and write the
-/// mesh it is drawn with.
+/// Prepare one mesh for all outputs that draw the effect.
 #[allow(clippy::too_many_arguments)]
-fn write_folded_meshes(
+fn prepare_folded_meshes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     materials: Res<FoldMaterials>,
@@ -294,15 +304,20 @@ fn write_folded_meshes(
     rooms: LiveRooms,
     passages: Option<Res<BodyGeometry>>,
     carriers: Query<&ae::BodyKinematics>,
-    mut folded: Query<(Entity, &FoldedMesh, Option<&FoldedMeshDrawn>, &mut Transform), Changed<FoldedMesh>>,
+    mut folded: Query<(
+        Entity, &FoldedMesh, Option<&PreparedPlanarMesh<AddedLightMaterial>>,
+        Option<&PreparedPlanarMesh<ColorMaterial>>, &mut Transform,
+    ), Changed<FoldedMesh>>,
 ) {
-    for (entity, mesh, drawn, mut transform) in &mut folded {
+    for (entity, mesh, added, blended, mut transform) in &mut folded {
         let Some(room_world) = world.of(entity) else {
             continue;
         };
         let room = rooms.of(entity);
-        let tris = match (passages.as_deref(), mesh.tris.bounds()) {
-            (Some(passages), Some(bounds)) if passages.cuts_in(room, mesh.source.carrier()) => {
+        let cuts = passages.as_deref().filter(|geometry| geometry.cuts_in(room, mesh.source.carrier()));
+        let folded_tris;
+        let tris = match cuts.and_then(|geometry| Some((geometry, mesh.tris.bounds()?))) {
+            Some((passages, bounds)) => {
                 let volume = ae::CombatVolume::aabb(bounds);
                 let pieces = match mesh.source {
                     PartSource::World { owner } => passages.world_pieces(&volume, owner, mesh.root, room),
@@ -314,25 +329,73 @@ fn write_folded_meshes(
                 };
                 let Ok(pieces) = pieces else { continue; };
                 let Ok(tris) = fold(&mesh.tris, &pieces) else { continue; };
-                tris
+                folded_tris = tris;
+                &folded_tris
             }
-            _ => mesh.tris.clone(),
+            None => &mesh.tris,
         };
-        transform.translation = world_to_bevy(&room_world.0, Vec2::ZERO, mesh.z);
-        match drawn {
-            Some(FoldedMeshDrawn(handle)) => {
-                if let Some(mut target) = meshes.get_mut(handle) {
-                    *target = mesh_of(&tris);
+        let translation = world_to_bevy(&room_world.0, Vec2::ZERO, mesh.z);
+        if transform.translation != translation {
+            transform.translation = translation;
+        }
+        let previous = added.map(|draw| &draw.mesh).or_else(|| blended.map(|draw| &draw.mesh));
+        let handle = match previous {
+            Some(handle) if meshes.contains(handle.id()) => {
+                *meshes.get_mut(handle).unwrap() = mesh_of(tris);
+                handle.clone()
+            }
+            _ => meshes.add(mesh_of(tris)),
+        };
+        match (&materials.added, mesh.composite) {
+            (Some(material), Composite::Add) => {
+                if added.is_none_or(|draw| draw.mesh != handle || draw.material != *material) {
+                    commands.entity(entity)
+                        .remove::<PreparedPlanarMesh<ColorMaterial>>()
+                        .insert((PreparedPlanarMesh { mesh: handle, material: material.clone() }, NoFrustumCulling));
                 }
             }
-            None => {
-                let handle = meshes.add(mesh_of(&tris));
-                let mut entity = commands.entity(entity);
-                entity.insert((Mesh2d(handle.clone()), NoFrustumCulling, FoldedMeshDrawn(handle)));
-                match (&materials.added, mesh.composite) {
-                    (Some(added), Composite::Add) => entity.insert(MeshMaterial2d(added.clone())),
-                    _ => entity.insert(MeshMaterial2d(materials.blended.clone())),
-                };
+            _ => {
+                if blended.is_none_or(|draw| draw.mesh != handle || draw.material != materials.blended) {
+                    commands.entity(entity)
+                        .remove::<PreparedPlanarMesh<AddedLightMaterial>>()
+                        .insert((PreparedPlanarMesh { mesh: handle, material: materials.blended.clone() }, NoFrustumCulling));
+                }
+            }
+        }
+    }
+}
+
+/// Bind a mesh when a 2D camera uses its layers. Portal captures can use the
+/// mesh while the main output draws in 2.5D.
+fn draw_folded_meshes_2d(
+    mut commands: Commands,
+    cameras: Query<(&Camera, Option<&RenderLayers>), With<Camera2d>>,
+    effects: Query<(
+        Entity, Option<&RenderLayers>, Option<&Mesh2d>,
+        Option<&PreparedPlanarMesh<AddedLightMaterial>>, Option<&PreparedPlanarMesh<ColorMaterial>>,
+        Option<&MeshMaterial2d<AddedLightMaterial>>, Option<&MeshMaterial2d<ColorMaterial>>,
+    ), With<FoldedMesh>>,
+) {
+    let masks: Vec<_> = cameras.iter().filter_map(|(camera, mask)| {
+        camera.is_active.then(|| mask.unwrap_or_default())
+    }).collect();
+    for (id, layers, drawn, added, blended, light, color) in &effects {
+        let wanted = masks.iter().any(|mask| mask.intersects(layers.unwrap_or_default()));
+        if !wanted {
+            if drawn.is_some() {
+                commands.entity(id).remove::<(Mesh2d, MeshMaterial2d<AddedLightMaterial>, MeshMaterial2d<ColorMaterial>)>();
+            }
+        } else if let Some(draw) = added {
+            if drawn.is_none_or(|mesh| mesh.0 != draw.mesh) || light.is_none_or(|material| material.0 != draw.material) {
+                commands.entity(id)
+                    .remove::<MeshMaterial2d<ColorMaterial>>()
+                    .insert((Mesh2d(draw.mesh.clone()), MeshMaterial2d(draw.material.clone())));
+            }
+        } else if let Some(draw) = blended {
+            if drawn.is_none_or(|mesh| mesh.0 != draw.mesh) || color.is_none_or(|material| material.0 != draw.material) {
+                commands.entity(id)
+                    .remove::<MeshMaterial2d<AddedLightMaterial>>()
+                    .insert((Mesh2d(draw.mesh.clone()), MeshMaterial2d(draw.material.clone())));
             }
         }
     }
@@ -359,6 +422,55 @@ mod tests {
         tris.triangles()
             .map(|[(a, _), (b, _), (c, _)]| ((b - a).perp_dot(c - a) * 0.5).abs())
             .sum()
+    }
+
+    #[test]
+    fn folded_geometry_survives_the_2d_capture_binding() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>();
+        let world = app.world_mut();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            world,
+            ae::RoomGeometry(ae::World::new(
+                "effect room", Vec2::splat(256.0), Vec2::ZERO, Vec::new(),
+            )),
+        );
+        world.insert_resource(FoldMaterials {
+            added: Some(Handle::default()),
+            blended: Handle::default(),
+        });
+        let layer = RenderLayers::layer(7);
+        let effect = world.spawn((
+            FoldedMesh {
+                tris: quad(Vec2::ZERO, Vec2::splat(36.0)),
+                composite: Composite::Blend,
+                ..default()
+            },
+            Transform::default(),
+            layer.clone(),
+        )).id();
+        world.spawn((Camera2d, RenderLayers::layer(8)));
+        app.add_systems(Update, (prepare_folded_meshes, draw_folded_meshes_2d).chain());
+
+        app.update();
+        let mesh = app.world().get::<PreparedPlanarMesh<ColorMaterial>>(effect).unwrap().mesh.clone();
+        assert!(app.world().get::<Mesh2d>(effect).is_none());
+
+        let capture = app.world_mut().spawn((Camera2d, layer)).id();
+        app.update();
+        assert_eq!(app.world().get::<Mesh2d>(effect).unwrap().0, mesh);
+        assert!(app.world().get::<MeshMaterial2d<ColorMaterial>>(effect).is_some());
+
+        app.world_mut().get_mut::<FoldedMesh>(effect).unwrap().composite = Composite::Add;
+        app.update();
+        assert_eq!(app.world().get::<Mesh2d>(effect).unwrap().0, mesh);
+        assert!(app.world().get::<MeshMaterial2d<ColorMaterial>>(effect).is_none());
+        assert!(app.world().get::<MeshMaterial2d<AddedLightMaterial>>(effect).is_some());
+
+        app.world_mut().get_mut::<Camera>(capture).unwrap().is_active = false;
+        app.update();
+        assert!(app.world().get::<Mesh2d>(effect).is_none());
+        assert_eq!(app.world().get::<PreparedPlanarMesh<AddedLightMaterial>>(effect).unwrap().mesh, mesh);
     }
 
     /// A wall portal at x 100 facing -x, its partner on a floor at (400, 300)

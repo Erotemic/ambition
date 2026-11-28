@@ -4,7 +4,8 @@
 //! `interaction.reach` asks the rule the press and the prompt ask
 //! ([`InteractReach`], and gameplay's choice of target,
 //! `ambition_platformer2d_actor::body::InteractTargets`) for one body:
-//! - its touch box (`interact_touch`: what a chest or a switch must touch),
+//! - its touch (`interact_touch`: what a chest or a switch must touch: the
+//!   collision box, or each admitted part when an opening cuts the body),
 //!   its talk box (`interact_talk`) and the point it reaches with
 //!   (`interact_front`: the press is for the nearest thing to it);
 //! - every person, switch and chest in its live room (`talk`, `switch`,
@@ -77,8 +78,20 @@ fn reach_of_subject(
     let name = |entity: Entity| names.get(entity).map_or_else(|_| format!("{entity}"), |id| id.as_str().to_owned());
     let me = name(subject);
     let (touch, talk) = (reach.collision_box(), reach.talk_box());
-    let mut out = vec![
-        piece(format!("{me}/touch"), "interact_touch", false, ObservedShape::aabb(touch.min.to_array(), touch.max.to_array()), None),
+    // What a chest or switch must touch: the admitted parts when an opening
+    // cuts the body, each its own piece; else the collision box.
+    let mut out = match reach.touch_parts() {
+        None => vec![piece(format!("{me}/touch"), "interact_touch", false, ObservedShape::aabb(touch.min.to_array(), touch.max.to_array()), None)],
+        Some(Ok(parts)) => parts.iter().enumerate().map(|(n, part)| {
+            let mut observed = piece(format!("{me}/touch part {n}"), "interact_touch", false,
+                ObservedShape::Polygon { points: part.region.iter().map(|p| p.to_array()).collect() }, None);
+            observed.roles.push(Cow::Borrowed(if part.path.is_empty() { "root_chart" } else { "portal_carried" }));
+            observed
+        }).collect(),
+        Some(Err(_)) => vec![piece(format!("{me}/touch"), "interact_touch", false,
+            ObservedShape::aabb(touch.min.to_array(), touch.max.to_array()), Some("the body's material was refused"))],
+    };
+    out.extend([
         piece(format!("{me}/talk"), "interact_talk", false, ObservedShape::aabb(talk.min.to_array(), talk.max.to_array()), None),
         piece(
             format!("{me}/front"),
@@ -87,7 +100,7 @@ fn reach_of_subject(
             ObservedShape::Circle { center: reach.front().to_array(), radius: 3.0 },
             None,
         ),
-    ];
+    ]);
     if let Some(spec) = rooms.spec_of(subject) {
         use ambition_platformer2d_core::AabbExt as _;
         for zone in spec.loading_zones.iter().filter(|zone| zone.activation == ambition_platformer2d_world::rooms::LoadingZoneActivation::Door) {

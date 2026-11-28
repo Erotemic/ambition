@@ -60,6 +60,7 @@ fn f1_and_headless_inspection_read_one_observation() {
         "collision.for_subject",
         "body.sweep",
         "body.material",
+        "body.regions",
         "combat.projectiles",
         "world.regions",
         "combat.volumes",

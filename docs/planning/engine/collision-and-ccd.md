@@ -45,6 +45,28 @@ no reader treats it differently from a solid
 (`the_soft_blink_upgrade_passes_a_moving_platform`). Do not make a solid object
 a blink wall to borrow full collision.
 
+## Environmental profile changes (ECP, proposed 2026-11-27)
+
+[ECP](environmental-collision-profiles.md) proposes selectable rectangular,
+ECB and paired-support configurations. Keep the native kernel and the
+existing contact/overlap and portal contracts. Distinguish directional
+contacts, actual occupied material, combat geometry and broad-phase bounds.
+A conservative AABB is useful to find candidates, not to prove a new
+profile fits or hits. An ECB is not permission to omit relevant corner and
+side contact tests.
+
+For shape/orientation changes, the accepted interval must describe previous
+and proposed geometry as well as root motion. Stationary roots can change
+occupied space and moving contact features can cross a floor. Validate
+expansion, rotation, landing eligibility and clearance, including one-way
+surfaces and moving material. Preserve the accepted contact chronology for
+later readers; do not replace it with endpoint geometry. Reuse existing
+motion samples where they express the required fact, and extend the native
+representation only when a selected profile demonstrates the missing fact.
+Profile-specific queries must be implemented or explicitly unsupported
+before a live consumer uses them. Keep A2 and the selected portal work
+independent of this candidate track.
+
 ## A2: one contact decision through selection and reaction
 
 The [projectile contact protocol](projectile-contact-protocol.md) is the detailed

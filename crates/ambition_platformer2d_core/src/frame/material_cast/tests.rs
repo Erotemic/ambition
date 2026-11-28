@@ -1651,3 +1651,42 @@ fn a_deforming_line_on_a_portals_plane_is_read_by_its_shape_motion() {
     assert!(rigid.is_none_or(|rigid| (rigid - shaped).abs() > 1e-3),
         "premise: the rigid fit meets it at another time ({rigid:?} against {shaped})");
 }
+
+/// SUP1: a deforming line that reaches a portal's plane only as the tick
+/// ends is off the plane through the tick, and each cell reads it by its
+/// ends' own travel. A wall 5 px in front of a static entry slides onto the
+/// plane while its lower end slides down: it is met where the same wall is
+/// met with no portal at all (t 2/3), not where the rigid fit meets it.
+#[test]
+fn a_deforming_line_reaching_a_portals_plane_is_read_by_its_shape_motion() {
+    use crate::frame::ApertureStep;
+    let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, -Vec2::X), half_length: 40.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 0.0), Vec2::X), half_length: 40.0 };
+    let links = PortalLink::both_ways_with_steps(0, [
+        (enter, ApertureStep::fixed(enter.frame.origin, enter.frame.normal)),
+        (exit, ApertureStep::fixed(exit.frame.origin, exit.frame.normal)),
+    ]);
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(-2.0, 30.0), Vec2::new(4.0, 20.0)));
+    let cells = straddling_cells(&body, &links);
+    assert!(cells.scene.is_some(), "premise: the pair cuts this cast");
+    let plain = MaterialCast::new(MaterialPrimitive::world(&body), body.center(), Vec2::ZERO, 0.0..1.0)
+        .cells(None).unwrap();
+    let from = [Vec2::new(-5.0, 100.0), Vec2::new(-5.0, 90.0)];
+    let to = [Vec2::new(0.0, 100.0), Vec2::new(0.0, 30.0)];
+    let fit = (Vec2::new(5.0, -30.0), 0.0, Vec2::ZERO);
+    let first = |cells: &MaterialCastCells<'_>, rigid: bool| cells.parts().iter()
+        .filter_map(|part| if rigid {
+            cells.against_rigid_where(part, &to, fit.0, fit.1, fit.2, |_| true).unwrap()
+        } else {
+            cells.against_deforming_where(part, from, to, fit, |_| true).unwrap()
+        })
+        .map(|hit| hit.toi)
+        .min_by(f64::total_cmp);
+    let without = first(&plain, false).expect("premise: the sliding end meets the body with no portal");
+    assert!((without - 2.0 / 3.0).abs() < 1e-6, "premise: the end reaches the body's bottom at t 2/3: {without}");
+    let shaped = first(&cells, false).expect("the sliding end meets the body beside the opening");
+    assert!((shaped - without).abs() < 1e-6, "reaching the plane as away from it: {shaped} against {without}");
+    let rigid = first(&cells, true);
+    assert!(rigid.is_none_or(|rigid| (rigid - shaped).abs() > 1e-3),
+        "premise: the rigid fit meets it at another time ({rigid:?} against {shaped})");
+}

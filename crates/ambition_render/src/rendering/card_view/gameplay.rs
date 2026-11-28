@@ -145,7 +145,7 @@ pub(super) fn route_card_outputs(
     std::mem::swap(&mut *hidden, &mut *selected);
 }
 
-pub(super) fn same_viewport(a: &Option<Viewport>, b: &Option<Viewport>) -> bool {
+fn same_viewport(a: &Option<Viewport>, b: &Option<Viewport>) -> bool {
     let rect = |viewport: &Option<Viewport>| {
         viewport.as_ref().map(|v| (v.physical_position, v.physical_size, v.depth.clone()))
     };

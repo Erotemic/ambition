@@ -552,7 +552,15 @@ Still open:
   for its conditions and commands, and its `RunAuthoredCommand`s carry that
   room. A scripted conversation with no room binds bare ids. Witness:
   `a_conversation_binds_its_roles_in_the_room_it_opened_in` (`--features ui`).
-- Reload rebinding is not exercised.
+- ~~Reload rebinding is not exercised.~~ **Checked 2026-11-27:** a reload
+  cannot rebind a playing scene's roles. A run holds its own admitted copy
+  of the script (`CutsceneRuntime::script`) and its bound ids
+  (`PlayingCutscene::roles`); the tick, its commands and its `WaitFor`
+  answers read only those, and a rollback restore decodes the script from
+  the snapshot, never from `CutsceneLibrary`. A temporary probe replaced the
+  library mid-scene with a script casting another character: the playing
+  run kept its body and its script, a repeated trigger for the same room
+  waited, and the next run bound the reloaded cast.
 
 **SS7 step 3 (2026-11-21): the doorway scene.** `intro_raid_at_the_door`
 binds `@creator` at its start and directs the Creator through it. The raiders

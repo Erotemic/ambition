@@ -26,14 +26,18 @@ calling it done, and go on to the next.
    (`material_cast/rim.rs`), with adapters for character and ground-item
    movement, and the post-step snag writer is deleted. T3 landed the same
    day: a room's replay keeps the hidden rooms' portal publication. Water
-   membership and chest/switch touch read the body's admitted parts (also
-   2026-11-27). What remains in the row is the SUP1 cases that still read
-   the rigid fit, then climbing through the same query (audit step 3). RV3
-   is handled separately.
+   membership, chest/switch touch and climbing read the body's admitted
+   parts, and `body.regions` observes that query with its cost counted
+   (all 2026-11-27). A deforming line reaching or leaving an aperture's
+   plane reads its own end travel (2026-11-27). A line on a turning plane
+   keeps the rigid fit, which is exact when it turns with the plane. RV3 is
+   handled separately.
 2. **Hobford polish (Jon, 2026-11-14).** [Hobford polish](game/hobford-polish.md)
    with [LEVEL-1](#level-1--the-lab-raid-and-the-first-level-after-it) and [LEVEL-TRUTH](#level-truth--authored-level-data-in-the-map-submodule-one-owner-per-room) for the level data. Story
-   sequences SS1–SS6 and dark rooms and tunnels (DR1–DR3, TN1–TN3) are done;
-   SS7/SS8 continue in [story sequences](engine/story-sequences.md).
+   sequences SS1–SS8 (SS7/SS8 landed 2026-11-21) and dark rooms and tunnels
+   (DR1–DR3, TN1–TN3) are done. The open story items (no general policy
+   when a required command is refused; save recovery during a projectile's
+   flight) are kept in [story sequences](engine/story-sequences.md).
 3. **Script-first gameplay (Jon, 2026-11-20).** New flagship gameplay follows
    the [capability program](engine/script-first-ambition-gameplay.md); the
    [capability census](engine/script-first-capability-census.md) records the
@@ -2050,9 +2054,10 @@ owner), the old completed-endpoint road is deleted, and the crossing reads
 the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
 P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26,
 the rider beside the cut, S2's clipped deforming cast and S3's
-curve-carried cast 2026-11-27, with a round body in a cut cell, and a line
-on an aperture's own plane the same day; only a line leaving the plane or on
-a turning one reads the rigid fit). Host admission landed the same
+curve-carried cast 2026-11-27, with a round body in a cut cell, a line
+on an aperture's own plane and a line reaching or leaving it the same day;
+only a line on a turning plane reads the rigid fit, exact when it turns with
+the plane). Host admission landed the same
 day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 and its shared projectile source leg 2026-11-27 (receipts in the
 owner's P4 section), and an unreachable moving portal is witnessed not to
@@ -2079,10 +2084,12 @@ adds two bounded continuations in this lane. T3 landed 2026-11-27: a
 room's replay replaces only that room's portal publication, and keeps each
 hidden room's links and each hidden body's entries
 ([receipt](engine/portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population)).
-Water membership and chest/switch touch read accepted parts (landed
-2026-11-27, [receipt](engine/world-geometry-and-spatial-semantics.md#bounded-delivery-and-evidence)).
-Touch keeps the part's map for facing and preference. Climbing (step 3) and
-the observers and cost counts (step 4) remain.
+Water membership, chest/switch touch and climbing read accepted parts
+(landed 2026-11-27, [receipt](engine/world-geometry-and-spatial-semantics.md#bounded-delivery-and-evidence)).
+Touch keeps the part's map for facing and preference. A climb is admitted
+only through a map that keeps up. The observers and cost counts (step 4)
+landed the same day: `body.regions` keeps the touches the response drops,
+and no cache is proposed.
 Keep discrete sampling, strict overlap and exact-box fast paths. These cuts
 do not wait for all P2–P6 work or select a universal zone redesign.
 

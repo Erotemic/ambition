@@ -611,8 +611,11 @@ impl MaterialCastCells<'_> {
     /// the pieces each cell sees. When each end crosses the plane's normal
     /// exactly as a translating plane moves (`Scene::plane_carrying_line`),
     /// the split holds through the tick and each piece is read by its ends'
-    /// own travel. A line that leaves the plane, or lies on a turning one,
-    /// reads the rigid fit `fit` names.
+    /// own travel. A line on a plane at one of its poses only is off it
+    /// through the open tick, and is read in each cell as any other line. A
+    /// line on a plane at both poses that no translating plane carries (one
+    /// on a turning plane) reads the rigid fit `fit` names, which is exact
+    /// when the line turns with the plane.
     pub(crate) fn against_deforming_where(
         &self, part: &MaterialCell, from: [Vec2; 2], to: [Vec2; 2],
         fit: (Vec2, f32, Vec2), mut accepts: impl FnMut(&MaterialCastHit) -> bool,
@@ -625,6 +628,11 @@ impl MaterialCastCells<'_> {
         };
         let (displacement, turn, pivot) = fit;
         let Some(shift) = scene.plane_carrying_line(from, to) else {
+            // On a plane at one pose only: off it through the open tick, so
+            // each cell's planes clip it as any other line.
+            if !(scene.may_split_line([&from, &from]) && scene.may_split_line([&to, &to])) {
+                return self.deforming_in(part, from, to, fit, accepts);
+            }
             return self.against_rigid_where(part, &to, displacement, turn, pivot, accepts);
         };
         let scopes = self.obstacle_scopes(part, &to, shift, 0.0, pivot)?;

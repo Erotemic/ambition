@@ -30,7 +30,7 @@ use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, Worn
 use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
-use crate::folded_mesh::FoldedMesh;
+use crate::folded_mesh::{FoldedMesh, PreparedPlanarMesh};
 use crate::rendering::chain_skin::ChainEarth;
 use crate::rendering::terrain_skin::TerrainSkinMesh;
 use crate::rendering::unauthored_volumes::UnauthoredVolumeVisual;
@@ -306,12 +306,24 @@ impl<M: Material> MeshProducts<'_, '_, M> {
     }
 }
 
+type PlanarMeshRead<'a, M> = (
+    Option<&'a PreparedPlanarMesh<M>>,
+    Option<(&'a Mesh2d, &'a MeshMaterial2d<M>)>,
+);
+
+fn planar_mesh<'a, M: Material2d>(
+    (prepared, mesh_2d): PlanarMeshRead<'a, M>,
+) -> Option<(&'a Handle<Mesh>, &'a Handle<M>)> {
+    prepared
+        .map(|draw| (&draw.mesh, &draw.material))
+        .or_else(|| mesh_2d.map(|(mesh, material)| (&mesh.0, &material.0)))
+}
+
 fn realize_color_meshes(
     sources: Query<
         (
             Entity,
-            &Mesh2d,
-            &MeshMaterial2d<ColorMaterial>,
+            PlanarMeshRead<'static, ColorMaterial>,
             &Transform,
             &GlobalTransform,
             &InheritedVisibility,
@@ -320,7 +332,10 @@ fn realize_color_meshes(
             Has<NoFrustumCulling>,
         ),
         (
-            Or<(With<ChainEarth>, With<TerrainSkinMesh>, With<UnauthoredVolumeVisual>, With<FoldedMesh>)>,
+            Or<(
+                With<ChainEarth>, With<TerrainSkinMesh>, With<UnauthoredVolumeVisual>,
+                With<PreparedPlanarMesh<ColorMaterial>>,
+            )>,
             Without<CardWorldMesh>,
         ),
     >,
@@ -342,16 +357,19 @@ fn realize_color_meshes(
         return;
     };
     products.retained.reconcile(&mut products.commands, |entity| {
-        sources.get(*entity).is_ok_and(|(_, _, material, _, _, visible, ..)| {
-            visible.get() && colors.contains(material.0.id())
+        sources.get(*entity).is_ok_and(|(_, draw, _, _, visible, ..)| {
+            visible.get() && planar_mesh(draw).is_some_and(|(_, material)| colors.contains(material.id()))
         })
     });
     used.clear();
-    for (source, mesh, material, local, global, visible, earth, terrain, skip_culling) in &sources {
-        let Some(color) = colors.get(&material.0).filter(|_| visible.get()) else {
+    for (source, draw, local, global, visible, earth, terrain, skip_culling) in &sources {
+        let Some((mesh, material)) = planar_mesh(draw) else {
             continue;
         };
-        let id = material.0.id();
+        let Some(color) = colors.get(material).filter(|_| visible.get()) else {
+            continue;
+        };
+        let id = material.id();
         let alpha_mode = match color.alpha_mode {
             AlphaMode2d::Opaque => AlphaMode::Opaque,
             AlphaMode2d::Mask(cutoff) => AlphaMode::Mask(cutoff),
@@ -382,7 +400,7 @@ fn realize_color_meshes(
         } else {
             depths.scenery(global.translation().z, rooms.of(source))
         };
-        products.show(source, &mesh.0, card, &global.compute_transform(), skip_culling, depth);
+        products.show(source, mesh, card, &global.compute_transform(), skip_culling, depth);
     }
     by_material.retain(|id, _| used.contains(id));
 }
@@ -421,8 +439,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     sources: Query<
         (
             Entity,
-            &Mesh2d,
-            &MeshMaterial2d<M>,
+            PlanarMeshRead<'static, M>,
             &Transform,
             &GlobalTransform,
             &InheritedVisibility,
@@ -430,7 +447,13 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
             Has<NoFrustumCulling>,
             Option<&PresentationOf>,
         ),
-        Without<CardWorldMesh>,
+        (
+            Without<CardWorldMesh>,
+            Or<(
+                With<PreparedPlanarMesh<M>>,
+                (With<Mesh2d>, With<MeshMaterial2d<M>>, Without<FoldedMesh>),
+            )>,
+        ),
     >,
     source_materials: Option<Res<Assets<M>>>,
     mut card_materials: ResMut<Assets<CardMaterial<M>>>,
@@ -450,8 +473,8 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     let Some(source_materials) = source_materials else {
         return;
     };
-    let in_view = |material: &MeshMaterial2d<M>, subject: Option<&PresentationOf>| {
-        source_materials.get(&material.0)
+    let in_view = |material: &Handle<M>, subject: Option<&PresentationOf>| {
+        source_materials.get(material)
             .filter(|draw| draw.draws_on_card(depths.representation_of(subject)))
     };
     products
@@ -459,19 +482,23 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
         .reconcile(&mut products.commands, |entity| {
             sources
                 .get(*entity)
-                .is_ok_and(|(_, _, material, _, _, visible, _, _, subject)| {
-                    visible.get() && in_view(material, subject).is_some()
+                .is_ok_and(|(_, draw, _, _, visible, _, _, subject)| {
+                    visible.get()
+                        && planar_mesh(draw).is_some_and(|(_, material)| in_view(material, subject).is_some())
                 })
         });
     used.clear();
-    for (source, mesh, material, local, global, visible, terrain, skip_culling, subject) in &sources {
+    for (source, draw, local, global, visible, terrain, skip_culling, subject) in &sources {
         if !visible.get() {
             continue;
         }
+        let Some((mesh, material)) = planar_mesh(draw) else {
+            continue;
+        };
         let Some(draw) = in_view(material, subject) else {
             continue;
         };
-        let id = material.0.id();
+        let id = material.id();
         let card = by_material
             .entry(id)
             .or_insert_with(|| card_materials.add(CardMaterial(draw.clone())));
@@ -510,7 +537,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
                 depth.paint = paint;
             }
         }
-        products.show(source, &mesh.0, card, &global.compute_transform(), skip_culling, depth);
+        products.show(source, mesh, card, &global.compute_transform(), skip_culling, depth);
     }
     by_material.retain(|id, _| used.contains(id));
 }
@@ -605,9 +632,8 @@ mod tests {
         let source_material = world.resource_mut::<Assets<AddedLightMaterial>>()
             .add(AddedLightMaterial { strength: Vec4::ONE });
         let source = world.spawn((
-            FoldedMesh::default(),
-            Mesh2d::default(),
-            MeshMaterial2d(source_material.clone()),
+            PreparedPlanarMesh { mesh: Handle::default(), material: source_material.clone() },
+            Transform::default(),
             NoFrustumCulling,
             InheritedVisibility::VISIBLE,
         )).id();

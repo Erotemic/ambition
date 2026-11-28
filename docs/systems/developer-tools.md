@@ -50,9 +50,10 @@ The collision-world adapter in
 | `collision.for_subject` | Resolved world queries for the selected body, including gates and portal cuts |
 | `body.material` | Native body parts, source cuts, portal paths and exact maps |
 | `body.sweep` | The last movement sweep and its contact flags |
+| `body.regions` | The selected body's admitted parts and each water and climbable region they touch: the one movement reads, and each touch it drops with why |
 | `combat.volumes` | Published or fallback hurt volumes, intangible bodies and live strikes |
 | `combat.projectiles` | Live projectile parts and inactive impact-burst previews |
-| `interaction.reach` | Reach, facing, candidates, the chosen target, doors and refusal reasons |
+| `interaction.reach` | Reach (a cut body's admitted parts), facing, candidates, the chosen target, doors and refusal reasons |
 | `portal.apertures` | Openings; an unpaired end is inactive with its reason |
 | `navigation.graph` | The selected body's advised graph and route; all advised graphs in the room view |
 | `world.regions` | Authored loading, camera, gravity and encounter regions |

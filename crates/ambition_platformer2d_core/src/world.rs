@@ -441,6 +441,50 @@ pub fn convex_strictly_overlaps(polygon: &[Vec2], aabb: Aabb) -> bool {
     !edges.map(|(a, b)| (*b - *a).perp()).filter(|n| *n != Vec2::ZERO).any(apart)
 }
 
+/// Does `part`'s map keep the root's up as up? A climb moves the body along
+/// its own chart's axes, so only such a part admits one.
+fn keeps_up(part: &crate::frame::thread::OccupiedPart) -> bool {
+    part.to_root.direction(Vec2::NEG_Y).normalize_or_zero().dot(Vec2::NEG_Y) > 0.999
+}
+
+/// One region a body's admitted material touches ([`World::regions_touched`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RegionTouch {
+    pub region: TouchedRegion,
+    pub response: TouchResponse,
+}
+
+/// A region by kind and native index (`World::water_regions`,
+/// `World::climbable_regions`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TouchedRegion {
+    Water(usize),
+    Climbable(usize),
+}
+
+/// What the movement response does with a touched region.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TouchResponse {
+    /// The contact the body's response reads.
+    Answers,
+    /// Touched, but an earlier region of its kind in native order answers.
+    Shadowed,
+    /// A climbable touched only through a map that turns or flips up: no
+    /// climb is admitted, and it grants no passability.
+    UpTurned,
+}
+
+impl TouchResponse {
+    /// Why the response does not read this region (`None`: it does).
+    pub fn refusal(self) -> Option<&'static str> {
+        match self {
+            Self::Answers => None,
+            Self::Shadowed => Some("an earlier region answers"),
+            Self::UpTurned => Some("met through a map that turns up: no climb is admitted"),
+        }
+    }
+}
+
 /// Snapshot of "the player's relationship to water" for one frame.
 /// Movement queries this rather than touching the underlying region
 /// list, so future water sources (entity, IntGrid, generated) all
@@ -510,6 +554,20 @@ pub struct ClimbableRegion {
 impl ClimbableRegion {
     pub fn new(aabb: Aabb, kind: ClimbableKind, spec: ClimbableSpec) -> Self {
         Self { aabb, kind, spec }
+    }
+
+    /// The contact of a body on this region. Its box and metrics stay in
+    /// the region's own chart: climb passability is bound to the native
+    /// blocks inside it.
+    fn contact(&self) -> ClimbableContact {
+        ClimbableContact {
+            kind: self.kind,
+            region_aabb: self.aabb,
+            top_y: self.aabb.top(),
+            bottom_y: self.aabb.bottom(),
+            center_x: 0.5 * (self.aabb.min.x + self.aabb.max.x),
+            spec: self.spec,
+        }
     }
 
     /// Convenience: ladder with default spec.
@@ -1893,14 +1951,58 @@ impl World {
             .climbable_regions
             .iter()
             .find(|r| r.aabb.strict_intersects(body))?;
-        Some(ClimbableContact {
-            kind: region.kind,
-            region_aabb: region.aabb,
-            top_y: region.aabb.top(),
-            bottom_y: region.aabb.bottom(),
-            center_x: 0.5 * (region.aabb.min.x + region.aabb.max.x),
-            spec: region.spec,
+        Some(region.contact())
+    }
+
+    /// The climbable a body's admitted material is on (`parts`, as for
+    /// [`Self::water_touched`]): the first region in native order that a
+    /// part overlaps by more than a touch, through a map that keeps the
+    /// region's up as the body's up. The climb moves the body along its own
+    /// chart's axes, so a region met only through a map that turns or
+    /// flips up is not climbed. It is touched, but no response is admitted
+    /// for it, and it grants no passability.
+    pub fn climbable_touched(&self, parts: &[crate::frame::thread::OccupiedPart]) -> Option<ClimbableContact> {
+        self.climbable_regions.iter().find_map(|region| {
+            parts.iter()
+                .filter(|part| part.strictly_overlaps(region.aabb))
+                .any(keeps_up)
+                .then(|| region.contact())
         })
+    }
+
+    /// Every water and climbable region a body's admitted material touches,
+    /// and what the response does with it: the inspection side of
+    /// [`Self::water_touched`] and [`Self::climbable_touched`], by the same
+    /// tests and in the same order. It keeps what the response drops, a
+    /// climbable met only through a map that turns up and a region that an
+    /// earlier one shadows.
+    pub fn regions_touched(&self, parts: &[crate::frame::thread::OccupiedPart]) -> Vec<RegionTouch> {
+        let mut out = Vec::new();
+        let mut answered = false;
+        for (index, region) in self.water_regions.iter().enumerate() {
+            if parts.iter().any(|part| part.strictly_overlaps(region.aabb)) {
+                let response = if answered { TouchResponse::Shadowed } else { TouchResponse::Answers };
+                answered = true;
+                out.push(RegionTouch { region: TouchedRegion::Water(index), response });
+            }
+        }
+        let mut answered = false;
+        for (index, region) in self.climbable_regions.iter().enumerate() {
+            let mut touching = parts.iter().filter(|part| part.strictly_overlaps(region.aabb)).peekable();
+            if touching.peek().is_none() {
+                continue;
+            }
+            let response = if !touching.any(keeps_up) {
+                TouchResponse::UpTurned
+            } else if answered {
+                TouchResponse::Shadowed
+            } else {
+                answered = true;
+                TouchResponse::Answers
+            };
+            out.push(RegionTouch { region: TouchedRegion::Climbable(index), response });
+        }
+        out
     }
 
     /// True if `body` overlaps any block accepted by `predicate`.

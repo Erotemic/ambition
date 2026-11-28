@@ -157,20 +157,20 @@ Snake Plant: Hssss. ...Sorry. Reflex. You came up out of the ground very suddenl
 -> Why a snake plant?
     Snake Plant: Sansevieria. Mother-in-law's tongue. You can't kill one. People have tried. People have jumped on me. People have thrown fire at me. I'm still here. I'm in a pot now. That's retirement.
 -> What do you think of the void?
-    Snake Plant: It doesn't water anything. It doesn't even look at things. Celeste has been bringing me in at night. I was on the windowsill yesterday and by morning one of my leaves was missing.
+    Snake Plant: Celeste has been bringing me in at night. I was on the windowsill yesterday and by morning one of my leaves was missing.
 -> Bye.
     Snake Plant: Hssss. That one was on purpose. Goodbye.
 ===
 
 title: magical_rescued_robot
 ---
-Rescued Robot: Oh! A robot! Are you here to rescue me? Mary-O usually does it. She lands on the switch, the bridge falls, the gate opens, I say "Thank you, Mary-O!", and then I'm in the next castle. I don't know how. I just am.
+Rescued Robot: Oh! Are you here to rescue me? Mary-O usually does it. She lands on the switch, the bridge falls, the gate opens, I say "Thank you, Mary-O!", and then I'm in the next castle. I don't know how. I just am.
 -> Do you want rescuing?
     Rescued Robot: I don't know. I've never not been rescued. It's the only thing I'm good at. If you rescue me, what will Mary-O do?
 -> How many castles?
     Rescued Robot: Eight, so far. All the same castle, I think. Same bridge. Same lizard. He brings me tea now, between rescues. We talk about the switch.
 -> Thank you, robot?
-    Rescued Robot: ...Nobody's ever thanked ME. Thank you for thanking me. Now I've thanked you. Is this a rescue? It feels like one.
+    Rescued Robot: ...You're welcome! Is that what you're supposed to say? I've only ever had to remember the other line.
 ===
 
 title: magical_laden_swallow
@@ -181,7 +181,7 @@ Laden Swallow: Coconut! Coconut! Mind your head! ...Sorry. I'm carrying a coconu
 -> Where are you taking it?
     Laden Swallow: The castle. Mary-O drops coconuts on things that annoy her, and I bring her the coconuts. Then she drops them. Then I go and get them back. It's a whole economy.
 -> Put it down?
-    Laden Swallow: If I put it down I'm just a swallow. Nobody stops to talk to just a swallow.
+    Laden Swallow: Last time I put one down, it rolled all the way to the well. Took three of us to get it out.
 ===
 
 title: magical_paper_plane_snakes

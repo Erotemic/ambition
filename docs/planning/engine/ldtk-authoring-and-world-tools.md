@@ -71,6 +71,20 @@ The next phase consolidates these into a coherent authoring product.
    the embedded copy `build.rs` makes of each world `data/worlds.ron` lists) to
    know what the game loads.
 
+## Ramp authoring and diagnostics (proposed 2026-11-27)
+
+Prefer axis-aligned platforms and jumpable steps for ordinary level design.
+Use ramps where a continuous grade has a purpose, such as a hillside road.
+[ECP](environmental-collision-profiles.md#authoring-and-inspection) owns
+reliable ramp joins and profile-aware inspection. Report protruding blocks,
+invalid continuations and excessive angles for the selected body, with
+source geometry and an inspectable prepared boundary. A coincident endpoint
+is not necessarily a junction. Do not silently weld incompatible geometry,
+change native boarding semantics, or require invisible steps in place of a
+valid ramp. Reuse native preparation and the shared geometry view rather
+than implement a second collision model in the authoring tools. This is
+candidate work with Hobford as the first report, not an implemented validator.
+
 ## Tentative curve and local-gravity authoring
 
 [Curved surfaces and local gravity](curved-surfaces-and-local-gravity.md)

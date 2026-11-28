@@ -188,3 +188,30 @@ Full Stack plays bass, and the bossofthegame stands on his shoulders.
 Hylbert is working to increase the spectral gap in the haunted hotel.
 These lines do not change the band animations, the climbable instrument,
 or the hotel encounter.
+
+## Follow-up: Hall conversations and cartography
+
+The Hall's ordinary residents should talk about their work, interests, and
+relationships, not give interchangeable complaints about their exhibits.
+Keep its explicitly meta characters, transformation demonstrations, and
+debug interactions. Hall dialogue is not a canonical timeline of completed
+quests; avoid declaring quest outcomes or new geography there.
+
+Capital restricts cartography and the distribution of directions; sharing
+a map without permission can lead to arrest. The dialogue describes that
+restriction without implementing enforcement or the later Alice/Bob story.
+
+The new anecdotes are provisional; the pirate shipment's contents and the
+Mockingbird replacement remain undecided.
+
+## Follow-up: encounter-independent dialogue and technical precision
+
+Hall conversations should not assume that a visitor is Scout, has already
+fought a character, or has completed a quest. Keep intentional game and
+gallery meta jokes, but give other characters specific questions about their
+work and surroundings. Match Hall and field dialogue where characters recur.
+Technical concepts may be personified; avoid making the personification a
+false explanation of the actual concept (for example, soft attention is not
+necessarily exclusive to one item, and a runtime Busy Beaver maximizes steps
+rather than output). This pass changes speech only; the new small anecdotes
+are provisional and no mechanics or locations are changed.

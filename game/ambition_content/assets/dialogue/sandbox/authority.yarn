@@ -93,7 +93,7 @@ title: authority_registrar
         Registrar: And if a director sends a correction, we file the corrected record. No, you cannot see the original.
     -> Am I on the manifest?
         Registrar: Let me see. You are... not.
-        Registrar: Don't worry. A traveller who is not on the manifest has been nowhere. You are spared the trouble of having been anywhere.
+        Registrar: Do you have the receipt from your last crossing? No? Then I'd have to send a request to the terminal. Take another number if you want to wait for the reply.
     -> ‹go›
 <<else>>
     <<stop>>

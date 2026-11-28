@@ -13,8 +13,8 @@ title: unfinished_surveyor
     -> What are you building?
         Subclause: A world. The Boss wants the ground finished by Tuesday. The painters are using a different revision of the plans.
     -> Why is half of everything a drawing?
-        Subclause: Rendering is expensive. We draw the outline first, and fill it in when somebody looks.
-        Subclause: You are looking very hard. Please stop. The painters are behind.
+        Subclause: The outlines were due first. The painters are supposed to fill them in once Clause signs off on the drawings.
+        Subclause: Ask the painter before you try walking on anything that hasn't been filled in yet.
     -> ‹go›
 <<else>>
     <<stop>>

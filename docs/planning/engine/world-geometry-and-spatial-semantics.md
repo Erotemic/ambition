@@ -43,7 +43,7 @@ spatial architecture program.
 
 | Source | Established source fact | Owner of the change |
 | --- | --- | --- |
-| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Water membership and chest/switch touch read the admitted material parts (landed 2026-11-27). Climbing still tests the whole root AABB. | Present material occupancy below |
+| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Water membership, chest/switch touch and climbing read the admitted material parts (landed 2026-11-27). | Present material occupancy below |
 | [Interaction reach](../../../crates/ambition_platformer2d_interaction/src/lib.rs) | Touch, facing and preference are shared by selection and consumption, but use root-box/root-chart facts. | [Physical touch](interaction-opportunities-and-activation.md#physical-touch-retains-its-admitted-material-map) |
 | [Standing surfaces](../../../crates/ambition_platformer2d_world/src/navigation/surfaces.rs), [flight map](../../../crates/ambition_platformer2d_world/src/navigation/flight.rs) | Painted fill admits support; polygon bounds remove standing spans; flight occupancy omits chains. | [Static geometry coverage](platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation) |
 | [Room replay](../../../crates/ambition_hosted_world/src/room_rollback.rs), [body publication](../../../crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs), [portal publication](../../../crates/ambition_portal2d/src/passages.rs) | Replay hides foreign rooms. The portal publishers replace only the replayed room and keep the hidden rooms' entries (T3, landed 2026-11-27). | [T3 publication coverage](portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population) |
@@ -234,10 +234,72 @@ known.
    case. Check the native blocks made passable and climb direction.
    Include a turned case to establish the supported response or its explicit
    refusal. Retain source provenance in inspection.
+   **Landed 2026-11-27, response side.** The same `occupied` call feeds water
+   and climbing (`World::climbable_touched`). A region counts when a part
+   overlaps it strictly through a map that keeps the region's up as the
+   body's up (`to_root.direction(-Y)·-Y > 0.999`). Root-chart parts come
+   first, and the first region in native order wins. A region met only
+   through a map that turns or flips up is touched, but admits no climb: it
+   does not enter `climbable`, so it grants no passability.
+
+   The contact's box and metrics stay in the region's own chart, so climb
+   passability is bound to the native blocks inside it. An uncut body keeps
+   `climbable_at` of the step box. A refusal keeps the last contact, as water
+   does.
+
+   Witness: in `water_through_openings.rs`, the same pair under its two map
+   conventions gives one map that keeps up and one that flips it.
+   - Up kept: the far ladder is climbed.
+   - Up flipped: it is refused.
+   - Behind the entry: no ladder.
+   - Root-box control: the reverse.
+
+   Inspection retains the unsupported touch (step 4).
 4. **Owner observations and cost.** Extend the existing F1/headless observers
    with the actual query result and cut. Count part preparations, candidate
    tests and allocations in ordinary, straddling and no-region scenes. Use
    those counts before proposing persistent caching or claiming a speed gain.
+   **Landed 2026-11-27.** `World::regions_touched` is the inspection side of
+   water and climbing, using the same tests in the same order. It lists every
+   water and climbable region the parts touch, each with its
+   `TouchResponse`: `Answers` (the contact the response reads), `Shadowed`
+   (an earlier region of its kind answers) or `UpTurned` (a climbable met
+   only through a map that turns up).
+
+   The subject observer `body.regions` draws what movement's environment
+   sample asks. It shows each admitted part (root chart or portal-carried;
+   an uncut body's step box), and each touched region: active where it
+   answers, inactive with the reason where it does not. A refusal is one
+   inactive coarse box. It reads the walls movement steps against
+   (`physical_for`), so a body passing through solids meets no regions there
+   either. `interaction.reach` draws a cut body's touch as its admitted
+   parts, not the root box.
+
+   Witnesses:
+   - `body_geometry_observer::tests::a_straddlers_regions_are_observed_through_its_admitted_parts`:
+     the core pair under both conventions; the far ladder is active where up
+     is kept and refused, not dropped, where it flips.
+   - The core climb witness, which asserts `regions_touched` against the
+     response.
+
+   Counts (a temporary probe with a counting allocator, deleted; the core
+   witness pair, a 24×48 body):
+   - Ordinary scene, or a room with no links: no parts are prepared, and
+     `water_at` and `climbable_at` scan the regions with box tests.
+   - A room with links but no water or climbable region: no parts are
+     prepared.
+   - An uncut body in a room with links and regions: one partition per
+     movement step that finds no cut, at 2 allocations (984 B).
+   - A straddler: one preparation per movement step, at 31–34 allocations
+     (4.4–5.5 KB) for 2 four-vertex parts. Interaction's reach prepares its
+     parts again when it is asked.
+   - The region tests over the parts allocate nothing. They make at most
+     parts × regions separating-axis tests, stopping at the first answer of
+     each kind.
+
+   These costs fall only on the few bodies at an opening in a room with
+   regions, so no cache is proposed. If one is ever needed, the cheapest cut
+   is a bounds pre-check that skips the uncut body's partition.
 
 The first shared query needs no complete redesign of portal connection IDs,
 navigation, fluids or rendering. Existing snapshot-local native admission can

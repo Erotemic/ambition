@@ -70,6 +70,14 @@ impl InteractReach {
         self.reach
     }
 
+    /// The admitted parts a chest or a switch must touch when an opening
+    /// cuts the body (`None`: uncut, and [`Self::collision_box`] is its
+    /// material); a refused query has no parts.
+    pub fn touch_parts(&self) -> Option<Result<&[ambition_platformer2d_core::frame::thread::OccupiedPart],
+        &ambition_platformer2d_core::frame::thread::Refusal>> {
+        self.material.as_ref().map(|material| material.as_ref().map(|parts| &parts[..]))
+    }
+
     /// Where the body stands.
     pub fn pos(&self) -> ambition_platformer2d_core::Vec2 {
         self.pos

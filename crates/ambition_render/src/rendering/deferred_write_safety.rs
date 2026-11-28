@@ -342,6 +342,7 @@ mod boss_pass {
         app.init_resource::<CharacterLoadDemand>();
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(BOSS_ID.to_string(), a_feature_view())]));
         app.insert_resource(ambition_sim_view::BossRenderIndex::from_rows([(BOSS_ID.to_string(), ambition_sim_view::BossRenderView {
+            room: None,
             name: "Part boss".into(), behavior_id: "part_boss".into(), title: None,
             stage: Default::default(), awake: true, fighting: true, finish: 0.0,
         })]));
@@ -393,6 +394,7 @@ mod boss_pass {
         // Both read models must have the id: the boss identity is the gate, and
         // the geometry view gives the render size.
         let identity = || ambition_sim_view::BossRenderView {
+            room: None,
             name: "Probe Boss".to_string(),
             behavior_id: "probe_boss".to_string(),
             title: None,

@@ -15,12 +15,16 @@ use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d_core::config::WORLD_Z_FX;
-use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, LiveRoomOf, SessionSpawnScope, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
-use ambition_sim_view::{BossRenderIndex, LocalView, ResolvedViewSubject, ViewPlacement};
+use ambition_sim_view::{BossRenderIndex, LocalView, PresentedForView, ResolvedViewSubject, ViewPlacement};
+
+use super::camera::coverage::GameplayOutputs;
+use super::retained_entities::RetainedEntities;
+use super::view_isolation::lighting_layers;
+use super::PresentedViewFrames;
 
 /// Over the bodies, under the effects.
 pub const BOSS_STAGE_Z: f32 = WORLD_Z_FX - 0.5;
@@ -31,12 +35,10 @@ const DARKEST: f32 = 0.93;
 /// The white of a full flash.
 const BRIGHTEST: f32 = 0.75;
 
-/// A veil of a boss's stage: its dark (`false`) or its flash (`true`).
+/// A veil for a boss's stage light.
 #[derive(Component, Clone, Copy, Debug)]
 #[require(super::primitives::AnimatedWorldSpriteTint)]
-pub struct BossStageVeil {
-    flash: bool,
-}
+pub struct BossStageVeil;
 
 /// One name card's root node: the words it shows, and the local view it is
 /// drawn over (`None`: the whole gameplay area, in a composition with no
@@ -101,27 +103,6 @@ fn card_rise(card: f32) -> UiRect {
     UiRect::top(Val::Px((1.0 - card) * 18.0))
 }
 
-/// The stage of the boss in the primary live room: the lowest light and the
-/// brightest flash any boss there asks for.
-fn stage_here(
-    index: &BossRenderIndex,
-    sprites: &Query<(Entity, &super::primitives::FeatureVisual)>,
-    rooms: &LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
-    primary: &PrimaryLiveRoom,
-) -> Option<ambition_sim_view::BossStage> {
-    let here = primary.get()?;
-    sprites
-        .iter()
-        .filter(|(entity, _)| rooms.room_of(*entity) == Some(here))
-        .filter_map(|(_, sprite)| index.get(&sprite.id))
-        .map(|view| view.stage)
-        .reduce(|a, b| ambition_sim_view::BossStage {
-            lit: a.lit.min(b.lit),
-            flash: a.flash.max(b.flash),
-            card: a.card.max(b.card),
-        })
-}
-
 /// Run condition of the passes that draw a boss's stage, card, finish and
 /// bar: the boss read model holds a row, or held one last frame, the run
 /// that puts each away. With no row each draws a lit, empty stage.
@@ -132,49 +113,54 @@ pub fn bosses_are_shown_or_were(index: Option<Res<BossRenderIndex>>, mut was: Lo
     run
 }
 
-/// Put the veils over the camera's view at the light the boss asks for.
-pub fn light_the_boss_stage(
+/// Draw the stage lights from the room shown by each gameplay view.
+pub(crate) fn light_the_boss_stage(
     mut commands: Commands,
-    // `Option`: a composition with no sim read model has no boss to stage.
     index: Option<Res<BossRenderIndex>>,
-    sprites: Query<(Entity, &super::primitives::FeatureVisual)>,
-    rooms: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
-    primary: PrimaryLiveRoom,
-    cameras: Query<&Transform, (With<MainCamera>, Without<BossStageVeil>)>,
-    mut veils: Query<(&BossStageVeil, &mut Transform, &mut Sprite)>,
+    outputs: GameplayOutputs,
+    mut veils: Query<(&mut Transform, &mut Sprite), (With<BossStageVeil>, Without<Camera2d>)>,
+    mut retained: Local<RetainedEntities<(Entity, bool)>>,
 ) {
-    let stage = index
-        .as_deref()
-        .and_then(|index| stage_here(index, &sprites, &rooms, &primary))
-        .unwrap_or_default();
-    let dark = Color::srgba(0.0, 0.0, 0.0, (1.0 - stage.lit).clamp(0.0, 1.0) * DARKEST);
-    let flash = Color::srgba(0.86, 0.92, 1.0, stage.flash.clamp(0.0, 1.0) * BRIGHTEST);
-    let Some(camera) = cameras.iter().next() else {
-        return;
-    };
-    let at = camera.translation.truncate();
-    if veils.is_empty() {
-        for (is_flash, color) in [(false, dark), (true, flash)] {
-            commands.spawn((
-                BossStageVeil { flash: is_flash },
-                Sprite { color, custom_size: Some(Vec2::splat(VEIL_SIZE)), ..Default::default() },
-                Transform::from_translation(at.extend(BOSS_STAGE_Z + if is_flash { 0.05 } else { 0.0 })),
-                // Draw the veil over the portal windows in the gameplay view.
-                // Omit the veil from portal captures.
-                bevy::camera::visibility::RenderLayers::layer(
-                    ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
-                ),
-                Name::new(if is_flash { "Boss stage: flash" } else { "Boss stage: dark" }),
-            ));
+    let mut wanted = std::collections::BTreeMap::new();
+    if let Some(index) = index.as_deref() {
+        for (view, (frame, _)) in outputs.view_bounds() {
+            let (lit, flash) = index.iter()
+                .filter(|(_, boss)| boss.room == Some(frame.room))
+                .fold((1.0f32, 0.0f32), |(lit, flash), (_, boss)| {
+                    (lit.min(boss.stage.lit), flash.max(boss.stage.flash))
+                });
+            let dark = Color::srgba(0.0, 0.0, 0.0, (1.0 - lit).clamp(0.0, 1.0) * DARKEST);
+            let flash = Color::srgba(0.86, 0.92, 1.0, flash.clamp(0.0, 1.0) * BRIGHTEST);
+            for (is_flash, color) in [(false, dark), (true, flash)] {
+                if color.alpha() > 0.0 {
+                    wanted.insert((view, is_flash), (frame.plane_center, color));
+                }
+            }
         }
-        return;
     }
-    for (veil, mut transform, mut sprite) in &mut veils {
-        if transform.translation.truncate() != at {
-            transform.translation.x = at.x;
-            transform.translation.y = at.y;
+
+    retained.reconcile(&mut commands, |key| wanted.contains_key(key));
+    for ((view, is_flash), (center, color)) in wanted {
+        let at = center.extend(BOSS_STAGE_Z + if is_flash { 0.05 } else { 0.0 });
+        let key = (view, is_flash);
+        if let Some((mut transform, mut sprite)) = retained.get(&key).and_then(|entity| veils.get_mut(*entity).ok()) {
+            if transform.translation != at {
+                transform.translation = at;
+            }
+            if sprite.color != color {
+                sprite.color = color;
+            }
+        } else {
+            let entity = commands.spawn((
+                BossStageVeil,
+                PresentedForView(view),
+                lighting_layers(),
+                Sprite::from_color(color, Vec2::splat(VEIL_SIZE)),
+                Transform::from_translation(at),
+                Name::new(if is_flash { "Boss stage: flash" } else { "Boss stage: dark" }),
+            )).id();
+            retained.insert(key, entity);
         }
-        sprite.color = if veil.flash { flash } else { dark };
     }
 }
 
@@ -201,9 +187,9 @@ pub fn show_boss_name_card(
     >,
     // A composition without the boss read model shows no card.
     index: Option<Res<BossRenderIndex>>,
-    sprites: Query<(Entity, &super::primitives::FeatureVisual)>,
     rooms: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     primary: PrimaryLiveRoom,
+    frames: Option<Res<PresentedViewFrames>>,
     views: Query<(Entity, &ResolvedViewSubject, Option<&ViewPlacement>), With<LocalView>>,
     presentation: Option<Res<ResolvedGameplayPresentation>>,
     ui_fonts: Option<Res<UiFonts>>,
@@ -214,13 +200,12 @@ pub fn show_boss_name_card(
         let (Some(here), Some(index)) = (here, index.as_deref()) else {
             return None;
         };
-        sprites
-            .iter()
-            .filter(|(entity, _)| rooms.room_of(*entity) == Some(here))
-            .filter_map(|(_, sprite)| index.get(&sprite.id))
-            .map(|view| (view, view.stage.card.clamp(0.0, 1.0)))
-            .filter(|(_, card)| *card > 0.0)
-            .max_by(|a, b| a.1.total_cmp(&b.1))
+        index.iter()
+            .filter(|(_, boss)| boss.room == Some(here))
+            .map(|(id, boss)| (id, boss, boss.stage.card.clamp(0.0, 1.0)))
+            .filter(|(_, _, card)| *card > 0.0)
+            .max_by(|a, b| a.2.total_cmp(&b.2).then_with(|| b.0.cmp(a.0)))
+            .map(|(_, boss, card)| (boss, card))
     };
     let rect_of = |placement: Option<&ViewPlacement>| {
         let gameplay = presentation.as_deref()?.gameplay_rect;
@@ -243,7 +228,9 @@ pub fn show_boss_name_card(
             want(None, primary.get(), None);
         } else {
             for (view, subject, placement) in &views {
-                let here = subject.0.and_then(|body| rooms.room_of(body)).or_else(|| primary.get());
+                let here = frames.as_deref().and_then(|frames| frames.of(view))
+                    .map(|frame| frame.room)
+                    .or_else(|| subject.0.and_then(|body| rooms.room_of(body)));
                 want(Some(view), here, rect_of(placement));
             }
         }
@@ -351,31 +338,74 @@ mod name_card_tests {
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
 
     #[test]
-    fn stage_light_follows_the_view_without_entering_world_captures() {
-        use ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER;
-        use bevy::camera::visibility::RenderLayers;
+    fn stage_lights_follow_the_room_each_view_frames() {
+        use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, PARALLAX_BACKGROUND_LAYER};
+        use ambition_sim_view::{LocalViewId, PresentsView};
+        use bevy::camera::{visibility::RenderLayers, RenderTargetInfo};
+        use crate::rendering::PresentedViewFrame;
 
         let mut app = App::new();
-        let view_layers = RenderLayers::layer(0).with(PARALLAX_BACKGROUND_LAYER);
-        let camera = app.world_mut().spawn((
-            MainCamera,
-            Transform::from_xyz(100.0, 200.0, 0.0),
-            view_layers.clone(),
-        )).id();
-        app.add_systems(Update, light_the_boss_stage);
-        for at in [Vec2::new(100.0, 200.0), Vec2::new(500.0, -300.0)] {
-            app.world_mut().get_mut::<Transform>(camera).unwrap().translation = at.extend(0.0);
-            app.update();
-            let world = app.world_mut();
-            let mut veils = world.query_filtered::<(&Transform, Option<&RenderLayers>), With<BossStageVeil>>();
-            assert_eq!(veils.iter(world).count(), 2);
-            for (transform, layers) in veils.iter(world) {
-                let layers = layers.cloned().unwrap_or_default();
-                assert_eq!(transform.translation.truncate(), at);
-                assert!(layers.intersects(&view_layers));
-                assert!(!layers.intersects(&RenderLayers::layer(0)), "view light must not enter portal captures or carries");
-            }
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::ZERO));
+        app.add_systems(Update, (light_the_boss_stage, super::super::view_isolation::isolate_per_view_projections).chain());
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let room_rows = [(first, 0.6, 0.0), (second, 1.0, 0.3)];
+        let index = BossRenderIndex::from_rows(room_rows.map(|(room, lit, flash)| (
+            "same_boss".into(),
+            ambition_sim_view::BossRenderView {
+                room: Some(room),
+                name: "Sentinel".into(),
+                behavior_id: "sentinel".into(),
+                title: None,
+                stage: ambition_sim_view::BossStage { lit, flash, card: 0.0 },
+                awake: true,
+                fighting: true,
+                finish: 0.0,
+            },
+        )));
+        assert_eq!(index.len(), 2);
+        app.insert_resource(index);
+
+        let world = app.world_mut();
+        let placements = [(0, first, Vec2::new(100.0, 200.0)), (1, second, Vec2::new(600.0, 200.0))];
+        let outputs = placements.map(|(id, room, at)| {
+            let view = world.spawn((LocalView, LocalViewId(id))).id();
+            let mut camera = Camera::default();
+            camera.computed.target_info = Some(RenderTargetInfo { physical_size: UVec2::new(640, 360), scale_factor: 1.0 });
+            let output = world.spawn((MainCamera, Camera2d, camera, PresentsView(view),
+                RenderLayers::layer(0).with(PARALLAX_BACKGROUND_LAYER))).id();
+            let frame = PresentedViewFrame { room, plane_center: at, roll_radians: 0.0, orthographic_scale: 1.0 };
+            (view, output, frame)
+        });
+        let frames = outputs.map(|(view, _, frame)| (view, frame));
+        world.insert_resource(PresentedViewFrames::of_views(frames.to_vec()));
+
+        app.update();
+        let world = app.world_mut();
+        let mut veils = world.query_filtered::<(Entity, &PresentedForView, &Transform, &Sprite, &RenderLayers), With<BossStageVeil>>();
+        let mut kept = Vec::new();
+        for (entity, owner, transform, sprite, layers) in veils.iter(world) {
+            let slot = outputs.iter().position(|(view, _, _)| owner.0 == *view).unwrap();
+            let (_, camera, frame) = outputs[slot];
+            let other_camera = outputs[1 - slot].1;
+            assert_eq!(transform.translation.truncate(), frame.plane_center);
+            assert!(layers.intersects(world.get::<RenderLayers>(camera).unwrap()));
+            assert!(!layers.intersects(world.get::<RenderLayers>(other_camera).unwrap()));
+            assert!(!layers.intersects(&RenderLayers::layer(0)));
+            let (_, lit, flash) = room_rows[slot];
+            let alpha = if flash > 0.0 { flash * BRIGHTEST } else { (1.0 - lit) * DARKEST };
+            assert_eq!(sprite.color.alpha(), alpha);
+            kept.push((owner.0, entity));
         }
+        assert_eq!(kept.len(), 2);
+
+        let [(leaving, ..), (staying, ..)] = outputs;
+        let frame = world.resource_mut::<PresentedViewFrames>().into_inner().of_mut(leaving).unwrap();
+        frame.room = second.next();
+        app.update();
+        let world = app.world_mut();
+        let remaining = veils.iter(world).map(|(entity, owner, ..)| (owner.0, entity)).collect::<Vec<_>>();
+        assert_eq!(remaining, kept.into_iter().filter(|(view, _)| *view == staying).collect::<Vec<_>>());
     }
 
     /// The name card is kept as it comes in: its words are not spawned and
@@ -394,10 +424,9 @@ mod name_card_tests {
         active.begin();
         app.insert_resource(active);
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry);
-        app.world_mut()
-            .spawn((super::super::primitives::FeatureVisual { id: "boss".to_string() }, InRoomInstance(LiveRoomInstance::ACTIVATION)));
         let index = |card: f32| {
             let mut view = ambition_sim_view::BossRenderView {
+                room: Some(LiveRoomInstance::ACTIVATION),
                 name: "Smirking Behemoth".to_string(),
                 behavior_id: "behemoth".to_string(),
                 title: Some("of the rope".to_string()),
@@ -460,10 +489,6 @@ mod name_card_tests {
         let second = LiveRoomInstance::from_ordinal(1);
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry("hall"));
         spawn_live_room(app.world_mut(), second, geometry("arena"));
-        for (id, room) in [("warden", first), ("trex", second)] {
-            app.world_mut()
-                .spawn((super::super::primitives::FeatureVisual { id: id.to_string() }, InRoomInstance(room)));
-        }
         let alice = app.world_mut().spawn(InRoomInstance(first)).id();
         let bob = app.world_mut().spawn(InRoomInstance(second)).id();
         let views = [(0, alice), (1, bob)].map(|(index, body)| {
@@ -479,6 +504,7 @@ mod name_card_tests {
         let index = |cards: [(&str, f32); 2]| {
             BossRenderIndex::from_rows(cards.map(|(id, card)| {
                 let mut view = ambition_sim_view::BossRenderView {
+                    room: Some(if id == "warden" { first } else { second }),
                     name: id.to_string(),
                     behavior_id: id.to_string(),
                     title: None,

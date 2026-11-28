@@ -10,7 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, LiveRooms, SessionSpawnScope, SpawnSessionScopedExt};
 use ambition_sim_view::{BossRenderIndex, FeatureViewIndex};
 
 use crate::void_field::{VoidAura, VoidFieldPlugin, VoidWard};
@@ -55,14 +55,16 @@ pub fn drain_around_finishing_bosses(
     // `Option`: a composition with no sim read model has no boss to finish.
     bosses: Option<Res<BossRenderIndex>>,
     features: Option<Res<FeatureViewIndex>>,
+    rooms: LiveRooms,
     visuals: Query<(Entity, &super::FeatureVisual, Has<FinishDrain>)>,
 ) {
     for (entity, visual, drained) in &visuals {
-        let finish = bosses.as_deref().and_then(|bosses| bosses.get(&visual.id)).map_or(0.0, |boss| boss.finish);
+        let room = rooms.of(entity);
+        let finish = bosses.as_deref().and_then(|bosses| bosses.get_in(&visual.id, room)).map_or(0.0, |boss| boss.finish);
         if finish > 0.0 {
             let size = features
                 .as_deref()
-                .and_then(|features| features.get(&visual.id))
+                .and_then(|features| features.get_in(&visual.id, room))
                 .map_or(100.0, |feature| feature.size.max_element());
             commands.entity(entity).try_insert((
                 FinishDrain,

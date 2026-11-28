@@ -895,6 +895,11 @@ shared value preparation are sufficient until source proves otherwise.
    two-view test checks overlapping rooms, a quality change, and veil
    removal on entry to a lit room.
 
+   Each boss presentation row has a live room. Stage lights and name
+   cards read the room that the view frames. Both renderers use the
+   same stage lights. A test gives two instances of the same boss
+   different light cues and checks that each cue stays in its view.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

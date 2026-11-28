@@ -41,14 +41,16 @@ pub fn reconcile_inugami_fields(
     mut commands: Commands,
     bosses: Res<BossRenderIndex>,
     frames: Res<BossFrameIndex>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     features: Res<FeatureViewIndex>,
     visuals: Query<(Entity, &FeatureVisual, Option<&SpiritAura>)>,
 ) {
     for (entity, visual, aura) in &visuals {
+        let room = rooms.of(entity);
         let want = bosses
-            .get(&visual.id)
+            .get_in(&visual.id, room)
             .filter(|boss| boss.behavior_id == crate::bosses::inugami::INUGAMI_ID && boss.awake)
-            .and_then(|_| features.get(&visual.id))
+            .and_then(|_| features.get_in(&visual.id, room))
             .filter(|feature| feature.alive)
             .filter(|_| {
                 let pinned = frames.get(&visual.id).and_then(|frame| frame.pinned.as_ref());

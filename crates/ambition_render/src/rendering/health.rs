@@ -111,7 +111,7 @@ pub fn sync_boss_health_bar_overlay(
                      view: Option<Entity>,
                      rect: Option<(BVec2, BVec2)>| {
         let mut fought: Vec<(&str, DrawnBossBar)> = boss_render.iter().filter_map(|(id, ident)| {
-            let row = feature_views.get(id)?;
+            let row = feature_views.get_in(id, ident.room)?;
             if room.is_some_and(|room| room.is_none() || row.room != room) {
                 return None;
             }
@@ -341,7 +341,7 @@ pub fn sync_health_overlays(
         let (name, bounds, color) = match view.kind {
             FeatureVisualKind::Actor => {
                 if let Some(frame) = boss_frames.get(id) {
-                    let label = boss_render.get(id).map_or(id, |boss| boss.name.as_str());
+                    let label = boss_render.get_in(id, Some(key.1)).map_or(id, |boss| boss.name.as_str());
                     // Use the room's bounds when the ID has more than one view.
                     let bounds = feature_views.get(id).map_or(bounds, |_| frame.aabb);
                     (label, bounds, Color::srgba(1.00, 0.32, 0.92, 0.96))
@@ -522,6 +522,7 @@ mod room_tests {
         app.insert_resource(ambition_sim_view::BossRenderIndex::from_rows([(
             "boss".to_string(),
             ambition_sim_view::BossRenderView {
+                room: None,
                 name: "Smirking Behemoth".to_string(),
                 behavior_id: "behemoth".to_string(),
                 title: None,
@@ -582,10 +583,11 @@ mod room_tests {
                 view.room = Some(room);
                 (id.to_string(), view)
             }));
-            let bosses = ambition_sim_view::BossRenderIndex::from_rows(fought.map(|(id, _, fighting)| {
+            let bosses = ambition_sim_view::BossRenderIndex::from_rows(fought.map(|(id, room, fighting)| {
                 (
                     id.to_string(),
                     ambition_sim_view::BossRenderView {
+                        room: Some(room),
                         name: id.to_string(),
                         behavior_id: id.to_string(),
                         title: None,

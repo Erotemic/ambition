@@ -248,30 +248,21 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
             sim.step(Default::default());
         }
 
-        let boss_ids: Vec<String> = sim
-            .world()
-            .get_resource::<ambition_platformer2d::sim_view::BossRenderIndex>()
-            .expect("the sim publishes the boss render index")
-            .iter()
-            .map(|(id, _)| id.to_string())
-            .collect();
-        assert!(
-            !boss_ids.is_empty(),
-            "room `{room}` places a boss but the boss render index is empty — the \
-             renderer would have nothing to key a sheet from"
-        );
-        bosses_checked += boss_ids.len();
-
         let boss_index = sim
             .world()
             .get_resource::<ambition_platformer2d::sim_view::BossRenderIndex>()
-            .unwrap();
+            .expect("the sim publishes the boss render index");
+        assert!(!boss_index.is_empty(), "room `{room}` publishes a boss");
+        bosses_checked += boss_index.len();
+
+        let features = sim.world().resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
         let actors = sim
             .world()
             .get_resource::<ambition_platformer2d::sim_view::ActorRenderIndex>()
             .expect("the sim publishes the actor render index");
 
-        for id in &boss_ids {
+        for (id, boss) in boss_index.iter() {
+            assert!(features.get_in(id, boss.room).is_some(), "the two rows for `{id}` use the same room");
             assert!(
                 actors.get(id).is_some(),
                 "room `{room}`: boss `{id}` is NOT in the actor index. The arbitration \
@@ -279,7 +270,7 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
             );
             // (2) The rule that resolves it.
             assert!(
-                !actor_sprite_path_owns(id, boss_index),
+                !actor_sprite_path_owns(id, boss.room, boss_index),
                 "room `{room}`: `upgrade_actor_sprites` would claim boss `{id}`, bind \
                  the generic enemy sheet + a `CharacterAnimator`, and lock \
                  `upgrade_boss_sprites` out of it forever."
@@ -287,13 +278,9 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
         }
 
         // The converse — the rule must not starve ordinary actors. An id the boss
-        // index does not claim still belongs to the actor path, by construction:
-        // `actor_sprite_path_owns` IS `boss_render.get(id).is_none()`. Pinned on a
-        // name no boss will ever have rather than by iterating the actor index,
-        // which would need a `HashMap` walk this read-model deliberately does not
-        // expose (ADR 0023).
+        // index does not claim still belongs to the actor path.
         assert!(
-            actor_sprite_path_owns("EnemySpawn-not-a-boss", boss_index),
+            actor_sprite_path_owns("EnemySpawn-not-a-boss", None, boss_index),
             "room `{room}`: the rule must yield ONLY bosses"
         );
     }

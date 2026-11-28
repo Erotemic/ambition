@@ -189,7 +189,7 @@ impl Plugin for SessionRoomVisualsPlugin {
             crate::rendering::boss_stage::show_boss_name_card
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
                 .run_if(crate::rendering::boss_stage::bosses_are_shown_or_were)
-                .after(ambition_sim_view::PresentedPoseSet)
+                .after(crate::rendering::ViewCameraSet)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
         );
         // The card of the area a view's subject has just entered.

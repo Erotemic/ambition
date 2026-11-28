@@ -2,17 +2,17 @@ title: frontier_clerk
 ---
 <<present_speaker "npc_frontier_clerk">>
 <<if verdict("encounter.cleared", "frontier.marshal_gallus") == "satisfied">>
-    Dolores: You again. Name, origin, cargo.
+    Dolores: Name, origin, cargo. Sorry. I say it even when I recognize people.
     -> The Marshal is beaten.
-        Dolores: I heard. The whole street heard. He was crowing at the coyotes from the mesa all afternoon, but hoarse.
-        Dolores: The toll box is still in his office. I don't know who he left in charge.
+        Dolores: I heard the whistle stop. I have a queue of people asking whether they still owe him twelve credits.
+        Dolores: The toll box is still in his office. I'm recording arrivals in a separate book until we find out who has a right to collect.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "frontier_clerk_met") == "satisfied">>
     Dolores: Still logged. Still here. Pad Three, arrivals.
     -> Who gets the toll?
-        Dolores: Gallus. Twelve credits a head, through the gate or off a ship.
+        Dolores: Gallus. Twelve credits a head, through the gate or off a ship. I have to put the receipts in his box.
         Dolores: He used to have authority to collect it. Nobody here has seen his new warrant. The box still goes to his office.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_clerk_met") == "not_satisfied">>
@@ -52,7 +52,7 @@ title: frontier_barkeep
 ---
 <<present_speaker "npc_frontier_barkeep">>
 <<if verdict("encounter.cleared", "frontier.marshal_gallus") == "satisfied">>
-    Mae: First glass of water's on the house today. Somebody beat the Marshal and the night shift slept in.
+    Mae: First glass of water's on the house. Three of the night crew came in together, and for once nobody got up to listen for the whistle.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
@@ -82,7 +82,7 @@ title: frontier_prospector
     Elias: Still here? Sit down, sit down.
     -> Where's the lead?
         Elias: In the creek, if you believe me, and nobody does. Lead in the gravel, grey as a bad tooth.
-        Elias: The refinery pays by the pound. Gallus takes his cut before I get to the weigh station.
+        Elias: The refinery pays by the pound. Gallus has been taking his cut before I get to the weigh station.
     -> What happened to the Marshal?
         Elias: Accident at the cracking tower, back when he was a plain rooster on a plain farm. So they say.
         Elias: Then the company built him back up out of the parts they had. I'd have asked for fewer guns.
@@ -103,8 +103,8 @@ title: frontier_foreman
 ---
 <<present_speaker "npc_frontier_foreman">>
 <<if verdict("encounter.cleared", "frontier.marshal_gallus") == "satisfied">>
-    Ruth: No whistle this morning. I let the shift sleep and nobody blew anything up.
-    Ruth: I've called the morning crew in at seven. Let's see who turns up.
+    Ruth: I stopped the carts after the fight. We had two men out on the terrace who hadn't slept.
+    Ruth: I've called the morning crew in at seven. I'm going to ask them what hours they can actually work.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>

@@ -1,8 +1,8 @@
 title: mine_foreman
 ---
 <<if verdict("encounter.cleared", "elemental_mine.mother_lode") == "satisfied">>
-    Inez: The dial hasn't moved since you came back up. That's the longest quiet we've had all month.
-    Inez: Leave your marks on my survey. I'll walk the boundary with the next shift before we cut any more stone.
+    Inez: The dial hasn't moved since you came back up. I let the deep crew go home. The crusher stays off for now.
+    Inez: Did you find out what was making the knocks? Mark what you found on my survey. I want Farah with me when we go back down.
 <<else>>
     Inez: The surface shift is open. The deep shift stays on the clock up here until I know what those knocks mean.
     Inez: The old works share a wall with a natural cavern. We used to get one knock when we started a cut. Lately we get three before we touch the rock.
@@ -11,7 +11,7 @@ title: mine_foreman
     Inez: Take the cage to the middle landing. Follow the air duct to the relief switch. That opens the screen beside the deep sump.
     Inez: The survey stairs are bolted on the lower side. Open them when you come up and we'll have a second way out.
 -> What about the elementals?
-    Inez: We used to stop work and let them settle. We were paid by the hour then.
+    Inez: We used to stop work and let them settle. We could tell the crew to wait when we were paid by the hour.
 -> Let me through the yard.
 ===
 
@@ -29,7 +29,7 @@ title: mine_geologist
 ---
 Farah: That tray is a section through the west face. I put the samples in order before the wind picked up.
 -> What woke up down there?
-    Farah: Mother Lode has been here since before the first shaft was sunk. I suspect the crusher set the crystals ringing. I've asked Inez to let me try a smaller hammer on the surface samples first.
+    Farah: Mother Lode was here before the first shaft. I can make this sample ring with a tap of my hammer. I wonder what the crusher sounds like through an entire seam. Inez has agreed to let me test the surface samples.
 -> What are the blue streaks?
     Farah: The miners use three blue seams as survey marks. On the far wall you can hear all three ring if you put your ear near the middle one.
 -> I'll leave the samples alone.
@@ -47,10 +47,10 @@ Tamsin: Pick a ticket with a number. Pick a sample with the same number. If they
 
 title: mine_mother_lode
 ---
-Mother Lode: You struck the shell. The part of me that hears is farther in.
-Mother Lode: Tell the people with the wheels they can keep what has fallen. Leave the living seam below the three blue marks.
+Mother Lode: You broke the shell. I could hear your footsteps all the way through it.
+Mother Lode: Tell the people with the wheels they can keep the stone that has fallen. There is still living stone below the three blue marks. Leave it.
 -> Was that you hitting the wall?
-    Mother Lode: The first knock was mine. The other two came back through the rock.
+    Mother Lode: I knocked once. It came back to me from two places. Then the wheels started again.
 -> I'll tell Inez what I heard.
-    Mother Lode: Tell her there is room for quiet work. I can tell the difference.
+    Mother Lode: They used to work up above me. I could sleep through it. Ask her to work up there again.
 ===

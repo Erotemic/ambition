@@ -72,32 +72,32 @@ title: automaton_pca
 ---
 <<present_speaker "perfect_cellular_automaton">>
 <<if verdict("world.flag_set", "automaton_pca_met") == "satisfied">>
-    Perfect Cell-ular Automaton: Back already? Wonderful. Shall we get straight to the fighting?
+    Perfect Cell-ular Automaton: Oh, excellent. I was beginning to think nobody would interrupt my afternoon.
 <<else>>
     <<command "world.set_flag" "automaton_pca_met" true>>
-    Perfect Cell-ular Automaton: Welcome to my arena. I built it right on the Life field. Do you like the crowd? Impeccable timing.
-    Perfect Cell-ular Automaton: I'm the Perfect Cellular Automaton. You may call me Perfect.
+    Perfect Cell-ular Automaton: Welcome to my arena. I built it right on the Life field. Have a look at the audience. The formation on the left is particularly lovely.
+    Perfect Cell-ular Automaton: I'm the Perfect Cellular Automaton. Perfect will do.
 <<endif>>
 <<jump automaton_pca__ring>>
 ===
 title: automaton_pca__ring
 ---
 -> What is the failure log?
-    Perfect Cell-ular Automaton: My guest book. I was going to have the results engraved, but the engraver complained about doing the same line over and over.
+    Perfect Cell-ular Automaton: My guest book. I asked for a column in which to record my losses. The engraver suggested leaving it off.
     <<jump automaton_pca__ring>>
 -> What's on the big screen?
     Perfect Cell-ular Automaton: A Gosper glider gun, 1970. One glider every thirty generations, indefinitely. Elegant, isn't it?
     Perfect Cell-ular Automaton: I've always found thirty generations a rather leisurely pace.
     <<jump automaton_pca__ring>>
 -> Who is that on the gallery?
-    Perfect Cell-ular Automaton: The Imperfect Cellular Automaton. Charming creature. I offered to demonstrate my technique. We got as far as the demonstration of standing still.
+    Perfect Cell-ular Automaton: The Imperfect Cellular Automaton. Charming creature. I offered to show him how to dodge a glider. He dodged the demonstration.
     <<jump automaton_pca__ring>>
 -> Let's fight.
-    Perfect Cell-ular Automaton: Splendid. Do try to surprise me.
+    Perfect Cell-ular Automaton: Splendid! I do hope you have something I haven't seen.
     <<music "glider_gun">>
     <<challenge>>
 -> ‹go›
-    Perfect Cell-ular Automaton: Run along. The rule will still be running when you come back.
+    Perfect Cell-ular Automaton: Very well. I shall have to amuse myself.
 ===
 title: automaton_imperfect
 ---

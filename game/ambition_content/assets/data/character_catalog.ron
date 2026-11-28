@@ -2726,9 +2726,9 @@
             max_health: Some(60),
             tags: ["aerial", "enemy", "custom", "cellular"],
         barks: (
-            on_hit: ["Iteration interrupted.", "State diverged from optimal.", "Rule violated. Adapting.", "Error. Correcting."],
-            provoked: ["Initializing conflict state."],
-            hall: ["One rule. No exceptions. Observe the inevitability.", "I have run this moment to its end. You are predictable, charmingly so."],
+            on_hit: ["Oh, well struck!", "Again, if you please.", "You have my attention.", "Now that was elegant."],
+            provoked: ["Finally!"],
+            hall: ["Do visit my arena. I have very few occasions to use my best moves.", "One rule. And such a magnificent result."],
         ),
         hall_dialogue_id: Some("hall_perfect_cellular_automaton"),
         ),
@@ -2769,7 +2769,7 @@
         barks: (
             on_hit: ["Er — glitch — GAHH!", "That wasn't in the rule set!", "Malfunction cascade!", "Rulebase corrupted!"],
             provoked: ["All states hostile!"],
-            hall: ["I followed the rule. Mostly. The 'mostly' is where I get interesting.", "Perfection repeats. I, gloriously, drift."],
+            hall: ["I made a very pretty pattern yesterday. Perfect says it was an accident.", "One cell out of place. Then another. I like where this is going."],
         ),
         hall_dialogue_id: Some("hall_imperfect_cellular_automaton"),
         ),
@@ -3176,7 +3176,7 @@
             mass: Some(8.0),
             tags: ["giant"],
             barks: (
-                hall: ["GNU2. The sequel nobody compiled.", "GNU's Not Unix, 2: now with a neural crown.", "They upgraded everything but the knees."],
+                hall: ["GNU2. I should like to meet GNU.", "When he calls, the harness wakes up.", "I wonder where that portal goes when the scholar is not looking."],
             ),
         ),
 
@@ -4260,8 +4260,8 @@
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
         barks: (
-            on_hit: ["Ramen!", "TOUCHED BY HIS NOODLY APPENDAGE — no wait, that was me touching you.", "The sauce thickens!"],
-            provoked: ["Marinara mode: engaged!"],
+            on_hit: ["Ramen!", "Ow! That was a noodly appendage.", "The sauce thickens!"],
+            provoked: ["Behold the marinara!"],
             idle: ["Pasta la vista.", "I have created you all with my noodly appendages.", "The sauce of creation is bottomless."],
             hall: ["You've been touched by My noodly appendage. No refunds.", "Touch the marinara and you're clergy now. Congratulations, I suppose."],
         ),
@@ -4391,8 +4391,8 @@
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
         barks: (
-            on_hit: ["Counterfeit.", "You ring false.", "Assayed. Found wanting.", "Your defiance has mass.", "Pain is data.", "Impact is merely mathematics becoming honest.", "The hypothesis has failed. Begin dissection.", "Your continued existence is statistically irritating.", "I tire of imprecision."],
-            idle: ["Fall. I have already solved for where.", "The universe is not cruel. It is exact.", "I have split the sun. I can divide you.", "I know false weight when it breathes.", "Your motion was inevitable.", "I require no prophecy to know your end.", "Do not resist the law. You are made of it.", "I have measured the heavens. You are a rounding error.", "Every body attracts every other. Unfortunately for you, I am very large.", "You are not escaping. You are tracing a curve.", "Be still. I am observing.", "Hold steady. The experiment requires repetition.", "The prism does not lie. It only reveals the lie.", "Your shadow has an angle. Your death has a proof.", "Lead dreams of gold. Flesh dreams of dust.", "The furnace corrects all impurities.", "Mercury remembers the shape of every sin.", "Be transmuted.", "The world is a crucible, and you are not the gold.", "Impurity is just matter confessing.", "History is a cipher. You are a solved term.", "The end is not near. It is numbered.", "I do not predict. I calculate.", "Even apocalypse obeys arithmetic.", "God wrote in number. I learned to read.", "Creation is not chaos. It is a ledger.", "You mistake mystery for permission.", "The stars keep their stations. Learn from them.", "You are light coin.", "Clipped, debased, and due for hanging.", "Bring the scales.", "The stamp shall reveal your value.", "I have sent better men to the gallows for less.", "Fraud always leaves a shaving.", "Enough observation. Now comes proof.", "You have survived the question. Face the answer.", "Let us remove the remaining variables.", "No more approximations.", "Let the heavens fall inward.", "Now every law acts at once.", "The calculation accelerates.", "Your margin of error is closed.", "The proof concludes."],
+            on_hit: ["Counterfeit.", "You ring false.", "Assayed. Found wanting.", "That was not the expected trajectory.", "Repeat that.", "I allowed for the wrong mass.", "GNU! Mind the shoulders!", "What have I neglected?", "No. I can still account for it."],
+            idle: ["Fall. I have already solved for where.", "A body in motion!", "GNU, turn!", "Let me see that again.", "Let us try a different field.", "I require no prophecy to know your end.", "Every body attracts every other. Unfortunately for you, I am very large.", "You are not escaping. You are tracing a curve.", "Be still. I am observing.", "Hold steady. The experiment requires repetition.", "The prism does not lie.", "Bring the scales.", "The stamp shall reveal your value.", "Fraud always leaves a shaving.", "Lead dreams of gold.", "The furnace corrects all impurities.", "Be transmuted.", "God wrote in number. I learned to read.", "I do not predict. I calculate.", "No more approximations.", "Let the heavens fall inward.", "Now every law acts at once."],
             hall: ["You're falling toward me right now. Too slowly to be polite about it.", "An apple taught me everything. The apple asked for nothing."],
         ),
         // The scholar ON the giant, as one old picture: a look of GNU-ton and
@@ -4991,9 +4991,9 @@
             default_action_set: "peaceful",
             tags: ["boss", "placeholder_brain"],
         barks: (
-            on_hit: ["RAARRGH!", "TEETH.", "STOMP PROTOCOL."],
+            on_hit: ["RAARRGH!", "TEETH.", "T-REX STOMPS."],
             provoked: ["HUNT BEGINS."],
-            hall: ["T-REX ACCEPTS THE STAND. T-REX RESENTS THE STAIRS.", "SHORT ARMS. LONG GRUDGE. THE GRUDGE IS ABOUT THE ARMS."],
+            hall: ["T-REX WAS HERE FIRST.", "SHORT ARMS. LONG TEETH."],
         ),
         hall_dialogue_id: Some("hall_npc_trex_enemy"),
         ),
@@ -5487,7 +5487,7 @@
             default_action_set: "peaceful",
             tags: ["boss", "frontier", "robot", "lawman"],
         barks: (
-            hall: ["Shift starts at six. You're late, and that's a citation.", "A rooster wakes the town. A marshal keeps it awake.", "Holster's for show. The spur's for you."],
+            hall: ["Shift starts when I crow. You're late, and that's a citation.", "Ordinance One. Respect the hat.", "A marshal’s star will get you onto any train, once."],
         ),
         ),
         "npc_clockwork_warden": (
@@ -5530,7 +5530,7 @@
             default_action_set: "peaceful",
             tags: ["boss", "mathematician", "spectral"],
         barks: (
-            hall: ["Everything ends orthogonal. I just do the projecting.", "Every guest checks in. I handle the checking out."],
+            hall: ["I know which modes make the lamps rattle.", "Every guest checks in. I handle the checking out."],
         ),
         ),
         "npc_overflow": (
@@ -6400,8 +6400,8 @@
             authoring_description: "GNU-ton the scholar as a fighter: the small man in the coat and the wig who rides the giant gnu in his boss fight, on his own feet. A parody of Isaac Newton: the quill, the book, the apple, the laws. He does not think he is in a fight; he thinks he is giving a lecture that you keep interrupting.",
             gameplay_description: "A light, fast fencer with two tools. The quill is long and thin and wins by reach and speed; it does little and it does not end a stock. The book is short and slow and is what ends one. His specials are his laws: a flash that launches the same at each percent, a line he draws through you, a moment with no gravity, and a counter (to each action an equal and opposite reaction).",
         barks: (
-            on_hit: ["Counterfeit.", "Your defiance has mass.", "Impact is merely mathematics becoming rude."],
-            idle: ["Fall. I have already solved for where.", "The universe is not cruel. It is exact."],
+            on_hit: ["Counterfeit.", "That was not the expected trajectory.", "Again. I must have missed something."],
+            idle: ["Fall. I have already solved for where.", "Stand still. I am trying to take a measurement."],
             hall: ["An apple taught me everything. The apple asked for nothing.", "You are falling toward me right now. Too slowly to be polite about it."],
         ),
         hall_dialogue_id: Some("hall_npc_gnu_ton"),
@@ -6579,7 +6579,7 @@
         barks: (
             on_hit: ["Bother.", "The pot is empty.", "I only wanted a little."],
             idle: ["Rumbly. Always rumbly.", "The pot is empty. The pot is always empty."],
-            hall: ["I only wanted a little. There was never a little.", "The pot is empty. The pot has always been empty.", "Bother.", "They put me on a pedestal because the honey ran out down there."],
+            hall: ["I only wanted a little.", "There was a pot. There is no pot.", "Bother.", "Have you got a little jar?"],
         ),
         hall_dialogue_id: Some("hall_npc_hunny_horror_boss"),
         ),
@@ -7252,9 +7252,9 @@
             cues: (notice: Some("enemy.decomposing_specter.notice"), tell: Some("enemy.decomposing_specter.tell"), swing: Some("enemy.decomposing_specter.swing"), hit: Some("enemy.decomposing_specter.hit")),
         barks: (
             on_hit: ["My crown!", "Kneel, grave robber!"],
-            provoked: ["Who wakes the king of the valley?"],
+            provoked: ["The King of the Valley commands you to kneel!"],
             idle: ["Sixty chargers... and not one fits.", "Mine. The toasters are mine."],
-            hall: ["A king needs a throne. A stand will do, for now.", "The living throw out such marvelous things. Bring me that iron."],
+            hall: ["The living stopped laughing when my soldiers learned to open doors.", "The living throw out such marvelous things. Bring me that iron."],
         ),
         ),
         // Ordinary dead inhabitants of the valley, unarmored and easily staggered.

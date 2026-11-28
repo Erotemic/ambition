@@ -668,7 +668,25 @@ enum PartDrawTarget {
     Atlas { place: Vec3, generation: u64 },
 }
 
+pub(in crate::rendering) struct RiggedPartImage<'a> {
+    pub page: &'a Handle<Image>,
+    pub rect: Rect,
+    pub size: Vec2,
+    pub anchor: Vec2,
+}
+
 impl RiggedPresentation {
+    pub(in crate::rendering) fn part_image(&self, draw: &PartDraw) -> Option<RiggedPartImage<'_>> {
+        let part = self.pages.flipbook.parts.get(usize::from(draw.part))?;
+        let page = self.pages.pages.get(usize::from(part.page))?;
+        Some(RiggedPartImage {
+            page,
+            rect: part.rect.as_rect(),
+            size: part.size,
+            anchor: part.anchor(),
+        })
+    }
+
     /// Get the frame when the compositor can draw the current atlas cell.
     #[cfg(feature = "card_view")]
     pub(in crate::rendering) fn composed_frame(&self) -> Option<&BakedFrame> {
@@ -1976,41 +1994,35 @@ fn frame_draws<'a>(
 /// Write `draws` onto a presentation's slots, in draw order, each slot's
 /// colour from `color_of`. Slots past the last draw are hidden.
 fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mut Slots, color_of: impl Fn(&PartDraw) -> Color) {
-    let flipbook = &presentation.pages.flipbook;
     for (index, slot) in presentation.slots.iter().enumerate() {
         let Ok((mut sprite, mut slot_anchor, mut transform, mut visibility, _)) = slots.get_mut(*slot) else {
             continue;
         };
-        let Some(draw) = draws.get(index) else {
+        let Some((draw, image)) = draws.get(index).and_then(|draw| {
+            presentation.part_image(draw).map(|image| (draw, image))
+        }) else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        let part = flipbook.parts[usize::from(draw.part)];
-        let page = &presentation.pages.pages[usize::from(part.page)];
-        if sprite.image != *page {
-            sprite.image = page.clone();
+        if sprite.image != *image.page {
+            sprite.image = image.page.clone();
         }
         // Each field is written only when it differs. A slot that shows the
         // same part at the same place as last frame stays unchanged, so its
         // sprite is not extracted again and its transform is not propagated.
-        let rect = Some(Rect::new(
-            part.rect.min.x as f32,
-            part.rect.min.y as f32,
-            part.rect.max.x as f32,
-            part.rect.max.y as f32,
-        ));
+        let rect = Some(image.rect);
         if sprite.rect != rect {
             sprite.rect = rect;
         }
-        if sprite.custom_size != Some(part.size) {
-            sprite.custom_size = Some(part.size);
+        if sprite.custom_size != Some(image.size) {
+            sprite.custom_size = Some(image.size);
         }
         let color = color_of(draw);
         if sprite.color != color {
             sprite.color = color;
         }
-        if slot_anchor.0 != part.anchor() {
-            slot_anchor.0 = part.anchor();
+        if slot_anchor.0 != image.anchor {
+            slot_anchor.0 = image.anchor;
         }
         transform.set_if_neq(slot_local(draw, index));
         visibility.set_if_neq(Visibility::Inherited);

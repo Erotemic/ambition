@@ -113,8 +113,9 @@ use super::retained_entities::RetainedEntities;
 use super::supported_carry::{SlingSpan, SlingString};
 use super::actors::rigged::{
     part_color, root_shows, BakedFrame, LimbTwin, RiggedLocalSample, RiggedPresentation,
-    RiggedPresentationOf, RiggedPresentedBy,
+    RiggedPartImage, RiggedPresentationOf, RiggedPresentedBy,
 };
+use super::dash_afterimage::DashAfterimage;
 use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
@@ -1473,21 +1474,19 @@ pub(super) fn realize_card_bodies(
         body_visibility.set_if_neq(Visibility::Inherited);
 
         shown.clear();
-        let flipbook = &presentation.pages.flipbook;
         let body_color = sample.direct_body_color();
         for (index, draw) in draws.iter().enumerate() {
-            let part = flipbook.parts[usize::from(draw.part)];
-            let Some(page) = presentation.pages.pages.get(usize::from(part.page)) else {
+            let Some(RiggedPartImage { page, rect, size, anchor }) = presentation.part_image(draw) else {
                 continue;
             };
             let Some(page_size) = images.get(page).map(|image| image.size().as_vec2()) else {
                 continue;
             };
             let mesh = cache.quad(TextureQuad {
-                rect: part.rect.as_rect(),
+                rect,
                 page: page_size,
-                size: part.size,
-                anchor: part.anchor(),
+                size,
+                anchor,
                 flip: [false; 2],
             }, &mut meshes);
             let material = if body_color == LinearRgba::WHITE {
@@ -1764,7 +1763,7 @@ pub(super) fn realize_card_scenery(
         (
             Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform, &GlobalTransform,
             &InheritedVisibility, Option<&MovingPlatformVisual>, Has<AnimatedWorldSpriteTint>,
-            Option<&PresentationOf>, Option<&WornGearVisual>, Option<&SlingString>,
+            Option<&PresentationOf>, Option<&WornGearVisual>, Option<&SlingString>, Has<DashAfterimage>,
         ),
         (ScenerySource, Without<CardScenery>),
     >,
@@ -1788,7 +1787,7 @@ pub(super) fn realize_card_scenery(
         return;
     };
     by_source.reconcile(&mut commands, |source| scenery.contains(*source));
-    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject, gear, string) in &scenery {
+    for (entity, sprite, anchor, local, global, visibility, platform, animated_tint, subject, gear, string, afterimage) in &scenery {
         let gear_depth = gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer));
         let shown = visibility.get()
             && sprite.color.alpha() > 0.0
@@ -1811,6 +1810,12 @@ pub(super) fn realize_card_scenery(
                 sprite_span_place(&global.compute_transform(), frame.size.x, [start.plane, end.plane]),
                 CardPaintDepth((start.paint.0 + end.paint.0) * 0.5),
             )
+        } else if afterimage {
+            let place = global.compute_transform();
+            let z = place.translation.z;
+            let room = source_room(entity, &rooms, &parents);
+            let paint = depths.scene_paint_depth(z, room).unwrap_or_else(|| depths.scenery(z, room).paint);
+            (CardDepth::on_plane(PLAY_PLANE_Z).place(&place), paint)
         } else {
             let place = global.compute_transform();
             let z = place.translation.z;

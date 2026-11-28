@@ -1442,6 +1442,16 @@ fixed 2026-11-28):** each was the test's own reading, not the game.
   directory, restated only at a reload's publication boundary. They are
   waived beside `GateNetworkCatalog`.
 
+**Barrows content reds (found 2026-11-28, inherited from `550a7183d`; fixed
+2026-11-28):**
+- `intro::route_state::tests::the_intro_world_authors_the_flag_that_opens_each_gated_wall`
+  pinned three gated walls; the Barrows authored ten more, each with its
+  key, switch, encounter or boss. The pin now lists all thirteen.
+- `prop_sheets::tests::the_prop_sheets_are_the_packs_rows` was
+  environmental: 35 prop targets (the Barrows and others) were not
+  rendered on this VM (`scripts/regen/sprites.sh --target ... --only-missing`).
+`ambition_content --lib`: 555 passed.
+
 **Trailhead arch red (found 2026-11-20, inherited; fixed 2026-11-20):** `the_gate_network::the_jungles_arches_chain_along_the_trail`. The press measured the door from its centre point, and the arch is 146 px tall. Its centre stood 49 px above a traveller in the opening, so Ranger Brandvold won the press from 33 px away. He had rallied to a kiwi's fight at the arch (x 921, not his authored 744), and the arch never fired. A door is now measured from its long axis (`ambition_platformer2d_world::rooms::door_distance`). One function serves the press, the prompt, the reach observer and the door's own transition (`rooms/systems.rs`). That transition had its own centre-point copy, and changing only the other three made both sides refuse the press. The arch witness passes. Of the gate/route/door/interact/talk app_it filters, 68 pass, and the only other red is the one below.
 
 **Autoplay LEGAL red (found 2026-11-20, inherited; fixed 2026-11-20):** `a_route_over_rooms::autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail`. The arch was not its cause. Probed at each room change: the return reached `primeval_trailhead` with the outbound wormhole (hub → `primeval_trailhead_gate`) still open, with 3.7 s of its 30 s idle timeout left. Autoplay walked home through it, arriving by a Gate passage at `hub_public_gate_zone`, and so never dialed LEGAL. The arch chain (JL-2, 2026-11-18) made the trip that short. The behaviour is right and the test's premise was stale. It now asserts the meaning: GENESIS dialed, and home through the hub's gate, by a LEGAL dial or by a wormhole still open. Passes (271 s).

@@ -25,6 +25,7 @@ Dorsey: Halt! Oh, a visitor. Carry on if you're here to see the General.
     Dorsey: The checkpoint has a maintenance crawlway underneath. I am supposed to keep an eye on it as well.
 -> Have you been posted here long?
     Dorsey: Six months. Used to work on a civilian gate. Lot more visitors there, but nobody made me salute every time the door opened.
+    Dorsey: We used to write down arrivals and put the sheet in a tray. Here I keep a copy for the signals floor. Nobody told me they needed one for the civilians too.
 -> Carry on, Private.
 ===
 
@@ -63,6 +64,7 @@ title: military_tower_ruiz
 Ruiz: Signals. Every dial of the annex ring prints a line on my tape.
 -> What can you learn from the tape?
     Ruiz: Which gate called, and when the connection closed. I need the sentry's report to know who walked through it.
+    Ruiz: Major Brandt asked me for a second copy for the Manifest Office. I told him the same tape twice won't tell the registrar who was on the other side.
 -> Who dialed today?
     Ruiz: Two test calls from a public ring. The General wanted to check that the printer works. It works.
 -> Back to your tape.
@@ -75,6 +77,7 @@ Brandt: Major Brandt, adjutant. The General sees visitors on the hour.
     Brandt: Now. It is always the hour. He does not own a watch, and nobody has volunteered to give him one.
 -> What are those papers?
     Brandt: Duty rosters and correspondence with the Manifest Office. The civilians have requested another copy of the annex logs. I sent a copy yesterday.
+    Brandt: Ruiz tells me they want the sentry's report as well. That is not what the letter said. I suppose I had better ask Dorsey for it.
 -> Is the General here all day?
     Brandt: Unless he's inspecting the troops. If he leaves the tower for a meeting at the Authority, I have to go with him and carry the papers.
 -> Thank you, Major.

@@ -293,3 +293,42 @@ by the selected choice or by completion of the conversation/placement
 before adding a distinct leave-without-opening option. This pass leaves
 those nodes unchanged: there is no explicit door command in the Yarn
 body and the map submodule is not present in the supplied source archive.
+
+## Follow-up: regional relationships and differing perspectives
+
+Use existing events as shared points of contact, with each NPC speaking from
+what they have actually seen or done. A player should be able to hear the
+conversations in either order. Avoid introducing mandatory fetch steps,
+requiring a preceding conversation for an unguarded line, or treating a
+character's opinion as a settled world fact.
+
+- Hobford: imported grain affects both the mill and the inn; the trader and
+  ranger have different evidence of animated scrap on the moor. The wizard
+  and knight have their own approaches to the barrow. Preserve the opening's
+  existing Dennis and goblin encounter conditions.
+- PVN: Jory objects to berth charges, Bram has maintenance expenses, and Lark
+  sees them together at supper. Tomas supplies Agnes, who in turn supplies
+  Lamplugh's lamp oil. Nell trades salvage with the lighthouse keeper. None
+  of this decides the current shipment's contents or the raid's outcome.
+- Ninja Village: rooftop training affects Ume; Daichi and Ren have different
+  approaches to practice. Hayashi knows about Zorlack's shipboard training
+  needs. No exam requirements or ranks change.
+- Science: Teodora's logs support Priya's clock measurements; Pell and Mina
+  share a supply chain. Inez is responsible for production, Ellis for the
+  carts, and Farah and Tamsin for tracing the vibration through samples.
+  The deep seam remains a problem to investigate, not a solved agreement.
+- Frontier: after the Gallus encounter, Dolores is reluctant to spend the
+  toll money without authority, Ruth has to face her workers, and Mae sees
+  the night crew as customers. These lines remain in existing cleared
+  branches. No succession, wages, or toll changes are implemented. Augusta
+  and Hettie discuss delayed freight; Ida and Magda share a laundry routine.
+- Authority: a passenger scheduling request affects station freight, and
+  civilian manifest staff need information from both signals and sentries.
+  The tower relocation and gate scheduling mechanics remain separate work.
+- Art and Math: let Frida, Peckasso, and the Curator disagree about credits
+  and exhibition practice. Furrier wants measurements while Hylbert is
+  responsible for safety. Emmy and Erdish have a small recurring cafe habit.
+
+The new anecdotes, supply arrangements, fee structures, and personnel
+interactions are provisional dialogue-level worldbuilding. No new flags,
+rewards, placements, encounter outcomes, or progression rules are added.

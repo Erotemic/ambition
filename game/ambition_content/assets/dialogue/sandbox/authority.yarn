@@ -29,6 +29,10 @@ title: authority_information__topics
 -> Where can I recover from a crossing?
     Ottilie: Sit in the Concourse until you feel better. We get people who need a few minutes and some who need most of the day. If you are still ill after the others have recovered, ask a member of staff for help.
     <<jump authority_information__topics>>
+-> Who works out when the gates are open?
+    Ottilie: The timetable office. We asked them for more evening passenger slots because people were sleeping on the benches here.
+    Ottilie: They sent me a letter from a station freight clerk asking for one of his slots back. I have to find out how many passengers we actually send on Thursdays.
+    <<jump authority_information__topics>>
 -> ‹go›
 ===
 title: authority_baggage
@@ -116,6 +120,7 @@ title: authority_registrar__topics
     <<jump authority_registrar__topics>>
 -> Do you keep records for the military?
     Registrar: Ask the Iron Bastion for their annex logs. They send me summaries. They do not send them often enough.
+    Registrar: Brandt keeps sending me copies of a summary I already have. I am asking for the sheet that tells me who arrived.
     <<jump authority_registrar__topics>>
 -> ‹go›
 ===

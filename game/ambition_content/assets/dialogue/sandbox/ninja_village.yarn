@@ -65,6 +65,7 @@ Ume: Welcome. Tea for the tired, and for the gate-sick at half price. You do not
     Ume: If they come back, they're under the bed. I'm leaving them there.
 -> Do the students eat here?
     Ume: Daichi always wants seconds. Ren comes in so late I have to keep something warm for her. Hayashi washes his bowl before he leaves, bless him.
+    Ume: I asked them to leave the roof over my stove alone. Now they land right above the bedroom.
 -> Thank you.
 ===
 
@@ -77,7 +78,8 @@ Daichi: Stand back! I am about to perform the Thousand Leaf Step! ...I am still 
     Daichi: How else will anyone know it was a move? A move nobody hears is just exercise.
 -> Have you seen Kagero fight?
     Daichi: No. Ren says she hunts spirits and never announces her moves.
-    Daichi: I practiced fighting without shouting yesterday. I fell off a roof. Nobody came to watch.
+    Daichi: I practiced fighting without shouting yesterday. I fell off a roof. Ume heard me land.
+    Daichi: She wanted to know if I was finally practising quietly. I said yes.
 -> Good luck.
     Daichi: I do not need luck! I need the exam to be on a Tuesday.
 ===
@@ -91,6 +93,7 @@ Matsuda: A visitor. Good. Step up to the line, bow to the pass, and try not to f
     Matsuda: One opponent at a time, and the match ends when I blow my whistle. Some of the younger students get carried away, so stay behind me if you are waiting.
 -> Has anyone ever won?
     Matsuda: Daichi, once. The duelist slipped on a leaf. Daichi insists it was the Thousand Leaf Step. I wrote it down as a leaf.
+    Matsuda: Ren has asked to see the bout record. I think she wants to find out which duelist she ought to challenge.
 -> I'm ready.
     Matsuda: Nobody is. Go anyway. I'll keep the chalk handy.
 ===
@@ -133,6 +136,7 @@ Sensei Hayashi: The new rank wears well. Do not let it make you slow.
     Sensei Hayashi: The next one. It has more forms.
 -> What do the ranks mean outside the village?
     Sensei Hayashi: Other schools have their own ranks. The Shadow Clan has its own traditions too. You may have to demonstrate what you can do before they accept yours.
+    Sensei Hayashi: Zorlack asked me how many students had passed this year. I sent him a number. He wanted to know how many could keep their footing on a ship. I told him to come back after the next exam and ask them himself.
 -> Thank you, Sensei.
 <<elseif verdict("world.flag_set", "ninja_village_rank_awarded") == "unanswerable">>
     <<stop>>
@@ -175,6 +179,7 @@ Ren: You want to take the exam? Fine. Do not expect me to cheer. I only cheer fo
     Ren: The examiner waits for you to swing first. So do I.
 -> Why do you want a rival?
     Ren: Daichi cheers when I land a hit. I'd rather somebody hit me back.
+    Ren: I keep asking Matsuda for the bout records. He won't let me take them home. Says I'd wear out the paper.
 -> Later.
 <<else>>
     <<stop>>

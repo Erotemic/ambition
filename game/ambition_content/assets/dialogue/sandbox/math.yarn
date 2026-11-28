@@ -13,6 +13,7 @@ Erdish: My mind is open.
     Erdish: Almost.
 -> Did you climb in through the window?
     Erdish: Yes. Emmy says I mustn't do it again.
+    Erdish: She has my cup. I left the other one at Hylbert's. There is a proof on a napkin under it, if the napkin is still there.
 -> Are you waiting for someone?
     Erdish: I had a question for you. I've forgotten what it was.
     Erdish: I'll find you when it comes back.
@@ -160,6 +161,8 @@ Emmy Ethereal: Sit wherever you like. Except there. Erdish has taken over that t
     Emmy Ethereal: The short version? If the rules don't change with time, you get conservation of energy.
 -> Does Erdish always come in through the window?
     Emmy Ethereal: Only when I forget to lock it.
+-> Does he ever order anything?
+    Emmy Ethereal: Coffee. He has a cup here and another one over at the hotel. Davy keeps bringing the wrong one back. I know because neither of them has a handle anymore.
 -> I'll find a seat.
     Emmy Ethereal: If you want lunch, order before I close the kitchen.
 ===
@@ -220,6 +223,7 @@ Davy Hylbert: Sorry, we're full tonight.
 -> What's wrong with the spectral wing?
     Davy Hylbert: A guest slammed his door and a lamp fell off the wall in the closed wing. Gram Reaper was in the corridor. I have asked him not to encourage it.
     Davy Hylbert: I've been working on increasing the spectral gap. We need to keep the troublesome modes apart. Gram Reaper takes an interest in the ones that are nearly equal.
+    Davy Hylbert: Furrier wants to take readings in the closed wing. I told him to start on this side of the wall. I am not giving him a key yet.
 -> Why's the observatory still lit?
     Davy Hylbert: Hypatia's up there. Something moving near the station, she says.
     Davy Hylbert: I brought her dinner yesterday. She'd forgotten to eat.
@@ -403,6 +407,7 @@ Furrier: The corridor goes on for ever and the heating does not. Shut the door b
     Furrier: I sent Heisenberg my room number in the morning. By the time he got here I'd been moved again.
 -> Why are you staying here?
     Furrier: A conference on heat. I have been trying to persuade Hylbert to let me take temperature readings in the spectral wing.
+    Furrier: He says I can take them in the corridor instead. Fine. I will need him to stop moving the room numbers while I take them.
 -> Stay warm.
     Furrier: Shut the door, please.
 ===

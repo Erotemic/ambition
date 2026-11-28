@@ -338,7 +338,7 @@ title: valley_miller
         <<stop>>
     <<endif>>
     -> What do you grind?
-        Miller: Oats, barley, wheat when there is wheat. And whatever the gate sends down that will go between two stones.
+        Miller: Oats, barley, wheat when there is wheat. The trader asked me to try a grain that came in through the ring. The flour was green. The innkeeper bought one sack and sent it straight back.
     -> ‹go›
 <<elseif verdict("world.flag_set", "valley_miller_met") == "not_satisfied">>
     <<command "world.set_flag" "valley_miller_met" true>>
@@ -368,6 +368,8 @@ title: valley_innkeeper
 <<present_speaker "npc_valley_innkeeper">>
 <<if verdict("world.flag_set", "valley_hen_returned") == "satisfied">>
     Innkeeper: She's back on her perch and laying out of spite. Come in any time.
+    -> Do you get your supplies from the mill?
+        Innkeeper: Flour from the miller, eggs from my own hens. He keeps trying me on new sorts of grain from the gate. I told him I cannot sell a green loaf to a man who has just come through the ring.
     -> ‹go›
 <<elseif verdict("world.flag_set", "valley_hen_returned") == "unanswerable">>
     <<stop>>
@@ -412,7 +414,7 @@ Trader: Lamp oil, salt, batteries. Everything here came through the gate this we
     Trader: The knight brought me a sword with a battery in it. Took me a morning to fit the crossguard.
 -> Have you sold anything to the Barrow King?
     Trader: Sold? He hasn't paid for anything. We used to leave broken tools by the old quarry. I've started putting them under lock and key.
-    Trader: Last week I saw one of my old kettles marching across the moor. It chased the miller all the way to his door.
+    Trader: The ranger brought back a piece of a kettle I threw away last spring. She found it halfway down the moor, still hot.
 -> Did the goblins come in here?
     Trader: Stood in the door and looked at the batteries for a long time. Bought nothing. The big one had a hammer I would have been proud of.
 -> ‹go›
@@ -468,7 +470,8 @@ Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
 -> Is it magic?
     Hedge Wizard: I bought it from the trader. There were forty in the crate. I've tried it on the Tuesday spell and it keeps asking me for a date.
 -> What about the ghosts at the barrow?
-    Hedge Wizard: There have been ghosts up there since my grandfather's time. You could generally walk right past them. Now the King has something that can follow you all the way down to the bridge. I don't go up there at dusk.
+    Hedge Wizard: There have been ghosts up there since my grandfather's time. You could generally walk right past them. Now the King has things that follow you all the way down to the bridge.
+    Hedge Wizard: I told the knight I could try the fair-wind spell on them. He asked what day it was.
 -> Do you know any real spells?
     Hedge Wizard: Three. I've just told you all of them.
     Hedge Wizard: The Tuesday one is quite good.
@@ -484,6 +487,9 @@ Ranger: Quiet. You're standing on the trail.
 -> What are you tracking?
     Ranger: Goblins. They go through batteries like bread. *she holds one up* Still warm. They went up the hill path an hour ago.
     Ranger: My grandmother tracked by bent grass. I'd like to see her try it on goblins.
+-> Have you been up to the barrow?
+    Ranger: Found a kettle with legs on the moor. I brought a piece of it to the trader. He recognised the patch he'd soldered on the side.
+    Ranger: I thought I could follow the tracks back to the King. There were tracks all over one another by the quarry.
 -> What's that on your head?
     Ranger: A head torch. It came through the gate. I've covered the white lens with red cloth. It keeps slipping off. If you see a bit of red cloth on the trail, it's mine.
 -> The goblins at the siding are beaten. <<if condition("encounter.cleared", "intro_freight_yard_fight")>>

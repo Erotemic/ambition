@@ -23,7 +23,7 @@ title: eureka_teodora
 Teodora: Step onto the car and it goes up. Hold the rail, and do not lean on the door.
 -> How far up does it go?
     Teodora: All the way to the station's tether hub. Thirty-six thousand kilometres of cable, and I have walked none of it.
-    Teodora: There are two operators on each shift. I work the ground end.
+    Teodora: There are two operators on each shift. I work the ground end. Priya asked us to write down both clocks when we close the doors. I have given the other operator a second notebook.
 -> What is up there?
     Teodora: Customs, a docking bay, people who eat out of tubes. Further along the spoke, Gnu-ton's gravity works.
     Teodora: The empty car comes back lighter some days. Nobody can tell me why. I log it anyway.
@@ -39,6 +39,7 @@ Priya: Sorry, I thought you were the next shift. Do you know where Mina is?
     Priya: Four days since I had a night off. I slept in the lab last night and woke up when the temperature alarm went off.
 -> What are you measuring?
     Priya: Whether a clock at the top of the elevator runs fast. It does. The question is by how much, and whether my supervisor believes me.
+    Priya: Teodora is logging both ends for me. I still need to compare the signals properly. I have to account for the delay in the timing signals before I can use those readings.
 -> You should rest.
     Priya: Mina keeps telling me. She offered to ring my supervisor for me. I'd rather she didn't.
 -> Good luck with it.
@@ -140,7 +141,7 @@ Wilbur: Mind the grass. I keep it. It does not keep itself, whatever the physici
 -> Do the other pigeons bother you?
     Wilbur: Do not start. They are not my relatives. They are not anyone's relatives. They eat crumbs off the lecture steps and look at me like I owe them.
 -> What do you think of the elevator?
-    Wilbur: They promised me a little cart when they built it. I've asked every year.
+    Wilbur: They promised me a little cart when they built it. I've asked every year. Teodora offered to bring a trolley down from the station. I told her it needs wheels that work on grass.
 -> I will mind the grass.
 ===
 
@@ -164,7 +165,8 @@ Mina: Coffee, soup, or a chair. The chair is free if you buy something.
     Mina: Everybody on campus. Students in the morning, professors at noon, the lab crew when something has caught fire.
     Mina: Physics owes me eleven coffees. Chemistry pays in cash. Biology brings its own cups, which I respect.
 -> What is the soup?
-    Mina: Whatever came down on the elevator. Today it is lentils from the station. There was supposed to be spinach, but they needed the cold box for a lab shipment.
+    Mina: Whatever came down on the elevator. Today it is lentils from the station. Pell sent an apology about the spinach. They needed the cold box for a lab shipment.
+    Mina: I sent the empty tins back with a note asking for more lentils. Everyone liked them.
 -> Do people from the station come down?
     Mina: On weekends. They ask for the table by the window. I keep it free until the elevator comes down.
 -> Just looking.
@@ -227,7 +229,7 @@ Ottoline Hum: (She holds one hand near the antenna, the other by the loop. A not
 -> What are you playing?
     Ottoline Hum: Whatever the institute's working on. Monday it was the hydrogen spectrum. The physicists cried. The chemists asked for it in a minor key.
 -> Do people pay?
-    Ottoline Hum: Visitors off the gate pay in coins I've never seen. I've got a case of currencies from forty dimensions. The patent clerk says one of them is technically a button.
+    Ottoline Hum: Visitors off the gate pay in coins I've never seen. I've got a case of forty different currencies. The patent clerk says one of them is technically a button.
 -> Play on.
     Ottoline Hum: Always. Mind you don't walk between me and the antenna. You'd be in the song.
 ===

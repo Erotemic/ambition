@@ -6,6 +6,7 @@ title: frontier_clerk
     -> The Marshal is beaten.
         Dolores: I heard the whistle stop. I have a queue of people asking whether they still owe him twelve credits.
         Dolores: The toll box is still in his office. I'm recording arrivals in a separate book until we find out who has a right to collect.
+        Dolores: Ruth asked whether I could pay the night crew out of it. I told her I couldn't just start spending money from the toll box myself.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
@@ -53,6 +54,8 @@ title: frontier_barkeep
 <<present_speaker "npc_frontier_barkeep">>
 <<if verdict("encounter.cleared", "frontier.marshal_gallus") == "satisfied">>
     Mae: First glass of water's on the house. Three of the night crew came in together, and for once nobody got up to listen for the whistle.
+    -> How are they doing?
+        Mae: Tired. They put their money together for one pot of coffee. I sent three cups and told them to come back after the meeting with Ruth.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
@@ -105,6 +108,8 @@ title: frontier_foreman
 <<if verdict("encounter.cleared", "frontier.marshal_gallus") == "satisfied">>
     Ruth: I stopped the carts after the fight. We had two men out on the terrace who hadn't slept.
     Ruth: I've called the morning crew in at seven. I'm going to ask them what hours they can actually work.
+    -> What about their pay?
+        Ruth: Dolores has the toll accounts. I asked if we could use that money for the night crew. She wants proper authority first. Fair enough. I still have to face the crew at seven.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
@@ -150,6 +155,9 @@ title: frontier_station_agent__topics
     <<jump frontier_station_agent__topics>>
 -> When's the next train?
     Augusta: The Number 9 goes down the gulch at 9:40. It's freight. It doesn't stop for people.
+    <<jump frontier_station_agent__topics>>
+-> Does Hettie get her parts by train?
+    Augusta: When she can. She brings me the part numbers herself. If a crate comes in with only her name on it, I send it to the workshop unopened.
     <<jump frontier_station_agent__topics>>
 -> ‹go›
 ===
@@ -219,7 +227,8 @@ title: frontier_mechanic
     Hettie: Turn round. Lift that foot. Hm. A dent, a scuff, nothing loose. You're fine.
     Hettie: If it starts rattling under load, bring it back before it drops off. Saves us both work.
 -> What do you work on here?
-    Hettie: Mostly the pumps and wagons. See that spring? Came off a freight wagon. Been waiting two weeks for its replacement.
+    Hettie: Mostly the pumps and wagons. See that spring? Came off a freight wagon. Been waiting two weeks for its replacement. Augusta checks for the crate every time a train comes in.
+    Hettie: I could ask her to open the other boxes and look, but she is quite right not to do that.
 -> ‹go›
 ===
 title: frontier_brakeman
@@ -251,6 +260,8 @@ title: frontier_crane_driver
 <<present_speaker "npc_frontier_crane_driver">>
 <<if verdict("world.flag_set", "frontier_crane_driver_met") == "satisfied">>
     Magda: Keep off the pots. I'm not fishing you out of the slag.
+    -> Do you live near the works?
+        Magda: Near enough. I leave a clean shirt with Ida before a shift so I have something to change into. She says I ought to make the manager do his own washing for a week.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_crane_driver_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_crane_driver_met" true>>
@@ -274,5 +285,7 @@ title: frontier_laundress
 <<endif>>
 -> Why live under the works?
     Ida: The wind can't get in, the rent's low, and the soot's free.
+-> Who leaves clothes with you?
+    Ida: Magda brings me a clean shirt before work and takes a clean one home after. I wash the dirty one. The works manager pays me by the piece and never asks why she needs two a day.
 -> ‹go›
 ===

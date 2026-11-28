@@ -30,6 +30,8 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
 use bevy::app::AppExit;
 #[path = "capture_scene/art_snapshot.rs"]
 mod art_snapshot;
+#[path = "capture_scene/fracture_preview.rs"]
+mod fracture_preview;
 #[path = "capture_scene/portal_fixture.rs"]
 mod portal_fixture;
 #[path = "capture_scene/target_dump.rs"]
@@ -141,6 +143,7 @@ struct SceneCaptureConfig {
     /// simulation, so this is how a pose that needs a held control (a look
     /// up, a crawl, a guard, a swing in a slow fall) is photographed.
     player_holds: Vec<(HeldControls, u64)>,
+    fractures: Vec<fracture_preview::Preview>,
     /// Portal shots to fire, each on its sim tick
     /// (`--portal-shot TICK:X,Y:DX,DY[:b]`), so a portal that is placed
     /// and a portal that is replaced can be filmed.
@@ -441,6 +444,10 @@ OPTIONS:
                         A button the hold before did not have down is pressed
                         on TICK and held after it. Repeat for a sequence; the
                         last hold that started applies
+    --fracture TICK:LOOK:X,Y,W,H:SEED
+                        preview a break from the given center and size.
+                        Use a room that loads LOOK and set AMBITION_QUALITY_PROFILE
+                        to choose the preview quality.
     --dump-targets-at TICK
                         save private RGBA camera targets beside the output
     --portal-at TICK:INDEX:X,Y:NX,NY:HALF_LENGTH
@@ -1613,6 +1620,10 @@ fn install_room_capture(app: &mut App) {
         sim,
         (hold_boss_health, blow_on_bosses, hold_player_flash, place_player_beside, place_player_at, kill_and_pay_the_player, squash_the_player, hang_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
     );
+    if !app.world().resource::<SceneCaptureConfig>().fractures.is_empty() {
+        app.add_systems(sim, fracture_preview::publish
+            .in_set(ambition_platformer2d::sim::Platformer2dSimulationPhase::CoreSimulation));
+    }
     if !app.world().resource::<SceneCaptureConfig>().gate_dials.is_empty() {
         app.add_systems(sim, dial_gates.before(ambition_platformer2d::session::rooms::gate_network::run_gate_network));
     }
@@ -1889,6 +1900,7 @@ impl SceneCaptureConfig {
         let mut player_climbs = false;
         let mut seam: Option<SeamCheck> = None;
         let mut player_holds: Vec<(HeldControls, u64)> = Vec::new();
+        let mut fractures = Vec::new();
         let mut body_warp = None;
         let mut i = 0usize;
         while i < args.len() {
@@ -2240,6 +2252,11 @@ impl SceneCaptureConfig {
                     player_holds.push((HeldControls::parse(names)?, tick));
                     2
                 }
+                "--fracture" => {
+                    let value = args.get(i + 1).ok_or("--fracture needs TICK:LOOK:X,Y,W,H:SEED")?;
+                    fractures.push(fracture_preview::Preview::parse(value)?);
+                    2
+                }
                 "--dump-targets-at" => {
                     dump_targets_at = Some(args.get(i+1).ok_or("--dump-targets-at requires a tick")?
                         .parse().map_err(|_|"--dump-targets-at requires a tick")?);
@@ -2520,6 +2537,9 @@ impl SceneCaptureConfig {
             return Err("select --geometry-overlay or --combat-overlay".into());
         }
         if let Some(route) = route.clone() {
+            if !fractures.is_empty() {
+                return Err("--fracture requires a room".into());
+            }
             if renderer != CardViewMode::Plane || at_tick.is_some() {
                 return Err("Select a room to use --renderer, --card-view, or --at-tick".to_string());
             }
@@ -2575,6 +2595,7 @@ impl SceneCaptureConfig {
                 player_climbs: false,
                 seam: None,
                 player_holds: Vec::new(),
+                fractures: Vec::new(),
                 portal_shots: Vec::new(),
                 portal_placements: Vec::new(),
                 shots: Vec::new(),
@@ -2685,6 +2706,7 @@ impl SceneCaptureConfig {
             player_climbs,
             seam,
             player_holds,
+            fractures,
             portal_shots,
             portal_placements,
             shots,

@@ -811,34 +811,13 @@ fn a_killed_body_plays_the_death_cue_its_character_authors() {
 /// attacker in #0, with live rooms #0 and #1 both live. The control puts the
 /// enemy in #0 and it takes the 2 damage. The subject puts the same enemy, in
 /// the same place, in #1, and it takes none.
-/// The debris of a killed body is thrown in the body's own live room. Two
-/// rooms are live. An enemy in the second room takes a lethal slash from an
-/// attacker in that room. The ragdoll debris row names the second room: two
-/// live rooms share one coordinate space, so a row that names no room is
-/// thrown in no room.
+/// An ordinary defeat marks the victim's room and leaves no rigid pieces.
 #[test]
-fn the_debris_of_a_killed_body_is_thrown_in_its_own_live_room() {
-    assert_eq!(
-        (debris_rooms_of_a_kill_in_the_second_room(true), debris_rooms_of_a_kill_in_the_second_room(false)),
-        {
-            let second = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next();
-            (vec![Some(second)], vec![Some(second)])
-        },
-        "the rooms the ragdoll debris of the killed enemy names (the enemy is in the second room), \
-         with a `SimId` and without one"
-    );
-}
-
-/// The rooms the ragdoll debris of an enemy killed in the second of two live
-/// rooms names. `identified` gives the enemy a `SimId`. A body's room is its
-/// stamp (`LiveRooms::of`), whether or not it has an identity.
-fn debris_rooms_of_a_kill_in_the_second_room(
-    identified: bool,
-) -> Vec<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>> {
+fn a_defeat_accent_stays_in_the_victims_room() {
+    use bevy::ecs::message::Messages;
     use ambition_platformer2d_shared_tangle::lifecycle::{
         InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
     };
-    use ambition_vfx::vfx::PhysicsDebrisCue;
     let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next(),
     ];
     let mut app = App::new();
@@ -854,11 +833,6 @@ fn debris_rooms_of_a_kill_in_the_second_room(
     let attacker = app.world_mut().spawn(InRoomInstance(rooms[1])).id();
     let enemy = spawn_hostile_actor(&mut app); // HP 5
     app.world_mut().entity_mut(enemy).insert(InRoomInstance(rooms[1]));
-    if identified {
-        app.world_mut()
-            .entity_mut(enemy)
-            .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("kernel_guide"));
-    }
     app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
@@ -877,12 +851,13 @@ fn debris_rooms_of_a_kill_in_the_second_room(
         attacker_move_instance: None,
     });
     app.update();
-    app.world()
-        .resource::<bevy::ecs::message::Messages<DebrisBurstMessage>>()
-        .iter_current_update_messages()
-        .filter(|row| row.cue == PhysicsDebrisCue::EnemyRagdoll)
-        .map(|row| row.room)
-        .collect()
+    let effects = app.world().resource::<Messages<ambition_vfx::vfx::VfxInRoom>>();
+    let accents: Vec<_> = effects.iter_current_update_messages()
+        .filter(|event| matches!(event.vfx, VfxMessage::DefeatAccent { .. }))
+        .map(|event| event.room)
+        .collect();
+    assert_eq!(accents, [Some(rooms[1])]);
+    assert!(app.world().resource::<Messages<DebrisBurstMessage>>().is_empty());
 }
 
 /// A bomb resolves through scoped strikes after its source leaves.
@@ -1409,7 +1384,8 @@ fn player_slash_shatters_a_breakable() {
             // the prop it fell out of, or no render family claims it.
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
-            BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
+            BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1))
+                .with_look(Some("wood_fixture".into())),
         ))
         .id();
     assert!(!app
@@ -1444,6 +1420,18 @@ fn player_slash_shatters_a_breakable() {
             .broken(),
         "a player slash should shatter a 1-HP breakable"
     );
+
+    let events = app.world().resource::<bevy::ecs::message::Messages<VfxInRoom>>();
+    let fractures: Vec<_> = events.iter_current_update_messages().filter_map(|event| {
+        match &event.vfx {
+            VfxMessage::Fracture(fracture) => Some(fracture),
+            _ => None,
+        }
+    }).collect();
+    assert_eq!(fractures.len(), 1);
+    assert_eq!(fractures[0].look.as_deref(), Some("wood_fixture"));
+    assert_eq!(fractures[0].bounds, aabb);
+    assert!(matches!(fractures[0].motion, ambition_vfx::vfx::BreakMotion::Strike { .. }));
 
     // Shattering a crate drops one collectible coin.
     let mut q = app.world_mut().query::<&PickupFeature>();

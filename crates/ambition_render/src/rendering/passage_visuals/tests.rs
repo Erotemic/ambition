@@ -40,6 +40,7 @@ fn actor_view(height: f32) -> FeatureView {
 
 fn frame(passage_look: Option<PassageLookView>) -> ActorAnimFrame {
     ActorAnimFrame {
+        opacity: 1.0,
         anim: ambition_sprite_sheet::character::CharacterAnim::Idle,
         conversation_held: false,
         pos: ae::Vec2::ZERO,

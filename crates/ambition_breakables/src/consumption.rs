@@ -1,5 +1,7 @@
 //! Atomic consumption and inventory exchange from accepted movement contact.
 
+use ambition_vfx::vfx::BreakMotion;
+
 use super::{BreakableFeature, emit_breakable_destroyed, simulation};
 use ambition_characters::{actor::BodyHealth, control::DrivingParticipant};
 use ambition_combat::{components::{CenteredAabb, FeatureId}, extension::contact::ContactFactsLimits};
@@ -19,8 +21,7 @@ type Context = SystemState<(RoomFreeze<'static, 'static>,
     RulesOf<'static, 'static, ContactFactsLimits>)>;
 type Effects = SystemState<(Commands<'static, 'static>,
     Query<'static, 'static, &'static mut BreakableFeature>,
-    ambition_sfx::SfxWriter<'static>, ambition_vfx::vfx::VfxWriter<'static>,
-    MessageWriter<'static, ambition_vfx::vfx::DebrisBurstMessage>)>;
+    ambition_sfx::SfxWriter<'static>, ambition_vfx::vfx::VfxWriter<'static>)>;
 
 /// Consume the contacted destructible and apply all exchange terms, or neither.
 /// The caller must have current movement output in its live room and session.
@@ -66,16 +67,17 @@ pub fn consume_contact(world: &mut World, caller: Entity, contact: u32,
         .filter(|(_, feature, _, _, at, owner, _, _)| feature.as_str() == placement.as_str()
             && at.0 == room && owner.0 == session)
         .map(|(entity, _, aabb, feature, _, _, sim_id, origin)|
-            (entity, aabb.center, feature.clone(), sim_id.clone(), origin.cloned())).collect();
+            (entity, aabb.aabb(), feature.clone(), sim_id.clone(), origin.cloned())).collect();
     if candidates.len() != 1 { return Err("unsupported_contact_object"); }
-    let (target, position, feature, object, origin) = candidates.into_iter().next().unwrap();
+    let (target, bounds, feature, object, origin) = candidates.into_iter().next().unwrap();
     let expected = match feature.state().collision {
         ambition_interaction::BreakableCollision::None => return Err("unowned_contact_geometry"),
         ambition_interaction::BreakableCollision::Solid => ae::BlockKind::Barrier,
         ambition_interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
     };
     if kind != expected || feature.state().pogo_refresh { return Err("unowned_contact_geometry"); }
-    commit(world, caller, ConsumptionTarget {entity: target, position, feature, object, origin, room, session, tick: tick.0}, exchange)
+    let motion = BreakMotion::Strike { contact: contact.point, inward: -contact.normal };
+    commit(world, caller, ConsumptionTarget {entity: target, bounds, motion, feature, object, origin, room, session, tick: tick.0}, exchange)
 }
 
 /// A behavior can spend its own destructible and exchange with one local body.
@@ -98,21 +100,21 @@ pub fn consume_self(world: &mut World, target: Entity, caller: Entity,
     let mut context = SystemState::<RoomFreeze>::new(world);
     let pace = context.get(world).map_err(|_| "room_pace_unavailable")?;
     if pace.scale_of(target) <= 0.0 || pace.scale_of(caller) <= 0.0 { return Err("room_held"); }
-    let position = world.get::<CenteredAabb>(target).ok_or("object_without_geometry")?.center;
+    let bounds = world.get::<CenteredAabb>(target).ok_or("object_without_geometry")?.aabb();
     let feature = world.get::<BreakableFeature>(target).ok_or("object_not_destructible")?.clone();
     let object = world.get::<SimId>(target).ok_or("object_without_identity")?.clone();
     let origin = world.get::<SpawnOrigin>(target).cloned();
     let tick = world.resource::<ambition_time::SimTick>().0;
-    commit(world, caller, ConsumptionTarget {entity: target, position, feature, object, origin, room, session, tick}, exchange)
+    commit(world, caller, ConsumptionTarget {entity: target, bounds, motion: BreakMotion::Script, feature, object, origin, room, session, tick}, exchange)
 }
 
 struct ConsumptionTarget {
-    entity: Entity, position: ae::Vec2, feature: BreakableFeature, object: SimId,
+    entity: Entity, bounds: ae::Aabb, motion: BreakMotion, feature: BreakableFeature, object: SimId,
     origin: Option<SpawnOrigin>, room: LiveRoomInstance, session: SessionScopeId, tick: u64,
 }
 fn commit(world: &mut World, caller: Entity, target: ConsumptionTarget,
     exchange: &InventoryExchange) -> Result<ConsumptionReceipt, &'static str> {
-    let ConsumptionTarget {entity: target, position, feature, object, origin, room, session, tick} = target;
+    let ConsumptionTarget {entity: target, bounds, motion, feature, object, origin, room, session, tick} = target;
     let prepared = simulation::prepare_consumption(&feature)?;
     let persistent = if feature.state().respawn == ambition_entity_catalog::placements::HazardRespawn::Persistent {
         let Some(SpawnOrigin::Authored { source, .. }) = origin else {
@@ -133,11 +135,12 @@ fn commit(world: &mut World, caller: Entity, target: ConsumptionTarget,
     let applied = inventory::apply(world, caller, exchange)?;
     // Inventory changes cannot remove this feature or change its prepared state.
     {
-        let (mut commands, mut features, mut sfx, mut vfx, mut debris) = effects.get_mut(world)
+        let (mut commands, mut features, mut sfx, mut vfx) = effects.get_mut(world)
             .expect("the checked domain services remain installed");
         let mut current = features.get_mut(target).expect("inventory preserves the checked feature");
         simulation::commit_consumption(&mut commands, target, &mut current, prepared);
-        emit_breakable_destroyed(position, &mut sfx, &mut vfx.for_room(Some(room)), &mut debris);
+        emit_breakable_destroyed(&current, bounds, motion, tick,
+            &mut sfx, &mut vfx.for_room(Some(room)));
     }
     effects.apply(world);
     if let Some((source, owners)) = persistent {

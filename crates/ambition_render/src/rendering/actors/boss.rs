@@ -209,9 +209,9 @@ pub fn animate_bosses(
         // so the player can read the boss's swing telegraph. The tint is a
         // placeholder tell: a sheet that draws its tells opts out.
         sprite.color = if animator.spec.attack_tint && (state.attack_active || state.attack_windup) {
-            Color::srgba(1.0, 0.85, 0.55, 1.0)
+            Color::srgba(1.0, 0.85, 0.55, view.opacity)
         } else {
-            Color::WHITE
+            Color::srgba(1.0, 1.0, 1.0, view.opacity)
         };
     }
 }

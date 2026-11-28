@@ -243,7 +243,7 @@ fn install_ambition_game(app: &mut App) {
         if !app.is_plugin_added::<crate::items::AmbitionItemRosterPlugin>() {
             app.add_plugins(crate::items::AmbitionItemRosterPlugin);
         }
-        // Breakables and defeated enemies throw Avian debris. It is a look
+        // Breakables and some authored effects throw Avian debris. It is a look
         // (ADR 0007: the bodies stay kinematic), so a composition with no
         // presentation does not pay for the physics engine.
         #[cfg(feature = "physics_debris")]
@@ -260,7 +260,10 @@ fn install_physics_debris(app: &mut App) {
     app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
         Update,
         physics::physics_spawn_debris_messages
-            .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>)
+            .run_if(
+                ambition_platformer2d_core::a_message_waits::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>
+                    .or_else(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d::vfx::vfx::VfxInRoom>),
+            )
             .after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );

@@ -14,7 +14,7 @@ use ambition_platformer2d_items::loot::{drop_currency_coin, drop_health_pickup, 
 // spawners live in `damage_drops`.
 use ambition_combat::events::ActorStimulus;
 use ambition_sfx::SfxMessage;
-use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxMessage};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
@@ -741,19 +741,7 @@ pub(crate) fn apply_actor_hit(
         // own voice is not on that list and never was.
         if killed {
             if !divides {
-                writers.vfx.write_in(room, VfxMessage::Burst {
-                    pos: em.kin.pos,
-                    count: 16,
-                    speed: 230.0,
-                    color: [0.84, 0.95, 1.0, 0.82],
-                    kind: ParticleKind::Spark,
-                },
-                );
-                writers.debris.write(DebrisBurstMessage {
-                    room,
-                    pos: em.kin.pos,
-                    cue: PhysicsDebrisCue::EnemyRagdoll,
-                });
+                writers.vfx.write_in(room, VfxMessage::DefeatAccent { pos: em.kin.pos });
             }
             // A body dies in its OWN voice: the cue its character authors, or
             // the death cue of the game that owns the body.

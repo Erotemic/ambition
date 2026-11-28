@@ -89,6 +89,7 @@ pub(crate) struct ActorClipData {
     playback: Option<&'static ambition_combat::moveset::MovePlayback>,
     anim_override: Option<&'static ActorAnimOverride>,
     pinned: Option<&'static ambition_sprite_sheet::character::PinnedRow>,
+    death_beat: Option<&'static ambition_combat::components::DeathBeat>,
     target: Option<&'static ambition_combat::components::ActorTarget>,
 }
 
@@ -98,6 +99,7 @@ pub(crate) struct ActorClipData {
 #[derive(Clone, Debug)]
 pub struct ActorAnimFrame {
     pub anim: CharacterAnim,
+    pub opacity: f32,
     pub conversation_held: bool,
     pub pos: ae::Vec2,
     /// The side the body is DRAWN toward ([`ae::mirror_side`]), not its facing:
@@ -465,6 +467,7 @@ impl ActorAnimIndex {
         }
         (&mut self.insert(id, ActorAnimFrame {
             anim: CharacterAnim::Idle,
+            opacity: 1.0,
             conversation_held: false,
             pos: ae::Vec2::ZERO,
             facing: 1.0,
@@ -562,6 +565,7 @@ pub(crate) fn rebuild_actor_anim_index(
             holds.holds(ambition_characters::control::ControlHold::Conversation)
         });
         frame.pos = a.kin.pos;
+        frame.opacity = a.death_beat.map_or(1.0, |beat| beat.opacity());
         frame.gravity_dir = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
         frame.move_charge = charge;
         if let Some(chain) = row.passage_clip {
@@ -710,6 +714,7 @@ pub struct BossFrameIndex {
 #[derive(Clone, Debug)]
 pub struct BossFrameView {
     pub anim: ambition_sprite_sheet::boss::BossAnimState,
+    pub opacity: f32,
     /// A NAMED row content pinned this boss to (`PinnedRow`): drawn ahead of
     /// the slot cursor when the sheet has it. Presentation only — the cursor
     /// and the geometry it drives carry on underneath.
@@ -803,6 +808,7 @@ pub fn rebuild_boss_frame_index(
         // still lands in the index (it just draws Rest frame 0).
         Option<&ambition_sprite_sheet::boss::BossAnimFrame>,
         Option<&ambition_sprite_sheet::character::PinnedRow>,
+        Option<&ambition_combat::components::DeathBeat>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         bevy::prelude::Has<ambition_combat::body_rig::BodyRig>,
     )>,
@@ -810,7 +816,7 @@ pub fn rebuild_boss_frame_index(
     use ambition_sprite_sheet::boss::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
     index.begin_rebuild();
-    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, frame, posed_by_rig) in &bosses {
+    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, death_beat, frame, posed_by_rig) in &bosses {
         let boss = feature.as_boss_ref();
         let anim = boss_anim_state_for(&catalog, boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
@@ -848,6 +854,7 @@ pub fn rebuild_boss_frame_index(
             id.as_str(),
             BossFrameView {
                 anim,
+                opacity: death_beat.map_or(1.0, |beat| beat.opacity()),
                 pinned: pinned.filter(|pin| pin.is_pinned() || pin.layer.is_some()).cloned(),
                 cursor_anim,
                 cursor_frame,

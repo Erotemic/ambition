@@ -95,4 +95,6 @@ pub enum Corpse {
     /// whose death row leads into what it becomes (its blast, its two
     /// halves): what comes after the row is that, not the body.
     Gone,
+    /// Hold the final frame briefly and fade it out.
+    Fade,
 }

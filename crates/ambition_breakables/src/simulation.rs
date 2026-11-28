@@ -5,7 +5,8 @@ use super::BREAK_ON_STAND_SECONDS;
 use super::*;
 use ambition_combat::util::player_is_standing_on;
 use ambition_sfx::{SfxMessage, SfxWriter};
-use ambition_vfx::vfx::PhysicsDebrisCue;
+use ambition_platformer2d_core::AabbExt;
+use ambition_vfx::vfx::{BreakMotion, Fracture};
 #[cfg(test)]
 use ambition_vfx::vfx::VfxInRoom;
 
@@ -33,7 +34,7 @@ pub fn update_ecs_breakables(
     >,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
-    mut debris: MessageWriter<DebrisBurstMessage>,
+    tick: Option<Res<ambition_time::SimTick>>,
     // A body stands only on a breakable of its own live room: two live
     // rooms can hold one at the same position. The effects of a breakable are
     // drawn in its own live room.
@@ -84,7 +85,8 @@ pub fn update_ecs_breakables(
                 if broke {
                     stand_timer.0 = 0.0;
                     banner.show_in(room, format!("{} collapsed under weight", name.0.as_str()), 2.6);
-                    emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
+                    emit_breakable_destroyed(&feature, aabb.aabb(), BreakMotion::Collapse,
+                        tick.as_deref().map_or(0, |tick| tick.0), &mut sfx, &mut vfx);
                 }
             }
         } else {
@@ -104,7 +106,6 @@ mod breakable_tests {
     use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     use ambition_time::WorldTime;
-    use ambition_vfx::vfx::DebrisBurstMessage;
     use bevy::prelude::{App, Entity, Update};
 
     const THRESHOLD: f32 = BREAK_ON_STAND_SECONDS;
@@ -115,7 +116,6 @@ mod breakable_tests {
         app.insert_resource(WorldTime::new(0.1, 0.1));
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
-        app.add_message::<DebrisBurstMessage>();
         app.add_systems(Update, update_ecs_breakables);
         app
     }
@@ -219,28 +219,16 @@ mod breakable_tests {
         app.update();
         let broken =
             blocks.map(|block| app.world().get::<BreakableFeature>(block).unwrap().broken());
-        let effect_rooms: std::collections::BTreeSet<_> = app
-            .world()
+        let effects: Vec<_> = app.world()
             .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
             .iter_current_update_messages()
-            .map(|row| row.room)
+            .filter_map(|row| match &row.vfx {
+                VfxMessage::Fracture(fracture) => Some((row.room, fracture.bounds.center(), fracture.direction())),
+                _ => None,
+            })
             .collect();
-        let debris_rooms: Vec<_> = app
-            .world()
-            .resource::<bevy::ecs::message::Messages<DebrisBurstMessage>>()
-            .iter_current_update_messages()
-            .map(|row| row.room)
-            .collect();
-        assert_eq!(
-            (broken, effect_rooms, debris_rooms),
-            (
-                [false, true],
-                [Some(rooms[1])].into_iter().collect(),
-                vec![Some(rooms[1])]
-            ),
-            "(which of the two blocks collapsed, the rooms the effects name, the rooms the debris names): \
-             the player stands in the second room"
-        );
+        assert_eq!(broken, [false, true]);
+        assert_eq!(effects, [(Some(rooms[1]), center, ae::Vec2::Y)]);
     }
 }
 
@@ -274,24 +262,21 @@ fn begin_ecs_breakable_respawn(
 
 /// Common VFX/SFX/debris emission when a breakable is destroyed by any path.
 pub fn emit_breakable_destroyed(
-    pos: ae::Vec2,
+    feature: &BreakableFeature,
+    bounds: ae::Aabb,
+    motion: BreakMotion,
+    tick: u64,
     sfx: &mut SfxWriter,
-    // Bound to the live room of the breakable.
     vfx: &mut ambition_vfx::vfx::VfxForRoom<'_, '_>,
-    debris: &mut MessageWriter<DebrisBurstMessage>,
 ) {
-    vfx.write(VfxMessage::Burst {
-        pos,
-        count: 16,
-        speed: 230.0,
-        color: [0.84, 0.95, 1.0, 0.82],
-        kind: ParticleKind::Spark,
-    });
-    debris.write(DebrisBurstMessage {
-        room: vfx.room(),
-        pos,
-        cue: PhysicsDebrisCue::Breakable,
-    });
+    let pos = bounds.center();
+    vfx.write(VfxMessage::Fracture(Fracture {
+        look: feature.look().map(str::to_owned),
+        bounds,
+        motion,
+        seed: tick.rotate_left(17) ^ (u64::from(pos.x.to_bits()) << 32) ^ u64::from(pos.y.to_bits()),
+        tick,
+    }));
     sfx.in_space(vfx.sfx_space()).write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_CRATE_BREAK,
         emitter: (pos).into(),

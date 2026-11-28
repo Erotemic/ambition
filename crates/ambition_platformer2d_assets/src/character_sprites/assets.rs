@@ -847,38 +847,43 @@ pub fn demand_character_fx_sheets(sprite_content: &ambition_sprite_sheet::Sprite
 /// page-0 image resolves to `<sprite_folder>/<target>_spritesheet.png`,
 /// the same logical path the catalog would hand back at base resolution. Returns
 /// `None` when no manifest was embedded for `target` (the caller keeps the static
-/// fallback). Base resolution only — a demo prop needs no quality-tier gating.
+/// fallback). Select a scaled variant when the caller supplies a quality budget.
 pub fn load_prop_sheet_for_target(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
     target: &str,
     tuning: &sheets::SheetTuning,
+    quality: Option<&VisualQualityBudget>,
 ) -> Option<CharacterSpriteAsset> {
-    let spec = sheets::try_load_spec_for_target(&sprite_content, target, tuning)?;
+    let requested = character_sprite_tier(quality);
+    let (spec, resolved) = match sheets::try_load_spec_for_target_scaled(
+        sprite_content, target, tuning, sprite_texture_scale(requested),
+    ) {
+        Some(spec) => (spec, requested),
+        None => (sheets::try_load_spec_for_target(sprite_content, target, tuning)?, TextureResolutionScale::Full),
+    };
+    let sprite_folder = resolved.asset_subdir(sprite_folder);
     // The record's own page: a record can share a page image with others (the
     // creator lab's props are one sheet).
-    let page0_path = ambition_asset_manager::platformer_assets::logical_asset_path(sprite_folder, spec.page_images.first()?);
+    let page0_path = ambition_asset_manager::platformer_assets::logical_asset_path(&sprite_folder, spec.page_images.first()?);
     // A prop drawn from its parts alone is published with no page (part-first
     // publication), as the catalog road already realizes it
     // (`build_optional_via_catalog`): waiting on page 0 refused its room.
     let directory = page0_path.rsplit_once('/').map_or("", |(directory, _)| directory);
-    if let Some(rigged) = super::rigged::rigged_pages_in(sprite_content, &spec, TextureResolutionScale::Full, directory, asset_server)
+    if let Some(rigged) = super::rigged::rigged_pages_in(sprite_content, &spec, resolved, directory, asset_server)
         .filter(|rigged| rigged.flipbook.baked_clip_names().next().is_none())
     {
-        return Some(parts_only_realization(layouts, &spec, TextureResolutionScale::Full, TextureResolutionScale::Full, rigged));
+        return Some(parts_only_realization(layouts, &spec, requested, resolved, rigged));
     }
-    // Base resolution only, and the stamp says so on BOTH halves: this path
-    // never consults a quality budget, so nothing was asked for beyond `Full`
-    // and nothing but the authored PNG was loaded.
     Some(load_sprite_pages(&sprite_content,
         asset_server,
         layouts,
         "character-sheet",
         &page0_path,
         &spec,
-        TextureResolutionScale::Full,
-        TextureResolutionScale::Full,
+        requested,
+        resolved,
         None,
     ))
 }

@@ -2004,6 +2004,7 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
+            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "base"],
         barks: (
             on_hit: ["Gah! Watch it!", "Dirty trick!", "I'll remember that!"],
@@ -2028,6 +2029,7 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
+            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "base", "smash_skin"],
             // A look of the goblin says what the goblin says.
             barks: (
@@ -2053,6 +2055,7 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
+            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "base", "smash_skin"],
             // A look of the goblin says what the goblin says.
             barks: (
@@ -2233,6 +2236,7 @@
                 chase_effort: 1.0,
             )),
             max_health: Some(8),
+            death_traits: Some((corpse: Some(Fade))),
             tags: ["enemy", "goblin", "heavy"],
         barks: (
             on_hit: ["Rrrgh!", "Little thing hits back!", "Brute not done!"],
@@ -3973,6 +3977,7 @@
             contact_damage: Some((strength: 0.70, amount: 1)),
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
+            death_traits: Some((corpse: Some(Fade))),
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
             on_hit: ["Ow! Nobody said it was awake!", "Paid in advance, lads!", "Grab its legs!", "That's coming out of your share!"],

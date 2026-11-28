@@ -384,7 +384,7 @@ pub fn animate_characters(
             barking,
             dt,
             frame.facing,
-            Color::WHITE,
+            Color::srgba(1.0, 1.0, 1.0, frame.opacity),
             // Enemies and NPCs do not use the stance squash.
             StanceSquash::NONE,
         );

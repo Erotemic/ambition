@@ -1520,6 +1520,7 @@ dependencies = [
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_sprite_sheet",
  "ambition_vfx",
  "avian2d",
  "bevy",

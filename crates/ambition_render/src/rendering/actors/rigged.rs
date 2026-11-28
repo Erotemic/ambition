@@ -1918,7 +1918,7 @@ fn frame_draws<'a>(
 ) -> Option<(&'a [PartDraw], bool)> {
     let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row))?;
     flipbook.tween_into(row, animator.frame, animator.frame_phase(), drawn)?;
-    let mut check_extent = false;
+    let mut check_extent = flipbook.has_part_hierarchy();
     // The row is the picture of the upper body: its legs are those of the
     // pose the body is in under the move (it walks, it runs, it falls).
     if let Some((legs_row, frame, t)) = animator.legs_row() {
@@ -1954,7 +1954,7 @@ fn frame_draws<'a>(
     // draws them, their limbs solved to them.
     if let Some((from, t)) = blend {
         check_extent = true;
-        ambition_sprite_sheet::character::rigged::blend_from(from, t, drawn);
+        flipbook.blend_from(from, t, drawn);
         if let Some(posed) = posed {
             posed.hold(row, animator.frame, animator.current.planted_contacts(), drawn);
         }

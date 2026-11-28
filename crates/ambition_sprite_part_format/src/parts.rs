@@ -55,6 +55,11 @@ pub struct Published {
     /// Schema 2: the track names a draw's `track` indexes.
     #[serde(default)]
     pub tracks: Vec<String>,
+    /// Schema 5: child track name to parent track name. Interpolate the
+    /// rigid transform of a child in its parent's frame. Texture scale is
+    /// not a joint scale. A missing table keeps the independent draw rule.
+    #[serde(default)]
+    pub track_parents: BTreeMap<String, String>,
     pub clips: BTreeMap<String, PublishedClip>,
     /// Named points per clip and frame, in full-resolution pixels from the
     /// feet. These points do not depend on the texture quality.
@@ -114,6 +119,75 @@ fn opaque() -> f32 {
 }
 
 impl Published {
+    /// Check the parent graph and return its tracks in parent-first order.
+    /// The frame draw order is independent of this order.
+    pub fn hierarchy_order(&self) -> Result<Vec<(u16, Option<u16>)>, String> {
+        use std::collections::BTreeSet;
+        if self.track_parents.is_empty() {
+            return Ok(Vec::new());
+        }
+        if self.schema_version < 5 {
+            return Err("track_parents requires part schema 5".into());
+        }
+        let ids: BTreeMap<&str, usize> = self.tracks.iter().enumerate()
+            .map(|(i, name)| (name.as_str(), i)).collect();
+        if ids.len() != self.tracks.len() {
+            return Err("duplicate track name in hierarchy table".into());
+        }
+        let id = |name: &str| -> Result<u16, String> {
+            ids.get(name).and_then(|i| u16::try_from(*i).ok())
+                .filter(|i| *i != u16::MAX)
+                .ok_or_else(|| format!("unknown hierarchy track `{name}`"))
+        };
+        let mut parents = BTreeMap::new();
+        for (child, parent) in &self.track_parents {
+            let (child, parent) = (id(child)?, id(parent)?);
+            parents.entry(parent).or_insert(None);
+            parents.insert(child, Some(parent));
+        }
+        let mut pending = parents.clone();
+        let mut order = Vec::with_capacity(pending.len());
+        while !pending.is_empty() {
+            let ready: Vec<_> = pending.iter().filter_map(|(&track, &parent)| {
+                if parent.is_none_or(|p| !pending.contains_key(&p)) {
+                    Some((track, parent))
+                } else { None }
+            }).collect();
+            if ready.is_empty() {
+                return Err("cycle in track_parents".into());
+            }
+            for entry in ready {
+                pending.remove(&entry.0);
+                order.push(entry);
+            }
+        }
+        for (row, clip) in &self.clips {
+            for (index, frame) in clip.frames.iter().enumerate() {
+                let mut present = BTreeSet::new();
+                for draw in frame {
+                    if let Some(track) = draw.track.filter(|track| parents.contains_key(track)) {
+                        if !present.insert(track) {
+                            return Err(format!("`{row}` frame {index} draws hierarchy track {track} twice"));
+                        }
+                        if !draw.at.0.is_finite() || !draw.at.1.is_finite()
+                            || !draw.rotation.is_finite() || !draw.scale.0.is_finite()
+                            || !draw.scale.1.is_finite() || draw.scale.0 == 0.0 || draw.scale.1 == 0.0 {
+                            return Err(format!("`{row}` frame {index} has an invalid hierarchy transform"));
+                        }
+                    }
+                }
+                for &track in &present {
+                    if let Some(parent) = parents[&track] {
+                        if !present.contains(&parent) {
+                            return Err(format!("`{row}` frame {index} draws track {track} without parent {parent}"));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(order)
+    }
+
     /// Check that every named point has one finite position in its clip frame.
     pub fn validate_landmarks(&self) -> Result<(), String> {
         for (row, frames) in &self.landmarks {

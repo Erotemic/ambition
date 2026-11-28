@@ -33,6 +33,8 @@ use bevy::ecs::resource::Resource;
 use bevy::math::{URect, UVec2, Vec2, Vec3};
 
 mod posed;
+mod hierarchy;
+use hierarchy::Hierarchy;
 pub(crate) use ambition_sprite_part_format::parts as published;
 
 use published::Published;
@@ -43,7 +45,8 @@ pub use published::{ClipTween, Realize, RigPlacement};
 /// the track table (each draw's identity across frames) and the per-clip
 /// tween policy; a schema-1 file reads as untracked clips that step. Schema 3
 /// adds the placement rule, a draw's opacity and a frame's opacity; an older
-/// file is snapped and opaque.
+/// file is snapped and opaque. Schema 4 adds landmarks; schema 5 adds an
+/// optional parent graph for rigid part interpolation.
 pub use ambition_sprite_part_format::SCHEMA_VERSION as PART_FLIPBOOK_SCHEMA_VERSION;
 
 /// One part raster on an atlas page.
@@ -151,6 +154,7 @@ pub struct RiggedSpriteAsset {
     /// What each track's name says it is, read once when the flipbook is
     /// prepared, so a sample does not re-read names per draw.
     track_roles: Arc<[TrackRoles]>,
+    hierarchy: Arc<Hierarchy>,
     /// How far, in sheet pixels, the art any draw makes reaches past the
     /// frame on its farthest side (0 when every draw stays inside): the room a
     /// composited cell needs around the frame so it clips nothing.
@@ -477,6 +481,7 @@ fn tween_overhang(
 pub enum RiggedSpriteError {
     Parse(String),
     Landmarks(String),
+    Hierarchy(String),
     Schema { found: u32 },
     MissingPage { part: usize, page: u16 },
     MissingPart { clip: String, frame: usize, part: u16 },
@@ -511,6 +516,7 @@ impl std::fmt::Display for RiggedSpriteError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Landmarks(error) => write!(f, "invalid landmarks: {error}"),
+            Self::Hierarchy(error) => write!(f, "invalid part hierarchy: {error}"),
             Self::Parse(error) => write!(f, "does not parse: {error}"),
             Self::Schema { found } => write!(
                 f,
@@ -576,6 +582,7 @@ impl RiggedSpriteAsset {
             });
         }
         published.validate_landmarks().map_err(RiggedSpriteError::Landmarks)?;
+        let hierarchy = Arc::new(Hierarchy::new(published.hierarchy_order().map_err(RiggedSpriteError::Hierarchy)?, published.tracks.len()));
         let parts = published
             .parts
             .iter()
@@ -699,8 +706,19 @@ impl RiggedSpriteAsset {
         }
         let frame_size = UVec2::new(published.frame_size.0, published.frame_size.1);
         let feet_pixel = Vec2::new(published.feet_pixel.0, published.feet_pixel.1);
-        let art_overhang = art_overhang(&parts, &draws, frame_size.as_vec2(), feet_pixel)
+        let mut art_overhang = art_overhang(&parts, &draws, frame_size.as_vec2(), feet_pixel)
             .max(tween_overhang(&parts, &draws, &clips, &tween_targets, frame_size.as_vec2(), feet_pixel));
+        if !hierarchy.is_empty() {
+            for clip in clips.values().filter(|clip| clip.tween != ClipTween::Step) {
+                for (i, &(start, len)) in clip.frames.iter().enumerate() {
+                    let (next, count) = clip.frames[(i + 1) % clip.frames.len()];
+                    let range = start as usize..(start + len) as usize;
+                    art_overhang = art_overhang.max(hierarchy.overhang(&parts, &draws[range.clone()],
+                        &draws[next as usize..(next + count) as usize], &tween_targets[range], &draws,
+                        frame_size.as_vec2(), feet_pixel));
+                }
+            }
+        }
         Ok(Self {
             target: published.target,
             texel_scale: published.texel_scale,
@@ -713,6 +731,7 @@ impl RiggedSpriteAsset {
             parts,
             wound_tracks: (0..published.tracks.len()).filter(|i| is_wound_track(&published.tracks[*i])).map(|i| i as u16).collect(),
             track_roles: TrackRoles::of_all(&published.tracks),
+            hierarchy,
             tracks: published.tracks,
             clips: Arc::new(clips),
             baked_clips: Arc::new(baked_clips),
@@ -854,7 +873,9 @@ impl RiggedSpriteAsset {
     /// own size away), moves linearly to
     /// it, turning the shorter way, and keeps its own part until the frame
     /// changes; any other draw holds still. A moving draw's opacity moves
-    /// linearly too.
+    /// linearly too. An authored hierarchy instead moves the pivots and
+    /// angles in parent coordinates, even when a track changes its raster.
+    /// Raster selection and opacity still follow the rules above.
     /// The frame's opacity is the current frame's ([`Self::frame_opacity`]).
     pub fn tween_into(&self, row: &str, index: usize, t: f32, out: &mut Vec<PartDraw>) -> Option<()> {
         let clip = self.clips.get(row)?;
@@ -872,7 +893,27 @@ impl RiggedSpriteAsset {
                 *draw = tween_draw(draw, &self.draws[target.get() as usize - 1], t);
             }
         }
+        if !self.hierarchy.is_empty() {
+            let (next, count) = clip.frames[(index + 1) % clip.frames.len()];
+            self.hierarchy.tween(current, &self.draws[next as usize..(next + count) as usize], t, out);
+        }
         Some(())
+    }
+
+    /// The published parent graph also governs blends between clips.
+    /// Unrelated tracks retain the existing independent blend.
+    pub fn blend_from(&self, from: &[PartDraw], t: f32, onto: &mut [PartDraw]) {
+        let t = t.clamp(0.0, 1.0);
+        if t >= 1.0 { return; }
+        if self.hierarchy.is_empty() {
+            blend_from(from, t, onto);
+        } else {
+            self.hierarchy.blend(from, t, onto);
+        }
+    }
+
+    pub fn has_part_hierarchy(&self) -> bool {
+        !self.hierarchy.is_empty()
     }
 
     /// Put the LEGS of another row under the draws in `out` (a frame of a row
@@ -1104,7 +1145,7 @@ impl RiggedSpriteAsset {
     /// track names, which `with_tracks` can change apart from the draws. A
     /// part binding reads only these.
     pub fn same_program(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.draws, &other.draws) && Arc::ptr_eq(&self.clips, &other.clips) && self.tracks == other.tracks
+        Arc::ptr_eq(&self.draws, &other.draws) && Arc::ptr_eq(&self.clips, &other.clips) && self.tracks == other.tracks && self.hierarchy == other.hierarchy
     }
 
     pub fn tracks(&self) -> &[String] {

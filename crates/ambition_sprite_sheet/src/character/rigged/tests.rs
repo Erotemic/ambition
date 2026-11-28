@@ -89,10 +89,10 @@ fn a_flipbook_that_names_what_it_does_not_have_is_refused() {
         RiggedSpriteAsset::from_published_ron(&bad_page),
         Err(RiggedSpriteError::MissingPage { part: 1, page: 3 })
     ));
-    let future = FIXTURE.replace("schema_version: 1", "schema_version: 5");
+    let future = FIXTURE.replace("schema_version: 1", "schema_version: 6");
     assert!(matches!(
         RiggedSpriteAsset::from_published_ron(&future),
-        Err(RiggedSpriteError::Schema { found: 5 })
+        Err(RiggedSpriteError::Schema { found: 6 })
     ));
 }
 
@@ -1269,4 +1269,73 @@ fn a_clip_blend_slides_the_new_poses_parts_from_where_the_old_pose_drew_them() {
     let mut started = after;
     blend_from(&before, 0.0, &mut started);
     assert_eq!(started[0].at, before[0].at, "a blend begins at the old pose");
+}
+
+// Draw order deliberately starts with the hand, not with its parent.
+const HIERARCHY: &str = r#"(
+    schema_version: 5, target: "chain", pages: ["chain.png"],
+    frame_size: (28, 40), feet_pixel: (14.0, 35.0),
+    parts: [(name: "a", page: 0, rect: (0, 0, 2, 2), pivot: (1.0, 1.0)),
+            (name: "b", page: 0, rect: (2, 0, 3, 3), pivot: (1.0, 1.0))],
+    tracks: ["hand", "root", "elbow", "watch"],
+    track_parents: {"hand": "elbow", "elbow": "root", "watch": "root"},
+    clips: {"idle": (frame_duration_s: 0.1, tween: Linear, frames: [
+        [(part: 0, at: (20.0, -20.0), rotation: 0.0, scale: (1.0, 1.0), track: 0),
+         (part: 0, at: (0.0, -20.0), rotation: 0.0, scale: (1.0, 1.0), track: 1),
+         (part: 0, at: (10.0, -20.0), rotation: 0.0, scale: (1.0, 1.0), track: 2)],
+        [(part: 1, at: (0.0, 0.0), rotation: 1.57079632679, scale: (1.0, 1.0), track: 0),
+         (part: 0, at: (0.0, -20.0), rotation: 1.57079632679, scale: (1.0, 1.0), track: 1),
+         (part: 0, at: (0.0, -10.0), rotation: 1.57079632679, scale: (1.0, 1.0), track: 2),
+         (part: 0, at: (0.0, -15.0), rotation: 1.57079632679, scale: (1.0, 1.0), track: 3)],
+    ])},
+)"#;
+
+#[test]
+fn part_hierarchy_preserves_joint_lengths_in_tweens_and_clip_blends() {
+    let asset = RiggedSpriteAsset::from_published_ron(HIERARCHY).unwrap();
+    assert!(asset.has_part_hierarchy());
+    let mut middle = Vec::new();
+    asset.tween_into("idle", 0, 0.5, &mut middle).unwrap();
+    let check = |draws: &[PartDraw]| {
+        assert_eq!(draws[0].track, Some(0), "paint order is unchanged");
+        assert!((draws[0].at.distance(draws[2].at) - 10.0).abs() < 1e-4);
+        assert!((draws[2].at.distance(draws[1].at) - 10.0).abs() < 1e-4);
+        assert!((draws[2].at.x - 10.0_f32 / 2.0_f32.sqrt()).abs() < 1e-4);
+    };
+    check(&middle);
+    assert_eq!(middle[0].part, 0, "a tween keeps its source raster");
+    for i in 0..2 {
+        for step in 0..=100 {
+            asset.tween_into("idle", i, step as f32 / 100.0, &mut middle).unwrap();
+            assert!(asset.reach_past_frame(&middle) <= asset.art_overhang + 1e-4);
+        }
+    }
+    let before = asset.frame("idle", 0).unwrap();
+    let after = asset.frame("idle", 1).unwrap();
+    let mut blended = after.to_vec();
+    asset.blend_from(before, 0.5, &mut blended);
+    check(&blended);
+    assert_eq!(blended[0].part, 1, "a clip blend keeps its destination raster");
+    assert!((blended[3].at.distance(blended[1].at) - 5.0).abs() < 1e-4,
+        "a newly visible accessory rides the blended parent");
+    let mut done = after.to_vec();
+    asset.blend_from(before, 1.0, &mut done);
+    assert_eq!(done, after);
+    asset.tween_into("idle", 0, 0.0, &mut middle).unwrap();
+    assert_eq!(middle, before);
+}
+
+#[test]
+fn a_bad_part_hierarchy_is_refused_by_the_metadata_compiler_and_reader() {
+    for invalid in [
+        HIERARCHY.replace("\"elbow\": \"root\"", "\"elbow\": \"hand\""),
+        HIERARCHY.replace("\"elbow\": \"root\"", "\"elbow\": \"absent\""),
+        HIERARCHY.replace("track: 1)", "track: 3)"),
+    ] {
+        assert!(matches!(RiggedSpriteAsset::from_published_ron(&invalid), Err(RiggedSpriteError::Hierarchy(_))));
+        assert!(ambition_sprite_part_format::compile_metadata("chain_parts.ron", invalid.as_bytes()).is_err());
+    }
+    let (_, bytes) = ambition_sprite_part_format::compile_metadata("chain_parts.ron", HIERARCHY.as_bytes()).unwrap().unwrap();
+    assert_eq!(RiggedSpriteAsset::from_published_bytes(&bytes).unwrap(),
+        RiggedSpriteAsset::from_published_ron(HIERARCHY).unwrap());
 }

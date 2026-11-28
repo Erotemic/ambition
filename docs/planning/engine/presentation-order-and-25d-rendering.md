@@ -188,7 +188,12 @@ When a room has more than one vessel, both render phases use its room
 instance and platform identity to order the assemblies. Each assembly has
 rear, rider, and near slots. Held art and body effects with a visual root
 follow that root's slot. The card view keeps the physical depth of each
-slot. A headless test checks rider selection when two beds overlap. Ultra
+slot. In the card view, a single vessel also uses its assembly order.
+The order puts the assembly in front of terrain decor and keeps its
+panels around the rider. Medium workshop captures show the wheel in
+front of the crate, with Scout both in the cart and beside it. A Medium
+fixture with two overlapping carts checks the same order in both views.
+A headless test checks rider selection when two beds overlap. Ultra
 captures of two occupied carts show the same overlap in 2D and side-on 2.5D.
 When a portal cuts a panel, rider, or item, the piece at the entry keeps
 its source slot and physical depth. The piece through the portal uses the

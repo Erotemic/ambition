@@ -27,7 +27,7 @@ use bevy::transform::TransformSystems;
 use super::{EARTH_BEHIND_SKIN, TERRAIN_DEPTH, sprite_material};
 use super::{CardBodyRepresentation, CardDepth, CardRootDepths, CardScope, CardViewSettings, RetainedEntities};
 #[cfg(feature = "portal_render")]
-use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, WornGearVisual};
+use super::{platform_card_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, WornGearVisual};
 use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
@@ -418,7 +418,7 @@ impl PortalMeshPlacement<'_, '_> {
         }
         let (platform, held, gear, subject) = self.sources.get(source).ok()?;
         if let Some(platform) = platform {
-            return Some(CardDepth::on_plane(platform_depth(platform, self.looks.as_deref())));
+            return Some(platform_card_depth(platform, self.looks.as_deref(), source_z));
         }
         held.and_then(|item| depths.held_depth(item.0, source_z))
             .or_else(|| gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer)))

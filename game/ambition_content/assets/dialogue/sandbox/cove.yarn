@@ -135,7 +135,8 @@ Admiral: ...I'd like to. Last time I went down to the port I stood by the ring f
     <<jump pirate_admiral__personal>>
 -> Are there other places you'd like to visit?
     Admiral: Ever heard of the Noodle Dimension? They've a volcano that erupts soda. A whole mountain of it!
-    Admiral: I'd like to see that with my own eyes. Reckon I could ride a barrel down the side of it.
+    Admiral: ALDENTE, that's the address. I've got it written down in my chart book. I'd like to see it with my own eyes. Reckon I could ride a barrel down the side of it.
+    <<command "world.set_flag" "gate.known.ALDENTE" true>>
     <<jump pirate_admiral__personal>>
 -> Something else.
     <<jump pirate_admiral__personal>>

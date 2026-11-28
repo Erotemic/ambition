@@ -5,7 +5,7 @@ title: authority_information
     Ottilie: Information! What are you looking for this time?
 <<elseif verdict("world.flag_set", "authority_information_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_information_met" true>>
-    Ottilie: Welcome to the Concourse, licensed traveller. Information. How can I direct you?
+    Ottilie: Welcome to the Concourse. Information. How can I direct you?
 <<else>>
     <<stop>>
 <<endif>>
@@ -15,12 +15,12 @@ title: authority_information
 title: authority_information__topics
 ---
 -> Where can I go from here?
-    Ottilie: The terminal here lists public addresses. For some of the others, you need to speak to the office that manages the gate.
+    Ottilie: The terminal here lists public addresses. If your destination isn't listed, try the office that manages that gate; they may be able to give you its address.
     Ottilie: Keep LEGAL written down. It is the address of this gate, and it is posted on every terminal in the network.
     Ottilie: Our terminal also posts a way back to the public hub. If you know another address, you can dial it yourself.
     <<jump authority_information__topics>>
 -> Where am I?
-    Ottilie: The Central Hub, seat of the Gate Authority. This gate is LEGAL.
+    Ottilie: The Concourse, seat of the Gate Authority. This gate is LEGAL.
     Ottilie: Authority Plaza is east. Lost Baggage is down through the grate. Mind the claw.
     <<jump authority_information__topics>>
 -> What is the Iron Bastion?
@@ -76,7 +76,7 @@ title: authority_gatekeeper__topics
     Imre: People tend to come to us when they need the address, or when something breaks.
     <<jump authority_gatekeeper__topics>>
 -> Who were you at war with?
-    Imre: The regime. The ones whose banners we don't hang. It ended in a stalemate, a little in our favour.
+    Imre: The regime that runs Castle Godwin. The last dispatch we had said we'd held our lines. Neither side got much farther than that.
     Imre: We have an armistice. I hope it lasts.
     <<jump authority_gatekeeper__topics>>
 -> What is the clock for?
@@ -115,8 +115,8 @@ title: authority_registrar__topics
     Registrar: And if a director sends a correction, we file the corrected record. No, you cannot see the original.
     <<jump authority_registrar__topics>>
 -> Can you check whether I am on the manifest?
-    Registrar: Let me see. You are... not.
-    Registrar: I would need the receipt from your last crossing to check the terminal itself. Take another number if you want me to send a request.
+    Registrar: Let me see. Nothing under that name in the copy I have.
+    Registrar: Bring me the receipt from your last crossing. I can ask that office for its record.
     <<jump authority_registrar__topics>>
 -> Do you keep records for the military?
     Registrar: Ask the Iron Bastion for their annex logs. They send me summaries. They do not send them often enough.

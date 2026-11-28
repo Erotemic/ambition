@@ -5528,7 +5528,7 @@ title: hall_npc_authority_information
 ---
 Ottilie: Information! How can I direct you?
 -> What address gets me to the Concourse?
-    Ottilie: LEGAL. If you're taking a gate home, check whether your terminal publishes the same route back. I can check the public addresses for you.
+    Ottilie: LEGAL. Look for it on the terminal's directory. To get back to the public hub, look for TESTING at the Concourse.
 -> Where can I get military clearance?
     Ottilie: Ask the General at the Iron Bastion. If you're here to recover from a crossing, you can sit in the Concourse without a permit.
 ===
@@ -5542,7 +5542,7 @@ Bertram: Lost Baggage. Ticket?
 ===
 title: hall_npc_authority_gatekeeper
 ---
-Imre: Move along, licensed traveller.
+Imre: Move along. Keep the landing area clear.
 -> What does your post cover?
     Imre: The civilian ring. Keep the floor clear when a party arrives. The General has his own sentries at the annex.
 -> Do you want to stay at this post?

@@ -151,7 +151,9 @@ title: frontier_station_agent
 title: frontier_station_agent__topics
 ---
 -> Is this the main terminal?
-    Augusta: This is the auxiliary. The main pads are at Dry Dock, down the line. We get the overflow and the detours.
+    Augusta: This is the auxiliary, SIDING. The main pads are at Dry Dock, down the line. Dial LEADENSADDLE if you're taking the ring instead of the road.
+    <<command "world.set_flag" "gate.known.LEADENSADDLE" true>>
+    Augusta: We get the overflow and the detours.
     <<jump frontier_station_agent__topics>>
 -> When's the next train?
     Augusta: The Number 9 goes down the gulch at 9:40. It's freight. It doesn't stop for people.
@@ -173,7 +175,7 @@ title: frontier_innkeeper
     <<command "world.set_flag" "frontier_innkeeper_met" true>>
     Pearl: Welcome to the Lie-Down. A cot by the hour, a bucket with every cot.
     -> I'm a robot. I don't get gate-sick.
-        Pearl: Then you can carry buckets. No, I'm teasing. Your friends are by the window.
+        Pearl: Then you can carry buckets. No, I'm teasing. Two surveyors are by the window; try not to let the sun in on them.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -186,13 +188,13 @@ title: frontier_inn_alice
     Alice: Still here. Bob's just managed to sit up. We'll be a while yet.
 <<elseif verdict("world.flag_set", "frontier_inn_alice_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_inn_alice_met" true>>
-    Alice: This isn't where we meant to come out. The dialer back home only had the one line working after the bear.
+    Alice: This isn't where we meant to come out. After the bear, Bob and I took the first route we could get to answer.
     Alice: Bob and I need about an hour before we can set off again. We'll look at the routes to the city when we can read a map without feeling worse.
 <<else>>
     <<stop>>
 <<endif>>
 -> Where is the mechanic?
-    Alice: Across the trestle on Sprocket Row. That bear knocked you about; ask the mechanic to check your joints.
+    Alice: Across the trestle on Sprocket Row. If you've taken a few knocks, ask the mechanic to check your joints.
 -> I'll wait with you.
     Alice: Thanks. Could you put that bucket between the cots? Bob says he's fine. He's gone a funny colour.
 -> ‹go›

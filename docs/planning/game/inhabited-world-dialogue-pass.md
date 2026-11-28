@@ -355,3 +355,45 @@ These are line-level revisions. Choice labels, commands, conditionals,
 node names, existing encounter outcomes and progression are unchanged.
 Minor details about people, equipment and business practices are
 provisional, not implemented gameplay or settled canon.
+
+## Follow-up: information pacing and discovery
+
+Hobford can be explored in any order. Alice saw the goblins pass her survey
+station; she can infer where they intended to go, but should not assert
+that they are still waiting at the siding. Bob's camp remains worth moving
+whether or not the siding fight has already happened. Keep the raid's
+actual work order (the old mill, not the barn) at the freight siding, and
+let the Drain Market clerk describe the contents and discrepancies of the
+paperwork rather than claim to know the cargo or the true employer. The
+Registrar's missing entry is an observation about the copy at hand, not
+proof that a person never crossed a ring. Keep the denial and correction
+clues, and do not establish who commissioned the raid in this pass.
+
+Gate information should match `gate-network.md` and `gate_network.ron`:
+connections are bidirectional, remain available for further travellers
+until idle timeout, and addresses need not be listed to work. LEGAL is the
+Authority capital; TESTING is the sandbox hub. Ring Seven's breaker
+supplies power, not a restriction to TANGENT. The General's clearance
+still controls the physical military checkpoint, not the ability to dial.
+Distinguish the Authority's schedules and paperwork from engine constraints.
+
+A few existing optional route conversations now teach addresses using the
+existing `gate.known.*` flags. Okafor gives TANGENT when directing the player
+to Canter; Teodora gives SCIENCE and GALACTIC when explaining the return
+journey; Augusta gives LEADENSADDLE when describing Dry Dock; Roo gives
+ALDENTE when discussing his desired visit; Zorlack gives DEALINGS when
+discussing the business college. These are existing catalog addresses;
+knowledge adds directory entries, not travel permissions. Development's
+`All` start policy means the extra commands are redundant on a fresh dev
+save. They become useful if `Discovered` is selected for release. Neither
+policy nor the catalog is changed. No hidden address, including the final
+boss address, is newly exposed. Keep the actual final encounter reveal out
+of ordinary town conversation.
+
+The Ninja Village's undelivered letters and the Authority's armistice are
+reported from local perspectives. Frontier's reunion does not assume the
+player fought the bear when asking about the mechanic. New minor wording
+and address-sharing choices are provisional. This pass changes two Bob
+response labels but retains their targets, all existing commands, all
+conditionals and all quest transitions. No placements or encounter
+outcomes are added.

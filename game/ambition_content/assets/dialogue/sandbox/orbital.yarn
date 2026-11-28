@@ -36,13 +36,15 @@ title: station_okafor
 <<elseif verdict("world.flag_set", "orbital_consignment_query") == "satisfied">>
     Officer Okafor: Still need a count I can stamp. Surveyor's Office, Math town. Ask for Canter.
     -> Where is the Math town?
-        Officer Okafor: Through the ring and up the stairs from its gate hall. The office is on the second terrace.
+        Officer Okafor: Dial TANGENT. Go up the stairs from the gate hall; the office is on the second terrace.
+        <<command "world.set_flag" "gate.known.TANGENT" true>>
     -> ‹step away›
 <<elseif verdict("world.flag_set", "orbital_consignment_query") == "not_satisfied">>
     Officer Okafor: Customs. Crate 0447 in my pen is survey lenses from the Math town, for the Remainder. The manifest gives the count as "aleph-null". I cannot clear an infinite crate.
     -> I can ask the sender.
         <<command "world.set_flag" "orbital_consignment_query" true>>
-        Officer Okafor: Surveyor's Office, Math town. Bring me a number I can stamp.
+        Officer Okafor: Surveyor's Office, Math town. The gate address is TANGENT. Bring me a number I can stamp.
+        <<command "world.set_flag" "gate.known.TANGENT" true>>
     -> Why so careful?
         Officer Okafor: Seed stock, spores, mail with ideas in it. The ring moves anything. Somebody has to look first.
     -> Who reads the arrival records?
@@ -65,7 +67,7 @@ title: station_reyes
 <<elseif verdict("world.flag_set", "orbital_consignment_cleared") == "not_satisfied">>
     Captain Reyes: That pen on the gate deck holds my lenses. Without them the survey is blind.
     -> What do you haul?
-        Captain Reyes: Whatever the ring brings that has to go where no ring is. Moons, mines, the slow places.
+        Captain Reyes: Whatever the ring brings that has to go farther than the ring. Moons, mines, the slow places. The survey moon doesn't have one at all.
     -> Why not put a ring on the moon?
         Captain Reyes: It would need its own power plant and a crew to keep the gate running. We've only got a few people on that moon. I'm cheaper.
     -> What's the work out beyond the rings?

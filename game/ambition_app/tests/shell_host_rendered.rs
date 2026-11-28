@@ -584,6 +584,9 @@ fn a_providers_own_frontend_route_plays_the_score_written_for_it() {
         Some(ambition_demo_smash::SMASH_SELECT_ROUTE.to_owned()),
         "the host reached smash's select route",
     );
+    // The route settles before the select score's media has loaded; the
+    // host's theme plays until it does.
+    settle_base_music(&mut app);
     assert_eq!(
         active_music_track(&app),
         ambition_demo_smash::SMASH_SELECT_TRACK,
@@ -595,6 +598,7 @@ fn a_providers_own_frontend_route_plays_the_score_written_for_it() {
         shell_host::AMBITION_LAUNCHER_ROUTE.into(),
     ));
     settle(&mut app);
+    settle_base_music(&mut app);
     assert_eq!(
         active_music_track(&app),
         title,

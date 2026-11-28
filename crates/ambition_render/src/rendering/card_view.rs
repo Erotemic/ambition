@@ -490,7 +490,9 @@ impl Plugin for CardViewPlugin {
             labels::prepare_label_layout
                 .after(gameplay::route_card_outputs)
                 .after(super::view_isolation::isolate_live_rooms)
-                .before(bevy::camera::CameraUpdateSystems),
+                .after(bevy::camera::CameraUpdateSystems)
+                .before(bevy::sprite::update_text2d_layout)
+                .run_if(card_outputs_enabled),
         );
         app.add_systems(
             PostUpdate,

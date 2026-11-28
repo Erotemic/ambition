@@ -157,9 +157,6 @@ pub struct PropVisual {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalSprite;
 
-#[derive(Component)]
-pub struct HealthOverlayVisual;
-
 pub fn block_color(kind: ae::BlockKind) -> Color {
     match kind {
         ae::BlockKind::Solid => Color::srgba(0.25, 0.28, 0.36, 1.0),

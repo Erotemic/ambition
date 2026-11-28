@@ -861,6 +861,11 @@ shared value preparation are sufficient until source proves otherwise.
    color-mesh path. An Ultra fixture checks light strength, vertex colors,
    and the world sprite that shows a body's countdown.
 
+   Developer health bars use the shared world-sprite and text paths.
+   Each bar keeps its background, fill, and label as health changes.
+   A test uses the same feature ID in two live rooms. It checks each
+   bar's position, health, and removal.
+
    Both gameplay outputs run the same spirit, void, and screen filter
    passes. Each output projects a field into its own viewport. The card
    output takes its room mask from the plane camera and uses the depth of

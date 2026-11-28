@@ -286,13 +286,6 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 contribute_room_transition_assets_system
                     .run_if(super::room_transition_assets::a_transition_is_active_or_contributed),
                 poll_room_transition_asset_readiness_system.run_if(super::room_transition_assets::a_transition_is_active),
-                // the census must be THIS frame's. The presentation floor
-                // republishes `UnclaimedFeatureViews` at the tail of the visual
-                // chain; the cover retires on it being empty. Both ends are in
-                // `Update` — checked, not assumed, because an `.after` across
-                // schedules is silently vacuous and this one going quiet
-                // reintroduces the exact flash it fixes.
-                drive_room_transition_presentation.run_if(a_cover_is_owed).in_set(RoomTransitionCoverSet),
             )
                 .chain()
                 // A room's manifest waits for the prop sheets it shows, so
@@ -300,13 +293,23 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 .after(crate::game_assets::PropSheetDemandSet)
                 .before(LoadPresentationSet::Observe),
         )
+        .add_systems(
+            Update,
+            drive_room_transition_presentation
+                .run_if(a_cover_is_owed)
+                .in_set(RoomTransitionCoverSet),
+        )
         .configure_sets(
             Update,
             RoomTransitionCoverSet
                 .after(Platformer2dSimulationPhase::PresentationVisualSync)
                 .after(PresentationSettlingSet)
                 // It reads whether its cover is whole this frame.
-                .after(RoomTransitionCoverAnimationSet),
+                .after(RoomTransitionCoverAnimationSet)
+                // Camera input resolves before the renderer reports readiness.
+                // Finalize applies the cover commands after that report.
+                .after(LoadPresentationSet::Actions)
+                .before(LoadPresentationSet::Finalize),
         )
         .add_systems(
             Update,
@@ -330,7 +333,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             Update,
             handle_room_transition_presentation_events
                 .run_if(crate::engine_core::a_message_waits::<LoadPresentationEvent>)
-                .after(LoadPresentationSet::Actions)
+                .after(RoomTransitionCoverSet)
                 .before(LoadPresentationSet::Finalize),
         );
     let first_room_cover = super::first_room_cover::cover_first_room.after(PresentationSettlingSet);

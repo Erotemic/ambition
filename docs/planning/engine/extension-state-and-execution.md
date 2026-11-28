@@ -21,7 +21,7 @@ not always Rust items.
 | Schema evolution on reload | `StateSchema::migrate` by field tag; a changed field kind, attachment, or save policy is refused against live and saved schemas |
 | Save eligibility | A save road (`SaveRoad`) is offered with its adapter. `SessionDurable` keeps a `per session, kept durable` record in the durable world save (`ambition_platformer2d_runtime::module_save_road`), as the schema and the values in wire form, and a load migrates it by tag. `BodyDurable` (2026-11-16) keeps a `kept durable` body record under the body's durable identity (the `SimId` of an authored or provider-staged occurrence): it outlives the live body, and a body built again with that identity (its room entered again, a loaded save) takes it back once, when it is built. A body the simulation minted has no durable identity, and its records retire with it. `Checkpoint`, and records of a group's room root (whose identity is a room instance, not a room), have no road and are refused at admission or retire with their scope |
 | Module identity in the generation | `extension.modules` section of the prepared content identity (`ExtensionGeneration`) |
-| Loaded code | `ambition_extension_wasm` (wasmi, deterministic, fuel, a new instance per call; an importing module is refused) |
+| Loaded code | `ambition_extension_wasm` (wasmi, deterministic, fuel, every call from the file's starting image, in a reused instance put back to it when loading proves it can be; an importing module is refused) |
 
 Open against this contract: the deterministic fault policy (today a fault is
 counted in `ExtensionFaults` and the session continues), save eligibility for

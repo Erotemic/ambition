@@ -90,6 +90,7 @@ dependencies = [
  "ambition_extension_host",
  "ambition_extension_sdk",
  "wasmi",
+ "wasmparser",
 ]
 
 [[package]]

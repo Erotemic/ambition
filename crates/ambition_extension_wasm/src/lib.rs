@@ -10,9 +10,16 @@
 //!
 //! * The module may import NOTHING. Loading refuses a module with an import,
 //!   so it has no clock, no files and no entropy.
-//! * Each call gets a NEW instance. No guest global, heap or table survives an
-//!   invocation; everything that lasts is in the records the host passes in
-//!   and takes back (extension-state-and-execution: "VM memory is scratch").
+//! * Each call starts from the file's STARTING IMAGE. No guest global, heap or
+//!   table survives an invocation; everything that lasts is in the records the
+//!   host passes in and takes back (extension-state-and-execution: "VM memory
+//!   is scratch"). The instance is reused only when loading proved it can be
+//!   put back exactly: every mutable global exported, no code that changes a
+//!   table or a passive segment ([`restorable_globals`]); its memory and
+//!   globals are then set back to the image after each call, and a call that
+//!   grows memory drops it. Such a file's image is taken after one guest
+//!   allocation, so the allocator already holds its heap. Any other file gets
+//!   a new instance per call.
 //! * Work is metered by FUEL, a count of executed instructions. A call that
 //!   runs out faults the same way on every machine; load never decides it.
 //! * The interpreter canonicalizes NaN results (`wasmi/deterministic`).
@@ -22,13 +29,13 @@
 //! own compiled code, so they can differ from the native host's in the last
 //! bit; a native module and its WASM build are two executables, not one.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use ambition_extension_host::ModuleBackend;
 use ambition_extension_sdk::abi;
 use ambition_extension_sdk::digest::digest_bytes;
 use ambition_extension_sdk::{CodeIdentity, ModuleDescriptor, ModuleKey, Name};
-use wasmi::{Config, Engine, Instance, Linker, Memory, Module, Store};
+use wasmi::{Config, Engine, Global, Instance, Linker, Memory, Module, Store, TypedFunc, Val};
 
 /// The work one invocation may do, in fuel units (about one per executed
 /// instruction). Generous: a fan of seven shots costs a few thousand.
@@ -60,6 +67,12 @@ pub struct WasmModules {
     /// The key of each module, in the file's own order: the number
     /// `amb_invoke` takes.
     keys: Vec<ModuleKey>,
+    /// The export names of the mutable globals when an instance can be put
+    /// back to its starting image, or why it cannot.
+    restorable: Result<Vec<String>, String>,
+    /// The instance a call reuses, at its starting image; empty while a call
+    /// holds it (a concurrent call starts its own) or before the first call.
+    held: Mutex<Option<Held>>,
 }
 
 impl WasmModules {
@@ -89,6 +102,8 @@ impl WasmModules {
             module,
             fuel,
             keys: Vec::new(),
+            restorable: restorable_globals(bytes),
+            held: Mutex::new(None),
         };
         let description = this.describe().map_err(LoadError::Describe)?;
         let mut modules = abi::read_description(&description)
@@ -118,6 +133,51 @@ impl WasmModules {
         Ok((store, instance, memory))
     }
 
+    /// Whether a call reuses one instance put back to its starting image, or
+    /// why each call starts a new one.
+    pub fn reuses_instances(&self) -> Result<(), &str> {
+        self.restorable.as_ref().map(|_| ()).map_err(String::as_str)
+    }
+
+    fn start(&self) -> Result<Held, String> {
+        let (mut store, instance, memory) = self.instantiate()?;
+        let alloc = instance
+            .get_typed_func::<u32, u32>(&store, "amb_alloc")
+            .map_err(|e| format!("amb_alloc: {e}"))?;
+        let invoke = instance
+            .get_typed_func::<(u32, u32, u32, u32), u64>(&store, "amb_invoke")
+            .map_err(|e| format!("amb_invoke: {e}"))?;
+        if self.restorable.is_ok() {
+            // The guest's allocator takes its heap with `memory.grow` on its
+            // first allocation, so a call from the bare instance always grows
+            // memory and the instance could never be put back. The image is
+            // taken once the allocator holds its first heap: a fixed function
+            // of the file, the same for every call and every peer.
+            alloc.call(&mut store, 1).map_err(trap)?;
+        }
+        let image = memory.data(&store).to_vec();
+        let globals = match &self.restorable {
+            Ok(names) => names
+                .iter()
+                .map(|name| {
+                    let global = instance
+                        .get_global(&store, name)
+                        .ok_or_else(|| format!("exported global `{name}` is missing"))?;
+                    Ok((global, global.get(&store)))
+                })
+                .collect::<Result<_, String>>()?,
+            Err(_) => Vec::new(),
+        };
+        Ok(Held {
+            store,
+            memory,
+            alloc,
+            invoke,
+            image,
+            globals,
+        })
+    }
+
     fn read_packed(store: &Store<()>, memory: Memory, packed: u64) -> Result<Vec<u8>, String> {
         let ptr = (packed >> 32) as usize;
         let len = (packed & 0xffff_ffff) as usize;
@@ -138,6 +198,108 @@ impl WasmModules {
     }
 }
 
+/// Why an instance of `bytes` cannot be put back to its starting image after
+/// a call, or the export names of its mutable globals when it can. A call
+/// changes an instance's memory, its mutable globals and, through the
+/// table and passive-segment instructions, its tables and segments. Memory
+/// is copied back and a global is set back only when it is exported, so
+/// the file qualifies when every mutable global is exported and no code
+/// touches a table or a passive segment. (A call that grows memory is
+/// caught at restore: the instance is dropped.)
+fn restorable_globals(bytes: &[u8]) -> Result<Vec<String>, String> {
+    use wasmparser::{ExternalKind, Operator, Parser, Payload};
+    let mut mutable = Vec::new();
+    let mut exported = std::collections::BTreeMap::new();
+    for payload in Parser::new(0).parse_all(bytes) {
+        match payload.map_err(|e| e.to_string())? {
+            Payload::GlobalSection(reader) => {
+                for (index, global) in reader.into_iter().enumerate() {
+                    if global.map_err(|e| e.to_string())?.ty.mutable {
+                        mutable.push(index as u32);
+                    }
+                }
+            }
+            Payload::ExportSection(reader) => {
+                for export in reader {
+                    let export = export.map_err(|e| e.to_string())?;
+                    if export.kind == ExternalKind::Global {
+                        exported.insert(export.index, export.name.to_owned());
+                    }
+                }
+            }
+            Payload::CodeSectionEntry(body) => {
+                let mut operators = body.get_operators_reader().map_err(|e| e.to_string())?;
+                while !operators.eof() {
+                    match operators.read().map_err(|e| e.to_string())? {
+                        Operator::TableSet { .. }
+                        | Operator::TableGrow { .. }
+                        | Operator::TableFill { .. }
+                        | Operator::TableCopy { .. }
+                        | Operator::TableInit { .. }
+                        | Operator::ElemDrop { .. }
+                        | Operator::MemoryInit { .. }
+                        | Operator::DataDrop { .. } => {
+                            return Err("its code changes a table or a passive segment".to_owned());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    mutable
+        .into_iter()
+        .map(|index| {
+            exported
+                .get(&index)
+                .cloned()
+                .ok_or_else(|| format!("mutable global {index} is not exported"))
+        })
+        .collect()
+}
+
+/// A started instance, the image it started from, and the two entries a
+/// call uses.
+struct Held {
+    store: Store<()>,
+    memory: Memory,
+    alloc: TypedFunc<u32, u32>,
+    invoke: TypedFunc<(u32, u32, u32, u32), u64>,
+    image: Vec<u8>,
+    globals: Vec<(Global, Val)>,
+}
+
+impl Held {
+    /// Put the instance back to its image, or say it cannot be: a call grew
+    /// its memory, which never shrinks.
+    fn restore(&mut self) -> bool {
+        let data = self.memory.data_mut(&mut self.store);
+        if data.len() != self.image.len() {
+            return false;
+        }
+        data.copy_from_slice(&self.image);
+        self.globals
+            .iter()
+            .all(|(global, value)| global.set(&mut self.store, value.clone()).is_ok())
+    }
+}
+
+impl Held {
+    fn call(&mut self, module: u32, entry: u32, input: &[u8]) -> Result<Vec<u8>, String> {
+        let len = u32::try_from(input.len()).map_err(|_| "input too long".to_owned())?;
+        let ptr = self.alloc.call(&mut self.store, len).map_err(trap)?;
+        self.memory
+            .write(&mut self.store, ptr as usize, input)
+            .map_err(|e| format!("input out of bounds: {e}"))?;
+        let packed = self
+            .invoke
+            .call(&mut self.store, (module, entry, ptr, len))
+            .map_err(trap)?;
+        WasmModules::read_packed(&self.store, self.memory, packed)
+    }
+}
+
 fn trap(e: wasmi::Error) -> String {
     match e.as_trap_code() {
         Some(code) => format!("trap: {code}"),
@@ -147,22 +309,22 @@ fn trap(e: wasmi::Error) -> String {
 
 impl ModuleBackend for WasmModules {
     fn invoke(&self, module: u32, entry: u32, input: &[u8]) -> Result<Vec<u8>, String> {
-        let (mut store, instance, memory) = self.instantiate()?;
-        let alloc = instance
-            .get_typed_func::<u32, u32>(&store, "amb_alloc")
-            .map_err(|e| format!("amb_alloc: {e}"))?;
-        let invoke = instance
-            .get_typed_func::<(u32, u32, u32, u32), u64>(&store, "amb_invoke")
-            .map_err(|e| format!("amb_invoke: {e}"))?;
-        let len = u32::try_from(input.len()).map_err(|_| "input too long".to_owned())?;
-        let ptr = alloc.call(&mut store, len).map_err(trap)?;
-        memory
-            .write(&mut store, ptr as usize, input)
-            .map_err(|e| format!("input out of bounds: {e}"))?;
-        let packed = invoke
-            .call(&mut store, (module, entry, ptr, len))
-            .map_err(trap)?;
-        Self::read_packed(&store, memory, packed)
+        let reusable = self.restorable.is_ok();
+        let taken = if reusable {
+            self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take()
+        } else {
+            None
+        };
+        let mut held = match taken {
+            Some(held) => held,
+            None => self.start()?,
+        };
+        held.store.set_fuel(self.fuel).map_err(|e| e.to_string())?;
+        let result = held.call(module, entry, input);
+        if reusable && held.restore() {
+            *self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(held);
+        }
+        result
     }
 
     fn module_index(&self, key: &ModuleKey) -> Option<u32> {
@@ -181,6 +343,12 @@ pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 /// same on every peer. `scripts/regen/build_extension_modules.sh` links with
 /// the same value.
 pub const MODULE_STACK_BYTES: u32 = 128 * 1024;
+
+/// The global a loaded module is linked to export: Rust's stack pointer,
+/// its one mutable global, so a call can reuse an instance and set it back
+/// ([`restorable_globals`]). `scripts/regen/build_extension_modules.sh`
+/// exports it too.
+pub const MODULE_STACK_POINTER: &str = "__stack_pointer";
 
 /// True when the toolchain that builds `workspace_root` has the standard
 /// library for [`WASM_TARGET`]. Without it, cargo fails with "can't find crate
@@ -231,6 +399,7 @@ pub fn build_module_crate(workspace_root: &std::path::Path, package: &str) -> Re
         .arg(&target_dir)
         .arg("--")
         .arg(format!("-Clink-arg=-zstack-size={MODULE_STACK_BYTES}"))
+        .arg(format!("-Clink-arg=--export={MODULE_STACK_POINTER}"))
         .status()
         .map_err(|e| format!("could not run cargo: {e}"))?;
     if !status.success() {
@@ -278,6 +447,67 @@ mod tests {
         let fault = modules.invoke(0, 0, &[]).unwrap_err();
         assert!(fault.contains("fuel"), "{fault}");
     }
+
+    /// A file whose `amb_invoke` bumps a global and a byte of memory, then
+    /// returns both: a call that saw an earlier call's writes returns 2s.
+    /// `global` declares the global, `grow` runs before the result is written.
+    fn counting_module(global: &str, grow: bool) -> Vec<u8> {
+        let description = abi::describe(&[]);
+        let data: String = description.iter().map(|byte| format!("\\{byte:02x}")).collect();
+        let grow = if grow { "(drop (memory.grow (i32.const 1)))" } else { "" };
+        let wat = format!(r#"(module
+            (memory (export "memory") 1)
+            {global}
+            (data (i32.const 0) "{data}")
+            (func (export "amb_alloc") (param i32) (result i32) (i32.const 1024))
+            (func (export "amb_describe") (result i64) (i64.const {length}))
+            (func (export "amb_invoke") (param i32 i32 i32 i32) (result i64)
+                (global.set $count (i32.add (global.get $count) (i32.const 1)))
+                (i32.store8 (i32.const 2048) (i32.add (i32.load8_u (i32.const 2048)) (i32.const 1)))
+                {grow}
+                (i32.store8 (i32.const 3000) (global.get $count))
+                (i32.store8 (i32.const 3001) (i32.load8_u (i32.const 2048)))
+                (i32.store8 (i32.const 3002) (i32.wrap_i64 (i64.extend_i32_u (memory.size))))
+                (i64.or (i64.shl (i64.const 3000) (i64.const 32)) (i64.const 3))))"#,
+            length = description.len());
+        wat::parse_str(&wat).unwrap()
+    }
+
+    /// A reused instance is put back to its starting image: what a call wrote
+    /// to a global or to memory is gone at the next call.
+    #[test]
+    fn a_reused_instance_forgets_what_a_call_wrote() {
+        let bytes = counting_module(r#"(global $count (export "count") (mut i32) (i32.const 0))"#, false);
+        let (modules, _) = WasmModules::load(&bytes).unwrap();
+        assert_eq!(modules.reuses_instances(), Ok(()));
+        for _ in 0..3 {
+            assert_eq!(modules.invoke(0, 0, &[]).unwrap(), vec![1, 1, 1]);
+        }
+        assert!(modules.held.lock().unwrap().is_some(), "the instance was kept for reuse");
+    }
+
+    /// A global the host cannot reach cannot be set back, so the file gets a
+    /// new instance for every call.
+    #[test]
+    fn a_file_with_a_hidden_mutable_global_starts_each_call_new() {
+        let bytes = counting_module("(global $count (mut i32) (i32.const 0))", false);
+        let (modules, _) = WasmModules::load(&bytes).unwrap();
+        assert!(modules.reuses_instances().is_err());
+        for _ in 0..3 {
+            assert_eq!(modules.invoke(0, 0, &[]).unwrap(), vec![1, 1, 1]);
+        }
+    }
+
+    /// Memory never shrinks, so an instance a call grew is dropped and the
+    /// next call sees the starting size.
+    #[test]
+    fn a_call_that_grows_memory_does_not_leave_it_grown() {
+        let bytes = counting_module(r#"(global $count (export "count") (mut i32) (i32.const 0))"#, true);
+        let (modules, _) = WasmModules::load(&bytes).unwrap();
+        for _ in 0..3 {
+            assert_eq!(modules.invoke(0, 0, &[]).unwrap(), vec![1, 1, 2]);
+        }
+    }
 }
 
 /// M1 measurement, not a check: what one call of the game's module file
@@ -303,17 +533,18 @@ mod m1_measurement_tests {
         }
         let instantiate = start.elapsed().as_secs_f64() * 1e6 / n as f64;
         // A call with an input the guest refuses at decode: it pays the
-        // instantiation, the guest's module table and the decode, and runs no
-        // entry.
+        // instantiation (or the restore of a reused instance), the guest's
+        // module table and the decode, and runs no entry.
         let start = std::time::Instant::now();
         for _ in 0..n {
             let _ = modules.invoke(0, 0, &[0xff]);
         }
         let call = start.elapsed().as_secs_f64() * 1e6 / n as f64;
         println!(
-            "M1: {} modules; instantiate {instantiate:.1} us; a refused call {call:.1} us (so the guest side is {:.1} us)",
+            "M1: {} modules; instantiate {instantiate:.1} us; a refused call {call:.1} us; reuses instances: {:?}",
             described.len(),
-            call - instantiate
+            modules.reuses_instances()
         );
     }
 }
+

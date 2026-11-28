@@ -895,6 +895,7 @@ dependencies = [
  "ambition_extension_host",
  "ambition_extension_sdk",
  "wasmi",
+ "wasmparser 0.228.0",
  "wat",
 ]
 

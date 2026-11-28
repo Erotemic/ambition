@@ -135,7 +135,7 @@ For browser and Android, report actual tested loader support and missing prerequ
 
 Measure the same mechanic and representative game workload in Rhai, WASM Rust, and linked Rust. Report invocation count, host and guest time, total simulation-tick cost, and memory or allocation behavior where observable. Include module build time, engine relink time, and edit-to-visible-result time separately. Measure a small frequent callback and a batched workload when both are relevant.
 
-Do not assume WASM is faster than Rhai. The WASM backend currently creates a new guest instance per call, so invocation overhead can dominate a small mechanic. Keep deterministic execution and bounded work. If a promoted implementation performs worse, explain the cause, change the implementation or batch size where justified, and state which backend is appropriate for that workload. Do not hide a regression behind a microbenchmark.
+Do not assume WASM is faster than Rhai. The WASM backend starts every call from the module file's starting image (about 34 µs for the sentry against 10.6 µs in Rhai, 2026-11-28), so invocation overhead can dominate a small mechanic. Keep deterministic execution and bounded work. If a promoted implementation performs worse, explain the cause, change the implementation or batch size where justified, and state which backend is appropriate for that workload. Do not hide a regression behind a microbenchmark.
 
 **Pass:** A repeatable benchmark or profiling recipe compares all three implementations on the same machine, inputs, and host profile. Its report states measured gains and costs. It does not label an unmeasured Rust or WASM implementation an optimization.
 

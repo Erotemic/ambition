@@ -55,10 +55,11 @@ out="target/extension-modules/wasm32-unknown-unknown/release/${package}.wasm"
 build() {
     local start=$(date +%s.%N)
     # The stack size is ambition_extension_wasm::MODULE_STACK_BYTES (128 KiB):
-    # every call zeroes the instance's memory, and the 1 MiB default stack
-    # was about half the cost of a call.
+    # a new instance zeroes its memory, and the 1 MiB default stack was about
+    # half the cost of a call. The exported stack pointer is
+    # MODULE_STACK_POINTER: with it a call can reuse an instance and set it back.
     if CARGO_INCREMENTAL=0 cargo rustc --quiet --manifest-path "$module_manifest" -p "$package" --target wasm32-unknown-unknown --release \
-        --crate-type cdylib --target-dir target/extension-modules -- -Clink-arg=-zstack-size=131072; then
+        --crate-type cdylib --target-dir target/extension-modules -- -Clink-arg=-zstack-size=131072 -Clink-arg=--export=__stack_pointer; then
         printf 'built %s (%s bytes) in %s s\n' "$out" "$(wc -c < "$out")" \
             "$(awk "BEGIN { printf \"%.2f\", $(date +%s.%N) - $start }")"
         return 0

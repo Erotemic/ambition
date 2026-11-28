@@ -352,7 +352,7 @@ fn main() {
         println!("  {:>30}: {:>8.0} ns", "native shared library", time(&module, library, 2000, 10));
     }
     if let Some(wasm) = &wasm {
-        println!("  {:>30}: {:>8.0} ns", "wasm (wasmi, instance per call)", time(&module, wasm, 2000, 10));
+        println!("  {:>30}: {:>8.0} ns", "wasm (wasmi, reused instance)", time(&module, wasm, 2000, 10));
     }
 
     println!("\n== 3. diagnostics");

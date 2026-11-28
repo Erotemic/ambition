@@ -23,13 +23,14 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
     sprite::Anchor,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use ambition_platformer2d_world::rooms::{GatePortalPhase, GatePortalPhases, GatePortalRegistry};
 
 use crate::quality::ResolvedVisualQuality;
 use crate::rendering::{PortalSprite, PropVisual};
+use crate::rendering::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
 
 const TUNNEL_PICTURE: &str = "sprites/interdimensional_gate_tunnel.png";
 
@@ -94,6 +95,7 @@ impl Plugin for GatePortalFxPlugin {
         ambition_sprite_fx::install_mesh_fragment_shader(app);
         embedded_asset!(app, "shaders/gate_portal_fx.wgsl");
         app.add_plugins(Material2dPlugin::<GatePortalFxMaterial>::default());
+        install_planar_mesh_2d::<GatePortalFxMaterial>(app);
         app.add_systems(Startup, load_gate_portal_fx_art);
         app.add_systems(Update, prepare_gate_tunnel.before(sync_gate_portal_fx)
             .run_if(resource_exists::<GatePortalFxArt>));
@@ -153,7 +155,7 @@ fn sync_gate_portal_fx(
     images: Res<Assets<Image>>,
     mut materials: ResMut<Assets<GatePortalFxMaterial>>,
     membranes: Query<(Entity, &PropVisual, &Sprite, Option<&Anchor>, Option<&HasGatePortalFx>), With<PortalSprite>>,
-    mut layers: Query<(&mut Transform, &MeshMaterial2d<GatePortalFxMaterial>, &mut Visibility), With<GatePortalFxLayer>>,
+    mut layers: Query<(&mut Transform, &PreparedPlanarMesh<GatePortalFxMaterial>, &mut Visibility), With<GatePortalFxLayer>>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let showcase = quality.as_deref().is_some_and(|quality| quality.budget.shaders.allow_showcase_materials);
@@ -175,8 +177,7 @@ fn sync_gate_portal_fx(
                     // room, and is hidden when it is.
                     let layer = commands
                         .spawn((
-                            Mesh2d(art.quad.clone()),
-                            MeshMaterial2d(material),
+                            PreparedPlanarMesh { mesh: art.quad.clone(), material },
                             Transform::from_xyz(0.0, 0.0, FX_Z),
                             Visibility::Hidden,
                             GatePortalFxLayer,
@@ -188,7 +189,7 @@ fn sync_gate_portal_fx(
                 }
                 continue;
             };
-            let Ok((mut transform, material, mut visibility)) = layers.get_mut(layer.0) else {
+            let Ok((mut transform, surface, mut visibility)) = layers.get_mut(layer.0) else {
                 commands.entity(membrane).try_remove::<HasGatePortalFx>();
                 continue;
             };
@@ -216,11 +217,11 @@ fn sync_gate_portal_fx(
                 .map_or(Vec2::ZERO, |(row, k)| Vec2::new(k, if row == "emit" { 1.0 } else { -1.0 }));
             let control = Vec4::new(strength, if sprite.flip_x { 1.0 } else { 0.0 }, wave.x, wave.y);
             // Read before writing: `get_mut` uploads the material again.
-            let unchanged = materials.get(&material.0).is_some_and(|m| {
+            let unchanged = materials.get(&surface.material).is_some_and(|m| {
                 m.uv_rect == uv_rect && m.control == control && m.membrane == sprite.image
             });
             if !unchanged {
-                if let Some(mut m) = materials.get_mut(&material.0) {
+                if let Some(mut m) = materials.get_mut(&surface.material) {
                     m.uv_rect = uv_rect;
                     m.control = control;
                     m.membrane = sprite.image.clone();
@@ -229,9 +230,6 @@ fn sync_gate_portal_fx(
         }
     }
 }
-
-/// The sprite's current frame on its texture, normalized.
-
 
 #[cfg(test)]
 mod tests {

@@ -21,11 +21,12 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 use crate::quality::ResolvedVisualQuality;
 use crate::rendering::bubble_shield::{BubbleShieldLook, BubbleShieldSprite, BubbleShieldVisual};
+use crate::rendering::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
 
 /// Over the bubble's own sprite, by less than the space to the next layer.
 const FX_Z: f32 = 0.002;
@@ -88,6 +89,7 @@ impl Plugin for BubbleShieldFxPlugin {
         ambition_sprite_fx::install_mesh_fragment_shader(app);
         embedded_asset!(app, "shaders/bubble_shield_fx.wgsl");
         app.add_plugins(Material2dPlugin::<BubbleShieldFxMaterial>::default());
+        install_planar_mesh_2d::<BubbleShieldFxMaterial>(app);
         let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() else {
             return;
         };
@@ -132,8 +134,7 @@ fn give_each_bubble_its_layer(
         });
         let layer = commands
             .spawn((
-                Mesh2d(quad.0.clone()),
-                MeshMaterial2d(material),
+                PreparedPlanarMesh { mesh: quad.0.clone(), material },
                 Transform::from_xyz(0.0, 0.0, FX_Z),
                 Visibility::Hidden,
                 BubbleShieldFxLayer,
@@ -162,7 +163,7 @@ fn sync_bubble_shield_fx(
         (
             &mut Transform,
             &mut Visibility,
-            &MeshMaterial2d<BubbleShieldFxMaterial>,
+            &PreparedPlanarMesh<BubbleShieldFxMaterial>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         With<BubbleShieldFxLayer>,
@@ -170,7 +171,7 @@ fn sync_bubble_shield_fx(
 ) {
     let in_budget = layer_is_in_budget(quality.as_deref());
     for (sprite, look, has, room) in &bubbles {
-        let Ok((mut transform, mut visibility, material, layer_room)) = layers.get_mut(has.0) else {
+        let Ok((mut transform, mut visibility, surface, layer_room)) = layers.get_mut(has.0) else {
             continue;
         };
         let size = sprite.custom_size.unwrap_or(Vec2::ONE);
@@ -203,12 +204,12 @@ fn sync_bubble_shield_fx(
         // Compared before it is taken mutably: `get_mut` marks the material
         // modified, and a modified material is prepared again for the GPU.
         let unchanged = materials
-            .get(&material.0)
+            .get(&surface.material)
             .is_some_and(|current| current.tint == tint && current.state == state && current.blow == blow);
         if unchanged {
             continue;
         }
-        if let Some(mut material) = materials.get_mut(&material.0) {
+        if let Some(mut material) = materials.get_mut(&surface.material) {
             material.tint = tint;
             material.state = state;
             material.blow = blow;

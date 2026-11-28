@@ -876,6 +876,15 @@ shared value preparation are sufficient until source proves otherwise.
    side-on 2.5D, and oblique 2.5D. It checks camera switching with the
    same mesh handles.
 
+   The shield lattice and gate tunnel supply a prepared planar mesh.
+   Each renderer uses the same mesh and material settings. The 2D
+   binding is present when its camera or a capture needs the surface.
+   The capture tool adds test shields after the view rebuild so the
+   shields reach the draw pass. In the Medium Portal Lab run, the shield
+   stays visible as the frozen game switches from 2D through both card
+   angles and the comparison inset, then back to 2D. The open gate tunnel
+   is visible in 2D and side-on 2.5D at Ultra, which enables that shader.
+
    Particles, procedural beams, and physics debris use the shared world
    sprite path. Their cards keep the same material during a fade.
    Medium captures of Mine Pocket show dust and moving fragments in 2D,

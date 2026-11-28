@@ -475,8 +475,8 @@ impl RoomLookDepth {
 /// the numbers change, and when a sky comes.
 fn apply_look_depth(
     depth: Res<RoomLookDepth>,
-    new_quads: Query<(), Added<MeshMaterial2d<RoomSkyMaterial>>>,
-    quads: Query<&MeshMaterial2d<RoomSkyMaterial>>,
+    new_quads: Query<(), Added<PreparedPlanarMesh<RoomSkyMaterial>>>,
+    quads: Query<&PreparedPlanarMesh<RoomSkyMaterial>>,
     mut materials: ResMut<Assets<RoomSkyMaterial>>,
 ) {
     if !depth.is_changed() && new_quads.is_empty() {
@@ -485,8 +485,8 @@ fn apply_look_depth(
     let wanted = depth.uniform();
     for quad in &quads {
         // Read first: a write marks the material for the renderer again.
-        if materials.get(&quad.0).is_some_and(|material| material.depth != wanted) {
-            if let Some(mut material) = materials.get_mut(&quad.0) {
+        if materials.get(&quad.material).is_some_and(|material| material.depth != wanted) {
+            if let Some(mut material) = materials.get_mut(&quad.material) {
                 material.depth = wanted;
             }
         }
@@ -912,6 +912,7 @@ pub fn install(app: &mut App) {
             ambition_render::rendering::card_view::install_card_mesh_material::<RoomSkyMaterial>(app);
         }
         app.add_plugins(Material2dPlugin::<RoomSkyMaterial>::default());
+        install_planar_mesh_2d::<RoomSkyMaterial>(app);
         app.add_plugins(Material2dPlugin::<RoomFrontFieldMaterial>::default());
     }
     app.init_resource::<FrontFields>();
@@ -978,6 +979,7 @@ where
     // that renders. An asset registry is not evidence of a renderer.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<M>::default());
+        install_planar_mesh_2d::<M>(app);
     }
     app.add_systems(
         Update,
@@ -1136,15 +1138,18 @@ fn spread_room_states(
     save: Option<Res<AmbitionGameSave>>,
     rooms: LiveRoomSpecs,
     mut spreads: Query<(&InRoomInstance, &mut RoomLookSpread)>,
-    quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomStateMaterial>)>,
+    quads: Query<(&InRoomInstance, &PreparedPlanarMesh<RoomStateMaterial>)>,
     mut materials: ResMut<Assets<RoomStateMaterial>>,
     skins: Query<(&TwoStateSkin, &PreparedPlanarMesh<RoomSkinMaterial>)>,
     mut skin_materials: Option<ResMut<Assets<RoomSkinMaterial>>>,
-    sky_quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomSkyMaterial>)>,
+    sky_quads: Query<(&InRoomInstance, &PreparedPlanarMesh<RoomSkyMaterial>)>,
     mut sky_materials: Option<ResMut<Assets<RoomSkyMaterial>>>,
     fields: Res<FrontFields>,
     mut field_materials: Option<ResMut<Assets<RoomFrontFieldMaterial>>>,
-    mut overlays: Query<(&InRoomInstance, &Mesh2d, &mut Visibility), With<RoomLookOverlay>>,
+    mut overlays: Query<
+        (&InRoomInstance, &PreparedPlanarMesh<RoomStateMaterial>, &mut Visibility),
+        With<RoomLookOverlay>,
+    >,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
 ) {
     for (stamp, mut spread) in &mut spreads {
@@ -1164,7 +1169,7 @@ fn spread_room_states(
         let front = room_front(&spec.world, spread.advance);
         if let Some(meshes) = meshes.as_deref_mut() {
             let band = overlay_band(&spec.world, front);
-            for (overlay_stamp, mesh, mut visibility) in &mut overlays {
+            for (overlay_stamp, draw, mut visibility) in &mut overlays {
                 if overlay_stamp.0 != stamp.0 {
                     continue;
                 }
@@ -1172,7 +1177,7 @@ fn spread_room_states(
                 if *visibility != wanted {
                     *visibility = wanted;
                 }
-                if let (Some(vertices), Some(mut mesh)) = (band.clone(), meshes.get_mut(&mesh.0)) {
+                if let (Some(vertices), Some(mut mesh)) = (band.clone(), meshes.get_mut(&draw.mesh)) {
                     *mesh = overlay_band_mesh(vertices);
                 }
             }
@@ -1182,20 +1187,20 @@ fn spread_room_states(
                 material.front = front;
             }
         }
-        for (quad_stamp, material) in &quads {
+        for (quad_stamp, draw) in &quads {
             if quad_stamp.0 != stamp.0 {
                 continue;
             }
-            if let Some(mut material) = materials.get_mut(&material.0) {
+            if let Some(mut material) = materials.get_mut(&draw.material) {
                 material.front = front;
             }
         }
         if let Some(sky_materials) = sky_materials.as_deref_mut() {
-            for (quad_stamp, material) in &sky_quads {
+            for (quad_stamp, draw) in &sky_quads {
                 if quad_stamp.0 != stamp.0 {
                     continue;
                 }
-                if let Some(mut material) = sky_materials.get_mut(&material.0) {
+                if let Some(mut material) = sky_materials.get_mut(&draw.material) {
                     material.front = front;
                 }
             }
@@ -1278,13 +1283,15 @@ fn present_room_look<M: RoomLook>(
             let mut quad = commands.spawn_session_scoped(
                 scope,
                 (
-                    Mesh2d(quad.clone()),
-                    MeshMaterial2d(materials.add(M::window(
-                        Vec4::new(min.x, min.y, size.x, size.y),
-                        Vec4::new(world.size.x, world.size.y, role, kind),
-                        front,
-                        &field,
-                    ))),
+                    PreparedPlanarMesh {
+                        mesh: quad.clone(),
+                        material: materials.add(M::window(
+                            Vec4::new(min.x, min.y, size.x, size.y),
+                            Vec4::new(world.size.x, world.size.y, role, kind),
+                            front,
+                            &field,
+                        )),
+                    },
                     Transform::from_translation(world_to_bevy(world, center, z))
                         .with_scale(Vec3::new(size.x + pad * 2.0, size.y + pad * 2.0, 1.0)),
                     Name::new(name),
@@ -1377,13 +1384,15 @@ fn present_room_look<M: RoomLook>(
             commands.spawn_session_scoped(
                 scope,
                 (
-                    Mesh2d(mesh),
-                    MeshMaterial2d(materials.add(M::window(
-                        Vec4::new(0.0, 0.0, room_size.x, room_size.y),
-                        Vec4::new(world.size.x, world.size.y, ROLE_OVERLAY, KIND_SOLID),
-                        front,
-                        &field,
-                    ))),
+                    PreparedPlanarMesh {
+                        mesh,
+                        material: materials.add(M::window(
+                            Vec4::new(0.0, 0.0, room_size.x, room_size.y),
+                            Vec4::new(world.size.x, world.size.y, ROLE_OVERLAY, KIND_SOLID),
+                            front,
+                            &field,
+                        )),
+                    },
                     Transform::from_translation(world_to_bevy(
                         world,
                         ae::Vec2::new(room_size.x * 0.5, room_size.y * 0.5),
@@ -1414,8 +1423,7 @@ fn present_room_look<M: RoomLook>(
                 commands.spawn_session_scoped(
                     scope,
                     (
-                        Mesh2d(quad.clone()),
-                        MeshMaterial2d(material),
+                        PreparedPlanarMesh { mesh: quad.clone(), material },
                         Transform::from_translation(world_to_bevy(
                             world,
                             ae::Vec2::new(room_size.x * 0.5, room_size.y * 0.5),
@@ -1551,15 +1559,14 @@ fn ink_labels_on_the_clean_side(
 mod tests {
     use super::*;
 
-    /// The numbers of the fog reach the sky of the look: a sky that comes
-    /// gets the numbers of the session, and a change of the numbers reaches
-    /// the sky that is there. This is the road a developer tunes by.
     #[test]
-    fn the_fog_numbers_reach_a_sky_that_comes_and_a_sky_that_is_there() {
+    fn fog_changes_reach_the_sky_without_a_2d_camera() {
         let mut app = App::new();
         app.init_resource::<Assets<RoomSkyMaterial>>()
             .insert_resource(RoomLookDepth { fog: 0.4, fog_patches: 0.1 })
             .add_systems(Update, apply_look_depth);
+        install_planar_mesh_2d::<RoomSkyMaterial>(&mut app);
+        let plane = app.world_mut().spawn((Camera2d, Camera::default())).id();
         let layer = Handle::<Image>::default();
         let material = app.world_mut().resource_mut::<Assets<RoomSkyMaterial>>().add(RoomSkyMaterial {
             room: Vec4::ZERO,
@@ -1570,16 +1577,32 @@ mod tests {
             near: layer.clone(),
             atmosphere: layer,
         });
-        app.world_mut().spawn(MeshMaterial2d(material.clone()));
+        let mesh = Handle::default();
+        let sky = app
+            .world_mut()
+            .spawn(PreparedPlanarMesh { mesh, material: material.clone() })
+            .id();
         let depth_of = |app: &App| app.world().resource::<Assets<RoomSkyMaterial>>().get(&material).unwrap().depth;
         assert_ne!(depth_of(&app), Vec4::new(0.4, 0.1, 0.0, 0.0), "premise: a new sky has the default numbers");
         app.update();
         assert_eq!(depth_of(&app), Vec4::new(0.4, 0.1, 0.0, 0.0));
+        assert_eq!(app.world().get::<MeshMaterial2d<RoomSkyMaterial>>(sky).unwrap().0, material);
 
-        // Out of range: the shader gets a fog it can use.
+        app.world_mut().get_mut::<Camera>(plane).unwrap().is_active = false;
         *app.world_mut().resource_mut::<RoomLookDepth>() = RoomLookDepth { fog: 7.0, fog_patches: -1.0 };
         app.update();
+        assert!(app.world().get::<Mesh2d>(sky).is_none());
         assert_eq!(depth_of(&app), Vec4::new(1.0, 0.0, 0.0, 0.0));
+
+        *app.world_mut().resource_mut::<RoomLookDepth>() = RoomLookDepth { fog: 0.2, fog_patches: 0.6 };
+        app.update();
+        assert!(app.world().get::<MeshMaterial2d<RoomSkyMaterial>>(sky).is_none());
+        assert_eq!(depth_of(&app), Vec4::new(0.2, 0.6, 0.0, 0.0));
+
+        app.world_mut().get_mut::<Camera>(plane).unwrap().is_active = true;
+        app.update();
+        assert_eq!(app.world().get::<MeshMaterial2d<RoomSkyMaterial>>(sky).unwrap().0, material);
+        assert_eq!(depth_of(&app), Vec4::new(0.2, 0.6, 0.0, 0.0));
     }
 
     /// The band's bounds are the shader's: a cut narrower than the shader's

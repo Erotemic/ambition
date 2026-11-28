@@ -1,8 +1,9 @@
 //! Travel through the Fantasy Dimension with player inputs.
 
 use ambition_app::AgentAction;
+use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::CharacterForm;
-use ambition_platformer2d::engine_core::Vec2;
+use ambition_platformer2d::engine_core::{BodyKinematics, Vec2};
 use ambition_platformer2d::items::{ItemCatalog, OwnedItems};
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
@@ -150,8 +151,6 @@ fn the_barrow_keys_and_wheels_lead_to_the_king_and_back() {
     const RELIQUARY: &str = "intro_barrow_reliquary";
     const WATCH: &str = "intro_barrow_reliquary_watch";
     const TOMB: &str = "intro_barrow_royal_tomb";
-    const GRILLE: &str = "royal_treasury_grille";
-    const VIGIL: &str = "intro_barrow_king_vigil";
 
     let mut sim = fixed_60hz_room_sim("intro_barrow");
     sim.step_n(base(), 30);
@@ -205,18 +204,72 @@ fn the_barrow_keys_and_wheels_lead_to_the_king_and_back() {
     walk_through(&mut pad, VAULT).expect("carry both keys back to the seals");
     assert!(!gate_stands(pad.world_mut(), "barrow_crown_seal"));
     walk_through(&mut pad, TOMB).expect("enter the royal tomb");
-    assert!(gate_stands(pad.world_mut(), GRILLE));
+    defeat_barrow_king(&mut pad);
+    walk_through(&mut pad, VAULT).expect("leave the royal tomb");
+    walk_through(&mut pad, "intro_barrow_watch_crypt").expect("take the watch mound loop");
+    walk_through(&mut pad, "intro_barrow_cairnfield").expect("leave the Barrows");
+}
 
-    let approach = Vec2::new(340.0, 432.0);
-    walk_to(&mut pad, approach).expect("reach the vigil trigger");
-    fight(
-        &mut pad,
-        |world, body| world.get::<CharacterForm>(body).is_some_and(|form| form.id() == "barrow_king"),
-        |world| world.resource::<AmbitionGameSave>().data().encounter(VIGIL) == PersistedEncounterState::Cleared,
-        approach,
-        2400,
-    )
-    .expect("defeat the king with the opening kit");
+#[test]
+fn the_barrow_king_approaches_and_opens_the_treasury_when_defeated() {
+    let mut sim = fixed_60hz_room_sim("intro_barrow_royal_tomb");
+    sim.step_n(base(), 30);
+    let mut pad = Pad::new(&mut sim);
+    defeat_barrow_king(&mut pad);
+    walk_through(&mut pad, "intro_barrow_tally_vault").expect("leave the royal tomb");
+}
+
+fn defeat_barrow_king(pad: &mut Pad<'_>) {
+    const GRILLE: &str = "royal_treasury_grille";
+    const VIGIL: &str = "intro_barrow_king_vigil";
+
+    assert!(gate_stands(pad.world_mut(), GRILLE));
+    let player = the_player(pad.world_mut());
+    let world = pad.world_mut();
+    let player_height = world.get::<BodyKinematics>(player).unwrap().size().y;
+    let (_, king) = world
+        .query::<(&BossConfig, &BodyKinematics)>()
+        .iter(world)
+        .find(|(boss, _)| boss.id == VIGIL)
+        .expect("the royal tomb has a boss placement");
+    assert!(
+        king.size().y >= 170.0 && king.size().y > player_height * 1.7,
+        "the king stands at boss size (king {}, player {player_height})",
+        king.size().y,
+    );
+    let spawn_x = king.pos.x;
+
+    let approach = Vec2::new(404.0, 432.0);
+    walk_to(pad, approach).expect("wake the king");
+    let approached = (0..210).any(|_| {
+        pad.step(Press::default());
+        let world = pad.world_mut();
+        world
+            .query::<(&BossConfig, &BodyKinematics)>()
+            .iter(world)
+            .any(|(boss, king)| boss.id == VIGIL && king.pos.x < spawn_x - 32.0)
+    });
+    assert!(approached, "the awakened king closes the distance");
+    let cleared = (0..1600).any(|frame| {
+        if pad.world().resource::<AmbitionGameSave>().data().boss(VIGIL) == PersistedEncounterState::Cleared {
+            return true;
+        }
+        let player = the_player(pad.world_mut());
+        let world = pad.world_mut();
+        let scout = *world.get::<BodyKinematics>(player).expect("Scout has a body");
+        let mut bosses = world.query::<(&BossConfig, &BodyKinematics)>();
+        let axis = bosses
+            .iter(world)
+            .find(|(boss, _)| boss.id == VIGIL)
+            .map_or(0.0, |(_, king)| {
+                let dx = king.pos.x - scout.pos.x;
+                let reach = (king.size().x + scout.size().x) * 0.5 + 3.0;
+                if dx.abs() > reach || scout.facing * dx < 0.0 { dx.signum() } else { 0.0 }
+            });
+        pad.step(Press { axis, attack: frame % 18 == 0, ..Press::default() });
+        false
+    });
+    assert!(cleared, "defeat the king with the opening kit");
     for _ in 0..60 {
         pad.step(Default::default());
     }
@@ -224,9 +277,6 @@ fn the_barrow_keys_and_wheels_lead_to_the_king_and_back() {
     let player = the_player(pad.world_mut());
     let balance = |world: &World| world.get::<ambition_platformer2d::characters::actor::BodyWallet>(player).unwrap().balance;
     let before = balance(pad.world());
-    use_at(&mut pad, 1388.0, 432.0);
+    use_at(pad, 1388.0, 432.0);
     assert_eq!(balance(pad.world()) - before, 30);
-    walk_through(&mut pad, VAULT).expect("leave the royal tomb");
-    walk_through(&mut pad, "intro_barrow_watch_crypt").expect("take the watch mound loop");
-    walk_through(&mut pad, "intro_barrow_cairnfield").expect("leave the Barrows");
 }

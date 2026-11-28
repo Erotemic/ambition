@@ -35,6 +35,8 @@ Dr Feld: Don't step there. Or there. Fine, step there, but gently. That is a lay
     Dr Feld: I have recorded it as a sedimentary event.
 -> What's the mammoth doing here?
     Dr Feld: Sinking, very slowly, for about thirty thousand years. People walk along its back. I have stopped asking them not to.
+-> Do you ever get homesick?
+    Dr Feld: I miss being able to finish a cup of tea. At home the biggest thing that could steal it was the dog.
 -> Good luck with the dig.
     Dr Feld: Thank you. Tell Dlamini I'll be here until dark.
 ===
@@ -44,11 +46,13 @@ title: primeval_tock
 Professor Tock: Shh. Not you, the sky. I'm listening for it.
 -> Listening for what?
     Professor Tock: The meteor. The big one. Everything down there has been waiting for it for sixty-six million years, they just don't know it.
-    Professor Tock: Somebody ought to be watching when it comes. I have a chair, a telescope and a thermos. That is the whole department.
+    Professor Tock: I have the telescope pointed at the eastern horizon. It's very cold up here at four in the morning. The institute did send me a thermos.
 -> Isn't the volcano dangerous?
     Professor Tock: Yes, but I've got the telescope on the ridge. I won't go down to the crater with the rest of them.
 -> What if it never comes?
     Professor Tock: Then perhaps I can get the institute to pay for another year of observations. I've been recording the sky every night.
+-> What do you do when it is cloudy?
+    Professor Tock: Keep the time. A gap in the book would look like I had slept through the end of the world.
 -> Enjoy the view.
     Professor Tock: Wave if you see anything on fire coming down. Not the lava. The lava's always on fire.
 ===
@@ -63,6 +67,8 @@ Mildred Twitchell: Shh. Shh! Get down. You'll put up the swallows.
     Mildred Twitchell: African. Unladen. I've timed them. Please don't ask me how fast; people always do, and then they laugh.
 -> What is the shoebill doing?
     Mildred Twitchell: Standing still. It has been standing still since Tuesday. It is the most frightening bird I have ever seen, and I have seen a cassowary angry.
+-> Have the penguins built nests?
+    Mildred Twitchell: Yes! One of them took a pebble from my boot. I went all the way back to the station to find another one. I did not want to be responsible for a divorce.
 -> I'll leave you to it.
     Mildred Twitchell: Go round behind me, please. The shoebill's just moved.
 ===
@@ -71,12 +77,14 @@ title: primeval_stratton
 ---
 Dr Petra Stratton: Mind the beds. Everything down here is in the right order, which is more than I can say for upstairs.
 -> What is wrong with upstairs?
-    Dr Petra Stratton: The dinosaurs are in it. Look at the board. They belong down here, sixty-six million years down, in the layer with the ash. That layer. The grey one.
+    Dr Petra Stratton: The dinosaurs are in it. Look at the board. They belong down here, sixty-six million years down, in the grey layer with the ash.
     Dr Petra Stratton: Every morning I cross them out of the top layer, and every morning one of them walks over the hole.
--> What are you digging?
+-> What did you find in this layer?
     Dr Petra Stratton: The skull. Long-necked chap along the seam beside it. Feld at the tar pits says hers is older. Hers is in tar. Tar is not a layer, it is a mess.
 -> Isn't a living dinosaur good evidence?
-    Dr Petra Stratton: It's wonderful to have a live specimen, if you can keep it in view. It doesn't tell me when these beds were laid down. I need samples from the seam.
+    Dr Petra Stratton: A live specimen can tell me many things, but not when these beds formed. I need samples from the seam.
+-> How do you know which way is older?
+    Dr Petra Stratton: In undisturbed beds, the older sediment is underneath. But beds fold, fault, even turn over. I check the rock structures first.
 -> I'll leave you to it.
     Dr Petra Stratton: Mind the compys at the east end. They've been getting into the sample bags.
 ===
@@ -85,10 +93,10 @@ title: primeval_dlamini
 ---
 Ranger Dlamini: (into the radio) Station to Ridge, the walker's left the station. Over. (to you) Sorry. Welcome to the ranger station. Don't touch the jars.
 -> What do you do here?
-    Ranger Dlamini: I keep the radio. Brandvold walks the trail, Feld digs, Tock watches the sky, Twitchell counts the penguins. Every one of them checks in. I know where every walker on the trail is.
-    Ranger Dlamini: Feld is late again. If you see Feld, ask for a check-in.
+    Ranger Dlamini: I keep the radio. Brandvold, Feld, Tock, Twitchell: they all check in. I keep track of everyone on the trail.
+    Ranger Dlamini: (into the radio) Feld, station. Have you got your radio on? Over.
 -> What is in the jars?
-    Ranger Dlamini: Ferns, eggs, and compys we've rescued from tar. They are very small and very annoyed and they bite through the lids. I need better lids before the next batch hatches.
+    Ranger Dlamini: Ferns, eggs, compys rescued from tar. The compys bite through the lids. I need better ones before the next batch hatches.
 -> What is in the lost-property box?
     Ranger Dlamini: One boot, a monocle, an umbrella. All from the same walker. We never found the rest of him. He sent a postcard from the mountain, so I think he's fine.
 -> I'll be on my way.

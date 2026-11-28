@@ -23,6 +23,7 @@ pub fn upgrade_boss_sprites(
     // Reading both by id binds a boss sheet without the live boss clusters.
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     boss_render: Res<ambition_sim_view::BossRenderIndex>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -37,8 +38,9 @@ pub fn upgrade_boss_sprites(
     for (entity, visual) in &new_bosses {
         // The read model is the gate: an id with no boss identity (not a boss,
         // or not materialized yet) is skipped.
+        let room = rooms.of(entity);
         let (Some(view), Some(boss_ident)) =
-            (feature_views.get(&visual.id), boss_render.get(&visual.id))
+            (feature_views.get_in(&visual.id, room), boss_render.get_in(&visual.id, room))
         else {
             continue;
         };

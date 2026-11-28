@@ -55,7 +55,7 @@ title: creator_intro
     Dennis: We can go through yesterday's training run again, if you'd like. Just your legs and a few strikes on the sandbag.
     -> Yes. Show me the basics.
         <<jump creator_intro__training>>
-    -> I remember. Ask your questions.
+    -> I remember yesterday's practice. Ask your questions.
         <<jump creator_intro__questions>>
     -> Who are you?
         Dennis: Dennis. I built you, Scout. I was up late making a few adjustments. If something feels different from yesterday, tell me where.
@@ -76,7 +76,7 @@ Dennis: We can start whenever you're ready. I've got a little filing to finish.
     <<jump creator_intro__training>>
 -> Ask your questions first.
     <<jump creator_intro__questions>>
--> What's up on the loft?
+-> What's that up in the loft?
     Dennis: My torque gauge. You can fetch it if you want to try a higher jump. The crate gets you up to the boards.
 -> ‹look around›
 ===
@@ -115,7 +115,7 @@ Dennis: First question. What's your name?
 -> I don't know.
     Dennis: You called yourself Scout yesterday. Let's see if it comes back to you.
 Dennis: Suppose I hand you a wrench and ask you to pass me the hammer. What do you do?
--> Ask if you meant the wrench.
+-> Ask which tool you meant.
     Dennis: Good. I do get the names of things wrong sometimes.
 -> Fetch a hammer.
     Dennis: Fine. Most people just hit it with the wrench.
@@ -186,13 +186,13 @@ title: alice_lane__topics
 ---
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
--> What did you see?
+-> Did you see where they went?
     Alice: Five goblins and a handcart with a crate on it. They went up the cart track toward the gate.
-    Alice: The freight window isn't until tomorrow, so they'll be at the siding until then.
+    Alice: The freight window isn't until tomorrow. If they meant to take the gate, the siding is where I'd look.
     Alice: One of them had a hammer as long as I am. I'd leave them alone.
     <<command "world.set_flag" "alice_told_goblins" true>>
 -> What are you measuring?
-    Alice: The hills, the stream, the road to the gate. The office's map of {$village} is forty years old. Bob and I are starting at opposite ends of it. We'll compare measurements where we meet.
+    Alice: Hills, stream, road to the gate. The office's map of {$village} is forty years old. Bob and I started at opposite ends. We'll compare measurements when we meet.
 -> ‹go›
 ===
 
@@ -201,7 +201,7 @@ title: alice_lane__ask
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
 Alice: Bob's camped in the woods past the village, right beside the freight trail.
-Alice: He doesn't know the goblins are here. If they come back down that trail, they'll go straight through his camp.
+Alice: I haven't heard from him since the goblins came. If any come back down that trail, they'll go straight through his camp.
 Alice: I still have to pack this instrument away. If you're going east, would you warn him for me? And tell him not to worry about getting the chain back today.
 -> I'll tell him.
     <<command "world.set_flag" "alice_route_note_carried" true>>
@@ -209,7 +209,7 @@ Alice: I still have to pack this instrument away. If you're going east, would yo
 -> What did you see?
     Alice: Five goblins and a handcart with a crate on it, up the cart track toward the gate. One had a hammer as long as I am. I'd leave them alone.
     <<command "world.set_flag" "alice_told_goblins" true>>
-    Alice: I'd rather he heard about it before they came back. Could you tell him?
+    Alice: In any case, I'd like Bob to move his camp. Could you tell him?
     -> I'll tell him.
         <<command "world.set_flag" "alice_route_note_carried" true>>
         Alice: Thank you. Take a copy of my map. The woods are east of the village, past the inn.
@@ -228,7 +228,7 @@ Alice: You found Bob? He's moving his camp? Good. I can take this line down now.
 <<if verdict("world.flag_set", "alice_route_note_carried") == "satisfied">>
     Alice: Thank you for going.
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "not_satisfied">>
-    Alice: I didn't even ask you. Thank you.
+    Alice: You went anyway. Thank you.
 <<else>>
     <<stop>>
 <<endif>>
@@ -248,7 +248,7 @@ title: alice_lane__after
 <<elseif verdict("encounter.cleared", "intro_freight_yard_fight") == "unanswerable">>
     <<stop>>
 <<endif>>
--> What's on Bob's sheet? <<if condition("world.flag_set", "bob_field_survey_received")>>
+-> Which paths should I trust on the survey? <<if condition("world.flag_set", "bob_field_survey_received")>>
     Alice: The woods and the old footpaths. If one of his paths doesn't match the office map, I generally trust his. He's the one who's walked it.
 -> ‹go›
 ===
@@ -258,14 +258,14 @@ title: bob_woods
 <<present_speaker "npc_bob">>
 <<if verdict("world.flag_set", "bob_field_survey_received") == "satisfied">>
     Bob: Nearly packed. I just have to wind this chain up. Tell Alice thanks, if you see her.
-    -> How do I read your survey?
+    -> Which paths did you check yourself?
         Bob: The paths I marked are ones I walked myself. Some of the old tracks on Alice's map have grown over.
     -> ‹go›
 <<elseif verdict("world.flag_set", "bob_field_survey_received") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "satisfied">>
     Bob: Don't step on the chain. Who are you?
-    -> Alice says move your camp off the trail. There are goblins at the siding.
+    -> Alice sent me. Goblins came through here; you should move your camp.
         <<jump bob_woods__warned>>
     -> ‹leave›
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "not_satisfied">>
@@ -274,7 +274,7 @@ title: bob_woods
         Bob: Not many people come down this path. I've heard carts going by all week, though.
     -> What are you doing out here?
         Bob: Surveying. Alice has a nice clear view across the valley. I have a lovely view of the same tree from six different directions.
-    -> There are goblins at the siding.
+    -> Goblins have been on this trail.
         <<jump bob_woods__warned>>
     -> ‹leave him to it›
 <<else>>
@@ -285,7 +285,7 @@ title: bob_woods
 title: bob_woods__warned
 ---
 <<present_speaker "npc_bob">>
-Bob: Goblins? Here? That's what's been on the trail.
+Bob: Goblins? Here? I wondered about those tracks.
 Bob: All right. I'll move up by the hollow oak. Tell Alice I'm all right, and I've still got her chain.
 <<give_item "fieldsurvey" 1>>
 <<command "world.set_flag" "bob_field_survey_received" true>>
@@ -338,7 +338,7 @@ title: valley_miller
         <<stop>>
     <<endif>>
     -> What do you grind?
-        Miller: Oats, barley, wheat when there is wheat. And whatever the gate sends down that will go between two stones.
+        Miller: Oats, barley, wheat when there is wheat. The trader asked me to try a grain that came in through the ring. The flour was green. The innkeeper bought one sack and sent it straight back.
     -> ‹go›
 <<elseif verdict("world.flag_set", "valley_miller_met") == "not_satisfied">>
     <<command "world.set_flag" "valley_miller_met" true>>
@@ -368,6 +368,8 @@ title: valley_innkeeper
 <<present_speaker "npc_valley_innkeeper">>
 <<if verdict("world.flag_set", "valley_hen_returned") == "satisfied">>
     Innkeeper: She's back on her perch and laying out of spite. Come in any time.
+    -> Do you get your supplies from the mill?
+        Innkeeper: Flour from the miller, eggs from my own hens. He keeps trying me on new sorts of grain from the gate. I told him I cannot sell a green loaf to a man who has just come through the ring.
     -> ‹go›
 <<elseif verdict("world.flag_set", "valley_hen_returned") == "unanswerable">>
     <<stop>>
@@ -390,7 +392,7 @@ title: valley_innkeeper
         Innkeeper: Mine. Speckled, one grey feather in her tail. Gone since the morning the carts went by.
         Innkeeper: Goblins, the miller says. With a handcart, going east on the woods road. If she followed the noise, she's in the woods.
     -> What's the news?
-        Innkeeper: Goblins on the woods road, the freight window tomorrow at noon, and Dennis hasn't been down from the barn for his supper.
+        Innkeeper: Goblins on the woods road, freight at noon, and Dennis hasn't been down from the barn for his supper.
         <<if condition("world.flag_set", "intro_creator_dead")>>
             -> He won't be. He's dead.
                 Innkeeper: Oh.
@@ -407,12 +409,12 @@ title: valley_trader
 ---
 <<present_speaker "npc_valley_trader">>
 Trader: Lamp oil, salt, batteries. Everything here came through the gate this week.
--> You were a smith.
+-> Were you a smith?
     Trader: Twenty years. Now I sell imports. I still shoe the miller's mule, but there isn't enough work to keep a second smith.
     Trader: The knight brought me a sword with a battery in it. Took me a morning to fit the crossguard.
 -> Have you sold anything to the Barrow King?
     Trader: Sold? He hasn't paid for anything. We used to leave broken tools by the old quarry. I've started putting them under lock and key.
-    Trader: Last week I saw one of my old kettles marching across the moor. It chased the miller all the way to his door.
+    Trader: The ranger brought back a piece of a kettle I threw away last spring. She found it halfway down the moor, still hot.
 -> Did the goblins come in here?
     Trader: Stood in the door and looked at the batteries for a long time. Bought nothing. The big one had a hammer I would have been proud of.
 -> ‹go›
@@ -422,7 +424,7 @@ title: valley_gatekeeper
 ---
 <<present_speaker "npc_valley_gatekeeper">>
 <<if verdict("world.flag_set", "valley_gatekeeper_met") == "satisfied">>
-    Gatekeeper: Freight at noon tomorrow. If you have a delivery, leave the receipt with me.
+    Gatekeeper: Freight window's at noon. If you have a delivery, leave the receipt with me.
     -> Did goblins come this way with a handcart?
         Gatekeeper: Five. They took the freight track to the siding. I put them in the book as freight.
     -> ‹go›
@@ -449,7 +451,7 @@ Knight-Errant: Stand back, it's on. It's always on. I can't find where it goes o
     Knight-Errant: I had the smith put a proper crossguard on it. It was only a handle. You can't swear an oath on a handle.
 -> What do you use it for?
     Knight-Errant: Rats, mostly. The cellar rats of this valley have never been so frightened, or so well done.
-    Knight-Errant: When it's charged I'm going up to the barrow on the moor, past the fell. There are ghosts taking rubbish up there in broad daylight now. The innkeeper asked me to find out what they're doing.
+    Knight-Errant: When it's charged, I'm off to the barrow on the moor, past the fell. Ghosts have been hauling rubbish up there in daylight. The innkeeper asked me to look into it.
 -> There are goblins at the siding. <<if verdict("encounter.cleared", "intro_freight_yard_fight") == "not_satisfied">>
     Knight-Errant: I know. I'm waiting for it to charge. It charges in the Plough's window, when there's sun.
 -> You could have helped with the goblins. <<if verdict("encounter.cleared", "intro_freight_yard_fight") == "satisfied">>
@@ -462,17 +464,18 @@ title: valley_wizard
 ---
 <<present_speaker "npc_valley_wizard">>
 Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
--> What book?
+-> What does your book do?
     Hedge Wizard: The Book of Sums. Ask it anything with a number in. Seven times eight. *he presses it* Fifty-six. Every time. Every single time.
     Hedge Wizard: Forty years I had three charms: one for warts, one for lost keys, one for a fair wind on a Tuesday. Now I have every sum there is.
 -> Is it magic?
     Hedge Wizard: I bought it from the trader. There were forty in the crate. I've tried it on the Tuesday spell and it keeps asking me for a date.
 -> What about the ghosts at the barrow?
-    Hedge Wizard: There have been ghosts up there since my grandfather's time. You could generally walk right past them. Now the King has something that can follow you all the way down to the bridge. I don't go up there at dusk.
--> Do you know any real spells?
+    Hedge Wizard: Ghosts have been there since my grandfather's time. You could walk right past them. Now the King has things that follow you down to the bridge.
+    Hedge Wizard: I told the knight I could try the fair-wind spell on them. He asked what day it was.
+-> Can you cast spells without the book?
     Hedge Wizard: Three. I've just told you all of them.
     Hedge Wizard: The Tuesday one is quite good.
--> Dennis, from the barn. <<if condition("world.flag_set", "intro_creator_dead")>>
+-> Did you know Dennis from the barn? <<if condition("world.flag_set", "intro_creator_dead")>>
     Hedge Wizard: He could make a thing that talks back. I can make a wart go. I'd have liked to compare notes.
 -> ‹go›
 ===
@@ -482,8 +485,11 @@ title: valley_ranger
 <<present_speaker "npc_valley_ranger">>
 Ranger: Quiet. You're standing on the trail.
 -> What are you tracking?
-    Ranger: Goblins. They go through batteries like bread. *she holds one up* Still warm. They went up the hill path an hour ago.
+    Ranger: Goblins. They go through batteries like bread. *she holds one up* Found this on the hill path, along with their tracks.
     Ranger: My grandmother tracked by bent grass. I'd like to see her try it on goblins.
+-> Have you been up to the barrow?
+    Ranger: Found a kettle with legs on the moor. I brought a piece of it to the trader. He recognised the patch he'd soldered on the side.
+    Ranger: I thought I could follow the tracks back to the King. There were tracks all over one another by the quarry.
 -> What's that on your head?
     Ranger: A head torch. It came through the gate. I've covered the white lens with red cloth. It keeps slipping off. If you see a bit of red cloth on the trail, it's mine.
 -> The goblins at the siding are beaten. <<if condition("encounter.cleared", "intro_freight_yard_fight")>>
@@ -498,6 +504,8 @@ title: valley_shepherd
     Shepherd: Forty-one. Forty-two. Don't stand there, you're putting me off.
     -> What can you see from up here?
         Shepherd: The whole valley. The mill, the Plough's chimney, the woods, the gate. Past the gate, nothing. The weather doesn't go through it either.
+    -> Does the dog ever come up here?
+        Shepherd: Sometimes she comes up with a stick. Leaves it on the wall where I keep the tally. I throw it back downhill and she brings it all the way round again.
     -> One of your sheep is in the sky. <<if verdict("world.flag_set", "hobford_sheep_clouded") == "satisfied">>
         Shepherd: I saw. That was forty-three.
         Shepherd: A fell sheep goes up when it goes. The fleece is too light to stay down without a sheep inside holding on.
@@ -571,7 +579,7 @@ Oiler: If it starts pulling sideways again, come back. I'll show you how to fit 
 
 title: news_board_lab_incident
 ---
-Drain Market Bulletin: ► BREAK-IN AT A WORKSHOP NEAR {$village}. ONE DEAD. NO OTHER DAMAGE.
+Drain Market Bulletin: ► BREAK-IN AT A WORKSHOP NEAR {$village}. ONE DEAD. INQUIRY PENDING.
 -> ‹read further›
     <<jump news_board_lab_incident__1>>
 -> ‹walk away›
@@ -580,7 +588,7 @@ Drain Market Bulletin: ► BREAK-IN AT A WORKSHOP NEAR {$village}. ONE DEAD. NO 
 title: news_board_lab_incident__1
 ---
 Drain Market Bulletin: ► THE GATE AUTHORITY REMINDS CARRIERS THAT THE FARM GATES ARE FOR LICENSED FREIGHT.
-Drain Market Bulletin: ► GATE SIX: DELAYED. SOUP: TUESDAYS.
+Drain Market Bulletin: ► RING SEVEN: CHECK BREAKER BEFORE DIALING. SOUP: TUESDAYS.
 -> ‹leave the board to its work›
 ===
 
@@ -600,7 +608,7 @@ Gate Janitor: Mind the wet patch. Maintenance has this corridor today, so half t
 
 title: gate_janitor_ripple__1
 ---
-Gate Janitor: Don't touch the shimmer. It won't take you anywhere. Gate Six works; use that if you need a gate.
+Gate Janitor: Don't touch the shimmer. It won't take you anywhere. Use a ring with a working terminal. Seven's got a breaker beside it.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
 -> ‹move on›
@@ -608,8 +616,8 @@ Gate Janitor: Don't touch the shimmer. It won't take you anywhere. Gate Six work
 
 title: gate_janitor_ripple__2
 ---
-Gate Janitor: Six goes to a beach. Seven goes to some meeting room. Eight still says Tuesday. I stopped asking.
-Gate Janitor: Seven's on the Math line now. Its breaker's on the wall; throw it and Seven dials TANGENT, and nothing else.
+Gate Janitor: Seven used to be the Math line. Throw the breaker on the wall to power it up, then use the terminal.
+Gate Janitor: TANGENT is Math Town. You can dial another ring instead, if you have its address. I don't get paid to remember all of them.
 <<command "world.set_flag" "gate.known.TANGENT" true>>
 -> Ask another question.
     <<jump gate_janitor_ripple>>
@@ -618,7 +626,7 @@ Gate Janitor: Seven's on the Math line now. Its breaker's on the wall; throw it 
 
 title: gate_janitor_ripple__3
 ---
-Gate Janitor: Six jammed twice this morning. Seven leaks blue light. I'm here until both stop doing that.
+Gate Janitor: One's power switch sticks. Seven leaks blue light. I'm here until both stop doing that.
 Gate Janitor: And I mop. People walk out of a gate and lose breakfast. Robots never do. I like robots.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
@@ -639,7 +647,7 @@ Manifest Clerk: Name? ...No entry. Spell it again. Slower.
 
 title: manifest_kiosk_wrong_list__1
 ---
-Manifest Clerk: Freight. Every crate through these gates has a line on a manifest. You're not on one. I checked twice, which is once more than I'm paid for.
+Manifest Clerk: Freight. Every declared crate has a line on a manifest. Passengers are in a different book. I checked both, which is once more than I'm paid for.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ‹step away›
@@ -647,7 +655,7 @@ Manifest Clerk: Freight. Every crate through these gates has a line on a manifes
 
 title: manifest_kiosk_wrong_list__2
 ---
-Manifest Clerk: A goblin crew filed for the {$village} freight window. One crate, one lab of research, paid in advance. Their papers were in order. Their spelling wasn't.
+Manifest Clerk: Goblin crew, {$village} freight window. One crate, laboratory research, carriage prepaid. I haven't seen inside the crate.
 Manifest Clerk: Next question.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
@@ -665,8 +673,8 @@ Gate Janitor: I watched a box of spare boots go through while a man waited with 
 
 title: manifest_kiosk_wrong_list__copies
 ---
-Manifest Clerk: We keep one copy here and one at the {$village} gate office. I corrected the address on ours.
-Manifest Clerk: {$village} sent it back marked DENIED. That's all I can show you.
+Manifest Clerk: We keep one copy here and one at the {$village} gate office. The addresses didn't agree, so I sent a correction to their office.
+Manifest Clerk: {$village} sent it back marked DENIED. I don't have their original. That's all I can show you.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ‹step away›

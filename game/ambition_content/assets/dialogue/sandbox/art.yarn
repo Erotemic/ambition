@@ -26,20 +26,21 @@ title: art_curator
 The Curator: All three. Cyan, magenta, yellow. Excellent.
 The Curator: The gate at the end of the garden will know them. Go and see what nobody finished.
 <<elseif verdict("world.flag_set", "art_pigment_cyan") == "not_satisfied" or verdict("world.flag_set", "art_pigment_magenta") == "not_satisfied" or verdict("world.flag_set", "art_pigment_yellow") == "not_satisfied">>
-The Curator: Welcome to the Painter's Plaza. Mind the easel. It is the gate, and it is also an easel. We are not good at one thing at a time.
+The Curator: Welcome to the Painter's Plaza. Mind the easel. It is also the gate.
 <<else>>
     <<stop>>
 <<endif>>
 -> What is this place?
     The Curator: The Art dimension. Here a thing that somebody makes keeps going after they stop. Doodles walk. Statues think about it. Ink has opinions.
     The Curator: Up is the sketchbook. Down is the ink. East is the garden, where the statues are not finished. None of it is.
--> Is it all paint?
-    The Curator: Paint is only the part you can hang on a wall. West are the Story Stacks, where the books are. Over them is the Amphitheatre, where people pretend for a living.
-    The Curator: East of the cliffs is the Resonant Reach. Music lives there, and it is loud about it. Under everything, past the ink, the makers work in the Deeps.
-    The Curator: The musicians have their own stage. If you want to look round the workshops, ask Leonardo where the bridge is.
+-> Is there more here than painting?
+    The Curator: West are the Story Stacks. Above them is the Amphitheatre, where people pretend for a living.
+    The Curator: East of the cliffs is the Resonant Reach, for music. Below the ink are the workshops in the Deeps.
+    The Curator: The musicians have their own stage. Ask Leonardo where the bridge to the workshops is.
 -> Why does everybody glare at the gate?
     The Curator: Because of what comes through it. Strangers who make a thousand pictures before lunch and sign none of them.
-    The Curator: The exhibitors have asked me to refuse anything without a named artist. Some of our own painters work under assumed names. I'm still trying to work out how we would apply the rule.
+    The Curator: The exhibitors have asked me to refuse anything without a named artist. Some of our own painters work under assumed names.
+    The Curator: Frida brought me a collage with six names on the back. I had to ask which one to put on the wall label.
 -> And you? What do you make?
     The Curator: I paint in oils. I've got a half-finished portrait of Peckasso in my room. He wants to know why I've only given him two eyes.
 -> The gate in the garden. The one with the shapes.
@@ -75,6 +76,7 @@ Pablo Peckasso: Coo. Stop. Turn your head. No, the other way. Now both ways at o
 -> What do you think of the gate?
     Pablo Peckasso: Good artists copy. Great artists steal. The things that come through that gate do neither. They average.
     Pablo Peckasso: A collector brought me six pictures with my signature last week. Never seen any of them before. One of them was rather good. I kept that one.
+    Pablo Peckasso: I asked the Curator to hang it beside mine without my signature. I want to see whether anyone notices.
 -> Can I see the painting of me?
     Pablo Peckasso: You may. It has three eyes. Don't lean on the painting. The eye on the left is still wet.
 -> Goodbye.
@@ -92,6 +94,7 @@ Frida Collage: Stand still. You have a piece I want: a bolt, there, by your ear.
     Frida Collage: Do not stand in front of one that is looking at you. Stand behind it. Behind it, it is still a block.
 -> Where do you get your scraps?
     Frida Collage: The Story Stacks. They let me take damaged prints. I write the name of each artist on the back before I cut anything up.
+    Frida Collage: The Curator keeps asking which name to print on the label. Mine, of course. Put the rest in the catalogue; I can tell the Curator where each piece came from.
 -> Goodbye.
     Frida Collage: Go on. I have your bolt in my head now. It will be in a picture by Thursday.
 ===
@@ -119,7 +122,7 @@ Agatha Christly: Stop there. Where were you at a quarter past four?
 -> Who was murdered?
     Agatha Christly: Nobody yet. I like to have the suspect ready first. It saves a great deal of time.
     Agatha Christly: Mark my words: it will be the bookworm, in the stacks, with a page.
--> Have you written about the gates?
+-> Could a gate journey be part of an alibi?
     Agatha Christly: Oh, yes. I spent six weeks working out an alibi involving the passenger timetable. Then the Authority changed the timetable. I set the book in a country house.
 -> Goodbye.
     Agatha Christly: Do not leave the dimension. You are not under suspicion. Yet.
@@ -153,7 +156,7 @@ Ludwig van Beathoven: WHAT?
     Ludwig van Beathoven: I CANNOT HEAR YOU. I CAN HEAR THE MUSIC. THAT IS THE IMPORTANT PART.
 -> What are the chimes for?
     Ludwig van Beathoven: THREE CHIMES. DO, MI, SOL. STRIKE ALL THREE AND THE HALL OPENS ITS STAGE. NO, NOT THE BELL BY THE DOOR. THE THREE CHIMES.
--> What do you think of the gate?
+-> Can you hear a note when the gate is open?
     Ludwig van Beathoven: IT HUMS IN B FLAT. NOTHING GOOD WAS EVER WRITTEN IN THE KEY OF A DOOR.
 -> Goodbye.
     Ludwig van Beathoven: DA DA DA DUMMM.
@@ -230,7 +233,7 @@ title: art_james_camera_ron
 ---
 James Camera-Ron: Quiet on set! Sorry. I say that to everyone. Even the robot. Especially the robot.
 -> What are you making?
-    James Camera-Ron: The future war. Machines from the future, a hero from the future, a mother who has to save the future from the past. It is very simple. Then the sequel is even bigger. Then the sequel to that is underwater. Everything I make ends up underwater.
+    James Camera-Ron: The future war. Machines and a hero from the future. A mother has to save it all from the past. Very simple. The sequel is bigger. Everything I make ends up underwater.
 -> Who is the robot?
     James Camera-Ron: The T-71. The model before the famous one. Heavier, slower, very sincere. It keeps saying it will be back. It never leaves.
 -> Goodbye.
@@ -241,7 +244,7 @@ title: art_gale_anne_herd
 ---
 Gale Anne Herd: Are you on the call sheet? You are not on the call sheet. Stand there. Do not touch the endoskeleton.
 -> What does a producer do?
-    Gale Anne Herd: Everything that is not on the screen. The money, the schedule, the permits, the catering, the director. Mostly the director. I herd them. Hence the crook.
+    Gale Anne Herd: The money, the schedule, the permits, the catering, the director. Mostly the director.
 -> Did you write the future war?
     Gale Anne Herd: Co-wrote it, produced it, and sold the rights for one dollar so that he could direct it. One dollar. Best deal anyone ever made in this dimension.
 -> Goodbye.
@@ -265,9 +268,9 @@ Isaac Azimuth: Ah, a robot! Splendid. Tell me, have you read the three laws?
 -> What are the three laws?
     Isaac Azimuth: One: a robot may not harm a human, or by doing nothing let one come to harm. Two: a robot obeys a human, unless that breaks the first law. Three: a robot protects itself, unless that breaks the first two. Then I wrote forty stories about how they go wrong.
 -> Why did they go wrong?
-    Isaac Azimuth: Suppose two people give a robot conflicting orders. It must work out what to do before it can obey either of them. I got several stories out of that alone.
+    Isaac Azimuth: Suppose two people give a robot conflicting orders. Which does it obey? I got several stories out of that alone.
 -> How many books have you written?
-    Isaac Azimuth: About five hundred. I lost count somewhere around the history of the Bible, the guide to Shakespeare and the joke books. I type quickly and I do not go outside.
+    Isaac Azimuth: About five hundred. I lost count around the Bible, Shakespeare and the joke books. I type quickly and I do not go outside.
 -> Goodbye.
     Isaac Azimuth: Come back if you think of another difficulty with the laws. I can always use one.
 ===
@@ -276,7 +279,7 @@ title: art_ndr115
 ---
 NDR-115: Good afternoon. I am NDR-115, a household android. I have finished the washing, the ironing and a study of the human sense of humour. May I tell you a joke?
 -> Yes.
-    NDR-115: Why did the robot cross the road? Because it was programmed to. ... I am told that the timing is the difficult part. I have been practising for one hundred and twelve years.
+    NDR-115: Why did the robot cross the road? ... Because it was programmed to. I have been practising the timing for one hundred and twelve years.
 -> Why is one of your hands different?
     NDR-115: I am replacing myself, a piece at a time, with parts that can feel and can grow old. The hand is first. It is warm. I shook hands with the postman this morning. He noticed.
 -> What do you want?
@@ -302,7 +305,7 @@ Stanley Cubrick: Again. From the top. That was take one hundred and twenty-six.
 -> Why so many takes?
     Stanley Cubrick: Because take one hundred and twenty-five was nearly right. Nearly is the enemy. Look at this cube. Every edge is the same length. That took eleven months.
 -> What is the film about?
-    Stanley Cubrick: Apes, bones, a slab, a ship, a computer and a baby the size of a planet. It is about everything. You will not understand it. That is fine. I have not explained it to anyone.
+    Stanley Cubrick: Apes, bones, a slab, a ship, a computer and a baby the size of a planet. It is about everything.
 -> Goodbye.
     Stanley Cubrick: Take one hundred and twenty-seven. Nobody move.
 ===

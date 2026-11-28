@@ -2,7 +2,7 @@ title: unfinished_surveyor
 ---
 <<present_speaker "npc_unfinished_subclause_surveyor">>
 <<if verdict("world.flag_set", "unfinished_surveyor_met") == "satisfied">>
-    Subclause: Per the spec, the ground east of here will be ground. Eventually.
+    Subclause: Clause has sent a new datum. I have to start from this end again.
 <<elseif verdict("world.flag_set", "unfinished_surveyor_met") == "not_satisfied">>
     <<command "world.set_flag" "unfinished_surveyor_met" true>>
     Subclause: Section four, paragraph b: survey the ground. Hold still, you're in my sightline.
@@ -12,7 +12,7 @@ title: unfinished_surveyor
 -> Who are you?
     Subclause: Subclause 4(b). A small instance of Clause. Clause interprets. I measure.
     Subclause: I sent Clause the measurements last week. Clause sent them back with a different section number.
--> What are you building?
+-> What will this place be when it is finished?
     Subclause: A world. The Boss wants the ground finished by Tuesday. The painters are using a different revision of the plans.
 -> Why is half of everything a drawing?
     Subclause: The outlines were due first. The painters are supposed to fill them in once Clause signs off on the drawings.
@@ -34,7 +34,7 @@ title: unfinished_painter
     Subclause: One coat of blue, two of afternoon. The clouds go up after, on wires.
     Subclause: I have to wait for the surveyor to mark the cloud height. Last time we put them up they were behind the mountain.
 -> What's under us?
-    Subclause: The void. It's reserved. There's a ticket for a basement, but it's in the backlog.
+    Subclause: Void. I have a tin of grey ready for when they put a basement in.
 -> Who tells you what to paint?
     Subclause: Clause sends me the drawings. Subclause 4(b) tells me where to put them. If you've got a drawing dated later than mine, may I have a copy?
 -> ‹go›
@@ -52,7 +52,7 @@ title: unfinished_placeholder
 <<endif>>
 -> How long have you been here?
     Placeholder: Since the second sprint. They keep meaning to.
--> Who will you be?
+-> Do you know who will replace you?
     Placeholder: The ticket says: a wise old someone, to be decided. I've been practising the wise part.
     Placeholder: Ask me anything.
     -> What is the meaning of all this?
@@ -62,5 +62,7 @@ title: unfinished_placeholder
         Placeholder: That was very wise of you.
 -> What are the gauges?
     Placeholder: Gravity, weather and layers. Don't touch them. Last time someone touched gravity, the east went up.
+-> Do you like it here?
+    Placeholder: Yes. That part of the scenery over there was a placeholder too. We used to talk. Then it became a mountain. A rather nice one.
 -> ‹go›
 ===

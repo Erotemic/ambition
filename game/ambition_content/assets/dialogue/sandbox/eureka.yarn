@@ -23,12 +23,15 @@ title: eureka_teodora
 Teodora: Step onto the car and it goes up. Hold the rail, and do not lean on the door.
 -> How far up does it go?
     Teodora: All the way to the station's tether hub. Thirty-six thousand kilometres of cable, and I have walked none of it.
-    Teodora: There are two operators on each shift. I work the ground end.
+    Teodora: Two operators per shift, one at each end. Priya wants both clock readings when we close the doors. I sent up a second notebook.
 -> What is up there?
     Teodora: Customs, a docking bay, people who eat out of tubes. Further along the spoke, Gnu-ton's gravity works.
     Teodora: The empty car comes back lighter some days. Nobody can tell me why. I log it anyway.
 -> How do I get back to Eureka?
-    Teodora: Take the station gate. The ring is quicker if you don't get sick. I take the car both ways. I've had quite enough of the recovery benches.
+    Teodora: SCIENCE is this gate. GALACTIC is the station dock. You can dial either from the other end if you don't fancy the elevator.
+    <<command "world.set_flag" "gate.known.SCIENCE" true>>
+    <<command "world.set_flag" "gate.known.GALACTIC" true>>
+    Teodora: I take the car both ways. I've had quite enough of the recovery benches.
 -> Have a good shift.
 ===
 
@@ -37,8 +40,9 @@ title: eureka_priya
 Priya: Sorry, I thought you were the next shift. Do you know where Mina is?
 -> How long have you been awake?
     Priya: Four days since I had a night off. I slept in the lab last night and woke up when the temperature alarm went off.
--> What are you measuring?
+-> What are you trying to find out?
     Priya: Whether a clock at the top of the elevator runs fast. It does. The question is by how much, and whether my supervisor believes me.
+    Priya: Teodora logs both clocks. I still have to account for the signal delay before I can compare the readings.
 -> You should rest.
     Priya: Mina keeps telling me. She offered to ring my supervisor for me. I'd rather she didn't.
 -> Good luck with it.
@@ -79,7 +83,7 @@ Coulomba Tezla: You counted them three times. The third time you counted the nap
     Coulomba Tezla: Dmitri installed the second switch on the ceiling. We still have a bucket under the sink.
     <<present_speaker "npc_science_nikobolt">>
     Nicholas Tezla: I told Dmitri I would pay for the pipe.
--> Why do you guard your drawings?
+-> Has anyone tried to copy your drawings?
     <<present_speaker "npc_science_nikobolt">>
     Nicholas Tezla: A visitor took a copy of my coil drawings. I've since heard about a lightning machine at Castle Godwin.
     Nicholas Tezla: I'd like to know how much of my design they've used. I have no intention of going there to ask.
@@ -140,7 +144,7 @@ Wilbur: Mind the grass. I keep it. It does not keep itself, whatever the physici
 -> Do the other pigeons bother you?
     Wilbur: Do not start. They are not my relatives. They are not anyone's relatives. They eat crumbs off the lecture steps and look at me like I owe them.
 -> What do you think of the elevator?
-    Wilbur: They promised me a little cart when they built it. I've asked every year.
+    Wilbur: They promised me a little cart when they built it. I've asked every year. Teodora offered to bring a trolley down from the station. I told her it needs wheels that work on grass.
 -> I will mind the grass.
 ===
 
@@ -164,7 +168,8 @@ Mina: Coffee, soup, or a chair. The chair is free if you buy something.
     Mina: Everybody on campus. Students in the morning, professors at noon, the lab crew when something has caught fire.
     Mina: Physics owes me eleven coffees. Chemistry pays in cash. Biology brings its own cups, which I respect.
 -> What is the soup?
-    Mina: Whatever came down on the elevator. Today it is lentils from the station. There was supposed to be spinach, but they needed the cold box for a lab shipment.
+    Mina: Whatever came down on the elevator. Today it is lentils from the station. Pell sent an apology about the spinach. They needed the cold box for a lab shipment.
+    Mina: I sent the empty tins back with a note asking for more lentils. Everyone liked them.
 -> Do people from the station come down?
     Mina: On weekends. They ask for the table by the window. I keep it free until the elevator comes down.
 -> Just looking.
@@ -214,6 +219,8 @@ Range Officer Pryce: Hard hat? No? Then stand behind me. Not that I am any harde
     Range Officer Pryce: PROBABLY FINE III? It has a name with three in it. The first two taught us a great deal, briefly.
 -> What are those dummies for?
     Range Officer Pryce: Crash tests. Hit one. Go on. They are paid in sandbags and they do not complain, which is more than I can say for the interns.
+-> Do you ever get a quiet day?
+    Range Officer Pryce: Thursdays. Everybody has to write up the results of Wednesday. I bring a book.
 -> Stay safe.
     Range Officer Pryce: Probably.
 ===
@@ -226,8 +233,10 @@ Ottoline Hum: (She holds one hand near the antenna, the other by the loop. A not
     Ottoline Hum: The trick is standing still. Breathe wrong and you're a semitone flat.
 -> What are you playing?
     Ottoline Hum: Whatever the institute's working on. Monday it was the hydrogen spectrum. The physicists cried. The chemists asked for it in a minor key.
--> Do people pay?
-    Ottoline Hum: Visitors off the gate pay in coins I've never seen. I've got a case of currencies from forty dimensions. The patent clerk says one of them is technically a button.
+-> What do visitors pay you in?
+    Ottoline Hum: Visitors off the gate pay in coins I've never seen. I've got a case of forty different currencies. The patent clerk says one of them is technically a button.
+-> Do you play anywhere else?
+    Ottoline Hum: Occasionally in the cafe. Mina put a table too close to me once. Every time somebody reached for the sugar I played a little trill.
 -> Play on.
     Ottoline Hum: Always. Mind you don't walk between me and the antenna. You'd be in the song.
 ===
@@ -236,7 +245,7 @@ title: eureka_quark
 ---
 Dr. Ilse Quark: Visitor! Helmet's optional, curiosity isn't. Welcome to the Eureka Collider. This is the slow bit. The fast bit is in the pipe.
 -> What does the collider do?
-    Dr. Ilse Quark: We send two beams round the ring opposite ways and make them meet in the detector. Then we read the wreckage. It's the most expensive way anyone has ever found to break something to see what's in it.
+    Dr. Ilse Quark: Two beams go round in opposite directions and collide in the detector. We read the wreckage. A very expensive way to find out what something's made of.
 -> Why the bicycles?
     Dr. Ilse Quark: The ring's twenty-seven kilometres round. The beam does it eleven thousand times a second. I do it once before lunch. We don't race. Well. I don't.
 -> What has got loose in the tunnel?
@@ -251,22 +260,22 @@ Will Force: Good evening, Eureka. I'm Will Force, and this is the news, straight
 Will Force: You are not a camera. That's fine. I never waste a good evening.
 -> What is in the news tonight?
     Will Force: Tonight's top stories. One: Priya at the institute says a clock at the top of the tether runs fast.
-    Will Force: That is not a broken clock. That is gravity. Time goes a little faster the higher you are out of a gravity well. A little. Not enough to be late for my show.
-    Will Force: Two: Teodora reports that the tether's car comes back lighter on some days. A developing story. QED-TV does not report a mystery as a fact. We report it as a mystery, with a serious face.
+    Will Force: That is gravity. The higher clock runs a little faster. Not fast enough to be late for my show.
+    Will Force: Two: the tether car comes back lighter on some days, says Teodora. We have no explanation. (He looks gravely into the camera.) A developing story.
     Will Force: And beyond the gate, lightning over a castle in another dimension. Sources say someone borrowed a coil design. Our source is Coulomba.
     Will Force: I'm Will Force. Stay curious, Eureka.
 -> Show me a demonstration.
     Will Force: Live, on my set? Absolutely. Stand behind the tape.
     Will Force: This is a Van de Graaff generator. A rubber belt carries charge up into the sphere, and the charge spreads over its outside.
-    Will Force: Touch the sphere and the charge spreads over you too. Each hair gets the same charge, and like charges push each other away. So each hair stands up and tries to leave the others.
+    Will Force: Touch it and your hairs acquire like charges. They repel one another, and up goes the hair.
     Will Force: And that is why I do not touch the sphere. The science is free. The hair is insured.
 -> Why no safety goggles?
     Will Force: Goggles leave a line in the fur, and the fur is on camera. I stand outside the tape. You must wear goggles past the tape. Do as I say, not as I wear.
 -> What is one horsepower?
-    Will Force: Seven hundred and forty-six watts. A man who sold steam engines measured horses turning mills, so his buyers could compare. My people became a unit of sales.
-    Will Force: Here is the twist: a real horse can make nearly fifteen horsepower for a moment, and less than one over a working day. I make one whole broadcast, every night. Television is endurance.
+    Will Force: Seven hundred and forty-six watts. A steam engine salesman used my people to measure his product.
+    Will Force: A horse can manage nearly fifteen horsepower in a burst, less than one all day. I do a whole broadcast every night. Television is endurance.
 -> Do you work with Carl Stargan?
-    Will Force: Carl is our astronomy correspondent. He files from the observatory. Every report begins with "look up", and every report runs long. I allow it. The universe is a big story.
+    Will Force: Carl is our astronomy correspondent. Every report from the observatory begins with "look up" and runs long. I allow it.
     Will Force: Neil onGras Turfson files from the orbital station. Well, actually, he corrects my reports from the orbital station. Live.
     Will Force: Great colleagues. Wonderful men. Neither of them has the hair.
 -> Who are you?
@@ -296,12 +305,12 @@ title: eureka_avery_gadro
 ---
 Avery Gadro: Ninety seconds to air. Do not touch the board. Do not stand on the board. Why is everyone always on the board?
 -> What does a producer do?
-    Avery Gadro: Everything that the anchor does not see. The cameras, the lights, the guests, the cues, the prompter. On a good night I count six times ten to the twenty-third little problems. That is about one mole of problems.
+    Avery Gadro: Cameras, lights, guests, cues, prompter. On a good night, six times ten to the twenty-third problems. About a mole.
 -> What happened on air last week?
     Avery Gadro: Someone typed a question mark on the teleprompter. He read it exactly as it was. "Good evening. I'm Will Force?"
     Avery Gadro: Then he said, "That is a good question," and he talked about identity for eleven minutes. The ratings went up. I hate that the ratings went up.
--> Is he careful with the science?
-    Avery Gadro: Completely. He sends every story to two professors and to Dmitri, because Dmitri checks whether the thing has a plug. If a fact is wrong, he will not go on air.
+-> Who checks Will's demonstrations?
+    Avery Gadro: He sends every story to two professors and Dmitri, who checks whether the thing has a plug. If a fact is wrong, he will not go on air.
     Avery Gadro: If his hair is wrong, he also will not go on air. One of those is a policy I wrote.
 -> Good luck with the show.
     Avery Gadro: Luck is not a variable I budget for. Thank you anyway.

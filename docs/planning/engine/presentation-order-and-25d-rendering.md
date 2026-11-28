@@ -881,6 +881,25 @@ shared value preparation are sufficient until source proves otherwise.
    fallback uses the same world sprite path. Medium night captures in Math
    Town check the veil in 2D and side-on 2.5D.
 
+   Daylight reads the room of each logical view. Its lamp sample covers the
+   combined output bounds and uses light sources from that room. The view
+   hides its veil when the light is neutral. The two-view test checks lamp
+   isolation and veil removal when an observer goes away. A Medium
+   comparison capture shows the same night light in the 2D main view and
+   the 2.5D inset.
+
+   Indoor darkness uses the light settings and light sources of each
+   view's live room. Low and Medium center the light on the participant
+   that the view follows, or the nearest participant in that room. High
+   and Ultra share a light map across the outputs of that view. The
+   two-view test checks overlapping rooms, a quality change, and veil
+   removal on entry to a lit room.
+
+   Each boss presentation row has a live room. Stage lights and name
+   cards read the room that the view frames. Both renderers use the
+   same stage lights. A test gives two instances of the same boss
+   different light cues and checks that each cue stays in its view.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

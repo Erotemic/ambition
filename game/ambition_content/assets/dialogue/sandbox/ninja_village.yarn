@@ -29,14 +29,14 @@ title: ninja_village_nagisa
 ---
 Nagisa: *tok, tok* Welcome through the SILENT gate. I am Nagisa. I keep it.
 -> What does a gatekeeper do?
-    Nagisa: I keep people away from it while the terminal is being used. Then I make sure everyone who comes through gets clear of the ring. Kenji usually needs a hand.
+    Nagisa: I keep the ring clear while the terminal is in use, and help arrivals off the platform. Kenji usually needs a hand.
 -> Why is the gate called SILENT?
     Nagisa: A ninja village does not announce itself. Its address should not either.
 -> What brings an alligator to a mountain village?
     Nagisa: A river, once. Then the gate. A gate wants someone patient at the door, and nobody waits like a gator.
 -> Has anything strange come through?
-    Nagisa: Kenji's letters to the castle side. They go out, and the ring brings them back unopened.
-    Nagisa: I checked the address twice with Kenji. Someone over there is sending them back.
+    Nagisa: Kenji's letters to the castle side keep coming back unopened.
+    Nagisa: I checked the address twice with Kenji. They made the crossing. I don't know who turned them away.
 -> Thank you.
 ===
 
@@ -58,13 +58,14 @@ title: ninja_village_ume
 Ume: Welcome. Tea for the tired, and for the gate-sick at half price. You do not look gate-sick.
 -> Why do people run on the roofs?
     Ume: It is quicker than the street, and the dojo marks you for it. After the rice is in, the whole village is up there.
--> Tell me about the dojo.
+-> What is it like living next to the dojo?
     Ume: Sensei Hayashi runs a rank exam on the hour. Daichi has failed it eleven times. He is very proud of the number.
 -> Can anyone get a room here?
     Ume: I've got two upstairs. One family paid ahead and left before daylight. The little one forgot her shoes.
     Ume: If they come back, they're under the bed. I'm leaving them there.
 -> Do the students eat here?
     Ume: Daichi always wants seconds. Ren comes in so late I have to keep something warm for her. Hayashi washes his bowl before he leaves, bless him.
+    Ume: I asked them to leave the roof over my stove alone. Now they land right above the bedroom.
 -> Thank you.
 ===
 
@@ -73,11 +74,12 @@ title: ninja_village_daichi
 Daichi: Stand back! I am about to perform the Thousand Leaf Step! ...I am still learning the name of the second part.
 -> What is the rank exam?
     Daichi: Part one, the dummies. Part two, the examiner. Part three, the forms. I have never seen part three.
--> Why do you shout the moves?
+-> Does calling out a move help you learn it?
     Daichi: How else will anyone know it was a move? A move nobody hears is just exercise.
 -> Have you seen Kagero fight?
     Daichi: No. Ren says she hunts spirits and never announces her moves.
-    Daichi: I practiced fighting without shouting yesterday. I fell off a roof. Nobody came to watch.
+    Daichi: I practiced fighting without shouting yesterday. I fell off a roof. Ume heard me land.
+    Daichi: She wanted to know if I was finally practising quietly. I said yes.
 -> Good luck.
     Daichi: I do not need luck! I need the exam to be on a Tuesday.
 ===
@@ -91,6 +93,7 @@ Matsuda: A visitor. Good. Step up to the line, bow to the pass, and try not to f
     Matsuda: One opponent at a time, and the match ends when I blow my whistle. Some of the younger students get carried away, so stay behind me if you are waiting.
 -> Has anyone ever won?
     Matsuda: Daichi, once. The duelist slipped on a leaf. Daichi insists it was the Thousand Leaf Step. I wrote it down as a leaf.
+    Matsuda: Ren has asked to see the bout record. I think she wants to find out which duelist she ought to challenge.
 -> I'm ready.
     Matsuda: Nobody is. Go anyway. I'll keep the chalk handy.
 ===
@@ -106,6 +109,8 @@ Tsuru: Sit, sit, the kettle's on. Ume lets me have the room upstairs every autum
 -> Did you see the family who left the sandals?
     Tsuru: I heard them on the stairs before dawn. The little one asked if the shoes would be lonely. Her mother said Ume would look after them.
     Tsuru: Ume says she's leaving them there. I've noticed she dusts them.
+-> Do you ever run out of medicine?
+    Tsuru: I did once, in a village with no bridge. The carpenter brought me a bed and I stayed till I could cross. He is the only man on my round who gets a free box.
 -> Enjoy your tea.
     Tsuru: I always do. It's the one thing on the round I don't have to carry.
 ===
@@ -121,6 +126,8 @@ Moriyama: Downwind of the kiln, please. You are standing in my smoke and I am st
     Moriyama: Some of the students have started practicing in the smoke. I told Hayashi to keep them away from the kiln vents.
 -> Is there anything up in the branches?
     Moriyama: The crows keep what they find on the fourth branch. Coins, mostly. A spoon. They will not miss it as much as they say.
+-> How do you keep warm up here?
+    Moriyama: There is a stone by the kiln that stays warm till morning. A cat found it before I did. We have an understanding.
 -> I'll leave you to it.
     Moriyama: Leave by the windward side.
 ===
@@ -133,6 +140,7 @@ Sensei Hayashi: The new rank wears well. Do not let it make you slow.
     Sensei Hayashi: The next one. It has more forms.
 -> What do the ranks mean outside the village?
     Sensei Hayashi: Other schools have their own ranks. The Shadow Clan has its own traditions too. You may have to demonstrate what you can do before they accept yours.
+    Sensei Hayashi: Zorlack asked how many students had passed. Then he asked how many could keep their footing on a ship. He can come to the next exam and ask them himself.
 -> Thank you, Sensei.
 <<elseif verdict("world.flag_set", "ninja_village_rank_awarded") == "unanswerable">>
     <<stop>>
@@ -175,6 +183,7 @@ Ren: You want to take the exam? Fine. Do not expect me to cheer. I only cheer fo
     Ren: The examiner waits for you to swing first. So do I.
 -> Why do you want a rival?
     Ren: Daichi cheers when I land a hit. I'd rather somebody hit me back.
+    Ren: I keep asking Matsuda for the bout records. He won't let me take them home. Says I'd wear out the paper.
 -> Later.
 <<else>>
     <<stop>>

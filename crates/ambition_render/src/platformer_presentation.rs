@@ -162,15 +162,16 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(
             Update,
             crate::rendering::daylight::light_the_world
-                .run_if(resource_exists::<crate::rendering::daylight::DaylightStyle>)
+                .run_if(resource_exists::<crate::rendering::daylight::DaylightStyle>
+                    .or_else(any_with_component::<crate::rendering::daylight::DaylightVeil>))
                 .after(crate::rendering::ViewCameraSet),
         );
-        // The darkness of a dark room (its level fields `darkness` and
-        // `ambient`), over the camera's view; it sleeps in a lit room once
-        // its veil is hidden.
+        // Each view gets the darkness and ambient color of its room.
         app.add_systems(
             Update,
-            crate::rendering::darkness::darken_the_room.after(crate::rendering::ViewCameraSet),
+            crate::rendering::darkness::darken_the_room
+                .after(crate::rendering::ViewCameraSet)
+                .after(ambition_sim_view::PresentedPoseSet),
         );
         // The light a boss asks for in its room (`ambition.boss.stage`).
         // Both sleep where no live room's game has named bosses, after the
@@ -188,7 +189,7 @@ impl Plugin for SessionRoomVisualsPlugin {
             crate::rendering::boss_stage::show_boss_name_card
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
                 .run_if(crate::rendering::boss_stage::bosses_are_shown_or_were)
-                .after(ambition_sim_view::PresentedPoseSet)
+                .after(crate::rendering::ViewCameraSet)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
         );
         // The card of the area a view's subject has just entered.

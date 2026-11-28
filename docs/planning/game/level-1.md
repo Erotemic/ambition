@@ -307,8 +307,11 @@ on the way east from the Tally Vault to the Royal Tomb.
 
 The family graves and the guards predate the gate. Discarded appliances
 and cables appear in the Tally Vault. One toaster moves on its own. The
-royal tomb has room to retreat between the king's swings. When the vigil
-is clear, the grille opens to a chest with 30 coins.
+Barrow King closes the distance on foot. He stops to show where his claw
+or lamp will strike, then pauses after each attack. At lower health, he
+marks parts of the floor with the lamp. Leave the marks before they flare.
+When the king falls, the grille opens to a chest with 30 coins. The Hall
+of Bosses has a practice copy with its own defeat record.
 
 The watch mound has a sheltered alcove for a possible encounter with Bob.
 Bob's existing survey encounter remains in Hobford Woods. His rescue,

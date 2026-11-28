@@ -54,7 +54,7 @@ title: business_barista
     Ines: Two coins, and the licence fee on the cup.
     Ines: The shape of the cup is patented. I pour into it anyway.
 -> Is it always this busy?
-    Ines: Everyone at the tables is pitching everyone else. Nobody has bought anything in years. They just keep refilling.
+    Ines: Two at that table are trying to sell each other the same app. I come round every hour to ask if they want more coffee. Best table in the shop.
 -> ‹go›
 ===
 title: quison
@@ -81,9 +81,9 @@ title: business_clerk
 
 title: business_clerk__topics
 ---
--> What is this place?
-    Marguerite: Records & Processing. Every form in Capital comes through here. It gets stamped and goes back out to be filled in again.
-    Marguerite: Mind the shredder by the stairs. It doesn't read the forms either.
+-> What do you process here?
+    Marguerite: Records & Processing. Original in the left tray, duplicate in the right. If they match I can stamp them both.
+    Marguerite: Mind the shredder by the stairs. We've been waiting for a replacement lid.
     <<jump business_clerk__topics>>
 -> Can I draw my own map?
     Marguerite: You'd need a cartographer's licence.
@@ -142,7 +142,7 @@ title: business_zorlack__topics
 -> Why did you come to the college?
     Zorlack: Synergy 101. Sixty-five thousand five hundred and thirty-five Zorlacks led the clan before me, and none of them took a class.
     Zorlack: The wall at home has a place for each of us. Mine is the last one. Nobody has told me what comes after the wall.
-    Zorlack: I thought I might find some other work. I came here to find out what qualifications I need.
+    Zorlack: I have a very good record as a clan leader. The careers office tells me I should put it on one page.
     <<jump business_zorlack__topics>>
 -> What jobs have you applied for?
     Zorlack: Management. The last application asked for the number of people who report to me. I entered the whole clan. The form only accepted two digits.
@@ -150,9 +150,9 @@ title: business_zorlack__topics
 -> What is your clan doing while you study?
     Zorlack: We have been hired to guard a shipment. I have a good duelist who can organize the watches while I attend class. I go back when I am needed.
     <<jump business_zorlack__topics>>
--> Why the armour?
+-> Why wear armour to the college?
     Zorlack: The careers office asked the same. Their dress code says: bring your whole self, in a navy suit.
-    Zorlack: This armour belonged to my grandfather. I polished it for the interview. I will purchase a suit if they insist.
+    Zorlack: This armour belonged to my grandfather. I had it polished. I will purchase a suit if they insist.
     Zorlack: I have not been given an interview.
     <<jump business_zorlack__topics>>
 -> How are the classes going?

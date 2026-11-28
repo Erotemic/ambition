@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::camera_layers::{
     live_room_window_layer, MainCamera, PrivateCameraLayer, LIVE_ROOM_RENDER_LAYER_BASE,
     LIVE_ROOM_RENDER_LAYER_LAST, LIVE_ROOM_WINDOW_LAYER_BASE, LIVE_ROOM_WINDOW_LAYER_LAST,
+    PARALLAX_BACKGROUND_LAYER,
     PORTAL_WINDOW_RENDER_LAYER, RETIRED_ROOM_RENDER_LAYER,
     RETIRED_ROOM_WINDOW_LAYER,
 };
@@ -23,6 +24,12 @@ use ambition_platformer2d_shared_tangle::camera_layers::{
 /// replaces the projection's full mask.
 #[derive(Component, Clone, Debug)]
 pub struct ProjectionRestingLayers(pub RenderLayers);
+
+/// A lighting veil draws in gameplay outputs above portal captures.
+pub(super) fn lighting_layers() -> (RenderLayers, ProjectionRestingLayers) {
+    let layers = RenderLayers::layer(PARALLAX_BACKGROUND_LAYER);
+    (layers.clone(), ProjectionRestingLayers(layers))
+}
 
 /// Give each camera only its own view's projections.
 ///

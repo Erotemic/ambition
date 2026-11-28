@@ -17,7 +17,7 @@ title: automaton_busy_beaver
     Busy Beaver: Here I've got five states and a tape. I'm trying to run for as many steps as I can and still halt.
 -> When will you stop?
     Busy Beaver: For five states, the record is 47,176,870 steps. Turns out proving that nobody could halt later was a much longer job.
-    Busy Beaver: For six, nobody knows. I like those odds.
+    Busy Beaver: Six next. I've got a fresh tape.
 -> ‹go›
 ===
 title: automaton_moore
@@ -75,7 +75,7 @@ title: automaton_head__topics
     The Head: Five states, A to E. Two entries each: what to do on a zero, what to do on a one. Ten rules.
     The Head: Ten rules, and it runs for 47,176,870 steps, and leaves 4,098 ones on the tape. Then the rule for E on a zero says: halt.
     <<jump automaton_head__topics>>
--> How do you know it stops?
+-> How do you know no other five-state machine halts later?
     The Head: The five-state running-time record was proved in 2024. They had to rule out every machine that might halt later.
     The Head: Every machine of five states under these rules, starting on a blank tape, that ever stops has stopped by then. I'm the one that took the longest.
     <<jump automaton_head__topics>>
@@ -123,7 +123,7 @@ title: automaton_imperfect
 <<else>>
     <<stop>>
 <<endif>>
--> You lost to Perfect?
+-> What happened in those matches?
     Imperfect Cellular Automaton: I lost to myself. Perfect just stood there. One of my cells was late, its neighbours copied it, and eight generations later I was a different pattern.
     Imperfect Cellular Automaton: One cell per generation. I could watch it coming across the row and I still couldn't stop it.
 -> Why do you stay?

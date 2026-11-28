@@ -22,23 +22,31 @@
 //!   is the same sum computed on the CPU each frame at [`MAP_TEXELS`], each
 //!   light over only the texels it reaches, drawn smooth.
 
+use std::collections::HashMap;
+
 use bevy::asset::RenderAssetUsages;
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::{AsBindGroup, Extent3d, TextureDimension, TextureFormat};
 use bevy::shader::ShaderRef;
-use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d};
+use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 
+use ambition_characters::control::DrivingParticipant;
 use ambition_persistence::settings::{DarknessQuality, ResolvedVisualQuality};
-use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
+use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{CastsLight, PlayerLight};
-use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
+use ambition_sim_view::presented_pose::draw_pos;
+use ambition_sim_view::{BodyPoseView, PresentedForView, PresentedPose, ResolvedViewSubject};
 
+use super::camera::coverage::GameplayOutputs;
 use super::daylight::DAYLIGHT_VEIL_Z;
 use super::lamps::{pack, reach_image, LampsPlugin, LampsUniform, ReachWrites};
 use super::occlusion::{lit_part, SolidGrid};
+use super::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
+use super::view_isolation::lighting_layers;
 
 /// Which room's geometry a solid grid was built from: its name, size and
 /// how many blocks and lines it has (a reloaded room that changed is new).
@@ -77,7 +85,7 @@ const RIM_WARMTH: f32 = 0.3;
 
 /// One piece of the veil: the hole round the player, or a flat piece.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-#[require(crate::rendering::WorldSprite)]
+#[require(crate::rendering::AnimatedWorldSpriteTint)]
 pub enum DarknessVeil {
     Hole,
     Left,
@@ -91,10 +99,6 @@ pub enum DarknessVeil {
 impl DarknessVeil {
     const ALL: [DarknessVeil; 6] = [Self::Hole, Self::Left, Self::Right, Self::Above, Self::Below, Self::Map];
 }
-
-/// The light map's texture.
-#[derive(Resource, Clone)]
-pub struct DarknessLightMap(pub Handle<Image>);
 
 /// The veil at High and Ultra, summed per pixel: the room's ambient (sRGB)
 /// and how dark it looks, its lights, and how far each reaches (Ultra).
@@ -118,17 +122,11 @@ impl Material2d for DarknessMaterial {
     }
 }
 
-/// The per-pixel veil's mesh and material, and its lights' reach texture,
-/// where a 2D material can be built.
-#[derive(Resource, Clone)]
-pub struct DarknessVeilAssets {
-    mesh: Handle<Mesh>,
-    material: Handle<DarknessMaterial>,
-    reach: Handle<Image>,
-}
+/// The geometry shared by the shader light maps.
+#[derive(Resource)]
+struct DarknessMesh(Handle<Mesh>);
 
-/// Installs the per-pixel veil's material. Without it (no renderer, Android)
-/// the light map is computed on the CPU.
+/// Installs the per-pixel veil's material. Android draws the light map on the CPU.
 pub struct DarknessPlugin;
 
 impl Plugin for DarknessPlugin {
@@ -141,21 +139,12 @@ impl Plugin for DarknessPlugin {
             app.add_plugins(LampsPlugin);
         }
         app.add_plugins(Material2dPlugin::<DarknessMaterial>::default());
+        install_planar_mesh_2d::<DarknessMaterial>(app);
         let world = app.world_mut();
-        let Some(reach) = world.get_resource_mut::<Assets<Image>>().map(|mut images| images.add(reach_image())) else {
-            return;
-        };
-        let Some(material) = world.get_resource_mut::<Assets<DarknessMaterial>>().map(|mut materials| {
-            materials.add(DarknessMaterial { veil: Vec4::ZERO, lamps: LampsUniform::default(), reach: Some(reach.clone()) })
-        }) else {
-            return;
-        };
-        let Some(mesh) =
-            world.get_resource_mut::<Assets<Mesh>>().map(|mut meshes| meshes.add(Rectangle::new(2.0 * FAR, 2.0 * FAR)))
-        else {
-            return;
-        };
-        app.insert_resource(DarknessVeilAssets { mesh, material, reach });
+        if let Some(mut meshes) = world.get_resource_mut::<Assets<Mesh>>() {
+            let mesh = meshes.add(Rectangle::new(2.0 * FAR, 2.0 * FAR));
+            world.insert_resource(DarknessMesh(mesh));
+        }
     }
 }
 
@@ -269,11 +258,6 @@ fn light_map_image() -> Image {
     image
 }
 
-/// The falloff texture of the hole: clear in its core, dark at its edge and
-/// in its corners.
-#[derive(Resource, Clone)]
-pub struct DarknessHoleTexture(pub Handle<Image>);
-
 fn hole_image() -> Image {
     let mut data = Vec::with_capacity((HOLE_TEXELS * HOLE_TEXELS * 4) as usize);
     let half = HOLE_TEXELS as f32 / 2.0;
@@ -337,29 +321,16 @@ impl RoomShadows {
     }
 }
 
-/// The darkness of the primary live room, as a veil colour, and its lamps;
-/// or `None` when the room is not dark. With `solid`, the room's solid grid
-/// is kept there, built again only for another room.
-fn room_darkness(
-    rooms: Option<LiveRoomSpecs>,
-    primary: Option<PrimaryLiveRoom>,
-    solid: Option<&mut Option<RoomShadows>>,
-) -> Option<(Color, Vec<Lamp>)> {
-    let (rooms, primary) = (rooms?, primary?);
-    let definition = rooms.definition_named(primary.get())?;
-    let spec = rooms.rooms().spec(definition);
+fn room_darkness(spec: &RoomSpec) -> Option<Color> {
     let profile = &spec.metadata.visual_profile;
     let pct = profile.darkness_pct.filter(|pct| *pct > 0)?;
-    if let Some(solid) = solid {
-        RoomShadows::keep_for(solid, spec);
-    }
     let ambient = profile
         .ambient
         .as_deref()
         .and_then(|hex| Srgba::hex(hex).ok())
         .map(Color::from)
         .unwrap_or(DEFAULT_AMBIENT);
-    Some((ambient.with_alpha(f32::from(pct) / 100.0), room_lamps(spec)))
+    Some(ambient.with_alpha(f32::from(pct) / 100.0))
 }
 
 /// The veil's alpha that makes the room look `perceived` dark. The veil is
@@ -391,178 +362,257 @@ fn layout(piece: DarknessVeil, quality: DarknessQuality, camera: Vec2, light: Op
     }
 }
 
-/// Darken a dark room by the tier's darkness quality.
-#[allow(clippy::too_many_arguments)]
-pub fn darken_the_room(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    hole: Option<Res<DarknessHoleTexture>>,
-    map: Option<Res<DarknessLightMap>>,
-    quality: Option<Res<ResolvedVisualQuality>>,
-    rooms: Option<LiveRoomSpecs>,
-    primary: Option<PrimaryLiveRoom>,
-    cameras: Query<(&Transform, Option<&Projection>), (With<MainCamera>, Without<DarknessVeil>)>,
-    players: Query<&GlobalTransform, (With<PlayerVisual>, Without<DarknessVeil>)>,
-    casters: Query<(&GlobalTransform, &CastsLight, &InheritedVisibility)>,
-    player_light: Option<Res<PlayerLight>>,
-    mut veils: Query<(&DarknessVeil, &mut Transform, Option<&mut Sprite>, &mut Visibility)>,
-    // What the light map was last drawn from: a still frame draws nothing.
-    mut drawn: Local<Option<(Vec2, Vec2, f32, [f32; 3], Vec<Lamp>, Option<GridKey>)>>,
-    // The room's solid ground, when the light map is shadowed.
-    mut solid: Local<Option<RoomShadows>>,
-    (gpu, mut materials, mut writes): (
-        Option<Res<DarknessVeilAssets>>,
-        Option<ResMut<Assets<DarknessMaterial>>>,
-        Option<ResMut<ReachWrites>>,
-    ),
-) {
-    let quality = quality.map_or(DarknessQuality::default(), |q| q.budget.glow.darkness);
-    let shadowed = quality == DarknessQuality::ShadowedLightMap;
-    let darkness = room_darkness(rooms, primary, shadowed.then_some(&mut *solid));
-    let room_lamps = darkness.as_ref().map_or(0, |(_, lamps)| lamps.len());
-    if veils.is_empty() {
-        if darkness.is_none() {
-            return;
+#[derive(PartialEq)]
+struct MapSample {
+    room: LiveRoomInstance,
+    bounds: Rect,
+    ambient: Vec4,
+    lamps: Vec<Lamp>,
+    shadowed: bool,
+}
+
+enum ViewLightMap {
+    Texture(Handle<Image>),
+    Shader(PreparedPlanarMesh<DarknessMaterial>, Handle<Image>),
+}
+
+struct DarknessForView {
+    root: Entity,
+    pieces: [Option<Entity>; DarknessVeil::ALL.len()],
+    map: Option<ViewLightMap>,
+    drawn: Option<MapSample>,
+    solid: Option<RoomShadows>,
+}
+
+/// Darkness retained for each live view.
+#[derive(Default)]
+pub struct ViewDarkness {
+    views: HashMap<Entity, DarknessForView>,
+    hole: Option<Handle<Image>>,
+}
+
+#[derive(SystemParam)]
+pub struct DarknessAssets<'w> {
+    images: ResMut<'w, Assets<Image>>,
+    mesh: Option<Res<'w, DarknessMesh>>,
+    materials: Option<ResMut<'w, Assets<DarknessMaterial>>>,
+    writes: Option<ResMut<'w, ReachWrites>>,
+}
+
+impl DarknessAssets<'_> {
+    fn light_map(&mut self) -> ViewLightMap {
+        if let (Some(mesh), Some(materials)) = (self.mesh.as_deref(), self.materials.as_deref_mut()) {
+            let reach = self.images.add(reach_image());
+            let material = materials.add(DarknessMaterial {
+                veil: Vec4::ZERO, lamps: LampsUniform::default(), reach: Some(reach.clone()),
+            });
+            return ViewLightMap::Shader(PreparedPlanarMesh { mesh: mesh.0.clone(), material }, reach);
         }
-        let texture = match hole {
-            Some(hole) => hole.0.clone(),
-            None => {
-                let handle = images.add(hole_image());
-                commands.insert_resource(DarknessHoleTexture(handle.clone()));
-                handle
-            }
-        };
-        let map_texture = match &map {
-            Some(map) => map.0.clone(),
-            None => {
-                let handle = images.add(light_map_image());
-                commands.insert_resource(DarknessLightMap(handle.clone()));
-                handle
-            }
-        };
-        for piece in DarknessVeil::ALL {
-            let image = match piece {
-                DarknessVeil::Hole => texture.clone(),
-                DarknessVeil::Map => map_texture.clone(),
-                _ => Handle::default(),
-            };
-            let mut veil = commands.spawn_empty();
-            match (piece, gpu.as_deref()) {
-                // The map summed per pixel: its mesh covers every view.
-                (DarknessVeil::Map, Some(gpu)) => {
-                    veil.insert((Mesh2d(gpu.mesh.clone()), MeshMaterial2d(gpu.material.clone())));
-                }
-                _ => {
-                    veil.insert(Sprite { image, color: Color::NONE, custom_size: Some(Vec2::ONE), ..Default::default() });
-                }
-            }
-            veil.insert((
-                piece,
-                Transform::from_translation(Vec3::new(0.0, 0.0, DARKNESS_VEIL_Z)),
-                Visibility::Hidden,
-                // The daylight veil's layer: the main cameras draw it, and no
-                // portal capture does (which would darken its window twice).
-                bevy::camera::visibility::RenderLayers::layer(
-                    ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
-                ),
-                Name::new("Darkness veil"),
-            ));
-        }
-        return;
+        ViewLightMap::Texture(self.images.add(light_map_image()))
     }
-    let Some((darkness, lamps)) = darkness else {
-        for (_, _, _, mut visibility) in &mut veils {
-            visibility.set_if_neq(Visibility::Hidden);
-        }
-        return;
-    };
-    let perceived = match quality {
-        DarknessQuality::Flat => darkness.alpha().min(FLAT_CAP),
-        DarknessQuality::AroundThePlayer | DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap => {
-            darkness.alpha()
-        }
-    };
-    let (camera, view) = cameras.iter().next().map_or((Vec2::ZERO, Vec2::new(1280.0, 720.0)), |(transform, projection)| {
-        let view = match projection {
-            Some(Projection::Orthographic(o)) => o.area.size(),
-            _ => Vec2::new(1280.0, 720.0),
-        };
-        (transform.translation.truncate(), view)
-    });
-    let light = players.iter().next().map(|player| player.translation().truncate());
-    let player_light = player_light.map_or(PlayerLight::default(), |light| *light);
-    if matches!(quality, DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap) {
-        let size = view * MAP_MARGIN;
-        let ambient = darkness.to_srgba();
-        let ambient = [ambient.red, ambient.green, ambient.blue];
-        let mut all = lamps;
-        all.extend(players.iter().map(|player| Lamp {
-            at: player.translation().truncate(),
-            radius: player_light.radius,
-            intensity: 1.0,
-            color: player_light.color.unwrap_or(ambient),
-        }));
-        all.extend(casters.iter().filter(|(_, _, shown)| shown.get()).map(|(at, light, _)| Lamp {
-            at: at.translation().truncate(),
-            radius: light.radius,
-            intensity: light.intensity.clamp(0.0, 1.0),
-            color: light.color,
-        }));
-        let shadows = solid.as_ref().filter(|_| shadowed);
-        let inputs = (camera, size, perceived, ambient, all, shadows.map(|shadows| shadows.key.clone()));
-        if let (Some(gpu), Some(materials)) = (gpu.as_deref(), materials.as_deref_mut()) {
-            if drawn.as_ref() != Some(&inputs) {
-                let reaches = shadows.map(|shadows| shadows.reaches(&inputs.4[room_lamps..]));
-                let (lamps, rows) = pack(&inputs.4, reaches.as_deref(), camera, size);
-                if let (Some(rows), Some(writes)) = (rows, writes.as_deref_mut()) {
-                    writes.0.insert(gpu.reach.id(), rows);
+
+    fn draw_map(&mut self, map: &ViewLightMap, sample: &MapSample, reaches: Option<&[Vec<f32>]>) {
+        let center = sample.bounds.center();
+        let size = sample.bounds.size() * MAP_MARGIN;
+        match map {
+            ViewLightMap::Texture(handle) => {
+                if let Some(mut image) = self.images.get_mut(handle) {
+                    let ambient = sample.ambient.truncate().to_array();
+                    image.data = Some(light_map(MAP_TEXELS, center, size, sample.ambient.w, ambient, &sample.lamps, reaches));
                 }
-                let veil = Vec4::new(ambient[0], ambient[1], ambient[2], perceived);
-                if materials.get(&gpu.material).is_some_and(|material| material.veil != veil || material.lamps != lamps) {
-                    if let Some(mut material) = materials.get_mut(&gpu.material) {
-                        material.veil = veil;
+            }
+            ViewLightMap::Shader(mesh, reach) => {
+                let (lamps, rows) = pack(&sample.lamps, reaches, center, size);
+                if let (Some(rows), Some(writes)) = (rows, self.writes.as_deref_mut()) {
+                    writes.0.insert(reach.id(), rows);
+                }
+                if let Some(materials) = self.materials.as_deref_mut() {
+                    if let Some(mut material) = materials.get_mut(&mesh.material) {
+                        material.veil = sample.ambient;
                         material.lamps = lamps;
                     }
                 }
-                *drawn = Some(inputs);
-            }
-        } else if drawn.as_ref() != Some(&inputs) {
-            if let Some(mut image) = map.as_ref().and_then(|map| images.get_mut(&map.0)) {
-                // The room's lamps' reach was measured with the room; the
-                // lights that move are measured now.
-                let reaches = shadows.map(|shadows| shadows.reaches(&inputs.4[room_lamps..]));
-                image.data = Some(light_map(MAP_TEXELS, camera, size, perceived, ambient, &inputs.4, reaches.as_deref()));
-                *drawn = Some(inputs);
             }
         }
-        for (piece, mut transform, sprite, mut visibility) in &mut veils {
-            if *piece != DarknessVeil::Map {
-                visibility.set_if_neq(Visibility::Hidden);
-                continue;
+    }
+}
+
+type VeilPictures<'w, 's> = Query<'w, 's,
+    (&'static mut Transform, Option<&'static mut Sprite>, &'static mut Visibility),
+    (With<DarknessVeil>, Without<Camera2d>),
+>;
+
+impl DarknessForView {
+    fn show(
+        &mut self,
+        commands: &mut Commands,
+        pictures: &mut VeilPictures,
+        piece: DarknessVeil,
+        at: Vec2,
+        size: Vec2,
+        color: Color,
+        image: Handle<Image>,
+    ) {
+        let slot = &mut self.pieces[piece as usize];
+        let at = at.extend(DARKNESS_VEIL_Z);
+        if let Some((mut transform, sprite, mut visibility)) = slot.and_then(|entity| pictures.get_mut(entity).ok()) {
+            if transform.translation != at {
+                transform.translation = at;
             }
-            transform.translation = camera.extend(DARKNESS_VEIL_Z);
             if let Some(mut sprite) = sprite {
-                sprite.custom_size = Some(size);
-                // The colour is in the texture.
-                sprite.color = Color::WHITE;
+                if sprite.image != image {
+                    sprite.image = image;
+                }
+                if sprite.color != color {
+                    sprite.color = color;
+                }
+                if sprite.custom_size != Some(size) {
+                    sprite.custom_size = Some(size);
+                }
             }
             visibility.set_if_neq(Visibility::Inherited);
+            return;
         }
-        return;
+        let mut entity = commands.spawn((
+            piece, ChildOf(self.root), lighting_layers(), Transform::from_translation(at), Name::new("Darkness veil"),
+        ));
+        if let (DarknessVeil::Map, Some(ViewLightMap::Shader(mesh, _))) = (piece, &self.map) {
+            entity.insert(PreparedPlanarMesh { mesh: mesh.mesh.clone(), material: mesh.material.clone() });
+        } else {
+            entity.insert(Sprite { image, color, custom_size: Some(size), ..Default::default() });
+        }
+        *slot = Some(entity.id());
     }
-    let darkness = darkness.with_alpha(veil_alpha(perceived));
-    for (piece, mut transform, sprite, mut visibility) in &mut veils {
-        let Some((at, size)) = layout(*piece, quality, camera, light, player_light.radius) else {
-            visibility.set_if_neq(Visibility::Hidden);
+}
+
+type DarknessPlayers<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static BodyPoseView, Option<&'static PresentedPose>),
+    With<DrivingParticipant>,
+>;
+
+fn player_hole(
+    players: impl Iterator<Item = (Entity, Vec2)>,
+    subject: Option<Entity>,
+    center: Vec2,
+) -> Option<Vec2> {
+    players
+        .min_by(|(a, left), (b, right)| {
+            (subject == Some(*b)).cmp(&(subject == Some(*a)))
+                .then_with(|| left.distance_squared(center).total_cmp(&right.distance_squared(center)))
+                .then(a.cmp(b))
+        })
+        .map(|(_, at)| at)
+}
+
+/// Draw each view's room darkness across its gameplay outputs.
+#[allow(clippy::too_many_arguments)]
+pub fn darken_the_room(
+    mut commands: Commands,
+    quality: Option<Res<ResolvedVisualQuality>>,
+    rooms: Option<LiveRoomSpecs>,
+    outputs: GameplayOutputs,
+    views: Query<&ResolvedViewSubject>,
+    roots: Query<(), With<PresentedForView>>,
+    live: LiveRooms,
+    players: DarknessPlayers,
+    casters: Query<(Entity, &GlobalTransform, &CastsLight, &InheritedVisibility)>,
+    player_light: Option<Res<PlayerLight>>,
+    mut pictures: VeilPictures,
+    mut assets: DarknessAssets,
+    mut retained: Local<ViewDarkness>,
+) {
+    let mut dark = outputs.view_bounds();
+    dark.retain(|_, (frame, _)| rooms.as_ref()
+        .and_then(|rooms| rooms.definition_in(frame.room).map(|definition| rooms.rooms().spec(definition)))
+        .and_then(room_darkness).is_some());
+    retained.views.retain(|view, slot| {
+        let keep = dark.contains_key(view) && roots.contains(slot.root);
+        if !keep {
+            commands.entity(slot.root).try_despawn();
+        }
+        keep
+    });
+    let Some(rooms) = rooms else {
+        return;
+    };
+    let quality = quality.map_or(DarknessQuality::default(), |q| q.budget.glow.darkness);
+    let shadowed = quality == DarknessQuality::ShadowedLightMap;
+    let use_map = matches!(quality, DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap);
+    let player_light = player_light.map_or(PlayerLight::default(), |light| *light);
+    let ViewDarkness { views: retained, hole } = &mut *retained;
+
+    for (view, (frame, bounds)) in dark {
+        let Some(spec) = rooms.definition_in(frame.room).map(|definition| rooms.rooms().spec(definition)) else {
             continue;
         };
-        transform.translation = at.extend(DARKNESS_VEIL_Z);
-        let Some(mut sprite) = sprite else {
+        let Some(tint) = room_darkness(spec) else {
             continue;
         };
-        sprite.custom_size = Some(size);
-        sprite.color = darkness;
-        visibility.set_if_neq(Visibility::Inherited);
+        let slot = retained.entry(view).or_insert_with(|| DarknessForView {
+            root: commands.spawn((PresentedForView(view), Transform::default(), Visibility::Inherited, Name::new("View darkness"))).id(),
+            pieces: [None; DarknessVeil::ALL.len()], map: None, drawn: None, solid: None,
+        });
+        if rooms.set_is_changed() {
+            slot.drawn = None;
+            slot.solid = None;
+        }
+
+        let player_positions = || players.iter()
+            .filter(|(entity, _, _)| live.of(*entity) == Some(frame.room))
+            .map(|(entity, pose, presented)| {
+                (entity, world_to_bevy(&spec.world, draw_pos(pose, presented), 0.0).truncate())
+            });
+        let light = if quality == DarknessQuality::AroundThePlayer {
+            let subject = views.get(view).ok().and_then(|subject| subject.0);
+            player_hole(player_positions(), subject, frame.plane_center)
+        } else {
+            None
+        };
+
+        if use_map {
+            if shadowed {
+                RoomShadows::keep_for(&mut slot.solid, spec);
+            }
+            let rgba = tint.to_srgba();
+            let ambient = [rgba.red, rgba.green, rgba.blue];
+            let mut lamps = room_lamps(spec);
+            let room_count = lamps.len();
+            lamps.extend(player_positions()
+                .map(|(_, at)| Lamp { at, radius: player_light.radius,
+                    intensity: 1.0, color: player_light.color.unwrap_or(ambient) }));
+            lamps.extend(casters.iter().filter(|(entity, _, _, shown)| shown.get() && live.of(*entity) == Some(frame.room))
+                .map(|(_, at, light, _)| Lamp { at: at.translation().truncate(), radius: light.radius,
+                    intensity: light.intensity.clamp(0.0, 1.0), color: light.color }));
+            let sample = MapSample { room: frame.room, bounds, ambient: Vec3::from_array(ambient).extend(rgba.alpha), lamps, shadowed };
+            let map = slot.map.get_or_insert_with(|| assets.light_map());
+            if slot.drawn.as_ref() != Some(&sample) {
+                let reaches = slot.solid.as_ref().filter(|_| shadowed).map(|grid| grid.reaches(&sample.lamps[room_count..]));
+                assets.draw_map(map, &sample, reaches.as_deref());
+                slot.drawn = Some(sample);
+            }
+        }
+
+        let perceived = if quality == DarknessQuality::Flat { tint.alpha().min(FLAT_CAP) } else { tint.alpha() };
+        for piece in DarknessVeil::ALL {
+            if piece == DarknessVeil::Map && use_map {
+                let image = match &slot.map {
+                    Some(ViewLightMap::Texture(image)) => image.clone(),
+                    _ => Handle::default(),
+                };
+                slot.show(&mut commands, &mut pictures, piece, bounds.center(), bounds.size() * MAP_MARGIN, Color::WHITE, image);
+            } else if let Some((at, size)) = layout(piece, quality, frame.plane_center, light, player_light.radius) {
+                let image = if piece == DarknessVeil::Hole {
+                    hole.get_or_insert_with(|| assets.images.add(hole_image())).clone()
+                } else {
+                    Handle::default()
+                };
+                slot.show(&mut commands, &mut pictures, piece, at, size, tint.with_alpha(veil_alpha(perceived)), image);
+            } else if let Some((_, _, mut visibility)) = slot.pieces[piece as usize].and_then(|entity| pictures.get_mut(entity).ok()) {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
     }
 }
 
@@ -633,5 +683,78 @@ mod tests {
         let at = |x: u32, y: u32| data[((y * HOLE_TEXELS + x) * 4 + 3) as usize];
         assert_eq!(at(HOLE_TEXELS / 2, HOLE_TEXELS / 2), 0);
         assert_eq!(at(0, 0), 255);
+    }
+
+    #[test]
+    fn overlapping_rooms_keep_their_own_player_lights_and_veils() {
+        use ambition_characters::control::PlayerSlot;
+        use ambition_persistence::settings::{VisualQualityBudget, VisualQualityProfile};
+        use ambition_platformer2d_core as ae;
+        use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, PARALLAX_BACKGROUND_LAYER};
+        use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance};
+        use ambition_platformer2d_world::rooms::{insert_room_set, LiveRoomDefinition, RoomSet};
+        use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
+        use bevy::camera::{visibility::RenderLayers, RenderTargetInfo};
+        use crate::rendering::{PresentedViewFrame, PresentedViewFrames};
+
+        let mut app = App::new();
+        let quality = |profile| ResolvedVisualQuality { profile, budget: VisualQualityBudget::for_profile(profile) };
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::ZERO))
+            .insert_resource(quality(VisualQualityProfile::High))
+            .insert_resource(DarknessMesh(Handle::default()))
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<DarknessMaterial>>()
+            .add_systems(Update, (darken_the_room, super::super::view_isolation::isolate_per_view_projections).chain());
+        let world = app.world_mut();
+        let room = |id, darkness| {
+            let mut spec = RoomSpec::new(id, ae::World::new(id, ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()));
+            spec.metadata.visual_profile.darkness_pct = darkness;
+            spec
+        };
+        insert_room_set(world, RoomSet::from_parts_or_panic("east", vec![room("east", Some(25)), room("west", Some(75)), room("yard", None)], Vec::new()));
+        let east = LiveRoomInstance::ACTIVATION;
+        let west = east.next();
+        let yard = west.next();
+        spawn_live_room(world, west, LiveRoomDefinition::from_index(1));
+        spawn_live_room(world, yard, LiveRoomDefinition::from_index(2));
+        let frame = |room| PresentedViewFrame { room, plane_center: Vec2::ZERO, roll_radians: 0.0, orthographic_scale: 1.0 };
+        let [(first, first_camera), (second, second_camera)] = [(0, east, -80.0), (1, west, 120.0)].map(|(id, room, x)| {
+            let pose = BodyPoseView { pos: Vec2::new(500.0 + x, 500.0), ..default() };
+            let player = world.spawn((DrivingParticipant(PlayerSlot(id)), InRoomInstance(room), pose)).id();
+            let view = world.spawn((LocalView, LocalViewId(id), ResolvedViewSubject(Some(player)))).id();
+            let mut camera = Camera::default();
+            camera.computed.target_info = Some(RenderTargetInfo { physical_size: UVec2::new(640, 360), scale_factor: 1.0 });
+            let output = world.spawn((Camera2d, MainCamera, camera, PresentsView(view), RenderLayers::layer(PARALLAX_BACKGROUND_LAYER))).id();
+            (view, output)
+        });
+        world.insert_resource(PresentedViewFrames::of_views(vec![(first, frame(east)), (second, frame(west))]));
+
+        app.update();
+        let world = app.world_mut();
+        let outputs = [first_camera, second_camera].map(|id| world.get::<RenderLayers>(id).unwrap().clone());
+        let material_rows = world.query::<(&RenderLayers, &PreparedPlanarMesh<DarknessMaterial>)>()
+            .iter(world).map(|(layers, source)| (layers.clone(), source.material.clone())).collect::<Vec<_>>();
+        assert_eq!(material_rows.len(), 2);
+        let materials = world.resource::<Assets<DarknessMaterial>>();
+        for (slot, (dark, x)) in [(0.25, -80.0), (0.75, 120.0)].into_iter().enumerate() {
+            let (layers, material) = material_rows.iter().find(|(layers, _)| layers.intersects(&outputs[slot])).unwrap();
+            assert!(!layers.intersects(&outputs[1 - slot]));
+            let material = materials.get(material).unwrap();
+            assert_eq!(material.veil.w, dark);
+            assert_eq!(material.lamps.count, 1);
+            assert_eq!(material.lamps.at[0].x, x);
+        }
+
+        app.insert_resource(quality(VisualQualityProfile::Medium));
+        *app.world_mut().resource_mut::<PresentedViewFrames>().of_mut(second).unwrap() = frame(yard);
+        app.update();
+        let world = app.world_mut();
+        assert!(world.query::<&PresentedForView>().iter(world).all(|projection| projection.0 == first));
+        let mut pieces = world.query::<(&DarknessVeil, &Visibility, &Transform, &RenderLayers)>();
+        let visible = pieces.iter(world).filter(|(_, vis, ..)| **vis != Visibility::Hidden).collect::<Vec<_>>();
+        assert_eq!(visible.len(), 5);
+        assert!(visible.iter().all(|(_, _, _, layers)| layers.intersects(&outputs[0]) && !layers.intersects(&outputs[1])));
+        let hole = visible.iter().find(|(piece, ..)| **piece == DarknessVeil::Hole).unwrap();
+        assert_eq!(hole.2.translation.x, -80.0);
     }
 }

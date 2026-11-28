@@ -7,6 +7,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
 use crate::anim_index::ActorSpriteBody;
+use crate::live_room_rows::{LiveRoomRow, LiveRoomRows};
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
@@ -180,107 +181,62 @@ pub struct FeatureView {
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
-/// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
-/// by [`FeatureId`].
+impl LiveRoomRow for FeatureView {
+    fn room(&self) -> Option<LiveRoomInstance> {
+        self.room
+    }
+}
+
+/// Per-frame snapshot of each feature occurrence.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct FeatureViewIndex {
-    /// Each text ID has one row per live room. Rebuild generations retain
-    /// surviving keys and rows without allocating strings each frame.
-    views: bevy::platform::collections::HashMap<String, Vec<(FeatureView, u64)>>,
-    generation: u64,
+    rows: LiveRoomRows<FeatureView>,
 }
 
 impl FeatureViewIndex {
-    /// Return the sole occurrence of this identity. Ambiguous identities have no result.
+    /// Return the sole occurrence of this identity.
     pub fn get(&self, id: &str) -> Option<&FeatureView> {
-        let rows = self.views.get(id)?;
-        (rows.len() == 1).then(|| &rows[0].0)
+        self.rows.get(id)
     }
 
-    /// Read this identity in its exact live room, including an unscoped occurrence.
-    pub fn get_in(&self, id: &str, room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> Option<&FeatureView> {
-        self.views.get(id)?.iter().find(|(view, _)| view.room == room).map(|(view, _)| view)
+    /// Read this identity in its exact live room.
+    pub fn get_in(&self, id: &str, room: Option<LiveRoomInstance>) -> Option<&FeatureView> {
+        self.rows.get_in(id, room)
     }
 
-    /// Iterate every `(id, view)` row. Presentation passes that render "one
-    /// thing per feature" (debug health bars, nameplates) walk the read-model
-    /// instead of declaring sim-component queries.
+    /// Read every feature occurrence.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &FeatureView)> {
-        // AMBITION_REVIEW(determinism): hash-order iteration is safe here.
-        // `SimView` is DERIVED state — rebuilt from the sim every tick, structurally
-        // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
-        // §Excluded). Every consumer of this iterator is presentation. No sim state
-        // reads it, so its order can never enter a trajectory.
-        self.views.iter().flat_map(|(id, rows)| rows.iter().map(move |(view, _)| (id.as_str(), view)))
+        self.rows.iter()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.views.is_empty()
+        self.rows.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        self.views.values().map(Vec::len).sum()
+        self.rows.len()
     }
 
-    /// Begin a rebuild pass: bump the generation so this frame's writes are
-    /// distinguishable from last frame's (swept by [`Self::end_rebuild`]).
-    fn begin_rebuild(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
-    }
-
-    /// End a rebuild pass: drop every entry not written this generation — the
-    /// features that despawned. Surviving keys keep their allocations.
-    fn end_rebuild(&mut self) {
-        let gen = self.generation;
-        self.views.retain(|_, rows| {
-            rows.retain(|(_, generation)| *generation == gen);
-            !rows.is_empty()
-        });
-    }
-
-    /// Insert `view` for `id` only if no view has been recorded yet THIS
-    /// rebuild.
-    ///
-    /// Preserves family priority (pickup → chest → breakable → switch →
-    /// actor → hazard → boss): first matching family wins when ids collide.
-    ///
-    /// A same-generation entry is kept (first wins); a stale prior-frame entry
-    /// is refreshed in place; only a genuinely new id allocates a `String`.
-    /// Build an index from explicit rows.
-    ///
-    /// The per-frame rebuild is the only writer in production, and its inserts
-    /// are private so nothing can slip a row into a live read-model out of band.
-    /// That also meant NOBODY outside this crate could build one — so a
-    /// consumer's presentation pass, which takes this index as its whole input,
-    /// had no way to be unit-tested at all. An engine another game is built on
-    /// has to hand that game a fixture for the read-models it publishes.
-    ///
-    /// Constructs a NEW index rather than mutating an existing one, so it cannot
-    /// be misused to edit the live one mid-frame.
-    ///
-    /// The parameter is `entries` rather than `rows` because the determinism lint matches
-    /// std-hash bindings by NAME across the whole file, and `NameplateIndex` further down owns
-    /// a `rows: HashMap`.
+    /// Build a new index from explicit rows.
     pub fn from_rows(entries: impl IntoIterator<Item = (String, FeatureView)>) -> Self {
         let mut index = Self::default();
         for (id, view) in entries {
-            let rows = index.views.entry(id).or_default();
-            if let Some(row) = rows.iter_mut().find(|(row, _)| row.room == view.room) {
-                *row = (view, index.generation);
-            } else { rows.push((view, index.generation)); }
+            index.rows.insert(&id, view);
         }
         index
     }
 
+    fn begin_rebuild(&mut self) {
+        self.rows.begin_rebuild();
+    }
+
+    fn end_rebuild(&mut self) {
+        self.rows.end_rebuild();
+    }
+
+    /// Keep the first write for each occurrence to preserve family priority.
     fn insert_if_absent(&mut self, id: &str, view: FeatureView) {
-        let gen = self.generation;
-        if let Some(rows) = self.views.get_mut(id) {
-            if let Some(slot) = rows.iter_mut().find(|(row, _)| row.room == view.room) {
-                if slot.1 != gen { *slot = (view, gen); }
-            } else { rows.push((view, gen)); }
-        } else {
-            self.views.insert(id.to_string(), vec![(view, gen)]);
-        }
+        self.rows.insert_first(id, view);
     }
 }
 
@@ -775,13 +731,10 @@ pub fn rebuild_feature_view_index(
     index.end_rebuild();
 }
 
-/// Materialized per-actor identity facts the renderer needs to BIND and SIZE an actor sprite,
-/// keyed by [`FeatureId`] — the STATIC half of the actor read-model (display name,
-/// art identity, sandbag flag, explicit render-quad size). These facts are static per
-/// actor, so the rebuild re-clones only on a genuine change (otherwise it just refreshes the
-/// mark-and-sweep generation — no per-`String` churn as the sim steps).
+/// Identity and size facts for one actor sprite in a live room.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorRenderView {
+    pub room: Option<LiveRoomInstance>,
     pub name: String,
     /// Catalog identity used for art lookup. It is independent of the actor's
     /// display name.
@@ -795,10 +748,15 @@ pub struct ActorRenderView {
     pub geometry: crate::PoseGeometry,
 }
 
+impl LiveRoomRow for ActorRenderView {
+    fn room(&self) -> Option<LiveRoomInstance> {
+        self.room
+    }
+}
+
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ActorRenderIndex {
-    views: bevy::platform::collections::HashMap<String, (ActorRenderView, u64)>,
-    generation: u64,
+    rows: LiveRoomRows<ActorRenderView>,
 }
 
 impl ActorRenderIndex {
@@ -808,41 +766,43 @@ impl ActorRenderIndex {
     pub fn from_rows(entries: impl IntoIterator<Item = (String, ActorRenderView)>) -> Self {
         let mut index = Self::default();
         for (id, view) in entries {
-            index.views.insert(id, (view, index.generation));
+            index.rows.insert(&id, view);
         }
         index
     }
 
+    /// Read the sole occurrence of this ID.
     pub fn get(&self, id: &str) -> Option<&ActorRenderView> {
-        self.views.get(id).map(|(view, _)| view)
+        self.rows.get(id)
+    }
+
+    /// Read the occurrence in this live room.
+    pub fn get_in(&self, id: &str, room: Option<LiveRoomInstance>) -> Option<&ActorRenderView> {
+        self.rows.get_in(id, room)
     }
 
     pub fn len(&self) -> usize {
-        self.views.len()
+        self.rows.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.views.is_empty()
+        self.rows.is_empty()
     }
 
     fn begin_rebuild(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
+        self.rows.begin_rebuild();
     }
 
     fn end_rebuild(&mut self) {
-        let gen = self.generation;
-        self.views.retain(|_, (_, g)| *g == gen);
+        self.rows.end_rebuild();
     }
 
-    /// Refresh `id`'s snapshot for this generation. A surviving entry whose facts
-    /// are UNCHANGED (the common case — actor identity is static) only bumps its
-    /// generation, allocating nothing; a new or genuinely-changed entry clones
-    /// once. The comparison is by `&str`/value so no candidate `String` is built
-    /// on the unchanged path.
+    /// Allocate names only when the identity facts change.
     #[allow(clippy::too_many_arguments)]
     fn upsert(
         &mut self,
         id: &str,
+        room: Option<LiveRoomInstance>,
         name: &str,
         sprite_character_id: Option<&str>,
         is_sandbag: bool,
@@ -850,33 +810,26 @@ impl ActorRenderIndex {
         dream_seed: Option<f32>,
         geometry: crate::PoseGeometry,
     ) {
-        let gen = self.generation;
-        if let Some(slot) = self.views.get_mut(id) {
-            let v = &slot.0;
-            let unchanged = v.name == name
-                && v.sprite_character_id.as_deref() == sprite_character_id
-                && v.is_sandbag == is_sandbag
-                && v.render_size == render_size
-                && v.dream_seed == dream_seed
-                && v.geometry == geometry;
-            if unchanged {
-                slot.1 = gen;
-                return;
-            }
-        }
-        self.views.insert(
-            id.to_string(),
-            (
-                ActorRenderView {
-                    name: name.to_string(),
-                    sprite_character_id: sprite_character_id.map(str::to_string),
-                    is_sandbag,
-                    render_size,
-                    dream_seed,
-                    geometry,
-                },
-                gen,
-            ),
+        self.rows.refresh(
+            id,
+            room,
+            |view, _| {
+                view.name == name
+                    && view.sprite_character_id.as_deref() == sprite_character_id
+                    && view.is_sandbag == is_sandbag
+                    && view.render_size == render_size
+                    && view.dream_seed == dream_seed
+                    && view.geometry == geometry
+            },
+            || ActorRenderView {
+                room,
+                name: name.to_owned(),
+                sprite_character_id: sprite_character_id.map(str::to_owned),
+                is_sandbag,
+                render_size,
+                dream_seed,
+                geometry,
+            },
         );
     }
 }
@@ -886,6 +839,7 @@ pub fn rebuild_actor_render_index(
     mut index: ResMut<ActorRenderIndex>,
     actors: Query<
         (
+            Entity,
             &FeatureId,
             &ActorIdentity,
             &ambition_characters::actor::BodyCombat,
@@ -900,12 +854,14 @@ pub fn rebuild_actor_render_index(
     // The running session's frozen cast, or the published one with no
     // session (`SessionCast`).
     registry: ambition_characters::prepared::SessionCast,
+    live: LiveRooms,
 ) {
     index.begin_rebuild();
     let registry = registry.get();
-    for (id, identity, combat, config, worn, skin, render_size, granted) in &actors {
+    for (entity, id, identity, combat, config, worn, skin, render_size, granted) in &actors {
         index.upsert(
             id.as_str(),
+            live.of(entity),
             &identity.name,
             // The art key: the skin the body wears, else its character.
             skin
@@ -954,92 +910,54 @@ pub struct BossRenderView {
     pub finish: f32,
 }
 
+impl LiveRoomRow for BossRenderView {
+    fn room(&self) -> Option<LiveRoomInstance> {
+        self.room
+    }
+}
+
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BossRenderIndex {
-    views: bevy::platform::collections::HashMap<String, Vec<(BossRenderView, u64)>>,
-    generation: u64,
+    rows: LiveRoomRows<BossRenderView>,
 }
 
 impl crate::RowView for BossRenderIndex {
     fn has_rows(&self) -> bool {
-        !self.views.is_empty()
+        !self.is_empty()
     }
 }
 
 impl BossRenderIndex {
-    /// Build an index from explicit rows — see
-    /// [`FeatureViewIndex::from_rows`] for why a read-model owes its consumers
-    /// a fixture constructor.
+    /// Build a new index from explicit rows.
     pub fn from_rows(entries: impl IntoIterator<Item = (String, BossRenderView)>) -> Self {
         let mut index = Self::default();
         for (id, view) in entries {
-            index.refresh(&id, view.room, |_| false, || view);
+            index.rows.insert(&id, view);
         }
         index
     }
 
     /// Read the sole occurrence of this ID.
     pub fn get(&self, id: &str) -> Option<&BossRenderView> {
-        let rows = self.views.get(id)?;
-        (rows.len() == 1).then(|| &rows[0].0)
+        self.rows.get(id)
     }
 
     /// Read the occurrence in this exact live room.
     pub fn get_in(&self, id: &str, room: Option<LiveRoomInstance>) -> Option<&BossRenderView> {
-        self.views.get(id)?.iter().map(|(row, _)| row).find(|row| row.room == room)
+        self.rows.get_in(id, room)
     }
 
-    /// Iterate every `(id, view)` boss identity row — the "which ids are
-    /// bosses" oracle presentation passes join against `FeatureViewIndex`.
+    /// Read every boss occurrence.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &BossRenderView)> {
-        // AMBITION_REVIEW(determinism): hash-order iteration is safe here.
-        // `SimView` is DERIVED state — rebuilt from the sim every tick, structurally
-        // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
-        // §Excluded). Every consumer of this iterator is presentation. No sim state
-        // reads it, so its order can never enter a trajectory.
-        self.views.iter().flat_map(|(id, rows)| rows.iter().map(move |(row, _)| (id.as_str(), row)))
+        self.rows.iter()
     }
 
     pub fn len(&self) -> usize {
-        self.views.values().map(Vec::len).sum()
+        self.rows.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.views.is_empty()
-    }
-
-    fn begin_rebuild(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
-    }
-
-    fn end_rebuild(&mut self) {
-        let generation = self.generation;
-        self.views.retain(|_, rows| {
-            rows.retain(|(_, stamped)| *stamped == generation);
-            !rows.is_empty()
-        });
-    }
-
-    fn refresh(
-        &mut self,
-        id: &str,
-        room: Option<LiveRoomInstance>,
-        fresh: impl FnOnce(&BossRenderView) -> bool,
-        build: impl FnOnce() -> BossRenderView,
-    ) {
-        let generation = self.generation;
-        if let Some(rows) = self.views.get_mut(id) {
-            if let Some((row, stamped)) = rows.iter_mut().find(|(row, _)| row.room == room) {
-                if !fresh(row) {
-                    *row = build();
-                }
-                *stamped = generation;
-            } else {
-                rows.push((build(), generation));
-            }
-        } else {
-            self.views.insert(id.to_string(), vec![(build(), generation)]);
-        }
+        self.rows.is_empty()
     }
 }
 
@@ -1066,7 +984,7 @@ pub fn rebuild_boss_render_index(
     bosses: Query<(Entity, &FeatureId, ambition_boss_encounter::BossClusterRef)>,
     rooms: LiveRooms,
 ) {
-    index.begin_rebuild();
+    index.rows.begin_rebuild();
     for (entity, id, boss) in &bosses {
         let room = rooms.of(entity);
         let phase = boss.status.encounter_phase();
@@ -1093,7 +1011,7 @@ pub fn rebuild_boss_render_index(
                 && view.fighting == fighting
                 && view.finish == finish
         };
-        index.refresh(id.as_str(), room, fresh, || BossRenderView {
+        index.rows.refresh(id.as_str(), room, |view, _| fresh(view), || BossRenderView {
             room,
             name: boss.config.name.clone(),
             behavior_id: boss.config.behavior.id.clone(),
@@ -1104,7 +1022,7 @@ pub fn rebuild_boss_render_index(
             finish,
         });
     }
-    index.end_rebuild();
+    index.rows.end_rebuild();
 }
 
 /// One labeled actor's nameplate facts for this frame, resolved sim-side
@@ -1582,12 +1500,14 @@ mod view_index_tests {
     }
 
     #[test]
-    fn actor_render_index_snapshots_identity_sweeps_and_refreshes() {
+    fn actor_render_index_refreshes_and_retires_same_placement_in_distinct_rooms() {
         let mut idx = ActorRenderIndex::default();
-        // Frame 1: two actors materialized.
+        let a = Some(LiveRoomInstance::ACTIVATION);
+        let b = a.map(LiveRoomInstance::next);
         idx.begin_rebuild();
         idx.upsert(
-            "a",
+            "actor",
+            a,
             "Goblin",
             None,
             false,
@@ -1595,21 +1515,23 @@ mod view_index_tests {
             None,
             crate::PoseGeometry::Settled,
         );
-        idx.upsert("b", "Dummy", None, true, None, None, crate::PoseGeometry::Settled);
+        idx.upsert("actor", b, "Dummy", None, true, None, None, crate::PoseGeometry::Settled);
         idx.end_rebuild();
         assert_eq!(idx.len(), 2);
-        let a = idx.get("a").expect("a present");
-        assert_eq!(a.name, "Goblin");
-        assert_eq!(a.render_size, Some(ae::Vec2::new(10.0, 20.0)));
-        assert!(!a.is_sandbag);
-        let b = idx.get("b").expect("b present");
-        assert!(b.is_sandbag);
-        assert!(b.render_size.is_none());
+        assert!(idx.get("actor").is_none());
+        let goblin = idx.get_in("actor", a).expect("goblin remains in its room");
+        assert_eq!(goblin.name, "Goblin");
+        assert_eq!(goblin.render_size, Some(ae::Vec2::new(10.0, 20.0)));
+        assert!(!goblin.is_sandbag);
+        let name = goblin.name.as_ptr();
+        let dummy = idx.get_in("actor", b).expect("dummy remains in its room");
+        assert!(dummy.is_sandbag);
+        assert!(dummy.render_size.is_none());
 
-        // Frame 2: "a" survives UNCHANGED (refreshed in place); "b" despawns → swept.
         idx.begin_rebuild();
         idx.upsert(
-            "a",
+            "actor",
+            a,
             "Goblin",
             None,
             false,
@@ -1618,14 +1540,14 @@ mod view_index_tests {
             crate::PoseGeometry::Settled,
         );
         idx.end_rebuild();
-        assert_eq!(idx.len(), 1, "the despawned 'b' is swept");
-        assert!(idx.get("b").is_none());
-        assert_eq!(idx.get("a").map(|v| v.name.as_str()), Some("Goblin"));
+        assert_eq!(idx.len(), 1);
+        assert!(idx.get_in("actor", b).is_none());
+        assert_eq!(idx.get("actor").map(|v| v.name.as_ptr()), Some(name));
 
-        // Frame 3: "a"'s facts CHANGE (a hostile flip re-sizes it) → updated in place.
         idx.begin_rebuild();
         idx.upsert(
-            "a",
+            "actor",
+            a,
             "Goblin",
             None,
             false,
@@ -1635,9 +1557,8 @@ mod view_index_tests {
         );
         idx.end_rebuild();
         assert_eq!(
-            idx.get("a").and_then(|v| v.render_size),
+            idx.get_in("actor", a).and_then(|v| v.render_size),
             Some(ae::Vec2::new(30.0, 40.0)),
-            "changed facts are re-materialized, not stuck on the old snapshot"
         );
     }
 }

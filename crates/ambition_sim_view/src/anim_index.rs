@@ -701,18 +701,15 @@ pub struct HazardLaneFact {
     pub size: ae::Vec2,
 }
 
-/// Materialized per-frame boss presentation facts, keyed by [`FeatureId`]: the resolved
-/// [`BossAnimState`] (facing / tint / row-selection facts), the boss's collision AABB, and the
-/// hazard-column lane when one is live. The MOVING half of the boss read-model — `BossRenderIndex`
-/// carries the static identity.
+/// The animation, bounds, and hazard lane of each boss occurrence.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BossFrameIndex {
-    frames: bevy::platform::collections::HashMap<String, (BossFrameView, u64)>,
-    generation: u64,
+    frames: crate::live_room_rows::LiveRoomRows<BossFrameView>,
 }
 
 #[derive(Clone, Debug)]
 pub struct BossFrameView {
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pub anim: ambition_sprite_sheet::boss::BossAnimState,
     pub opacity: f32,
     /// A NAMED row content pinned this boss to (`PinnedRow`): drawn ahead of
@@ -746,21 +743,36 @@ pub struct BossFrameView {
     pub gravity_dir: ae::Vec2,
 }
 
+impl crate::live_room_rows::LiveRoomRow for BossFrameView {
+    fn room(&self) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+        self.room
+    }
+}
+
 impl crate::RowView for BossFrameIndex {
     fn has_rows(&self) -> bool {
-        !self.frames.is_empty()
+        !self.is_empty()
     }
 }
 
 impl BossFrameIndex {
+    /// Read the sole occurrence of this ID.
     pub fn get(&self, id: &str) -> Option<&BossFrameView> {
-        self.frames.get(id).map(|(frame, _)| frame)
+        self.frames.get(id)
     }
 
+    /// Read the occurrence in this exact live room.
+    pub fn get_in(
+        &self,
+        id: &str,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Option<&BossFrameView> {
+        self.frames.get_in(id, room)
+    }
+
+    /// Read every boss occurrence.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &BossFrameView)> {
-        self.frames
-            .iter()
-            .map(|(id, (frame, _))| (id.as_str(), frame))
+        self.frames.iter()
     }
 
     pub fn len(&self) -> usize {
@@ -770,25 +782,6 @@ impl BossFrameIndex {
     pub fn is_empty(&self) -> bool {
         self.frames.is_empty()
     }
-
-    fn begin_rebuild(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
-    }
-
-    fn end_rebuild(&mut self) {
-        let gen = self.generation;
-        self.frames.retain(|_, (_, g)| *g == gen);
-    }
-
-    fn insert(&mut self, id: &str, frame: BossFrameView) {
-        let gen = self.generation;
-        if let Some(slot) = self.frames.get_mut(id) {
-            slot.0 = frame;
-            slot.1 = gen;
-        } else {
-            self.frames.insert(id.to_string(), (frame, gen));
-        }
-    }
 }
 
 pub fn rebuild_boss_frame_index(
@@ -797,7 +790,9 @@ pub fn rebuild_boss_frame_index(
     // REQUIRED, not optional: `engine.character-authority-is-app-local`
     // forbids an optional boss authority and a substituted empty catalog.
     catalog: bevy::prelude::Res<ambition_boss_encounter::BossCatalog>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bosses: Query<(
+        bevy::prelude::Entity,
         &FeatureId,
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
@@ -815,8 +810,8 @@ pub fn rebuild_boss_frame_index(
 ) {
     use ambition_sprite_sheet::boss::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
-    index.begin_rebuild();
-    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, death_beat, frame, posed_by_rig) in &bosses {
+    index.frames.begin_rebuild();
+    for (entity, id, feature, health, combat, attack_state, brain, anim_frame, pinned, death_beat, frame, posed_by_rig) in &bosses {
         let boss = feature.as_boss_ref();
         let anim = boss_anim_state_for(&catalog, boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
@@ -850,9 +845,10 @@ pub fn rebuild_boss_frame_index(
             None
         };
         let boss = feature.as_boss_ref();
-        index.insert(
+        index.frames.insert(
             id.as_str(),
             BossFrameView {
+                room: rooms.of(entity),
                 anim,
                 opacity: death_beat.map_or(1.0, |beat| beat.opacity()),
                 pinned: pinned.filter(|pin| pin.is_pinned() || pin.layer.is_some()).cloned(),
@@ -870,7 +866,7 @@ pub fn rebuild_boss_frame_index(
             },
         );
     }
-    index.end_rebuild();
+    index.frames.end_rebuild();
 }
 
 #[cfg(test)]

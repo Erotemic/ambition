@@ -189,6 +189,15 @@ pub use camera::{
     apply_view_frames_to_2d_cameras, present_view_frames, view_camera_presentation,
     CameraViewState, PresentedViewFrame, PresentedViewFrames, ViewCameraSet,
 };
+
+#[cfg(feature = "card_view")]
+pub(crate) type GameplayOutputCamera = bevy::prelude::Or<(
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
+    bevy::prelude::With<card_view::CardViewCamera>,
+)>;
+#[cfg(not(feature = "card_view"))]
+pub(crate) type GameplayOutputCamera =
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>;
 /// The fallback stand-in's marker: a feature the sim published that no render
 /// family has drawn for long enough to be a bug.
 ///
@@ -806,6 +815,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
                     .before(actors::rigged::RiggedDriveSet),
+                actor_entrance::present_actor_entrances
+                    .after(passage_visuals::apply_passage_looks)
+                    .before(actors::rigged::follow_limb_twins)
+                    .before(actors::rigged::RiggedDriveSet),
                 // A squashed body is drawn flat (crushing C6), on the scale
                 // the body was placed at, before the part driver reads it.
                 squash_visuals::present_squashed_bodies
@@ -853,9 +866,6 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 #[cfg(not(target_os = "android"))]
                 hit_flash::declare_hit_flash_demand,
                 passage_visuals::declare_passage_fade_demand,
-                actor_entrance::present_actor_entrances
-                    .after(passage_visuals::apply_passage_looks)
-                    .before(actors::rigged::follow_limb_twins),
                 // A limb drawn by itself in a portal pair follows its body
                 // after the body's frame and look are chosen.
                 actors::rigged::follow_limb_twins

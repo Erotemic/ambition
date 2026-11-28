@@ -403,20 +403,16 @@ mod tests {
     #[test]
     fn a_runtime_actor_fades_once_when_its_visual_appears() {
         use super::super::actor_entrance::present_actor_entrances;
-        use ambition_sprite_sheet::character::rigged::ComposedBodyDemand;
         use std::time::Duration;
 
         let mut app = app_with_a_room();
         app.init_resource::<Time>()
             .init_resource::<ambition_time::ClockState>()
-            .init_resource::<ComposedBodyDemand>()
             .add_systems(
                 Update,
                 (
                     spawn_dynamic_feature_visuals,
-                    |mut sprites: Query<&mut Sprite, With<DynamicFeatureVisual>>,
-                     mut demand: ResMut<ComposedBodyDemand>| {
-                        demand.clear();
+                    |mut sprites: Query<&mut Sprite, With<DynamicFeatureVisual>>| {
                         // The actor animator sets the base opacity each frame.
                         for mut sprite in &mut sprites {
                             sprite.color.set_alpha(0.8);
@@ -453,22 +449,16 @@ mod tests {
         let arrival = entity_for("arrival");
         let immediate = entity_for("immediate");
         let alpha = |app: &App, entity| app.world().get::<Sprite>(entity).unwrap().color.alpha();
-        let composed = |app: &App, entity| {
-            app.world().resource::<ComposedBodyDemand>().is_declared(entity)
-        };
-
         let first = alpha(&app, arrival);
-        assert!(first > 0.0 && first < 0.8 && composed(&app, arrival));
+        assert!(first > 0.0 && first < 0.8);
         assert_eq!(alpha(&app, immediate), 0.8);
-        assert!(!composed(&app, immediate));
 
         advance(&mut app, 80);
         let next = alpha(&app, arrival);
-        assert!(next > first && next < 0.8 && composed(&app, arrival));
+        assert!(next > first && next < 0.8);
         advance(&mut app, 250);
         advance(&mut app, 16);
         assert_eq!(alpha(&app, arrival), 0.8);
-        assert!(!composed(&app, arrival));
     }
 
     fn a_view() -> ambition_sim_view::FeatureView {

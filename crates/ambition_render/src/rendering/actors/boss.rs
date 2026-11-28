@@ -120,11 +120,10 @@ pub fn animate_bosses(
     // The boss's render size, which a conductor may change mid-fight
     // (`ambition.boss.scale`).
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
-    // Read the cursor from `boss_frames` (by id), not a `BossAnimFrame`
-    // component: this presentation entity is a `FeatureVisual` mirror, and
-    // `BossAnimFrame` is on the separate sim boss entity.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut query: Query<
         (
+            Entity,
             &FeatureVisual,
             &mut Sprite,
             // The animator addresses the texture, and holds the render basis
@@ -140,13 +139,15 @@ pub fn animate_bosses(
     // ADR 0011: per-entity proper time. A boss with `ProperTimeScale > 1.0`
     // keeps animating while its `SimClock` request freezes the world
     // (ADR 0010, narrative authority).
-    for (visual, mut sprite, mut animator, anchor, drawn) in &mut query {
-        let Some(view) = boss_frames.get(&visual.id) else {
+    for (entity, visual, mut sprite, mut animator, anchor, drawn) in &mut query {
+        let room = rooms.of(entity);
+        let Some(view) = boss_frames.get_in(&visual.id, room) else {
             continue;
         };
+        let feature = feature_views.get_in(&visual.id, room);
         // A boss drawn at another size than its sprite was bound at (a
         // conductor grew it): draw it at the size the sim builds it at.
-        if let Some(feature) = feature_views.get(&visual.id) {
+        if let Some(feature) = feature {
             let wanted = animator.spec.render_size(BVec2::new(feature.size.x, feature.size.y));
             match animator.render_basis.as_mut() {
                 Some(basis) if (basis.render_size - wanted).length_squared() > 1e-4 => basis.render_size = wanted,
@@ -165,7 +166,7 @@ pub fn animate_bosses(
                 .and_then(|pin| pin.layer.as_ref())
                 .and_then(|layer| animator.pinned_cell(layer.rows.iter().map(String::as_str), layer.elapsed, layer.looping));
             // How hurt it is: its wounds show as much (eyes that go bloodshot).
-            let wounds = feature_views.get(&visual.id).filter(|f| f.hp_max > 0).map_or(0.0, |f| 1.0 - f.hp_current as f32 / f.hp_max as f32);
+            let wounds = feature.filter(|f| f.hp_max > 0).map_or(0.0, |f| 1.0 - f.hp_current as f32 / f.hp_max as f32);
             *drawn = sprites::BossDrawnCell {
                 row,
                 frame,

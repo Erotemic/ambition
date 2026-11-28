@@ -100,102 +100,48 @@ pub fn a_gradient_lane_is_owed(
 
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    // A lane is drawn in its boss's live room, by that room's geometry: the
-    // room the boss's own sprite is stamped with (V2b).
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    sprites: Query<(Entity, &FeatureVisual)>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ae::RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
-    mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
+    mut visuals: Query<(
+        Entity, &GradientLaneVisual, &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
+        &mut Transform, &mut Sprite,
+    )>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
-    // The bosses that draw a lane this frame. Most frames have none and show
-    // none, and then there is nothing to do: the room of each feature sprite
-    // was looked up each frame for no boss.
-    let laned: Vec<&str> = boss_frames.iter().filter(|(_, frame)| frame.hazard_lane.is_some()).map(|(id, _)| id).collect();
-    if laned.is_empty() && visuals.is_empty() {
-        return;
-    }
-    let room_of_boss: std::collections::HashMap<&str, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> =
-        sprites
-            .iter()
-            .filter(|(_, sprite)| laned.contains(&sprite.id.as_str()))
-            .filter_map(|(entity, sprite)| Some((sprite.id.as_str(), rooms.room_of(entity)?)))
-            .collect();
-    let mut active: std::collections::HashMap<
-        &str,
-        (bool, ae::Vec2, BVec2, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance),
-    > = std::collections::HashMap::new();
-    for (id, frame) in boss_frames.iter() {
-        // A boss whose live room cannot be told draws no lane.
-        let Some(room) = room_of_boss.get(id).copied() else {
-            continue;
-        };
-        if let Some(lane) = frame.hazard_lane {
-            active.insert(
-                id,
-                (
-                    lane.striking,
-                    lane.center,
-                    BVec2::new(lane.size.x, lane.size.y),
-                    room,
-                ),
-            );
-        }
-    }
+    let mut active: std::collections::HashMap<_, _> = boss_frames.iter()
+        .filter_map(|(id, frame)| {
+            let room = frame.room?;
+            let lane = frame.hazard_lane?;
+            let world = &rooms.in_room(room)?.0;
+            let at = world_to_bevy(world, lane.center, GRADIENT_LANE_VISUAL_Z);
+            let color = if lane.striking { GRADIENT_LANE_STRIKE_COLOR } else { GRADIENT_LANE_TELEGRAPH_COLOR };
+            Some(((room, id), (at, lane.size, color)))
+        })
+        .collect();
 
-    // Update existing visuals + remove stale ones.
-    for (visual_entity, visual, mut transform, mut sprite) in &mut visuals {
-        let lane = active.remove(visual.owner_id.as_str());
-        if let Some((in_strike, center, size, world)) =
-            lane.and_then(|(in_strike, center, size, room)| Some((in_strike, center, size, rooms.in_room(room)?)))
-        {
-            transform.translation = world_to_bevy(&world.0, center, GRADIENT_LANE_VISUAL_Z);
+    for (entity, visual, room, mut transform, mut sprite) in &mut visuals {
+        if let Some((at, size, color)) = active.remove(&(room.0, visual.owner_id.as_str())) {
+            transform.translation = at;
             sprite.custom_size = Some(size);
-            sprite.color = if in_strike {
-                GRADIENT_LANE_STRIKE_COLOR
-            } else {
-                GRADIENT_LANE_TELEGRAPH_COLOR
-            };
+            sprite.color = color;
         } else {
-            // The owner stopped telegraphing or striking HazardColumn: despawn.
-            commands.entity(visual_entity).despawn();
+            commands.entity(entity).despawn();
         }
     }
 
-    // Spawn visuals for bosses that newly entered HazardColumn.
-    for (owner_id, (in_strike, center, size, room)) in active {
-        let Some(world) = rooms.in_room(room) else {
-            continue;
-        };
-        let color = if in_strike {
-            GRADIENT_LANE_STRIKE_COLOR
-        } else {
-            GRADIENT_LANE_TELEGRAPH_COLOR
-        };
+    for ((room, owner_id), (at, size, color)) in active {
         commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),
             (
-                Sprite {
-                    color,
-                    custom_size: Some(size),
-                    ..default()
-                },
-                Transform::from_translation(world_to_bevy(
-                    &world.0,
-                    center,
-                    GRADIENT_LANE_VISUAL_Z,
-                )),
+                Sprite::from_color(color, size),
+                Transform::from_translation(at),
                 super::super::primitives::RoomVisual,
-                GradientLaneVisual {
-                    owner_id: owner_id.to_string(),
-                },
+                GradientLaneVisual { owner_id: owner_id.to_owned() },
                 Name::new("Gradient Lane visual"),
             ),
         );

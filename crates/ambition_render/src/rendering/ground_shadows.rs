@@ -7,9 +7,8 @@
 //!
 //! The shadow is a published picture of the room's theme
 //! (`RoomDressingPart::Shadow`) drawn as one sprite for each body: no shader.
-//! It is presentation only. It reads where each body is from the read models
-//! the renderer has (`BodyPoseView` for the player, `FeatureViewIndex` for
-//! each other actor) and the live geometry of the body's room.
+//! Each shadow uses the presented body position and the geometry of its
+//! live room.
 //!
 //! Limits:
 //!
@@ -24,19 +23,22 @@
 //!   a game that wants one.
 //! - A room that names no theme, or a theme with no shadow picture, has none.
 
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK};
 use ambition_platformer2d_core::AabbExt;
-use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, LiveRoomInstance, LiveRoomOf, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxTheme, RoomDressingPart};
 
-use super::primitives::{FeatureVisual, RoomVisual};
+use super::presented_bodies::{PresentedBodies, PresentedBodyKey};
+use super::primitives::RoomVisual;
+use super::retained_entities::RetainedEntities;
 
 /// How far over the ground a body still has a shadow, in world units.
 pub const REACH: f32 = 150.0;
@@ -52,15 +54,10 @@ const SINK: f32 = 1.5;
 /// In front of the terrain and its trims and of a door, behind each actor.
 const SHADOW_Z: f32 = WORLD_Z_BLOCK + 7.0;
 
-/// The shadow sprite of one body. `key` says whose: the id of a feature, or
-/// [`PLAYER_KEY`].
-#[derive(Component, Clone, Debug)]
-#[require(crate::rendering::WorldSprite)]
-pub struct GroundShadow {
-    pub key: String,
-}
-
-const PLAYER_KEY: &str = "\u{0}player";
+/// A shadow on the ground of the body's live room.
+#[derive(Component)]
+#[require(crate::rendering::AnimatedWorldSpriteTint)]
+pub struct GroundShadow;
 
 /// The rooms that draw ground shadows: the rooms of each game that asked.
 ///
@@ -131,134 +128,81 @@ pub fn shadows_are_asked_for_or_drawn(allowed: Option<Res<GroundShadowRooms>>, d
 }
 
 /// Draw the shadow of each body that has ground under it.
-#[allow(clippy::too_many_arguments)]
-pub fn sync_ground_shadows(
+pub(crate) fn sync_ground_shadows(
     mut commands: Commands,
-    rooms: LiveRoomOf<ae::RoomGeometry>,
+    bodies: PresentedBodies,
     specs: Option<LiveRoomSpecs>,
     assets: Option<Res<GameAssets>>,
     allowed: Option<Res<GroundShadowRooms>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
-    presented_features: Option<Res<ambition_sim_view::PresentedFeaturePoses>>,
-    visuals: Query<(Entity, &FeatureVisual)>,
-    player: Query<
-        (Entity, &ambition_sim_view::BodyPoseView, Option<&ambition_sim_view::PresentedPose>),
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-    >,
-    mut shadows: Query<(Entity, &GroundShadow, &mut Transform, &mut Sprite, &mut Visibility)>,
+    mut shadows: Query<(&mut Transform, &mut Sprite), With<GroundShadow>>,
+    mut retained: Local<RetainedEntities<PresentedBodyKey>>,
 ) {
-    let (Some(specs), Some(assets), Some(session_scope)) =
-        (specs, assets, SessionSpawnScope::for_optional_active_session(active_session.as_deref()))
-    else {
-        return;
-    };
-    // The shadow picture of each live room of a game that asked for shadows.
-    let pictures: Vec<(LiveRoomInstance, Handle<Image>)> = specs
-        .live_rooms()
-        .filter_map(|(room, definition)| {
-            let metadata = &specs.rooms().spec(definition).metadata;
-            if !allowed.as_deref()?.draws_in(metadata.mode.as_deref()) {
-                return None;
-            }
-            let theme = ParallaxTheme::named_by_room_metadata(metadata)?;
-            Some((room, assets.room_dressing.get(theme, RoomDressingPart::Shadow)?.clone()))
-        })
-        .collect();
-    // A tier that draws no parallax draws no shadows: they are scenery.
-    let drawn = quality.is_none_or(|quality| quality.budget.parallax.enabled);
-
-    // Each body that has a shadow now: whose, its room, the box of the body.
-    let mut bodies: Vec<(String, LiveRoomInstance, ae::Vec2, ae::Vec2)> = Vec::new();
-    if drawn && !pictures.is_empty() {
-        if let Ok((body, pose, presented)) = player.single() {
-            if let Some(room) = rooms.room_of(body) {
-                bodies.push((
-                    PLAYER_KEY.to_string(),
-                    room,
-                    ambition_sim_view::presented_pose::draw_pos(pose, presented),
-                    pose.size,
-                ));
-            }
-        }
-        if let Some(feature_views) = feature_views.as_deref() {
-            for (entity, visual) in &visuals {
-                let Some(view) = feature_views.get_in(&visual.id, rooms.room_of(entity)) else {
+    let scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
+    let mut wanted = HashMap::new();
+    if let (Some(specs), Some(assets), Some(allowed), Some(_)) =
+        (specs, assets, allowed, scope.filter(|_| quality.is_none_or(|quality| quality.budget.parallax.enabled)))
+    {
+        let pictures: HashMap<_, _> = specs.live_rooms()
+            .filter_map(|(room, definition)| {
+                let metadata = &specs.rooms().spec(definition).metadata;
+                if !allowed.draws_in(metadata.mode.as_deref()) {
+                    return None;
+                }
+                let theme = ParallaxTheme::named_by_room_metadata(metadata)?;
+                Some((room, assets.room_dressing.get(theme, RoomDressingPart::Shadow)?))
+            })
+            .collect();
+        if !pictures.is_empty() {
+            for body in bodies.iter().filter(|body| body.visible && !body.submerged) {
+                let Some((world, image)) = body.geometry.zip(body.room.and_then(|room| pictures.get(&room))) else {
                     continue;
                 };
-                if view.kind != FeatureVisualKind::Actor || !view.visible || view.submerged {
+                let feet = body.pos + Vec2::Y * (0.5 * body.size.y);
+                let Some(top) = ground_below(world, feet, body.size.x * 0.5) else {
                     continue;
-                }
-                if let Some(room) = rooms.room_of(entity) {
-                    // Where the sprite of the actor is drawn this frame, so
-                    // the shadow does not lag it or lead it.
-                    let pos = presented_features
-                        .as_deref()
-                        .map_or(view.pos, |poses| poses.presented(&visual.id, view.room, view.pos));
-                    bodies.push((visual.id.clone(), room, pos, view.size));
+                };
+                let (shape, alpha) = shadow_shape(body.size.x, (top - feet.y).max(0.0));
+                if alpha > 0.01 {
+                    let at = world_to_bevy(world, Vec2::new(body.pos.x, top + SINK), SHADOW_Z);
+                    wanted.insert(body.key(), (at, shape, Color::srgba(1.0, 1.0, 1.0, alpha), (*image).clone()));
                 }
             }
         }
     }
 
-    // Where each shadow is: the key, the picture, the place and the shape.
-    let mut wanted: std::collections::HashMap<String, (LiveRoomInstance, Handle<Image>, Vec3, Vec2, f32)> =
-        std::collections::HashMap::new();
-    for (key, room, pos, size) in bodies {
-        let (Some((_, picture)), Some(geometry)) =
-            (pictures.iter().find(|(stamp, _)| *stamp == room), rooms.in_room(room))
-        else {
-            continue;
-        };
-        let world = &geometry.0;
-        let feet = ae::Vec2::new(pos.x, pos.y + size.y * 0.5);
-        let Some(top) = ground_below(world, feet, size.x * 0.5) else {
-            continue;
-        };
-        let (shape, alpha) = shadow_shape(size.x, (top - feet.y).max(0.0));
-        if alpha <= 0.01 {
-            continue;
-        }
-        let at = world_to_bevy(world, ae::Vec2::new(pos.x, top + SINK), SHADOW_Z);
-        wanted.insert(key, (room, picture.clone(), at, shape, alpha));
-    }
-
-    for (entity, shadow, mut transform, mut sprite, mut visibility) in &mut shadows {
-        match wanted.remove(&shadow.key) {
-            Some((_, picture, at, shape, alpha)) => {
+    retained.reconcile(&mut commands, |key| wanted.contains_key(key));
+    let Some(scope) = scope else {
+        return;
+    };
+    for (key, (at, shape, color, image)) in wanted {
+        if let Some((mut transform, mut sprite)) = retained.get(&key).and_then(|entity| shadows.get_mut(*entity).ok()) {
+            if transform.translation != at {
                 transform.translation = at;
-                if sprite.image != picture {
-                    sprite.image = picture;
-                }
-                sprite.custom_size = Some(shape);
-                sprite.color = Color::srgba(1.0, 1.0, 1.0, alpha);
-                if *visibility != Visibility::Inherited {
-                    *visibility = Visibility::Inherited;
-                }
             }
-            // The body is gone, or has no ground under it. A shadow is one
-            // sprite: take it, and make it again when it is wanted.
-            None => commands.entity(entity).try_despawn(),
+            if sprite.image != image {
+                sprite.image = image;
+            }
+            if sprite.custom_size != Some(shape) {
+                sprite.custom_size = Some(shape);
+            }
+            if sprite.color != color {
+                sprite.color = color;
+            }
+            continue;
         }
-    }
-    for (key, (room, picture, at, shape, alpha)) in wanted {
-        commands.spawn_session_scoped(
-            session_scope.in_room(Some(room)),
+        let entity = commands.spawn_session_scoped(
+            scope.in_room(key.room),
             (
-                Sprite {
-                    image: picture,
-                    custom_size: Some(shape),
-                    color: Color::srgba(1.0, 1.0, 1.0, alpha),
-                    ..Default::default()
-                },
+                Sprite { image, custom_size: Some(shape), color, ..Default::default() },
                 Transform::from_translation(at),
-                Visibility::Inherited,
-                GroundShadow { key },
+                GroundShadow,
                 RoomVisual,
                 Name::new("Ground shadow"),
             ),
-        );
+        ).id();
+        retained.insert(key, entity);
     }
 }
 
@@ -320,5 +264,134 @@ mod tests {
         assert!(rooms.draws_in(Some("mary_o")));
         assert!(!rooms.draws_in(Some("sanic")));
         assert!(!rooms.draws_in(None));
+    }
+
+    #[test]
+    fn equal_actor_ids_keep_separate_ground_shadows() {
+        use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+        };
+        use ambition_platformer2d_world::rooms::{insert_room_set, LiveRoomDefinition, RoomSet, RoomSpec};
+        use ambition_sim_view::{FeatureView, FeatureViewIndex};
+        use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+
+        let mut app = App::new();
+        let mut allowed = GroundShadowRooms::default();
+        allowed.allow_mode("test");
+        app.insert_resource(allowed)
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::ZERO))
+            .init_resource::<Assets<Image>>()
+            .add_systems(Update, sync_ground_shadows);
+
+        #[cfg(feature = "card_view")]
+        {
+            use super::super::card_view::{realize_card_scenery, CardMeshes, CardRootDepths};
+            use bevy::{camera::visibility::VisibilitySystems, transform::TransformSystems};
+            app.add_plugins((bevy::transform::TransformPlugin, bevy::camera::visibility::VisibilityPlugin))
+                .init_resource::<Assets<Mesh>>()
+                .init_resource::<Assets<bevy::mesh::skinning::SkinnedMeshInverseBindposes>>()
+                .init_resource::<Assets<StandardMaterial>>()
+                .init_resource::<CardMeshes>()
+                .init_resource::<CardRootDepths>()
+                .add_systems(PostUpdate, realize_card_scenery
+                    .after(TransformSystems::Propagate)
+                    .after(VisibilitySystems::VisibilityPropagate));
+        }
+
+        let floor = |y| ae::RoomGeometry(ae::World::new(
+            "arena", Vec2::new(800.0, 600.0), Vec2::ZERO,
+            vec![ae::Block::solid("floor", Vec2::new(0.0, y), Vec2::new(800.0, 100.0))],
+        ));
+        let (near, far) = (floor(500.0), floor(420.0));
+        let mut spec = RoomSpec::new("arena", near.0.clone());
+        spec.metadata.mode = Some("test".into());
+        spec.metadata.visual_profile.parallax_theme = Some("cave".into());
+        let east = LiveRoomInstance::ACTIVATION;
+        let west = east.next();
+        let world = app.world_mut();
+        insert_room_set(world, RoomSet::from_parts_or_panic("arena", vec![spec], Vec::new()));
+        insert_live_room_component(world, near);
+        let west_root = spawn_live_room(world, west, LiveRoomDefinition::from_index(0));
+        world.entity_mut(west_root).insert(far);
+        let image = world.resource_mut::<Assets<Image>>().add(Image::new_fill(
+            Extent3d { width: 8, height: 4, depth_or_array_layers: 1 },
+            TextureDimension::D2, &[0, 0, 0, 255], TextureFormat::Rgba8UnormSrgb,
+            bevy::asset::RenderAssetUsages::default(),
+        ));
+        let mut assets = GameAssets::default();
+        assets.room_dressing.insert(ParallaxTheme::new("cave"), RoomDressingPart::Shadow, image.clone());
+        world.insert_resource(assets);
+        let id = "same_actor";
+        let mirrors = [east, west].map(|room| world.spawn((super::super::FeatureVisual { id: id.to_owned() }, InRoomInstance(room))).id());
+        let view = |room, y| FeatureView {
+            room: Some(room),
+            pos: Vec2::new(100.0, y),
+            size: Vec2::new(30.0, 40.0),
+            kind: FeatureVisualKind::Actor,
+            visible: true,
+            submerged: false,
+            wire_anchor: None,
+            grab_reach: None,
+            line_anchor: None,
+            limb_host: None,
+            depth_plane: Default::default(),
+            flash: false,
+            breakable_state: None,
+            chest_opened: false,
+            fighting: false,
+            switch_on: false,
+            material: Default::default(),
+            alive: true,
+            hit_flash_secs: 0.0,
+            parry_flash_secs: 0.0,
+            hp_current: 1,
+            hp_max: 1,
+            training_dummy: false,
+            armored: false,
+            hit_strength: 0.0,
+            unhittable: false,
+            defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
+            sprite_offset: None,
+            order: Default::default(),
+        };
+        let rows = |y| FeatureViewIndex::from_rows([(id.to_owned(), view(east, y)), (id.to_owned(), view(west, 400.0))]);
+        world.insert_resource(rows(400.0));
+
+        let shadows = |app: &mut App| {
+            let world = app.world_mut();
+            world.query_filtered::<(Entity, &InRoomInstance, &Transform, &Sprite), With<GroundShadow>>()
+                .iter(world).map(|(id, room, t, sprite)| (room.0, (id, t.translation, sprite.color.alpha(), sprite.image.id())))
+                .collect::<HashMap<_, _>>()
+        };
+        app.update();
+        let first = shadows(&mut app);
+        assert_eq!(first.len(), 2);
+        assert_eq!(first[&east].1, Vec3::new(-300.0, -201.5, SHADOW_Z));
+        assert_eq!(first[&west].1, Vec3::new(-300.0, -121.5, SHADOW_Z));
+        assert!(first[&east].2 < first[&west].2);
+        assert_eq!(first[&east].3, image.id());
+
+        #[cfg(feature = "card_view")]
+        {
+            use super::super::card_view::CardScenery;
+            let world = app.world_mut();
+            let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardScenery>>();
+            let mut positions = cards.iter(world)
+                .filter(|(_, visible)| **visible != Visibility::Hidden)
+                .map(|(transform, _)| transform.translation.truncate()).collect::<Vec<_>>();
+            positions.sort_by(|a, b| a.y.total_cmp(&b.y));
+            assert_eq!(positions, [first[&east].1.truncate(), first[&west].1.truncate()]);
+        }
+
+        app.insert_resource(rows(460.0));
+        app.update();
+        let moved = shadows(&mut app);
+        assert_eq!(moved[&east].0, first[&east].0);
+        assert!(moved[&east].2 > first[&east].2);
+        assert_eq!(moved[&west], first[&west]);
+        app.world_mut().despawn(mirrors[0]);
+        app.update();
+        assert_eq!(shadows(&mut app), HashMap::from([(west, first[&west])]));
     }
 }

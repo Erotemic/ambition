@@ -501,3 +501,36 @@ separate review should assess whether those lines need situation-specific
 pools, and whether walk-away (`conversation_cut`) lines are appropriate
 for particular characters. Verify actual bubble readability and density
 in-game before changing cadence or introducing additional bark triggers.
+
+## Follow-up: complete Hall conversations
+
+Give every exhibit in the assembled Hall roster a named Yarn conversation.
+Use the Hall generator to find the exhibits, including the provider catalogs.
+Do not make separate conversations for forms and parts that have no exhibit.
+
+The source snapshot contains 651 exhibits. Of these, 59 have no catalog
+`hall_dialogue_id`. Connect the 15 existing unbound nodes to their exhibits.
+Add 44 nodes with two optional questions and an exit. Use nonverbal responses
+for animals and constructs when appropriate. Keep the Hall conversations
+independent of quest and encounter state. Add an explicit Hall bark to the
+35 new conversation entries that have neither a Hall pool nor a fallback.
+Keep the other bark situations and their timing unchanged.
+
+Use the current display names for the Badely, T-Rex, and Scout Hall speaker
+labels. Put the 58 exhibits that have no wing in the order file into their
+regional wings. Add a wing for the Elemental Mine. Regenerate the area spec
+from the complete roster. The coverage test checks that every generated
+pedestal names a live node. This test also covers future additions to the
+Hall. The existing self-conversation rules remain unchanged.
+
+After application, regenerate the actual Hall world from the local map
+assets submodule:
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools.generate_hall_of_characters --print-summary
+```
+
+The supplied source archive omits the map submodule. The spec is generated
+and checked here, but the actual LDtk file and runtime interactions require
+local verification. Review the new placement diff before committing the map
+submodule. The incidental new conversations are provisional character writing.

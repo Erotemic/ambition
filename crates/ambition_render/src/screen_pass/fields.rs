@@ -1,12 +1,14 @@
-use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use bevy::camera::visibility::RenderLayers;
 use bevy::ecs::{query::QueryData, system::SystemParam};
 use bevy::prelude::*;
 
 #[cfg(feature = "card_view")]
+use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
+#[cfg(feature = "card_view")]
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 #[cfg(feature = "card_view")]
-use crate::rendering::card_view::{CardRootDepths, CardViewCamera, PlaneCameraForCard};
+use crate::rendering::card_view::{CardRootDepths, PlaneCameraForCard};
+use crate::rendering::GameplayOutputCamera;
 
 #[derive(QueryData)]
 pub(crate) struct FieldSite {
@@ -16,16 +18,11 @@ pub(crate) struct FieldSite {
     layers: Option<&'static RenderLayers>,
 }
 
-#[cfg(feature = "card_view")]
-type FieldOutput = Or<(With<MainCamera>, With<CardViewCamera>)>;
-#[cfg(not(feature = "card_view"))]
-type FieldOutput = With<MainCamera>;
-
 #[derive(SystemParam)]
 pub(crate) struct FieldViews<'w, 's> {
     cameras: Query<'w, 's, (
         Entity, &'static Camera, &'static GlobalTransform, Option<&'static RenderLayers>,
-    ), FieldOutput>,
+    ), GameplayOutputCamera>,
     #[cfg(feature = "card_view")]
     links: Query<'w, 's, &'static PlaneCameraForCard>,
     #[cfg(feature = "card_view")]
@@ -92,9 +89,18 @@ impl FieldViews<'_, '_> {
         } else {
             middle
         };
-        let middle_px = view.camera.world_to_viewport(view.at, middle).ok()?;
-        let edge_px = view.camera.world_to_viewport(view.at, middle + Vec3::X * radius).ok()?;
-        source_in_view(view.rect.size(), middle_px - view.rect.min, middle_px.distance(edge_px), strength)
+        let center = view.camera.world_to_ndc(view.at, middle)?;
+        if !(0.0..=1.0).contains(&center.z) {
+            return None;
+        }
+        // A wide field can extend past a depth plane. Its edge still gives
+        // the projected radius of the field.
+        let edge = view.camera.world_to_ndc(view.at, middle + Vec3::X * radius)?;
+        let size = view.rect.size();
+        let half = size * 0.5;
+        let at = (center.truncate() * Vec2::new(1.0, -1.0) + Vec2::ONE) * half;
+        let radius_px = ((edge.truncate() - center.truncate()) * half).length();
+        source_in_view(size, at, radius_px, strength)
     }
 }
 
@@ -106,7 +112,7 @@ fn drawn_through(camera: Option<&RenderLayers>, site: Option<&RenderLayers>) -> 
 
 /// Pack a source in viewport coordinates. A field outside the viewport has no source.
 pub(crate) fn source_in_view(view_px: Vec2, middle_px: Vec2, radius_px: f32, strength: f32) -> Option<Vec4> {
-    if view_px.x <= 0.0 || view_px.y <= 0.0 || radius_px <= 0.0 || strength <= 0.0 {
+    if view_px.x <= 0.0 || view_px.y <= 0.0 || !radius_px.is_finite() || radius_px <= 0.0 || strength <= 0.0 {
         return None;
     }
     let outside = middle_px.x < -radius_px

@@ -893,12 +893,28 @@ shared value preparation are sufficient until source proves otherwise.
    that the view follows, or the nearest participant in that room. High
    and Ultra share a light map across the outputs of that view. The
    two-view test checks overlapping rooms, a quality change, and veil
-   removal on entry to a lit room.
+   removal on entry to a lit room. Medium captures of Mine Pocket check
+   the light in 2D, side-on and oblique 2.5D, and comparison mode.
 
    Each boss presentation row has a live room. Stage lights and name
    cards read the room that the view frames. Both renderers use the
    same stage lights. A test gives two instances of the same boss
    different light cues and checks that each cue stays in its view.
+   Medium captures show Wolfenstein's dark room and wake-up flash in
+   2D and side-on 2.5D.
+
+   The feature, boss cue, and boss frame indexes share room-qualified
+   storage. Each boss occurrence supplies its own animation frame,
+   wounds, and hazard column. Hazard columns use the frame's room and
+   geometry table, so they can draw before the boss art is available.
+
+   Actor art binding also uses the live room of each occurrence. The
+   sprite bind test gives the same placement ID different character art
+   in two live rooms and checks the texture on each sprite.
+
+   Ground shadows use the shared presented body position. Each shadow uses
+   the floor and art of its live room. A test checks the sprite and card
+   positions for two actors with the same ID in different live rooms.
 
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
@@ -909,6 +925,14 @@ shared value preparation are sufficient until source proves otherwise.
    passes. Each output projects a field into its own viewport. The card
    output takes its room mask from the plane camera and uses the depth of
    the field's art. Inactive cameras release their passes.
+
+   A field can extend beyond the camera's depth range. The shared
+   projection uses its center to check depth and its edge to measure
+   radius. Boss finish bars use the viewport of each active camera that
+   frames the boss's room. The bars keep their UI nodes as they change
+   height and leave when that camera closes or frames a different room.
+   The shared HUD draws above the bars. A Medium capture of Marshal
+   Gallus's finish shows the bars and color drain in both views.
 
    Mary-O's fire glow, cosmic aura, barrier, quasar, and room shimmer use
    the same materials in both views. The shimmer, room sky, and blueprint

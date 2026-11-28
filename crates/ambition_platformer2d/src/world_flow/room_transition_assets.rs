@@ -16,6 +16,7 @@ use crate::asset_manager::image_stages::{
     AppGpuPreparedImages, RenderWorldPresent,
 };
 use crate::asset_manager::platformer_assets::Platformer2dAssetCatalog;
+use crate::encounter::EncounterWaveBook;
 use crate::entity_catalog::placements::PlacementSchema;
 use crate::load::{
     LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress,
@@ -182,6 +183,7 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     /// this workspace.
     /// The boss catalog, for the boss sheets a boss room demands on preparation.
     pub(crate) boss_catalog: Option<Res<'w, crate::boss_encounter::BossCatalog>>,
+    pub(crate) encounter_waves: Option<Res<'w, EncounterWaveBook>>,
     /// What the PLAYER population and driven bodies wear: the characters a
     /// room's placements never list but that travel with the transition. Not
     /// every body — every NPC wears its character too, and asking for all of
@@ -313,13 +315,10 @@ fn add_named_character(draft: &mut RoomManifestDraft, assets: &GameAssets, chara
     }
 }
 
-/// Every character token the destination room asks art for: the plan's staged
-/// actors, the placements' catalog NPCs, and the authored enemies. ONE list,
-/// used both to DEMAND (`demand_room_character_sheets`) and to WAIT
-/// (`inspect_demanded_characters`) — two lists would let the barrier wait on
-/// something other than what was asked for.
-pub fn room_character_tokens(room: &RoomSpec, staged_actor_names: &[String]) -> Vec<String> {
-    let mut names: Vec<String> = staged_actor_names.to_vec();
+/// Get the placed characters and the additional characters that the caller
+/// supplies. Use this list to load character art and check its readiness.
+pub fn room_character_tokens(room: &RoomSpec, additional_characters: &[String]) -> Vec<String> {
+    let mut names = additional_characters.to_vec();
     for placement in &room.placements {
         if let PlacementSchema::Interactable(spec) = &placement.schema {
             if let InteractionKindSpec::Npc {
@@ -340,6 +339,18 @@ pub fn room_character_tokens(room: &RoomSpec, staged_actor_names: &[String]) -> 
     names.sort();
     names.dedup();
     names
+}
+
+/// Get the characters that the room can spawn in encounter waves.
+pub fn room_encounter_characters(
+    room: &RoomSpec,
+    waves: Option<&EncounterWaveBook>,
+) -> impl Iterator<Item = String> {
+    crate::encounter_features::loading::prepare_room_encounter(room, waves)
+        .into_iter()
+        .flat_map(|encounter| encounter.waves)
+        .flat_map(|wave| wave.mobs)
+        .filter_map(|mob| mob.character)
 }
 
 /// Fold the DEMANDED-BUT-NOT-REALIZED characters into a readiness answer.
@@ -506,6 +517,7 @@ impl RoomResidencyOwners {
         staged_actor_names: &[String],
         worn: &[String],
         claimed: impl IntoIterator<Item = &'a str>,
+        encounter_waves: Option<&EncounterWaveBook>,
     ) -> Self {
         let mut tokens: Vec<String> = match room_set.rooms.get(room_index) {
             Some(room) => room_character_tokens(room, staged_actor_names),
@@ -514,7 +526,9 @@ impl RoomResidencyOwners {
         tokens.extend(worn.iter().cloned());
         tokens.extend(claimed.into_iter().map(str::to_string));
         for index in room_set.neighboring_room_indices_of(room_index) {
-            tokens.extend(room_character_tokens(&room_set.rooms[index], &[]));
+            let neighbor = &room_set.rooms[index];
+            tokens.extend(room_character_tokens(neighbor, &[]));
+            tokens.extend(room_encounter_characters(neighbor, encounter_waves));
         }
         Self(tokens.into_iter().collect())
     }
@@ -572,35 +586,8 @@ fn add_room_specific_sprites(
         }
     }
 
-    for placement in &room.placements {
-        match &placement.schema {
-            PlacementSchema::Interactable(spec) => {
-                if let InteractionKindSpec::Npc {
-                    character_id: Some(character_id),
-                    ..
-                } = &spec.kind
-                {
-                    add_named_character(draft, assets, &character_id);
-                }
-            }
-            PlacementSchema::Pickup(_)
-            | PlacementSchema::Hazard(_)
-            | PlacementSchema::Chest(_)
-            | PlacementSchema::Breakable(_)
-            | PlacementSchema::Portal(_) => {}
-        }
-    }
-
-    // Authored enemies and content-staged actors, by the character id they
-    // instantiate. The character loader keys a sheet by its catalog id.
-    for enemy in &room.enemy_spawns {
-        add_named_character(draft, assets, enemy.payload.character_id.as_str());
-    }
-    // Staged actors' own sheets join the barrier: with startup deferral these
-    // are materialized just before this walk, so the reveal now waits on them
-    // the same way it waits on placement NPCs and parallax themes.
-    for name in staged_actor_names {
-        add_named_character(draft, assets, name);
+    for character in room_character_tokens(room, staged_actor_names) {
+        add_named_character(draft, assets, &character);
     }
 
     // No fallback-sheet row: §4.10 deleted the borrowed goblin sheet, so there is
@@ -928,11 +915,10 @@ impl RoomPreparationPrefetchState {
 pub(crate) struct ContributedRoomAssets {
     sequence: Option<u64>,
     manifest: Option<Arc<RoomAssetManifest>>,
-    /// The destination room and the plan's staged names, kept so the poll can
-    /// REBUILD the manifest as sheets realize (a sheet realized after
-    /// the first build has pages the first manifest never saw).
+    /// The destination and its additional characters. The poll uses these to
+    /// add new pages to the manifest as character sheets load.
     room: Option<Arc<RoomSpec>>,
-    staged_actor_names: Vec<String>,
+    additional_characters: Vec<String>,
     /// Every character token the transition demanded; see `inspect_demanded_characters`.
     demanded_characters: Vec<String>,
     /// How many of `demanded_characters` were realized when `manifest` was built.
@@ -1050,17 +1036,21 @@ pub(crate) fn contribute_room_transition_assets_system(sprite_content: bevy::pre
     let manifest_started = bevy::platform::time::Instant::now();
     let claimed: Vec<String> =
         residency_claims(context.roster.as_deref(), context.actor_worn.iter());
+    let waves = context.encounter_waves.as_deref();
+    let mut additional_characters = active.staged_actor_names.clone();
+    additional_characters.extend(room_encounter_characters(target_spec, waves));
     let owners = RoomResidencyOwners::for_room(
         &room_set,
         active.target_room,
-        &active.staged_actor_names,
+        &additional_characters,
         &worn,
         claimed.iter().map(String::as_str),
+        waves,
     );
     let manifest = build_room_asset_manifest(&sprite_content,
         target_spec,
         &context.props,
-        &active.staged_actor_names,
+        &additional_characters,
         assets,
         catalog,
         asset_server,
@@ -1087,7 +1077,7 @@ pub(crate) fn contribute_room_transition_assets_system(sprite_content: bevy::pre
         );
         active.prefetch_hit &= assets_promoted;
     }
-    let demanded = room_character_tokens(target_spec, &active.staged_actor_names);
+    let demanded = room_character_tokens(target_spec, &additional_characters);
     let mut readiness = inspect_room_asset_manifest(
         asset_server,
         context.images.as_deref(),
@@ -1106,7 +1096,7 @@ pub(crate) fn contribute_room_transition_assets_system(sprite_content: bevy::pre
     active.observe_asset_progress(readiness.settled, readiness.total, now.unwrap_or_default());
     contributed.realized_at_build = realized_character_count(&demanded, assets);
     contributed.room = Some(Arc::new(target_spec.clone()));
-    contributed.staged_actor_names = active.staged_actor_names.clone();
+    contributed.additional_characters = additional_characters;
     contributed.demanded_characters = demanded;
     contributed.manifest = Some(Arc::new(manifest));
 
@@ -1197,7 +1187,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         let realized = realized_character_count(&contributed.demanded_characters, assets);
         if realized != contributed.realized_at_build {
             let manifest =
-                build_loaded_room_asset_manifest(&room, &contributed.staged_actor_names, assets, boss_catalog.as_deref());
+                build_loaded_room_asset_manifest(&room, &contributed.additional_characters, assets, boss_catalog.as_deref());
             contributed.manifest = Some(Arc::new(manifest));
             contributed.realized_at_build = realized;
         }
@@ -1486,6 +1476,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         frozen_cast,
         authored_sheets,
         generation,
+        encounter_waves,
     ): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
@@ -1501,6 +1492,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // entries can never be right — a silent, permanent miss at best, and a
         // promoted plan built from the wrong cast at worst.
         Option<Res<crate::construction::mechanics::SessionMechanics>>,
+        Option<Res<EncounterWaveBook>>,
     ),
     // Grouped to stay under Bevy's SystemParam arity limit: where the players
     // stand ranks the neighbours (`neighbour_prefetch_set`).
@@ -1581,6 +1573,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         || content_staging.is_changed()
         || character_catalog.is_changed()
         || boss_catalog.is_changed()
+        || encounter_waves.as_ref().is_some_and(|waves| waves.is_changed())
         || catalog.is_changed()
         || quality.is_changed();
 
@@ -1748,7 +1741,8 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     continue;
                 }
             };
-        let staged_names = construction_plan.content_staged_names();
+        let mut staged_names = construction_plan.content_staged_names();
+        staged_names.extend(room_encounter_characters(room, encounter_waves.as_deref()));
         // ⭐ The prefetch loads a neighbour's WHOLE cast, in the open, so the
         // door finds it ready and shows no loading screen. Visible frames are
         // protected where the hitch happens: the per-frame upload budget
@@ -1856,6 +1850,7 @@ mod tests {
             &[],
             &["worn_one".to_string()],
             claims.iter().map(String::as_str),
+            None,
         );
         for id in ["npc_pirate_admiral", "worn_one"] {
             assert!(

@@ -53,7 +53,7 @@ pub fn reconcile_inugami_fields(
             .and_then(|_| features.get_in(&visual.id, room))
             .filter(|feature| feature.alive)
             .filter(|_| {
-                let pinned = frames.get(&visual.id).and_then(|frame| frame.pinned.as_ref());
+                let pinned = frames.get_in(&visual.id, room).and_then(|frame| frame.pinned.as_ref());
                 pinned.is_none_or(|pin| pin.rows.first().is_none_or(|row| row != "unseen"))
             })
             .map(|feature| SpiritAura { radius: feature.size.max_element() * REACH, strength: STRENGTH, tint: TINT });

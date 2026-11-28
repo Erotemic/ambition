@@ -24,6 +24,7 @@ mod defense_view;
 #[cfg(feature = "dialogue")]
 mod dialog_view;
 mod facts;
+mod live_room_rows;
 pub mod local_view;
 mod passage_view;
 mod pose_view;

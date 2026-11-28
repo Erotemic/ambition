@@ -340,13 +340,11 @@ pub fn sync_health_overlays(
         let bounds = ae::Aabb::new(view.pos, view.size * 0.5);
         let (name, bounds, color) = match view.kind {
             FeatureVisualKind::Actor => {
-                if let Some(frame) = boss_frames.get(id) {
+                if let Some(frame) = boss_frames.get_in(id, Some(key.1)) {
                     let label = boss_render.get_in(id, Some(key.1)).map_or(id, |boss| boss.name.as_str());
-                    // Use the room's bounds when the ID has more than one view.
-                    let bounds = feature_views.get(id).map_or(bounds, |_| frame.aabb);
-                    (label, bounds, Color::srgba(1.00, 0.32, 0.92, 0.96))
+                    (label, frame.aabb, Color::srgba(1.00, 0.32, 0.92, 0.96))
                 } else if view.fighting {
-                    let label = actor_render.get(id).map_or(id, |actor| actor.name.as_str());
+                    let label = actor_render.get_in(id, Some(key.1)).map_or(id, |actor| actor.name.as_str());
                     let color = if view.training_dummy {
                         Color::srgba(1.00, 0.66, 0.24, 0.96)
                     } else {

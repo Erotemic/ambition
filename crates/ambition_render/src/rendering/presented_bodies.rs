@@ -6,11 +6,11 @@ use ambition_platformer2d_shared_tangle::{
     lifecycle::{LiveRoomInstance, LiveRoomOf, PlayerVisual, SessionScopeId, SessionScopedEntity},
     sim_id::SimId,
 };
-use ambition_sim_view::{BodyPoseView, FeatureViewIndex, PresentedPose};
+use ambition_sim_view::{BodyPoseView, FeatureViewIndex, PresentedFeaturePoses, PresentedPose};
 use bevy::{ecs::system::SystemParam, prelude::*};
 
 /// Stable identity of a body representation in one live room.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PresentedBodyKey {
     pub session: Option<SessionScopeId>,
     pub room: Option<LiveRoomInstance>,
@@ -81,6 +81,7 @@ pub struct PresentedBodies<'w, 's> {
         Without<PlayerVisual>,
     >,
     views: Option<Res<'w, FeatureViewIndex>>,
+    presented_features: Option<Res<'w, PresentedFeaturePoses>>,
     rooms: LiveRoomOf<'w, 's, RoomGeometry>,
 }
 
@@ -114,13 +115,15 @@ impl PresentedBodies<'_, '_> {
                 if view.kind != FeatureVisualKind::Actor {
                     return None;
                 }
+                let pos = self.presented_features.as_deref()
+                    .map_or(view.pos, |poses| poses.presented(&feature.id, room, view.pos));
                 Some(PresentedBody {
                     subject: Subject::Feature(&feature.id),
                     session: session.map(|scope| scope.0),
                     room,
                     visual,
                     geometry: self.rooms.of(visual).map(|room| &room.0),
-                    pos: Vec2::new(view.pos.x, view.pos.y),
+                    pos,
                     size: Vec2::new(view.size.x, view.size.y),
                     wire_anchor: view.wire_anchor.map(|p| Vec2::new(p.x, p.y)),
                     grab_reach: view.grab_reach.map(|p| Vec2::new(p.x, p.y)),

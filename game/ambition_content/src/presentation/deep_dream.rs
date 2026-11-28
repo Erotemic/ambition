@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    InRoomInstance, PresentationOf, SessionScopedEntity, SpawnSessionScopedExt,
+    InRoomInstance, LiveRoomInstance, LiveRooms, PresentationOf, SessionScopedEntity, SpawnSessionScopedExt,
 };
 use ambition_sprite_sheet::character::rigged::FrameInSprite;
 use ambition_render::rendering::{
@@ -224,6 +224,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
     images: Res<Assets<Image>>,
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
     asset_server: Res<AssetServer>,
+    rooms: LiveRooms,
     candidates: Query<
         (
             Entity,
@@ -243,7 +244,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
     >,
 ) {
     for (source_entity, visual, transform, sprite, anchor, frame, session_owner, room) in &candidates {
-        let Some(actor_seed) = puppy_slug_seed(&visual.id, &actor_render) else {
+        let Some(actor_seed) = puppy_slug_seed(&visual.id, rooms.of(source_entity), &actor_render) else {
             continue;
         };
         let Some((uv_rect, render_size)) = dream_frame(sprite, &texture_layouts, &images) else {
@@ -407,8 +408,12 @@ fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
         .any(|window| window.eq_ignore_ascii_case(needle))
 }
 
-fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex) -> Option<f32> {
-    let actor = actor_render.get(id)?;
+fn puppy_slug_seed(
+    id: &str,
+    room: Option<LiveRoomInstance>,
+    actor_render: &ambition_sim_view::ActorRenderIndex,
+) -> Option<f32> {
+    let actor = actor_render.get_in(id, room)?;
     // Name + dream participation both come from the identity read-model.
     // Peaceful actors carry the peaceful default tuning (dream_seed = None),
     // so reading it directly already excludes them from the dream pass.

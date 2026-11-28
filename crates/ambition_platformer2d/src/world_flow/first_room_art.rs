@@ -17,6 +17,7 @@ use crate::world::rooms::RoomSpec;
 use super::room_transition_assets::{
     build_loaded_room_asset_manifest, build_room_asset_manifest, inspect_demanded_characters,
     inspect_room_asset_manifest, realized_character_count, room_character_tokens,
+    room_encounter_characters,
     RoomAssetManifest, RoomResidencyOwners, RoomTransitionAssetContext,
 };
 
@@ -164,6 +165,8 @@ pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<c
                     }
                 };
                 staged_actor_names.extend(worn.iter().cloned());
+                let waves = context.encounter_waves.as_deref();
+                staged_actor_names.extend(room_encounter_characters(room, waves));
                 staged_actor_names.sort();
                 staged_actor_names.dedup();
                 // Whatever an earlier session left realized and this room, the
@@ -180,6 +183,7 @@ pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<c
                     &staged_actor_names,
                     &worn,
                     claimed.iter().map(String::as_str),
+                    waves,
                 );
                 let manifest = build_room_asset_manifest(&sprite_content,
                     room,

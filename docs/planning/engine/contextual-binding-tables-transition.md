@@ -80,15 +80,9 @@ Also fixed 2026-11-26, later the same day:
   of its tumble in the air (an `air_*` row) and lands (`LandRecovery`) is the
   outcome the test's own rule allows.
 
-Still red, all present at the pre-fix tree:
-
-- `smash_in_the_host::quitting_a_smash_match_gives_the_pad_back` and
-  `on_the_smash_pad_y_starts_the_fighters_authored_grab`: the seat's
-  in-match binding projection has no control for Jump or Grab.
-- `smash_in_the_host::an_unattended_four_cpu_smash_profile_enters_a_live_round`
-  and `an_unattended_smash_profile_enters_a_live_all_cpu_round`: the autoplay
-  reports a captured menu, held ceremony or empty stage.
-- `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`
-  and `a_hosted_game_plays_the_bank_cues_its_moves_name` are environmental on a
-  machine without the generated SFX family (`ambition_shared` reports sfx
-  missing); not caused by the transition.
+The reds present at the pre-fix tree were fixed 2026-11-28, none of them in
+the binding tables. The pad tests read an unordered participant, the
+autoplay tests routed before the shell booted, and the music tests had stale
+fixtures and a missing SFX family. See the queue's
+[TEST-LANES](../queue.md#test-lanes--keep-required-test-lanes-executable)
+record.

@@ -32,6 +32,10 @@ impl<T: LiveRoomRow> LiveRoomRows<T> {
         self.rows.get(id)?.iter().map(|(row, _)| row).find(|row| row.room() == room)
     }
 
+    pub(crate) fn contains(&self, id: &str) -> bool {
+        self.rows.contains_key(id)
+    }
+
     pub(crate) fn iter(&self) -> impl Iterator<Item = (&str, &T)> {
         // AMBITION_REVIEW(determinism): presentation reads these rows.
         self.rows.iter().flat_map(|(id, rows)| rows.iter().map(move |(row, _)| (id.as_str(), row)))
@@ -65,18 +69,18 @@ impl<T: LiveRoomRow> LiveRoomRows<T> {
         self.refresh(id, row.room(), |_, written| written, || row);
     }
 
-    /// Construct a row when the caller cannot keep the existing row.
+    /// Update a row in place, or build a new row when the update returns false.
     pub(crate) fn refresh(
         &mut self,
         id: &str,
         room: Option<LiveRoomInstance>,
-        keep: impl FnOnce(&T, bool) -> bool,
+        update: impl FnOnce(&mut T, bool) -> bool,
         build: impl FnOnce() -> T,
     ) {
         let generation = self.generation;
         if let Some(rows) = self.rows.get_mut(id) {
             if let Some((row, stamp)) = rows.iter_mut().find(|(row, _)| row.room() == room) {
-                if !keep(row, *stamp == generation) {
+                if !update(row, *stamp == generation) {
                     *row = build();
                 }
                 *stamp = generation;

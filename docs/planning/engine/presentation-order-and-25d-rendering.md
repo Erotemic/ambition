@@ -917,6 +917,10 @@ shared value preparation are sufficient until source proves otherwise.
    body's live room. The passage tests give two actors the same ID and
    check the pose, scale, and fade of the actor at the door.
 
+   Actor nameplates read the label and bounds in the body's live room.
+   A view replaces its plates when it frames a different room. The tests
+   check actors and doors with the same ID in two live rooms.
+
    Ground shadows use the shared presented body position. Each shadow uses
    the floor and art of its live room. A test checks the sprite and card
    positions for two actors with the same ID in different live rooms.

@@ -72,11 +72,12 @@ fn shade(mesh: MeshFragment) -> vec4<f32> {
     );
     let sample = textureSample(color_texture, color_sampler, atlas_uv);
 
-    if control.w > 1.5 {
-        return vec4<f32>(window_sample(atlas_uv, sample.rgb) * tint.rgb, 1.0);
-    }
+    // An untouched window target has alpha zero. A capture clears it to alpha one.
     if sample.a <= 0.01 {
         discard;
+    }
+    if control.w > 1.5 {
+        return vec4<f32>(window_sample(atlas_uv, sample.rgb) * tint.rgb, 1.0);
     }
     // A capture over a clear of nothing holds colour premultiplied by its
     // cover: divided out, it blends as a sprite does.

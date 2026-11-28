@@ -1064,6 +1064,11 @@ shared value preparation are sufficient until source proves otherwise.
    both outputs filter texels on the visible side of the same capture.
    The card renderer uses the shared portal material and mesh. The
    window, rim, and exit pieces keep their paint order.
+   A new portal capture target waits for the 2D draws queued for its view.
+   The portal frame stays visible while the target has no picture. A
+   Medium cold-start capture in Portal Lab shows the far rim and ledge
+   in the first picture in side-on and oblique 2.5D. The warm 2D capture
+   shows its picture on the opening frame.
 
    Text cards use Bevy's layout for the current frame. The plane camera
    supplies the target scale and room mask, including when a card output

@@ -390,6 +390,7 @@ fn prop_sheets_follow_room_and_live_feature_demand() {
         id: "created".into(), label: "created".into(), family: "Breakable",
         pos: ae::Vec2::ZERO, size: ae::Vec2::new(32.0, 16.0), visual_kind: FeatureVisualKind::Breakable,
         fighting: false, sprite_key: None, sheet: Some(FeatureSheet::Structure("requested".into())),
+        entrance: None,
         room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
     });
     app.update();

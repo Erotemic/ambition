@@ -2260,9 +2260,10 @@ pub fn spawn_encounter_mob(sprite_content: &ambition_sprite_sheet::SpriteContent
             ));
         }
     }
-    commands
-        .entity(entity)
-        .insert(EncounterMob::new(encounter_id));
+    commands.entity(entity).insert((
+        EncounterMob::new(encounter_id),
+        ambition_platformer2d_shared_tangle::gameplay_presentation::ActorEntrance::FadeIn,
+    ));
     if let Some(rs) = render {
         commands
             .entity(entity)

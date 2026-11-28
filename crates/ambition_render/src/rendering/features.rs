@@ -9,8 +9,10 @@
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
+use super::actor_entrance::ActorEntranceFade;
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_platformer2d_core::config::world_to_bevy;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::ActorEntrance;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, LiveRoomInstance, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -106,47 +108,32 @@ pub fn spawn_dynamic_feature_visuals(
         let visual = FeatureVisual {
             id: fact.id.clone(),
         };
-        match animated {
-            Some(asset) => {
-                let (sprite, anchor, animator) =
-                    ambition_sprite_sheet::character::build_character_presentation(
-                        asset,
-                        render,
-                        bevy::sprite::Anchor::CENTER,
-                    );
-                commands.spawn_session_scoped(
-                    scope,
-                    (
-                        sprite,
-                        // A collectible floats: centre-anchored, like the authored
-                        // animated pickup.
-                        anchor,
-                        animator,
-                        transform,
-                        name,
-                        visual,
-                        RoomVisual,
-                        DynamicFeatureVisual,
-                    ),
+        let (sprite, animation) = if let Some(asset) = animated {
+            let (sprite, anchor, animator) =
+                ambition_sprite_sheet::character::build_character_presentation(
+                    asset,
+                    render,
+                    bevy::sprite::Anchor::CENTER,
                 );
-            }
-            None => {
-                let sprite = match assets_ref {
-                    Some(a) => entity_sprite_or_color(a, fact.sprite_key, render, fallback),
-                    None => Sprite::from_color(fallback, render),
-                };
-                commands.spawn_session_scoped(
-                    scope,
-                    (
-                        sprite,
-                        transform,
-                        name,
-                        visual,
-                        RoomVisual,
-                        DynamicFeatureVisual,
-                    ),
-                );
-            }
+            (sprite, Some((anchor, animator)))
+        } else {
+            let sprite = match assets_ref {
+                Some(a) => entity_sprite_or_color(a, fact.sprite_key, render, fallback),
+                None => Sprite::from_color(fallback, render),
+            };
+            (sprite, None)
+        };
+        let mut entity = commands.spawn_session_scoped(
+            scope,
+            (sprite, transform, name, visual, RoomVisual, DynamicFeatureVisual),
+        );
+        if let Some(animation) = animation {
+            entity.insert(animation);
+        }
+        if let Some(entrance) = fact.entrance {
+            match entrance {
+                ActorEntrance::FadeIn => entity.insert(ActorEntranceFade::default()),
+            };
         }
     }
 }
@@ -408,8 +395,80 @@ mod tests {
             fighting: false,
             sprite_key: None,
             sheet: None,
+            entrance: None,
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
         }
+    }
+
+    #[test]
+    fn a_runtime_actor_fades_once_when_its_visual_appears() {
+        use super::super::actor_entrance::present_actor_entrances;
+        use ambition_sprite_sheet::character::rigged::ComposedBodyDemand;
+        use std::time::Duration;
+
+        let mut app = app_with_a_room();
+        app.init_resource::<Time>()
+            .init_resource::<ambition_time::ClockState>()
+            .init_resource::<ComposedBodyDemand>()
+            .add_systems(
+                Update,
+                (
+                    spawn_dynamic_feature_visuals,
+                    |mut sprites: Query<&mut Sprite, With<DynamicFeatureVisual>>,
+                     mut demand: ResMut<ComposedBodyDemand>| {
+                        demand.clear();
+                        // The actor animator sets the base opacity each frame.
+                        for mut sprite in &mut sprites {
+                            sprite.color.set_alpha(0.8);
+                        }
+                    },
+                    present_actor_entrances,
+                )
+                    .chain(),
+            );
+        app.world_mut().resource_mut::<DynamicFeatureViews>().0 = vec![
+            DynamicFeatureFact {
+                entrance: Some(ActorEntrance::FadeIn),
+                ..a_fact("arrival")
+            },
+            a_fact("immediate"),
+        ];
+
+        let advance = |app: &mut App, millis| {
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(millis));
+            app.update();
+        };
+        advance(&mut app, 16);
+        let world = app.world_mut();
+        let mut visuals = world.query::<(Entity, &FeatureVisual)>();
+        let mut entity_for = |id| {
+            visuals
+                .iter(world)
+                .find(|(_, visual)| visual.id == id)
+                .unwrap()
+                .0
+        };
+        let arrival = entity_for("arrival");
+        let immediate = entity_for("immediate");
+        let alpha = |app: &App, entity| app.world().get::<Sprite>(entity).unwrap().color.alpha();
+        let composed = |app: &App, entity| {
+            app.world().resource::<ComposedBodyDemand>().is_declared(entity)
+        };
+
+        let first = alpha(&app, arrival);
+        assert!(first > 0.0 && first < 0.8 && composed(&app, arrival));
+        assert_eq!(alpha(&app, immediate), 0.8);
+        assert!(!composed(&app, immediate));
+
+        advance(&mut app, 80);
+        let next = alpha(&app, arrival);
+        assert!(next > first && next < 0.8 && composed(&app, arrival));
+        advance(&mut app, 250);
+        advance(&mut app, 16);
+        assert_eq!(alpha(&app, arrival), 0.8);
+        assert!(!composed(&app, arrival));
     }
 
     fn a_view() -> ambition_sim_view::FeatureView {

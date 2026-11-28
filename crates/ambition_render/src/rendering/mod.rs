@@ -120,6 +120,7 @@ pub mod deferred_write_safety;
 pub mod dizzy_stars;
 #[cfg(feature = "portal_render")]
 pub mod portal_body_demand;
+mod actor_entrance;
 mod features;
 pub mod flyline;
 pub mod tether;
@@ -851,6 +852,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 #[cfg(not(target_os = "android"))]
                 hit_flash::declare_hit_flash_demand,
                 passage_visuals::declare_passage_fade_demand,
+                actor_entrance::present_actor_entrances
+                    .after(passage_visuals::apply_passage_looks)
+                    .before(actors::rigged::follow_limb_twins),
                 // A limb drawn by itself in a portal pair follows its body
                 // after the body's frame and look are chosen.
                 actors::rigged::follow_limb_twins

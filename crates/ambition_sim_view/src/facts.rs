@@ -12,6 +12,7 @@ use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::resources::{ActorResources, ResourceLevel};
+use ambition_platformer2d_shared_tangle::gameplay_presentation::ActorEntrance;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -968,6 +969,7 @@ pub struct DynamicFeatureFact {
     /// Optional animated or structure art from the native feature.
     /// Missing art uses the ordinary entity sprite or color fallback.
     pub sheet: Option<FeatureSheet>,
+    pub entrance: Option<ActorEntrance>,
     /// The live room of the body this fact draws, by the rule of
     /// `LiveRooms::of`. The visual is placed by that room's geometry and
     /// stamped with it. `None` when the room cannot be told.
@@ -982,7 +984,7 @@ pub fn rebuild_dynamic_feature_views(
     mut view: ResMut<DynamicFeatureViews>,
     // The live room of each body, so its visual is drawn in that room.
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    ecs_mobs: Query<
+    runtime_actors: Query<
         (
             bevy::prelude::Entity,
             &ambition_combat::components::FeatureId,
@@ -992,21 +994,13 @@ pub fn rebuild_dynamic_feature_views(
                 &ambition_combat::actor_tuning::ActorConfig,
                 &ambition_combat::components::ActorIdentity,
             )>,
+            Has<ambition_combat::components::EncounterMob>,
+            Option<&ActorEntrance>,
         ),
-        With<ambition_combat::components::EncounterMob>,
-    >,
-    staged_actors: Query<
-        (
-            bevy::prelude::Entity,
-            &ambition_combat::components::FeatureId,
-            &ambition_combat::components::CenteredAabb,
-            &ambition_combat::components::ActorDisposition,
-            Option<(
-                &ambition_combat::actor_tuning::ActorConfig,
-                &ambition_combat::components::ActorIdentity,
-            )>,
-        ),
-        With<ambition_combat::components::RuntimeStagedActor>,
+        Or<(
+            With<ambition_combat::components::EncounterMob>,
+            With<ambition_combat::components::RuntimeStagedActor>,
+        )>,
     >,
     post_boss_npcs: Query<
         (
@@ -1017,6 +1011,7 @@ pub fn rebuild_dynamic_feature_views(
             &ambition_combat::components::ActorDisposition,
             Option<&ambition_combat::actor_tuning::ActorConfig>,
             Option<&ambition_combat::components::ActorInteraction>,
+            Option<&ActorEntrance>,
         ),
         With<ambition_combat::components::PostBossNpc>,
     >,
@@ -1057,60 +1052,26 @@ pub fn rebuild_dynamic_feature_views(
     use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
     use ambition_sprite_sheet::game_assets;
     view.0.clear();
-    for (entity, id, aabb, disposition, config) in &ecs_mobs {
-        // ⛔⛔ "PEACEFUL" IS NOT "DOES NOT EXIST". Skipping a peaceful mob here on
-        // the argument that encounter mobs are hostile by construction publishes
-        // no `DynamicFeatureFact`, so `spawn_dynamic_feature_visuals` never makes
-        // it a `FeatureVisual` and it has NO SPRITE however healthy its art is.
-        // That is how the pirate's summoned shark comes out INVISIBLE: it is
-        // deliberately nobody's enemy, and the targeting stand-down marks even an
-        // unengaged hostile actor peaceful. ⚠ Every actor-side measurement says
-        // the body is fine, because it is — the renderer is never asked.
-        //
-        // ⭐ THE FIELD FOR THIS ALREADY EXISTED. `fighting` is exactly the
-        // distinction the skip was abusing existence to express, and the
-        // post-boss arm below has always used it that way. Two arms disagreed
-        // with a third in the same function.
+    for (entity, id, aabb, disposition, config, encounter_mob, entrance) in &runtime_actors {
+        // A change in disposition changes fighting state. It must keep the actor visible.
         let Some((config, identity)) = config else {
             continue;
         };
         view.0.push(DynamicFeatureFact {
             id: id.as_str().to_string(),
             label: identity.name.clone(),
-            family: "Encounter mob",
-            pos: aabb.center,
-            size: aabb.size(),
-            visual_kind: FeatureVisualKind::Actor,
-            fighting: !disposition.is_peaceful(),
-            // ⚠ STILL THE BRAIN'S KEY for a peaceful one. Unlike a post-boss NPC
-            // there is no dialogue interactable to resolve art from, and an
-            // encounter mob's art is its own either way — a shark that stops
-            // hunting is still a shark.
-            sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
-            sheet: None,
-            room: live.of(entity),
-        });
-    }
-    for (entity, id, aabb, disposition, config) in &staged_actors {
-        // The same correction as the arm above: a staged actor that is not
-        // fighting is still a body somebody has to be able to see.
-        let Some((config, identity)) = config else {
-            continue;
-        };
-        view.0.push(DynamicFeatureFact {
-            id: id.as_str().to_string(),
-            label: identity.name.clone(),
-            family: "Staged actor",
+            family: if encounter_mob { "Encounter mob" } else { "Staged actor" },
             pos: aabb.center,
             size: aabb.size(),
             visual_kind: FeatureVisualKind::Actor,
             fighting: !disposition.is_peaceful(),
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
             sheet: None,
+            entrance: entrance.copied(),
             room: live.of(entity),
         });
     }
-    for (entity, id, name, aabb, disposition, config, interaction) in &post_boss_npcs {
+    for (entity, id, name, aabb, disposition, config, interaction, entrance) in &post_boss_npcs {
         let fighting = !disposition.is_peaceful();
         // A peaceful post-boss NPC resolves its sprite from the dialogue
         // interactable; a hostile one (provoked) from its archetype brain.
@@ -1135,6 +1096,7 @@ pub fn rebuild_dynamic_feature_views(
             fighting,
             sprite_key,
             sheet: None,
+            entrance: entrance.copied(),
             room: live.of(entity),
         });
     }
@@ -1149,6 +1111,7 @@ pub fn rebuild_dynamic_feature_views(
             fighting: false,
             sprite_key: game_assets::entity_sprite_for_runtime_chest(&chest.chest),
             sheet: None,
+            entrance: None,
             room: live.of(entity),
         });
     }
@@ -1157,7 +1120,9 @@ pub fn rebuild_dynamic_feature_views(
             id: id.as_str().into(), label: name.0.clone(), family: "Breakable",
             pos: aabb.center, size: aabb.size(), visual_kind: FeatureVisualKind::Breakable,
             fighting: false, sprite_key: Some(game_assets::breakable_state_sprite(feature.state().state)),
-            sheet: feature.look().map(|look| FeatureSheet::Structure(look.into())), room: live.of(entity),
+            sheet: feature.look().map(|look| FeatureSheet::Structure(look.into())),
+            entrance: None,
+            room: live.of(entity),
         });
     }
     for (entity, id, name, aabb, pickup, origin, art) in &dropped_pickups {
@@ -1179,6 +1144,7 @@ pub fn rebuild_dynamic_feature_views(
             // that sheet hasn't loaded.
             sprite_key: game_assets::entity_sprite_for_runtime_pickup(pickup.kind()),
             sheet: art.map(|art| FeatureSheet::Animated(art.0.clone())),
+            entrance: None,
             room: live.of(entity),
         });
     }

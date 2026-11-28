@@ -272,7 +272,8 @@ fn her_throw_is_drawn() {
         let mut players = world.query_filtered::<Entity, With<PrimaryPlayer>>();
         players.iter(world).next().expect("a player")
     };
-    app.world_mut().entity_mut(body).insert(WornEquipment::new(vec![cinder_beacon()]));
+    let forms = ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared());
+    app.world_mut().entity_mut(body).insert(WornEquipment::new(vec![cinder_beacon(&forms)]));
     // An enemy of 1-1 walks to where she stands, and a hit takes the form
     // (measured: she was small again 180 frames after she wore the beacon).
     app.world_mut()

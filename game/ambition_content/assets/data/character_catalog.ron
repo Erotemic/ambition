@@ -1585,6 +1585,19 @@
                 refire_s: 0.8,
             ))),
         ),
+        // Greater imps hold a committed firing lane through a short volley.
+        "greater_imp_flame": (
+            move_style: Float,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 420.0,
+                damage: 2,
+                visual: Some("greater_imp_flame"),
+                flight: Some((gravity: 0.0, bounces: 0, bounce_on_world_contact: false, max_lifetime: 1.7, half_extent: (7.0, 6.0), boomerang_return_s: None)),
+                discharge: Some((muzzle: Offset(x: 0.30, y: -0.18), recoil: 0.0)),
+                refire_s: 0.40,
+            ))),
+        ),
         // A light skeleton slash for early barrow encounters.
         "barrow_skeleton_slash": (
             move_style: Walk,
@@ -17369,6 +17382,32 @@
                 ranged_volley: Some((windup_s: 0.56, firing_s: 0.18, recovery_s: 0.9)),
             )),
             max_health: Some(2),
+            tags: ["enemy", "fantasy", "monster", "imp", "winged"],
+            cast: (importance: Background, roles: {"encounter": ["mob"]}),
+        ),
+        // A mature imp: a mid-game ranged skirmisher rather than an early nuisance.
+        "greater_imp": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Greater Imp",
+            manifest: "sprites/greater_imp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(54.0),
+            composition: None,
+            default_action_set: "greater_imp_flame",
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 180.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 440.0,
+                attack_range: 210.0,
+                patrol_effort: 0.35,
+                chase_effort: 0.85,
+                shares_sightings: false,
+                tactics: (notice_s: 0.42),
+                ranged_volley: Some((windup_s: 0.76, firing_s: 0.65, recovery_s: 1.35)),
+            )),
+            max_health: Some(6),
             tags: ["enemy", "fantasy", "monster", "imp", "winged"],
             cast: (importance: Background, roles: {"encounter": ["mob"]}),
         ),

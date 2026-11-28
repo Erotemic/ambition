@@ -125,6 +125,16 @@
         hit_vfx: Some((fx: "fireball_hit", scale: 0.45)),
         deflect_vfx: Some((fx: "fireball_deflect", scale: 0.45)),
     ),
+    "greater_imp_flame": (
+        source: Sheet(target: "shot_kit", animation: "fireball", animate: true),
+        size: FixedWidth(25.0),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.58, 0.19, 1.0),
+        label: "greater imp firebolt",
+        expiry_vfx: Some((fx: "fireball_fizzle", scale: 0.55)),
+        hit_vfx: Some((fx: "fireball_hit", scale: 0.7)),
+        deflect_vfx: Some((fx: "fireball_deflect", scale: 0.7)),
+    ),
     // Player kit: a comet of fire.
     "fireball": (
         source: Sheet(

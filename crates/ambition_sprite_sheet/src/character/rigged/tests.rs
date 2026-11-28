@@ -169,7 +169,7 @@ fn the_pirate_flipbooks_realize_the_rows_of_their_sheets() {
 }
 
 /// EVERY published flipbook is one the game can realize: its clips are rows
-/// of the sheet published beside it (the realization refuses another, a panic
+/// of the sheet published beside it, when it has one (the realization refuses another, a panic
 /// in the hall of characters: `robot` named a clip `air_back` its embedded
 /// sheet did not have, 2026-10-03), and every quality tier's table is this
 /// flipbook's. A sheet and its flipbook are written by one publish; this is
@@ -182,12 +182,20 @@ fn every_published_flipbook_realizes_its_sheet_at_every_tier() {
     let mut failures = Vec::new();
     for target in &targets {
         let asset = RiggedSpriteAsset::baked(&content, target).expect("listed");
-        let Some(record) = crate::character::sheets::record_for_sheet_key(&content, target) else {
-            failures.push(format!("`{target}`: no published sheet"));
-            continue;
-        };
-        if let Err(error) = asset.check_rows(record.rows.iter().map(|row| row.animation.as_str())) {
-            failures.push(format!("`{target}` {error}"));
+        // A flipbook drawn wholly from parts (the startup card's close-ups)
+        // is realized with no sheet beside it; one that bakes any clip needs
+        // the sheet it bakes from.
+        match crate::character::sheets::record_for_sheet_key(&content, target) {
+            Some(record) => {
+                if let Err(error) = asset.check_rows(record.rows.iter().map(|row| row.animation.as_str())) {
+                    failures.push(format!("`{target}` {error}"));
+                }
+            }
+            None if asset.baked_clip_names().count() > 0 => {
+                failures.push(format!("`{target}`: bakes clips and has no published sheet"));
+                continue;
+            }
+            None => {}
         }
         for tier in [TextureResolutionScale::Half, TextureResolutionScale::Quarter, TextureResolutionScale::Potato] {
             if let Some(Err(error)) = asset.for_tier(&content, tier) {

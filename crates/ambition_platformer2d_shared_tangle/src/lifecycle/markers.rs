@@ -4,6 +4,15 @@
 
 use bevy::prelude::*;
 
+/// A sprite that both world renderers draw at its world position and order.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct WorldSprite;
+
+/// A world sprite that changes color. It can keep its own card material.
+#[derive(Component, Default)]
+#[require(WorldSprite)]
+pub struct AnimatedWorldSpriteTint;
+
 /// Despawn when the current authored room unloads.
 #[derive(Component, Default)]
 pub struct RoomScopedEntity;

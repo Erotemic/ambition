@@ -868,6 +868,11 @@ shared value preparation are sufficient until source proves otherwise.
    side-on 2.5D, and oblique 2.5D. It checks camera switching with the
    same mesh handles.
 
+   Particles, procedural beams, and physics debris use the shared world
+   sprite path. Their cards keep the same material during a fade.
+   Medium captures of Mine Pocket show dust and moving fragments in 2D,
+   side-on 2.5D, and oblique 2.5D at the same simulation tick.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

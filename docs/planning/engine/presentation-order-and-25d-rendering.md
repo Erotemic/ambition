@@ -893,12 +893,15 @@ shared value preparation are sufficient until source proves otherwise.
    that the view follows, or the nearest participant in that room. High
    and Ultra share a light map across the outputs of that view. The
    two-view test checks overlapping rooms, a quality change, and veil
-   removal on entry to a lit room.
+   removal on entry to a lit room. Medium captures of Mine Pocket check
+   the light in 2D, side-on and oblique 2.5D, and comparison mode.
 
    Each boss presentation row has a live room. Stage lights and name
    cards read the room that the view frames. Both renderers use the
    same stage lights. A test gives two instances of the same boss
    different light cues and checks that each cue stays in its view.
+   Medium captures show Wolfenstein's dark room and wake-up flash in
+   2D and side-on 2.5D.
 
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.

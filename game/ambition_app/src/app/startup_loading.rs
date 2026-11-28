@@ -232,7 +232,7 @@ struct StartupAssetInputs<'w, 's> {
     #[cfg(feature = "audio")]
     music_state: Option<Res<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
     pipelines:
-        Option<Res<'w, ambition_platformer2d::render::rendering::presentation_settling::RenderPipelinesWaiting>>,
+        Option<Res<'w, ambition_platformer2d::render::rendering::presentation_settling::RenderPipelineWarmup>>,
     tick: Option<Res<'w, ambition_platformer2d::time::SimTick>>,
     time: Res<'w, Time<Real>>,
 }
@@ -425,9 +425,8 @@ fn drive_direct_startup_loading(sprite_content: bevy::prelude::Res<ambition_plat
     state.update_serial = state.update_serial.saturating_add(1);
 
     // The OS window is created hidden. Expose it only once the opaque cover has
-    // been drawn: after a rendered frame, with no pipeline still compiling (the
-    // cover's own is among them), or after a short wait. Before, the window
-    // showed the room for the frames the cover's pipeline compiled in.
+    // had time to draw. Give new render pipelines a short time to compile
+    // before the window becomes visible.
     let pipelines_ready = assets.pipelines.as_ref().is_none_or(|pipelines| pipelines.count() == 0);
     if !ui.roots.is_empty() && state.update_serial >= 2 && (pipelines_ready || state.update_serial > 30) {
         for mut window in &mut ui.windows {

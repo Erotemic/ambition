@@ -87,6 +87,8 @@ the rows where it lies down.
 - **Mockingbird** — mimics and steals the player's moves.
 - **Clockwork Warden** — reads the player's patterns; beating it means breaking
   pattern.
+- **Mother Lode** — the cavern at the bottom of the Science Dimension's
+  Elemental Mine ([elemental-mine.md](elemental-mine.md)).
 
 Each is authored as content on the engine boss system. None needs a bespoke
 simulation path.

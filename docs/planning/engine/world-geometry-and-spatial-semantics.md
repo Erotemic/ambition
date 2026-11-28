@@ -43,7 +43,7 @@ spatial architecture program.
 
 | Source | Established source fact | Owner of the change |
 | --- | --- | --- |
-| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Water membership reads the admitted material parts (landed 2026-11-27). Climbing still tests the whole root AABB. | Present material occupancy below |
+| [Body integration](../../../crates/ambition_platformer2d_core/src/movement/mod.rs), [physical composition](../../../crates/ambition_platformer2d_world/src/collision.rs) | Both body adapters pass native uncarved physical geometry. Water membership and chest/switch touch read the admitted material parts (landed 2026-11-27). Climbing still tests the whole root AABB. | Present material occupancy below |
 | [Interaction reach](../../../crates/ambition_platformer2d_interaction/src/lib.rs) | Touch, facing and preference are shared by selection and consumption, but use root-box/root-chart facts. | [Physical touch](interaction-opportunities-and-activation.md#physical-touch-retains-its-admitted-material-map) |
 | [Standing surfaces](../../../crates/ambition_platformer2d_world/src/navigation/surfaces.rs), [flight map](../../../crates/ambition_platformer2d_world/src/navigation/flight.rs) | Painted fill admits support; polygon bounds remove standing spans; flight occupancy omits chains. | [Static geometry coverage](platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation) |
 | [Room replay](../../../crates/ambition_hosted_world/src/room_rollback.rs), [body publication](../../../crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs), [portal publication](../../../crates/ambition_portal2d/src/passages.rs) | Replay hides foreign rooms. The portal publishers replace only the replayed room and keep the hidden rooms' entries (T3, landed 2026-11-27). | [T3 publication coverage](portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population) |
@@ -228,6 +228,8 @@ known.
    material query. Keep strict overlap, mapped facing/preference, stable
    target selection and revalidation. This proves shared geometry without
    moving interaction policy into the water owner.
+   **Landed 2026-11-27**
+   ([receipt](interaction-opportunities-and-activation.md#physical-touch-retains-its-admitted-material-map)).
 3. **Region response provenance.** Admit climbing through a supported mapped
    case. Check the native blocks made passable and climb direction.
    Include a turned case to establish the supported response or its explicit

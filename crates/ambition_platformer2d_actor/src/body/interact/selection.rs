@@ -58,17 +58,29 @@ impl InteractTargets<'_, '_> {
             .talkers(subject, reach, door)
             .into_iter()
             .map(|(entity, center)| candidate(InteractKind::Talk, center, entity));
+        // A switch or a chest is ranked where the body meets it: through an
+        // opening, that is the target carried back to the body's own chart.
+        let touched = |kind, preference, entity| InteractCandidate {
+            kind,
+            preference,
+            id: (self.objects.reference(entity), entity),
+        };
         let switches = self
             .switches
             .iter()
-            .filter(|(entity, aabb, requires_facing)| reach.touches(rooms.of(*entity), aabb, *requires_facing))
-            .map(|(entity, aabb, _)| candidate(InteractKind::Activate, aabb.center, entity));
+            .filter_map(|(entity, aabb, requires_facing)| {
+                reach.touch_preference(rooms.of(entity), aabb, requires_facing)
+                    .map(|preference| touched(InteractKind::Activate, preference, entity))
+            });
         // A chest has no facing gate: its spec has no `requires_facing`.
         let chests = self
             .chests
             .iter()
-            .filter(|(entity, aabb, opened, falling)| opened.is_none() && !falling && reach.touches(rooms.of(*entity), aabb, false))
-            .map(|(entity, aabb, ..)| candidate(InteractKind::Open, aabb.center, entity));
+            .filter(|(_, _, opened, falling)| opened.is_none() && !falling)
+            .filter_map(|(entity, aabb, ..)| {
+                reach.touch_preference(rooms.of(entity), aabb, false)
+                    .map(|preference| touched(InteractKind::Open, preference, entity))
+            });
         let first = interact_order(talkers.chain(switches).chain(chests)).into_iter().next()?;
         Some((first.id.1, first.kind))
     }
@@ -112,11 +124,15 @@ pub fn select_interactions(
     // `Option`: a composition with no room set still selects (no rooms, no
     // doors) rather than skipping the whole system.
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    // The portal openings that cut a body: a switch or a chest is touched by
+    // the body's admitted material.
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     mut out: ResMut<InteractSelection>,
 ) {
     let selected_for = |body: Entity| -> Option<InteractSelected> {
         let (kin, step, frame) = bodies.get(body).ok()?;
-        let reach = InteractReach::of(kin, step, frame, rooms.as_ref().and_then(|rooms| rooms.live().of(body)));
+        let room = rooms.as_ref().and_then(|rooms| rooms.live().of(body));
+        let reach = InteractReach::of(kin, step, frame, room, geometry.as_deref().and_then(|geometry| geometry.motion_for(body, room)));
         let door = rooms.as_ref().and_then(|rooms| rooms.nearest_door_under(body, reach.collision_box(), reach.pos()));
         let target = targets
             .chosen(body, &reach, door)

@@ -9,7 +9,7 @@ use bevy::prelude::*;
 /// (`interact_ecs_actors_and_switches`, `open_ecs_chests`), so the prompt
 /// names what the press does. Before, the prompt asked a copy with no live-room
 /// check, no door rule and no facing gate (review 2026-10-08).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct InteractReach {
     pos: ambition_platformer2d_core::Vec2,
     facing: f32,
@@ -20,6 +20,15 @@ pub struct InteractReach {
     /// The box a body talks from ([`ambition_interaction::talk_reach`]).
     talk: ambition_platformer2d_core::Aabb,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// How far the body's front is from its root along `side`: its material
+    /// projected on that axis, not the world-axis envelope, which a turned
+    /// body would overstate.
+    front_extent: f32,
+    /// The admitted parts of the body when an opening cuts it: what a chest
+    /// or a switch must touch then, each with the map back to the root's
+    /// chart. `None`: no opening cuts it, and `reach` is its material.
+    material: Option<Result<std::sync::Arc<[ambition_platformer2d_core::frame::thread::OccupiedPart]>,
+        ambition_platformer2d_core::frame::thread::Refusal>>,
 }
 
 impl InteractReach {
@@ -30,14 +39,20 @@ impl InteractReach {
         step: Option<&ambition_platformer2d_core::SweepSample>,
         frame: Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        admission: Option<ambition_platformer2d_core::frame::thread::MotionAdmission<'_>>,
     ) -> Self {
         let reach = kin.aabb();
+        let side = frame.map_or(ambition_platformer2d_core::Vec2::X, |frame| frame.basis().side);
+        let material = admission.filter(|admission| !admission.links.is_empty())
+            .and_then(|admission| match kin.occupied(admission) {
+                Ok(None) => None,
+                Ok(Some(parts)) => Some(Ok(parts.into())),
+                Err(refusal) => Some(Err(refusal)),
+            });
         Self {
             pos: kin.pos,
             facing: kin.facing,
-            side: frame.map_or(ambition_platformer2d_core::Vec2::X, |frame| {
-                frame.basis().side
-            }),
+            side,
             reach,
             // A body talks from a little farther than it touches.
             talk: ambition_interaction::talk_reach(
@@ -45,6 +60,8 @@ impl InteractReach {
                 step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down),
             ),
             room,
+            front_extent: kin.projected_half_extent(side.as_dvec2()).map_or(reach.half_size().x, |extent| extent as f32),
+            material,
         }
     }
 
@@ -119,6 +136,50 @@ impl InteractReach {
         self.refuses_touch(room, aabb, requires_facing).is_none()
     }
 
+    /// The press's preference for a chest or switch at `aabb` it touches
+    /// ([`Self::preference`] of the target as the body meets it), or `None`
+    /// when it does not touch it.
+    pub fn touch_preference(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        aabb: &CenteredAabb,
+        requires_facing: bool,
+    ) -> Option<f32> {
+        self.touched(room, aabb, requires_facing).ok().map(|center| self.preference(center))
+    }
+
+    /// Where the body meets a target at `aabb`, in the root's chart: its
+    /// centre, carried back through the first admitted part that touches it
+    /// (the root's own part first), so facing and preference compare body
+    /// and target in one chart.
+    fn touched_at(&self, aabb: &CenteredAabb) -> Result<ambition_platformer2d_core::Vec2, &'static str> {
+        match &self.material {
+            None if aabb.aabb().strict_intersects(self.reach) => Ok(aabb.center),
+            None => Err("not touched"),
+            Some(Err(_)) => Err("the body's material was refused"),
+            Some(Ok(parts)) => {
+                let part = parts.iter().find(|part| part.strictly_overlaps(aabb.aabb())).ok_or("not touched")?;
+                part.to_root.point(aabb.center).map_err(|_| "the body's material was refused")
+            }
+        }
+    }
+
+    fn touched(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        aabb: &CenteredAabb,
+        requires_facing: bool,
+    ) -> Result<ambition_platformer2d_core::Vec2, &'static str> {
+        if room != self.room {
+            return Err("in another live room");
+        }
+        let center = self.touched_at(aabb)?;
+        if !self.passes_the_facing_gate(center, requires_facing) {
+            return Err("not faced");
+        }
+        Ok(center)
+    }
+
     /// Why the press does not reach a chest or switch at `aabb`: the first
     /// clause of [`Self::touches`] it fails, or `None`.
     pub fn refuses_touch(
@@ -127,15 +188,7 @@ impl InteractReach {
         aabb: &CenteredAabb,
         requires_facing: bool,
     ) -> Option<&'static str> {
-        if room != self.room {
-            Some("in another live room")
-        } else if !aabb.aabb().strict_intersects(self.reach) {
-            Some("not touched")
-        } else if !self.passes_the_facing_gate(aabb.center, requires_facing) {
-            Some("not faced")
-        } else {
-            None
-        }
+        self.touched(room, aabb, requires_facing).err()
     }
 
     /// How far a target at `center` is from the point the body reaches with:
@@ -147,9 +200,10 @@ impl InteractReach {
         center.distance(self.front())
     }
 
-    /// The point the body reaches with: the front of its box, the way it faces.
+    /// The point the body reaches with: the front of its material, the way
+    /// it faces.
     pub fn front(&self) -> ambition_platformer2d_core::Vec2 {
-        self.pos + self.side * (self.facing.signum() * self.reach.half_size().x)
+        self.pos + self.side * (self.facing.signum() * self.front_extent)
     }
 
     /// One press can be for a door or for a body to talk to: the nearer of
@@ -159,6 +213,9 @@ impl InteractReach {
         door.is_some_and(|door| door <= talker)
     }
 }
+
+#[cfg(test)]
+mod touch_through_openings_tests;
 
 /// What a press does to the target it is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

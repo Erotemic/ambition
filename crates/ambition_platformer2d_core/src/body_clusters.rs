@@ -230,7 +230,7 @@ impl BodyKinematics {
     /// `admission` (`MotionAdmission::occupied`): `None` when no opening cuts
     /// it, so its root box is its material.
     pub fn occupied(self, admission: crate::frame::thread::MotionAdmission<'_>)
-        -> Result<Option<Vec<Vec<Vec2>>>, crate::frame::thread::Refusal> {
+        -> Result<Option<Vec<crate::frame::thread::OccupiedPart>>, crate::frame::thread::Refusal> {
         use crate::frame::thread::{MaterialPrimitive, Refusal, RefusalReason};
         let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
         let domain = self.canonical_box().map_err(numeric)?;

@@ -61,6 +61,7 @@ fn reach_of_subject(
     chests: Chests,
     switches: Switches,
     targets: ambition_platformer2d_actor::body::InteractTargets,
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) -> Vec<GeometryObservation> {
     let Some(subject) = query.subject else {
         return Vec::new();
@@ -69,7 +70,8 @@ fn reach_of_subject(
         return Vec::new();
     };
     let room = rooms.live().of(subject);
-    let reach = InteractReach::of(kin, step, frame, room);
+    let reach = InteractReach::of(kin, step, frame, room,
+        geometry.as_deref().and_then(|geometry| geometry.motion_for(subject, room)));
     let door = rooms.nearest_door_under(subject, reach.collision_box(), reach.pos());
     let chosen = targets.chosen(subject, &reach, door).map(|(entity, _)| entity);
     let name = |entity: Entity| names.get(entity).map_or_else(|_| format!("{entity}"), |id| id.as_str().to_owned());

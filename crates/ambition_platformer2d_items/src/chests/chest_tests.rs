@@ -43,7 +43,7 @@ fn select_touched_chests(
 ) {
     selection.0.clear();
     for (body, kin) in &bodies {
-        let reach = ambition_platformer2d_interaction::InteractReach::of(kin, None, None, rooms.of(body));
+        let reach = ambition_platformer2d_interaction::InteractReach::of(kin, None, None, rooms.of(body), None);
         let nearest = chests
             .iter()
             .filter(|(chest, aabb, opened)| opened.is_none() && reach.touches(rooms.of(*chest), aabb, false))

@@ -426,7 +426,7 @@ impl WaterRegion {
 /// axes: the box's two and each edge normal of the polygon. A shared face or
 /// corner is apart, as `Aabb::strict_intersects` has it, so a turned part
 /// whose bounds overlap a region it only touches is not in it.
-pub(crate) fn convex_strictly_overlaps(polygon: &[Vec2], aabb: Aabb) -> bool {
+pub fn convex_strictly_overlaps(polygon: &[Vec2], aabb: Aabb) -> bool {
     if polygon.is_empty() { return false; }
     let apart = |axis: Vec2| {
         let (lo, hi) = polygon.iter().map(|p| p.dot(axis))
@@ -1870,11 +1870,11 @@ impl World {
     /// Depth is measured as there: down from that region's surface to the
     /// highest point of the parts in it, over `height`, the body's root box
     /// height. One whole box part answers as `water_at` of that box.
-    pub fn water_touched(&self, parts: &[Vec<Vec2>], height: f32) -> Option<WaterContact> {
+    pub fn water_touched(&self, parts: &[crate::frame::thread::OccupiedPart], height: f32) -> Option<WaterContact> {
         self.water_regions.iter().find_map(|region| {
             let top = parts.iter()
-                .filter(|part| convex_strictly_overlaps(part, region.aabb))
-                .flat_map(|part| part.iter().map(|p| p.y))
+                .filter(|part| part.strictly_overlaps(region.aabb))
+                .flat_map(|part| part.region.iter().map(|p| p.y))
                 .reduce(f32::min)?;
             Some(region.contact(top, height))
         })

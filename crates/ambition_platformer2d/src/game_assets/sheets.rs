@@ -30,9 +30,16 @@ fn load_prop_sheet(sprite_content: &ambition_sprite_sheet::SpriteContent,
         let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&sprite_content, &source.target, &source.tuning)?;
         character_sprites::build_prop_sprite_asset_packed(&sprite_content, catalog, asset_server, layouts, &source.target, &spec, quality)
     });
-    packed.or_else(|| {
-        character_sprites::load_prop_sheet_for_target(&sprite_content, asset_server, layouts, &config.sprite_folder, &source.target, &source.tuning)
-    })
+    let asset = packed.or_else(|| {
+        character_sprites::load_prop_sheet_for_target(
+            sprite_content, asset_server, layouts, &config.sprite_folder, &source.target,
+            &source.tuning, source.fracture.and(quality),
+        )
+    })?;
+    if source.fracture.is_some() && asset.spec.clip_slot(["fracture"]).is_none() {
+        bevy::log::warn!("{} has fracture settings but its sheet has no fracture row", source.target);
+    }
+    Some(asset)
 }
 
 /// The system set of [`load_the_prop_sheets_in_reach`]. A system that reads
@@ -141,7 +148,13 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
             None => None,
         }).collect();
     let signature = (reach, far, requested.iter().map(|kind| (*kind).to_owned()).collect(), provider.map(str::to_owned));
-    if seen.as_ref() == Some(&signature) && !assets.is_changed() && !sheets.is_changed() && !rooms.set_is_changed() {
+    if seen.as_ref() == Some(&signature)
+        && !assets.is_changed()
+        && !sheets.is_changed()
+        && !rooms.set_is_changed()
+        && !quality.as_ref().is_some_and(|quality| quality.is_changed())
+        && !settings.as_ref().is_some_and(|settings| settings.is_changed())
+    {
         return;
     }
     let (live, far, _, _) = signature.clone();
@@ -154,6 +167,9 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
     let placed: std::collections::BTreeSet<&str> = set.rooms.iter().flat_map(room_prop_kinds).collect();
     let in_reach: std::collections::BTreeSet<&str> =
         near.iter().filter_map(|&room| set.rooms.get(room)).flat_map(room_prop_kinds).collect();
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(quality.as_deref(), settings.as_deref())
+        .budget
+        .clone();
     let missing: Vec<(&str, &PropSheetSource)> = sheets
         .iter()
         .filter(|(kind, source)| {
@@ -161,14 +177,13 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
                 || (!placed.contains(kind)
                     && source.world_provider.as_deref().is_none_or(|owner| Some(owner) == provider))
         })
-        .filter(|(kind, _)| !assets.characters.props.contains_key(*kind))
+        .filter(|(kind, source)| {
+            !prop_sheet_ready(assets.characters.props.get(*kind), source, Some(&quality))
+        })
         .collect();
     if missing.is_empty() {
         return;
     }
-    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(quality.as_deref(), settings.as_deref())
-        .budget
-        .clone();
     load_prop_sheets(
         &sprite_content, missing.into_iter(), &config, &catalog, &asset_server,
         &mut layouts, Some(&quality), &mut assets.characters.props,
@@ -291,7 +306,17 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
     }
 }
 
-/// Load the requested sheets that have no resident handles.
+fn prop_sheet_ready(
+    asset: Option<&ambition_sprite_sheet::character::CharacterSpriteAsset>,
+    source: &PropSheetSource,
+    quality: Option<&VisualQualityBudget>,
+) -> bool {
+    asset.is_some_and(|asset| {
+        source.fracture.is_none() || asset.requested_tier == character_sprites::character_sprite_tier(quality)
+    })
+}
+
+/// Load requested sheets with missing or stale handles.
 fn load_prop_sheets<'a>(sprite_content: &ambition_sprite_sheet::SpriteContent,
     sheets: impl Iterator<Item = (&'a str, &'a PropSheetSource)>,
     config: &GameAssetConfig,
@@ -302,7 +327,7 @@ fn load_prop_sheets<'a>(sprite_content: &ambition_sprite_sheet::SpriteContent,
     props: &mut HashMap<String, ambition_sprite_sheet::character::CharacterSpriteAsset>,
 ) {
     for (kind, source) in sheets {
-        if props.contains_key(kind) {
+        if prop_sheet_ready(props.get(kind), source, quality) {
             continue;
         }
         let asset = load_prop_sheet(&sprite_content, source, config, Some(catalog), asset_server, layouts, quality);

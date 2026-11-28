@@ -6,6 +6,8 @@
 use ambition_platformer2d_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+use ambition_vfx::vfx::FractureVisual;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomWrite;
 use bevy::text::TextBounds;
 use std::f32::consts::TAU;
 
@@ -309,6 +311,9 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
     mut heart_image: Local<Option<Handle<Image>>>,
     time: Res<Time>,
     mut fault_episodes: Local<portal_fault::FaultEpisodes>,
+    prop_sheets: Option<Res<ambition_sprite_sheet::prop_sheets::PropSheets>>,
+    quality: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
+    mut defeat_accents: Local<std::collections::BTreeMap<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, i32, i32), f64>>,
 ) {
     let session_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     let bubble_font = ui_fonts
@@ -320,6 +325,11 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
         .as_deref()
         .map(|fonts| fonts.text_font(8.0, crate::ui_fonts::UiFontWeight::Monospace))
         .unwrap_or_default();
+    let now = time.elapsed_secs_f64();
+    defeat_accents.retain(|_, until| *until > now);
+    let dust_scale = quality.as_ref().map_or(1.0, |quality| quality.budget.particles.spawn_rate_scale);
+    let mut dust_left = (48.0 * dust_scale) as usize;
+    let mut defeat_left = (24.0 * dust_scale).ceil() as usize;
     for message in messages.read() {
         let Some(room) = message.room.or_else(|| rooms.sole()) else {
             continue;
@@ -330,6 +340,40 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
         let world = &world.0;
         let spawn_scope = session_scope.map(|scope| scope.in_room(Some(room)));
         match message.vfx.clone() {
+            VfxMessage::DefeatAccent { pos } => {
+                let count = ((3.0 * dust_scale).ceil() as usize).min(defeat_left);
+                if count == 0 {
+                    continue;
+                }
+                let cell = (room, (pos.x / 80.0).floor() as i32, (pos.y / 80.0).floor() as i32);
+                if let std::collections::btree_map::Entry::Vacant(slot) = defeat_accents.entry(cell) {
+                    slot.insert(now + 0.28);
+                    defeat_left -= count;
+                    spawn_burst(&mut commands, spawn_scope, world, pos, count, 105.0,
+                        [0.84, 0.93, 1.0, 0.62], ParticleKind::Spark);
+                }
+            }
+            VfxMessage::Fracture(fracture) => {
+                let material = fracture.look.as_deref()
+                    .and_then(|look| prop_sheets.as_ref()?.fracture(look))
+                    .unwrap_or_default();
+                let origin = fracture.dust_origin();
+                let toward = fracture.direction();
+                let color = material.dust_color();
+                let stamp = Some(FractureVisual(RoomWrite { room, tick: fracture.tick }));
+                let dust = ((12.0 * dust_scale).ceil() as usize).min(dust_left);
+                dust_left -= dust;
+                if dust > 0 {
+                    spawn_jet(&mut commands, spawn_scope, world, origin, toward,
+                        1.3, dust, 110.0, color, ParticleKind::Dust, stamp);
+                }
+                let chips = ((5.0 * dust_scale) as usize).min(dust_left);
+                dust_left -= chips;
+                if chips > 0 {
+                    spawn_jet(&mut commands, spawn_scope, world, origin, toward,
+                        1.1, chips, 170.0, color, ParticleKind::Shard, stamp);
+                }
+            }
             VfxMessage::Burst {
                 pos,
                 count,
@@ -367,6 +411,7 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
                 speed,
                 color,
                 kind,
+                None,
             ),
             VfxMessage::Beam {
                 pos,
@@ -1230,7 +1275,7 @@ pub fn spawn_burst(
 /// A burst thrown in one direction: see [`VfxMessage::Jet`]. The particles
 /// are spread evenly across the cone, with the same deterministic variety of
 /// speed, size and lifetime as [`spawn_burst`].
-pub fn spawn_jet(
+fn spawn_jet(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
@@ -1241,6 +1286,7 @@ pub fn spawn_jet(
     speed: f32,
     color_rgba: [f32; 4],
     kind: ParticleKind,
+    fracture: Option<FractureVisual>,
 ) {
     let Some(session_scope) = session_scope else {
         return;
@@ -1258,7 +1304,7 @@ pub fn spawn_jet(
         let vel = ae::Vec2::new(angle.cos() * strength, angle.sin() * strength);
         let radius = 2.5 + 3.0 * ((i * 5 + 1) % 7) as f32 / 6.0;
         let lifetime = BURST_MIN_LIFETIME + BURST_LIFETIME_SPREAD * ((i * 7 + 3) % 9) as f32 / 8.0;
-        commands.spawn_session_scoped(
+        let mut entity = commands.spawn_session_scoped(
             session_scope,
             (
                 Sprite::from_color(
@@ -1279,6 +1325,9 @@ pub fn spawn_jet(
                 },
             ),
         );
+        if let Some(stamp) = fracture {
+            entity.insert((stamp, ambition_platformer2d_shared_tangle::lifecycle::RoomVisual));
+        }
     }
 }
 
@@ -2025,6 +2074,20 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
     use bevy::prelude::{any_with_component, IntoScheduleConfigs as _, Update};
+
+    ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+        app,
+        "presentation.fracture_dust",
+        |world, room, tick| {
+            let mut particles = world.query_filtered::<(Entity, &FractureVisual), With<ParticleVisual>>();
+            let removed: Vec<_> = particles.iter(world)
+                .filter_map(|(entity, stamp)| stamp.0.retracted_by(room, tick).then_some(entity))
+                .collect();
+            for entity in removed {
+                world.despawn(entity);
+            }
+        },
+    );
 
     // Each stage runs only when it has work: a request stage when its message
     // is unread, an ageing stage while a visual of its kind exists. A room

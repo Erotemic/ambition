@@ -102,6 +102,7 @@ fn corpse_byte(corpse: Corpse) -> u8 {
         Corpse::Stay => 0,
         Corpse::Vanish => 1,
         Corpse::Gone => 2,
+        Corpse::Fade => 3,
     }
 }
 
@@ -109,6 +110,7 @@ fn corpse_of(byte: u8) -> Corpse {
     match byte {
         0 => Corpse::Stay,
         2 => Corpse::Gone,
+        3 => Corpse::Fade,
         _ => Corpse::Vanish,
     }
 }

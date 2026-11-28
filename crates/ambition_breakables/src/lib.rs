@@ -8,7 +8,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     FeatureSimEntity, SessionWorldMut, SessionWorldRef,
 };
 use ambition_time::{GameplayElapsed, WorldTime};
-use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, VfxMessage, VfxWriter};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
 use ambition_world_returns::{RespawnTimer, WorldTimeSchedule, owners_beside};
 use bevy::prelude::*;
 

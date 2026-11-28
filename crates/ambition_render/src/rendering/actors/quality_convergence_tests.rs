@@ -599,7 +599,7 @@ fn a_declared_prop_waits_for_its_sheet_then_binds_on_the_same_entity() {
         tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 1),
         packed: false,
         backdrop: false,
-        repeat_width: None,
+        repeat_width: None, fracture: None,
     });
     let room = ae::World::new("prop_probe", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, vec![]);
     let spawn = |app: &mut App, kind: &str, assets: Option<&GameAssets>, declared: Option<&PropSheets>| {
@@ -667,6 +667,7 @@ fn adjacent_props_share_a_horizontal_repeat_at_each_quality() {
         packed: false,
         backdrop: true,
         repeat_width: Some(100.0),
+        fracture: None,
     });
     let room = ae::World::new("paper_probe", ae::Vec2::splat(400.0), ae::Vec2::ZERO, vec![]);
     for (index, (left, right)) in [(24.0, 80.0), (80.0, 124.0)].into_iter().enumerate() {

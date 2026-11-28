@@ -20,6 +20,28 @@ pub const PROP_SHEETS_SCHEMA: &str = "prop_sheets";
 /// The capability that owns the schema.
 pub const SPRITES_CAPABILITY: &str = "sprites";
 
+/// Material settings for the sheet's `fracture` row.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FractureLook {
+    pub dust: (u8, u8, u8),
+    pub bounce: f32,
+    pub spin: f32,
+}
+
+impl FractureLook {
+    pub fn dust_color(self) -> [f32; 4] {
+        let (r, g, b) = self.dust;
+        [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 0.63]
+    }
+}
+
+impl Default for FractureLook {
+    fn default() -> Self {
+        Self { dust: (181, 149, 113), bounce: 0.22, spin: 5.0 }
+    }
+}
+
 /// How one prop kind's sheet is drawn.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -48,6 +70,8 @@ pub struct AuthoredPropSheet {
     /// Width in room units of one horizontal repeat. The prop box sets the height.
     #[serde(default)]
     pub repeat_width: Option<f32>,
+    /// Material settings for pieces cut from the intact pose.
+    pub fracture: Option<FractureLook>,
 }
 
 fn one() -> f32 {
@@ -84,6 +108,8 @@ pub struct PropSheetSource {
     pub backdrop: bool,
     /// Horizontal period in room units ([`AuthoredPropSheet::repeat_width`]).
     pub repeat_width: Option<f32>,
+    /// Material settings for pieces cut from the intact pose.
+    pub fracture: Option<FractureLook>,
 }
 
 /// Prop sheet declarations shared by asset loading and presentation.
@@ -119,6 +145,10 @@ impl PropSheets {
             .find(|(known, _)| known == kind)
             .and_then(|(_, source)| source.repeat_width)
             .filter(|width| width.is_finite() && *width >= 1.0)
+    }
+
+    pub fn fracture(&self, kind: &str) -> Option<FractureLook> {
+        self.0.iter().find(|(known, _)| known == kind)?.1.fracture
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &PropSheetSource)> {
@@ -160,6 +190,7 @@ fn sprite_folder_row(world_provider: &str, kind: &str, row: &AuthoredPropSheet) 
         packed: row.packed,
         backdrop: row.backdrop,
         repeat_width: row.repeat_width,
+        fracture: row.fracture,
     }
 }
 
@@ -200,6 +231,11 @@ fn problems(rows: &PropSheetRows) -> Vec<String> {
         }
         if !(row.scale.is_finite() && row.scale > 0.0) {
             problems.push(format!("`{kind}.scale` is {}; it is finite and more than 0", row.scale));
+        }
+        if let Some(fracture) = row.fracture {
+            if !(0.0..=1.0).contains(&fracture.bounce) || !(0.0..=20.0).contains(&fracture.spin) {
+                problems.push(format!("`{kind}.fracture` must have bounce in 0..=1 and spin in 0..=20"));
+            }
         }
         if row.repeat_width.is_some_and(|width| !width.is_finite() || width < 1.0) {
             problems.push(format!("`{kind}.repeat_width` must be finite and at least 1 room unit"));
@@ -332,7 +368,7 @@ mod tests {
 
     #[test]
     fn a_row_the_loader_cannot_draw_is_named_by_its_kind_and_field() {
-        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false, repeat_width: None };
+        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false, repeat_width: None, fracture: None };
         let good = PropSheetRows::from([("coconut_palm".to_string(), row(1.4))]);
         assert!(problems(&good).is_empty(), "{:?}", problems(&good));
         let bad = PropSheetRows::from([
@@ -385,7 +421,7 @@ fn a_prop_kind_has_one_sheet() {
         tuning: crate::character::SheetTuning::new(1.0, 0),
         packed: false,
         backdrop: false,
-        repeat_width: None,
+        repeat_width: None, fracture: None,
     };
     let mut sheets = PropSheets::default();
     sheets.register("a", source());

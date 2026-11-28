@@ -51,6 +51,27 @@ The target publisher selects immutable bundles. Consult
 [sprite publication](../tools/sprite-publication.md) for the distinction
 between an unregistered asset, a stale publication and an absent local file.
 
+## Breakable prop sheets
+
+Put the intact pose in the `idle` row. Cut the large pieces from that pose
+and put them in a `fracture` row. Use the same logical canvas for each frame.
+Put the main pieces first. Frame trim gives the size and pivot of each piece.
+Bind the prop sheet to the placement's `look` field. Add `fracture` settings to
+its `prop_sheets.ron` row for the dust color, bounce and spin.
+
+Publish the sheet and its quality variants with the sprite tools. In
+`capture_scene`, use a room that loads the look. This example shows the
+stone recipe at the size of the mine seam.
+
+```bash
+AMBITION_QUALITY_PROFILE=high cargo run -p ambition_app_tools --features game \
+    --bin capture_scene -- science_mine_pocket 534,424 /tmp/stone.png \
+    --fracture 60:mine_seam_wall:534,424,48,112:17 --at-tick 60 --frames 24
+```
+
+The preview uses the room's effect handlers and leaves the breakable state
+unchanged. Frame a clear part of the room to see the pieces on their own.
+
 ## Runtime loading and packaging
 
 Prefer semantic catalog references when available. For direct loads, use the

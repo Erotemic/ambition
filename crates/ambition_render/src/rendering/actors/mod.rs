@@ -567,7 +567,16 @@ pub fn sync_visuals(
         let mut placed = *transform;
         // Bodies of one plane are drawn as separate order blocks: an actor's
         // parts never interleave with another's at the same spot.
-        let tie = if view.kind == FeatureVisualKind::Actor { super::primitives::order_block_tie(view.order, entity) } else { 0.0 };
+        let tie = if view.kind == FeatureVisualKind::Actor {
+            let corpse_depth = if view.hp_max > 0 && !view.alive {
+                -super::primitives::OCCURRENCE_SPAN
+            } else {
+                0.0
+            };
+            super::primitives::order_block_tie(view.order, entity) + corpse_depth
+        } else {
+            0.0
+        };
         placed.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane) + tie);
         // Surface-walking enemies (PuppySlug) rotate the sprite so
         // its authored "up" axis aligns with the surface normal —

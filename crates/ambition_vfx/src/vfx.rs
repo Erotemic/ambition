@@ -18,7 +18,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 
 // VFX depends on generic geometry only; the message vocabulary has no
 // platformer dependency.
-use ambition_geometry as ae;
+use ambition_geometry::{self as ae, AabbExt};
 
 /// Particle flavour for a [`VfxMessage::Burst`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,7 +55,6 @@ impl ParticleKind {
 pub enum PhysicsDebrisCue {
     Impact,
     Breakable,
-    EnemyRagdoll,
     BossRagdoll,
 }
 
@@ -349,11 +348,53 @@ pub fn sfx_space(room: Option<LiveRoomInstance>) -> Option<ambition_sfx::SfxSpac
     room.map(|room| ambition_sfx::SfxSpace(room.ordinal()))
 }
 
+/// How the source came apart.
+#[derive(Clone, Copy, Debug)]
+pub enum BreakMotion {
+    Strike { contact: ae::Vec2, inward: ae::Vec2 },
+    Collapse,
+    Script,
+}
+
+/// Source pose at the time the break was accepted.
+#[derive(Clone, Debug)]
+pub struct Fracture {
+    pub look: Option<String>,
+    pub bounds: ae::Aabb,
+    pub motion: BreakMotion,
+    pub seed: u64,
+    pub tick: u64,
+}
+
+/// The room and tick that created a visible fragment or its dust.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct FractureVisual(pub ambition_platformer2d_shared_tangle::lifecycle::RoomWrite);
+
+impl Fracture {
+    pub fn direction(&self) -> ae::Vec2 {
+        match self.motion {
+            BreakMotion::Strike { inward, .. } => inward.try_normalize().unwrap_or(ae::Vec2::NEG_Y),
+            BreakMotion::Collapse => ae::Vec2::Y,
+            BreakMotion::Script => ae::Vec2::NEG_Y,
+        }
+    }
+
+    pub fn dust_origin(&self) -> ae::Vec2 {
+        match self.motion {
+            BreakMotion::Strike { contact, .. } => contact,
+            BreakMotion::Collapse | BreakMotion::Script => self.bounds.center(),
+        }
+    }
+}
+
 /// A visual effect: the payload of [`VfxInRoom`]. Emitted by simulation
 /// systems; the presentation-side subscriber spawns the actual particle /
 /// impact / slash entities. See the module docs.
 #[derive(Clone, Debug)]
 pub enum VfxMessage {
+    /// A short accent for a defeated body.
+    DefeatAccent { pos: ae::Vec2 },
+    Fracture(Fracture),
     Burst {
         pos: ae::Vec2,
         count: u32,

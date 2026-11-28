@@ -12,7 +12,7 @@ crate-type = ["rlib"]
 [features]
 # The Avian adapter. Off: `PhysicsRoomEntity` and a no-op
 # `retire_physics_entity`, which room transitions call unconditionally.
-physics_debris = ["dep:avian2d"]
+physics_debris = ["dep:avian2d", "dep:ambition_sprite_sheet"]
 
 [dependencies]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
@@ -22,6 +22,7 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 ambition_persistence = { path = "../ambition_persistence" }
 # The debris burst message and its cues.
 ambition_vfx = { path = "../ambition_vfx" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet", optional = true }
 avian2d = { version = "0.7", optional = true }
 # `ui_api` as the monolith's base bevy dep, so feature unification is unchanged.
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }

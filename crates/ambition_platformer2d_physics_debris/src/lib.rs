@@ -1,17 +1,24 @@
-//! Avian2D-backed secondary physics for Ambition sandbox props.
-//!
-//! The player controller remains custom/kinematic. Avian owns only secondary
-//! bodies for now: room colliders, breakable shards, defeated enemy pieces, and
-//! other ragdoll-like effects. This gives us real physical motion where it adds
-//! juice without surrendering platforming feel. A future physics-player mode can
-//! be added behind the same boundary.
+//! Avian2D physics for fragments and other short effects.
+//! The platformer simulation owns gameplay collision.
 
 use ambition_platformer2d_core as ae;
+#[cfg(feature = "physics_debris")]
+mod fracture;
+
+#[cfg(feature = "physics_debris")]
+use ambition_persistence::settings::VisualQualityProfile;
+#[cfg(feature = "physics_debris")]
+use ambition_sprite_sheet::{game_assets::GameAssets, prop_sheets::PropSheets};
+#[cfg(feature = "physics_debris")]
+use ambition_vfx::vfx::{FractureVisual, VfxInRoom, VfxMessage};
+#[cfg(feature = "physics_debris")]
+use bevy::color::Alpha;
+
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d_core::AabbExt;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, RoomWrite, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
 #[cfg(feature = "physics_debris")]
@@ -21,7 +28,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 #[cfg(feature = "physics_debris")]
-use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_FX};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY};
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 
@@ -30,9 +37,13 @@ const SANDBOX_GRAVITY: f32 = 1250.0;
 #[cfg(feature = "physics_debris")]
 const STATIC_COLLIDER_Z: f32 = WORLD_Z_BLOCK - 1.0;
 #[cfg(feature = "physics_debris")]
-const DEBRIS_Z: f32 = WORLD_Z_FX - 2.0;
+const DEBRIS_Z: f32 = WORLD_Z_DUMMY - 1.0;
 #[cfg(feature = "physics_debris")]
 const PHYSICS_DESPAWN_GRACE: f32 = 0.25;
+#[cfg(feature = "physics_debris")]
+const FLOOR_LAYER: u32 = 1;
+#[cfg(feature = "physics_debris")]
+const PIECE_LAYER: u32 = 2;
 
 /// Marker for room-owned Avian entities so room transitions can retire them
 /// through the physics-safe path instead of despawning active bodies immediately.
@@ -52,8 +63,7 @@ pub struct PendingPhysicsDespawn {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PhysicsRoomFloor;
 
-/// Ephemeral Avian dynamic body spawned from breakables, defeated enemies, and
-/// impact effects.
+/// A short-lived body for a fragment or impact effect.
 #[cfg(feature = "physics_debris")]
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PhysicsDebris {
@@ -64,9 +74,7 @@ pub struct PhysicsDebris {
 #[cfg(any(test, feature = "physics_debris"))]
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 
-/// Presentation-side subscriber. Reads `DebrisBurstMessage`s and spawns
-/// Avian2D debris bodies via the existing `spawn_debris_burst` helper.
-/// Skipped in headless builds.
+/// Draw fracture events and physics debris cues in their live room.
 ///
 /// Each burst is placed by the geometry of the live room its message names,
 /// and each piece carries that room's stamp, so the room retires its own
@@ -84,6 +92,9 @@ use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 pub fn physics_spawn_debris_messages(
     mut commands: Commands,
     mut messages: MessageReader<DebrisBurstMessage>,
+    mut effects: MessageReader<VfxInRoom>,
+    assets: Option<Res<GameAssets>>,
+    looks: Option<Res<PropSheets>>,
     geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
@@ -103,11 +114,13 @@ pub fn physics_spawn_debris_messages(
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         messages.clear();
+        effects.clear();
         return;
     };
     // Debris turned off throws nothing, so it builds no floor to throw it on.
     if !settings.debris_enabled {
         messages.clear();
+        effects.clear();
         return;
     }
     // The floors built this frame: their spawns are not applied yet, so the
@@ -115,14 +128,45 @@ pub fn physics_spawn_debris_messages(
     let mut floored: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> = Vec::new();
     let budget = quality.as_deref().map(|quality| &quality.budget.particles);
     let mut alive = live.iter().count() as u32;
-    for message in messages.read() {
-        let Some(room) = message.room.or_else(|| rooms.sole()) else {
+    let fractures = effects.read().filter_map(|effect| match &effect.vfx {
+        VfxMessage::Fracture(fracture) => Some((
+            effect.room, fracture.bounds.center(), PhysicsDebrisCue::Breakable, Some(fracture),
+        )),
+        _ => None,
+    });
+    let cues = messages.read().map(|message| (message.room, message.pos, message.cue, None));
+    for (room, pos, cue, source) in fractures.chain(cues) {
+        let Some(room) = room.or_else(|| rooms.sole()) else {
             continue;
         };
         let Some(world) = geometry.in_room(room) else {
             continue;
         };
-        let pieces = debris_pieces(debris_recipe(message.cue).count as u32, budget, alive);
+        let prepared = if let Some(event) = source {
+            let count = match quality.as_ref().map(|quality| quality.profile) {
+                Some(VisualQualityProfile::Potato) => continue,
+                Some(VisualQualityProfile::Low) => 2,
+                Some(VisualQualityProfile::Medium) => 4,
+                _ => 6,
+            };
+            let room_left = 24u32.min(budget.map_or(u32::MAX, |budget| budget.max_particles))
+                .saturating_sub(alive);
+            let count = count.min(room_left as usize);
+            if count == 0 { continue; }
+            let prepared = event.look.as_deref().and_then(|look| {
+                let material = looks.as_ref()?.fracture(look)?;
+                let asset = assets.as_ref()?.characters.prop_asset_for_kind(look)?;
+                fracture::prepare(asset, material, event, count)
+            });
+            Some((count as u32, prepared))
+        } else {
+            None
+        };
+        let pieces = match &prepared {
+            Some((_, Some(pieces))) => pieces.len() as u32,
+            Some((count, None)) => *count,
+            None => debris_pieces(debris_recipe(cue).count as u32, budget, alive),
+        };
         if pieces == 0 {
             continue;
         }
@@ -139,15 +183,15 @@ pub fn physics_spawn_debris_messages(
                 );
             }
         }
-        spawn_debris_burst(
-            &mut commands,
-            session_scope.in_room(Some(room)),
-            &world.0,
-            message.pos,
-            message.cue,
-            pieces,
-            *settings,
-        );
+        let scope = session_scope.in_room(Some(room));
+        let origin = source.map(|event| FractureVisual(RoomWrite { room, tick: event.tick }));
+        if let Some((_, Some(prepared))) = prepared {
+            for piece in prepared {
+                spawn_debris_piece(&mut commands, scope, &world.0, piece, origin);
+            }
+        } else {
+            spawn_debris_burst(&mut commands, scope, &world.0, pos, cue, pieces, *settings, origin);
+        }
     }
 }
 
@@ -235,6 +279,20 @@ pub struct AmbitionPhysicsPlugin;
 #[cfg(feature = "physics_debris")]
 impl Plugin for AmbitionPhysicsPlugin {
     fn build(&self, app: &mut App) {
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "presentation.fracture_bodies",
+            |world, room, tick| {
+                let mut pieces = world.query_filtered::<(Entity, &FractureVisual), (With<PhysicsDebris>, Without<PendingPhysicsDespawn>)>();
+                let retired: Vec<_> = pieces.iter(world)
+                    .filter_map(|(entity, stamp)| stamp.0.retracted_by(room, tick).then_some(entity))
+                    .collect();
+                for entity in retired {
+                    retire_physics_entity(&mut world.commands(), entity);
+                }
+                world.flush();
+            },
+        );
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
             // No body here is interpolated (avian's default interpolates none),
@@ -328,21 +386,26 @@ pub fn update_physics_debris_lifetimes(
     mut commands: Commands,
     time: Res<Time>,
     settings: Res<PhysicsSandboxSettings>,
-    mut query: Query<(Entity, &mut PhysicsDebris, Option<&PendingPhysicsDespawn>)>,
+    mut query: Query<(Entity, &mut PhysicsDebris, Option<&mut Sprite>, Has<Sleeping>), Without<PendingPhysicsDespawn>>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut debris, pending) in &mut query {
-        if pending.is_some() {
-            continue;
-        }
+    for (entity, mut debris, sprite, sleeping) in &mut query {
         if !settings.debris_enabled {
             retire_physics_entity(&mut commands, entity);
             continue;
         }
         debris.lifetime = debris.lifetime.min(settings.default_lifetime.max(0.1));
         debris.lifetime -= dt;
+        if sleeping {
+            debris.lifetime = debris.lifetime.min(0.38);
+        }
         if debris.lifetime <= 0.0 {
             retire_physics_entity(&mut commands, entity);
+        } else if let Some(mut sprite) = sprite {
+            let fade = (debris.lifetime / 0.32).min(1.0);
+            if sprite.color.alpha() > fade {
+                sprite.color.set_alpha(fade);
+            }
         }
     }
 }
@@ -404,6 +467,7 @@ pub fn spawn_static_collider_for_block(
         (
             RigidBody::Static,
             Collider::rectangle(size.x, size.y),
+            CollisionLayers::from_bits(FLOOR_LAYER, PIECE_LAYER),
             Transform::from_translation(world_to_bevy(
                 world,
                 block.aabb.center(),
@@ -432,7 +496,7 @@ pub fn spawn_static_collider_for_block(
 /// Spawn a deterministic burst of dynamic bodies at an Ambition world-space
 /// position. `cue` chooses count, size, color, lifetime, and impulse.
 #[cfg(feature = "physics_debris")]
-pub fn spawn_debris_burst(
+fn spawn_debris_burst(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
@@ -440,6 +504,7 @@ pub fn spawn_debris_burst(
     cue: PhysicsDebrisCue,
     pieces: u32,
     settings: PhysicsSandboxSettings,
+    origin: Option<FractureVisual>,
 ) {
     if !settings.debris_enabled {
         return;
@@ -463,18 +528,27 @@ pub fn spawn_debris_burst(
             spec.size.x * (0.75 + 0.50 * wobble),
             spec.size.y * (1.15 - 0.30 * wobble),
         );
-        spawn_debris_piece(
-            commands,
-            session_scope,
-            world,
-            pos,
+        spawn_debris_piece(commands, session_scope, world, DebrisPiece {
+            position: pos,
             size,
+            sprite: Sprite::from_color(spec.color, size),
             velocity,
-            angular,
-            spec.color,
-            spec.lifetime,
-        );
+            spin: angular,
+            bounce: 0.16,
+            lifetime: spec.lifetime,
+        }, origin);
     }
+}
+
+#[cfg(feature = "physics_debris")]
+struct DebrisPiece {
+    position: ae::Vec2,
+    size: BVec2,
+    sprite: Sprite,
+    velocity: BVec2,
+    spin: f32,
+    bounce: f32,
+    lifetime: f32,
 }
 
 #[cfg(feature = "physics_debris")]
@@ -482,23 +556,21 @@ fn spawn_debris_piece(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    pos: ae::Vec2,
-    size: BVec2,
-    velocity: BVec2,
-    angular_velocity: f32,
-    color: Color,
-    lifetime: f32,
+    piece: DebrisPiece,
+    origin: Option<FractureVisual>,
 ) {
-    commands.spawn_session_scoped(
+    let mut entity = commands.spawn_session_scoped(
         session_scope,
         (
-            Sprite::from_color(color, size),
-            Transform::from_translation(world_to_bevy(world, pos, DEBRIS_Z)),
+            piece.sprite,
+            Transform::from_translation(world_to_bevy(world, piece.position, DEBRIS_Z)),
             RigidBody::Dynamic,
-            Collider::rectangle(size.x.max(1.0), size.y.max(1.0)),
-            LinearVelocity(velocity),
-            AngularVelocity(angular_velocity),
-            PhysicsDebris { lifetime },
+            Collider::rectangle(piece.size.x.max(1.0), piece.size.y.max(1.0)),
+            CollisionLayers::from_bits(PIECE_LAYER, FLOOR_LAYER),
+            Restitution::new(piece.bounce),
+            LinearVelocity(piece.velocity),
+            AngularVelocity(piece.spin),
+            PhysicsDebris { lifetime: piece.lifetime },
             Name::new("Physics debris"),
             RoomVisual,
             PhysicsRoomEntity,
@@ -506,6 +578,9 @@ fn spawn_debris_piece(
             ActiveCollisionHooks::FILTER_PAIRS,
         ),
     );
+    if let Some(origin) = origin {
+        entity.insert(origin);
+    }
 }
 
 #[cfg(feature = "physics_debris")]
@@ -536,7 +611,7 @@ fn debris_recipe(cue: PhysicsDebrisCue) -> DebrisRecipe {
             max_speed: 170.0,
             y_boost: 70.0,
             spin: 6.0,
-            lifetime: 1.8,
+            lifetime: 0.55,
             color: Color::srgba(1.0, 0.38, 0.30, 0.86),
         },
         PhysicsDebrisCue::Breakable => DebrisRecipe {
@@ -546,18 +621,8 @@ fn debris_recipe(cue: PhysicsDebrisCue) -> DebrisRecipe {
             max_speed: 280.0,
             y_boost: 135.0,
             spin: 9.0,
-            lifetime: 4.5,
+            lifetime: 1.15,
             color: Color::srgba(0.68, 0.46, 0.27, 0.92),
-        },
-        PhysicsDebrisCue::EnemyRagdoll => DebrisRecipe {
-            count: 7,
-            size: BVec2::new(9.0, 7.0),
-            min_speed: 105.0,
-            max_speed: 250.0,
-            y_boost: 120.0,
-            spin: 8.0,
-            lifetime: 4.0,
-            color: Color::srgba(0.96, 0.28, 0.24, 0.92),
         },
         PhysicsDebrisCue::BossRagdoll => DebrisRecipe {
             count: 16,
@@ -599,22 +664,6 @@ mod tests {
         assert!(
             s.default_lifetime < 60.0,
             "debris lifetime should be a few seconds, not minutes"
-        );
-    }
-
-    #[test]
-    fn physics_debris_cue_variants_compare_distinct() {
-        // Equality is consumed by debris_recipe pattern matching;
-        // two variants compared equal would silently fall through to
-        // the wrong recipe arm.
-        assert_ne!(PhysicsDebrisCue::Impact, PhysicsDebrisCue::Breakable);
-        assert_ne!(PhysicsDebrisCue::Impact, PhysicsDebrisCue::EnemyRagdoll);
-        assert_ne!(PhysicsDebrisCue::Impact, PhysicsDebrisCue::BossRagdoll);
-        assert_ne!(PhysicsDebrisCue::Breakable, PhysicsDebrisCue::EnemyRagdoll);
-        assert_ne!(PhysicsDebrisCue::Breakable, PhysicsDebrisCue::BossRagdoll);
-        assert_ne!(
-            PhysicsDebrisCue::EnemyRagdoll,
-            PhysicsDebrisCue::BossRagdoll
         );
     }
 
@@ -793,7 +842,7 @@ mod tests {
         };
         let mut app = App::new();
         app.insert_resource(PhysicsSandboxSettings::default());
-        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<DebrisBurstMessage>().add_message::<VfxInRoom>();
         app.add_systems(Update, physics_spawn_debris_messages);
         let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
         for (room, height) in rooms.into_iter().zip([600.0, 1000.0]) {
@@ -836,10 +885,64 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn a_fracture_rewind_retires_pieces_from_one_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            LiveRoomInstance, RoomInstanceRoot, retract_room_writes,
+        };
+        use ambition_vfx::vfx::{BreakMotion, Fracture};
+
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            bevy::transform::TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::mesh::MeshPlugin,
+            AmbitionPhysicsPlugin,
+        ));
+        app.add_message::<DebrisBurstMessage>().add_message::<VfxInRoom>();
+        app.add_systems(Update, physics_spawn_debris_messages);
+        app.finish();
+        app.cleanup();
+
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        for room in [first, second] {
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                room,
+                ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                    "room", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, Vec::new(),
+                )),
+            ));
+        }
+        let burst = |room, tick| VfxInRoom {
+            room: Some(room),
+            vfx: VfxMessage::Fracture(Fracture {
+                look: None,
+                bounds: ae::Aabb::new(ae::Vec2::splat(100.0), ae::Vec2::splat(20.0)),
+                motion: BreakMotion::Collapse,
+                seed: tick,
+                tick,
+            }),
+        };
+        for event in [burst(first, 9), burst(first, 10), burst(second, 10)] {
+            app.world_mut().write_message(event);
+        }
+        app.update();
+        let world = app.world_mut();
+        retract_room_writes(world, first, 9);
+        let mut pieces = world.query_filtered::<(&FractureVisual, Has<PendingPhysicsDespawn>), With<PhysicsDebris>>();
+        let pieces: std::collections::BTreeSet<_> = pieces.iter(world)
+            .map(|(stamp, retired)| (stamp.0.room, stamp.0.tick, retired))
+            .collect();
+        assert_eq!(pieces, [(first, 9, false), (first, 10, true), (second, 10, false)].into_iter().collect());
+    }
+
     /// The tier's particle budget sets how many pieces a burst throws and how
-    /// many may live at once. On Potato a ragdoll (seven pieces) throws one,
-    /// and a burst at the cap throws none and builds no floor. With no budget
-    /// installed, every piece (the control).
+    /// many may live at once. The legacy burst emits one piece on Potato.
+    /// At the cap it emits no pieces and does not build a floor.
     #[cfg(feature = "physics_debris")]
     #[test]
     fn a_burst_throws_what_the_particle_budget_allows() {
@@ -852,7 +955,7 @@ mod tests {
             if let Some(profile) = quality {
                 app.insert_resource(ResolvedVisualQuality { profile, budget: VisualQualityBudget::for_profile(profile) });
             }
-            app.add_message::<DebrisBurstMessage>();
+            app.add_message::<DebrisBurstMessage>().add_message::<VfxInRoom>();
             app.add_systems(Update, physics_spawn_debris_messages);
             app.world_mut().spawn((
                 RoomInstanceRoot,
@@ -873,7 +976,7 @@ mod tests {
             app.world_mut().write_message(DebrisBurstMessage {
                 room: Some(room),
                 pos: ae::Vec2::new(100.0, 100.0),
-                cue: PhysicsDebrisCue::EnemyRagdoll,
+                cue: PhysicsDebrisCue::Breakable,
             });
             app.update();
             let world = app.world_mut();
@@ -881,8 +984,8 @@ mod tests {
             let floors = world.query_filtered::<(), With<PhysicsRoomFloor>>().iter(world).count();
             (pieces, floors > 0)
         };
-        assert_eq!(thrown(None, 0, false), (7, true), "control: with no budget a ragdoll throws its seven pieces");
-        assert_eq!(thrown(Some(VisualQualityProfile::Potato), 0, false), (1, true), "on Potato a ragdoll throws one piece");
+        assert_eq!(thrown(None, 0, false), (9, true), "a break throws its full count when no budget is set");
+        assert_eq!(thrown(Some(VisualQualityProfile::Potato), 0, false), (1, true), "on Potato a break throws one piece");
         let cap = VisualQualityBudget::for_profile(VisualQualityProfile::Potato).particles.max_particles;
         assert_eq!(thrown(Some(VisualQualityProfile::Potato), cap, false), (0, false), "at the cap a burst throws nothing and builds no floor");
         assert_eq!(
@@ -892,16 +995,19 @@ mod tests {
         );
     }
 
-    /// A burst with debris turned off builds no floor colliders. The control:
-    /// with debris on, the same burst builds the room's one floor.
+    /// A fracture builds floor colliders only when it can spawn rigid pieces.
     #[cfg(feature = "physics_debris")]
     #[test]
-    fn a_burst_with_debris_off_builds_no_floor() {
+    fn a_dust_only_fracture_builds_no_floor() {
         use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
-        let floors = |enabled: bool| {
+        use ambition_persistence::settings::{ResolvedVisualQuality, VisualQualityBudget};
+        use ambition_vfx::vfx::{BreakMotion, Fracture};
+
+        let floors = |enabled: bool, profile: VisualQualityProfile| {
             let mut app = App::new();
             app.insert_resource(PhysicsSandboxSettings { debris_enabled: enabled, ..Default::default() });
-            app.add_message::<DebrisBurstMessage>();
+            app.insert_resource(ResolvedVisualQuality { profile, budget: VisualQualityBudget::for_profile(profile) });
+            app.add_message::<DebrisBurstMessage>().add_message::<VfxInRoom>();
             app.add_systems(Update, physics_spawn_debris_messages);
             let room = LiveRoomInstance::ACTIVATION;
             app.world_mut().spawn((
@@ -914,13 +1020,23 @@ mod tests {
                     vec![ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(1000.0, 100.0))],
                 )),
             ));
-            app.world_mut().write_message(DebrisBurstMessage { room: Some(room), pos: ae::Vec2::new(100.0, 100.0), cue: PhysicsDebrisCue::Impact });
+            app.world_mut().write_message(VfxInRoom {
+                room: Some(room),
+                vfx: VfxMessage::Fracture(Fracture {
+                    look: None,
+                    bounds: ae::Aabb::new(ae::Vec2::splat(100.0), ae::Vec2::splat(20.0)),
+                    motion: BreakMotion::Script,
+                    seed: 1,
+                    tick: 1,
+                }),
+            });
             app.update();
             let world = app.world_mut();
             world.query_filtered::<(), With<PhysicsRoomFloor>>().iter(world).count()
         };
-        assert_eq!(floors(true), 1, "control: with debris on the burst builds the room's floor");
-        assert_eq!(floors(false), 0, "with debris off a burst built floor colliders");
+        assert_eq!(floors(true, VisualQualityProfile::High), 1);
+        assert_eq!(floors(false, VisualQualityProfile::High), 0);
+        assert_eq!(floors(true, VisualQualityProfile::Potato), 0);
     }
 
     /// Avian pauses when the only debris left is retired: hidden, disabled,
@@ -961,6 +1077,7 @@ mod tests {
         use ambition_platformer2d_shared_tangle::lifecycle::{
             InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
         };
+        use ambition_vfx::vfx::{BreakMotion, Fracture};
         const FLOOR_TOP: f32 = 500.0;
         let after = |floor: bool| -> (f32, usize, Vec<Option<LiveRoomInstance>>, bool) {
             let mut app = App::new();
@@ -974,7 +1091,7 @@ mod tests {
             app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 std::time::Duration::from_millis(16),
             ));
-            app.add_message::<DebrisBurstMessage>();
+            app.add_message::<DebrisBurstMessage>().add_message::<VfxInRoom>();
             app.add_systems(Update, physics_spawn_debris_messages);
             app.finish();
             app.cleanup();
@@ -990,11 +1107,16 @@ mod tests {
                 room,
                 ambition_platformer2d_core::RoomGeometry(world.clone()),
             ));
-            for _ in 0..2 {
-                app.world_mut().write_message(DebrisBurstMessage {
+            for tick in 0..2 {
+                app.world_mut().write_message(VfxInRoom {
                     room: Some(room),
-                    pos: ae::Vec2::new(500.0, 400.0),
-                    cue: PhysicsDebrisCue::Impact,
+                    vfx: VfxMessage::Fracture(Fracture {
+                        look: None,
+                        bounds: ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::splat(20.0)),
+                        motion: BreakMotion::Collapse,
+                        seed: tick,
+                        tick,
+                    }),
                 });
             }
             for _ in 0..60 {
@@ -1013,8 +1135,7 @@ mod tests {
                 .iter(app.world())
                 .map(|stamp| stamp.map(|stamp| stamp.0))
                 .collect::<Vec<_>>();
-            // The debris lives 1.8 s. When it is gone, avian pauses again,
-            // with the floor still there.
+            // Avian pauses after the fragments leave.
             for _ in 0..180 {
                 app.update();
             }

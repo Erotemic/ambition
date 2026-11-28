@@ -12,6 +12,8 @@
     // was taken (`room_rules.ron`, `death_fee`). Drawn a little larger than
     // its box, as a pickup is.
     "rescue_parcel_prop": (scale: 1.4),
+    "breakable_wood_crate": (fracture: Some((dust: (194, 145, 94), bounce: 0.30, spin: 8.0))),
+    "mine_seam_wall": (fracture: Some((dust: (145, 174, 178), bounce: 0.13, spin: 3.1))),
     // The Noodly Temple's keys, one for each sauce. A key is drawn a little
     // larger than its box, as a pickup is.
     "temple_key_marinara": (scale: 1.4),

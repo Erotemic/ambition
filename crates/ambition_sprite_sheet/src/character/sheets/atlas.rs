@@ -195,6 +195,11 @@ impl CharacterSheetSpec {
         }
     }
 
+    /// The number of frames in a named clip slot.
+    pub fn frame_count_at(&self, slot: usize) -> usize {
+        self.row_at(slot).frame_count
+    }
+
     /// Page-local flat atlas index for a slot resolved by [`Self::clip_slot`].
     pub fn flat_index_at(&self, slot: usize, frame: usize) -> usize {
         self.frames.get(slot, frame).map_or_else(

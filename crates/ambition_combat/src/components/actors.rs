@@ -842,7 +842,19 @@ impl DeathBeat {
                 into < Self::BLINK_S && ((into / Self::BLINK_STEP_S) as u32) % 2 == 0
             }
             ambition_characters::actor::Corpse::Gone => since < self.row_s,
+            ambition_characters::actor::Corpse::Fade => self.opacity() > 0.0,
         }
+    }
+
+    /// Opacity of a body that has a fade rule. Visibility controls other rules.
+    pub fn opacity(&self) -> f32 {
+        if self.corpse != ambition_characters::actor::Corpse::Fade {
+            return 1.0;
+        }
+        if let Some(since) = self.since_s {
+            return (1.0 - (since - self.row_s - 0.12) / 0.34).clamp(0.0, 1.0);
+        }
+        1.0
     }
 
     /// Whether the body's death row has played to its end.
@@ -892,6 +904,19 @@ mod death_beat_tests {
         }
         assert!(stays.visible(false));
         assert!(!vanishes.visible(false));
+    }
+
+    #[test]
+    fn a_fading_corpse_draws_the_death_row_then_clears() {
+        let mut beat = died(Corpse::Fade);
+        let before_row_end = beat.row_s - 0.1;
+        beat.advance(false, || before_row_end, || unreachable!());
+        assert_eq!(beat.opacity(), 1.0);
+        beat.advance(false, || 0.34, || unreachable!());
+        assert!(beat.visible(false));
+        assert!((0.0..1.0).contains(&beat.opacity()));
+        beat.advance(false, || 0.4, || unreachable!());
+        assert!(!beat.visible(false));
     }
 
     /// A body built dead (a cleared boss) is not seen to die again.

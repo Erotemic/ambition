@@ -673,10 +673,12 @@ pub fn apply_feature_hit_events(
                 if broke {
                     banner.show_in(rooms.of(entity), format!("shattered {}", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(
-                        aabb.center,
+                        &feature,
+                        aabb.aabb(),
+                        ambition_vfx::vfx::BreakMotion::Collapse,
+                        writers.tick.as_deref().map_or(0, |tick| tick.0),
                         &mut writers.sfx,
                         &mut writers.vfx.for_room(rooms.of(entity)),
-                        &mut writers.debris,
                     );
                 }
             }
@@ -1031,10 +1033,15 @@ pub fn apply_feature_hit_events(
                     );
                 }
                 emit_breakable_destroyed(
-                    aabb.center,
+                    &feature,
+                    aabb.aabb(),
+                    ambition_vfx::vfx::BreakMotion::Strike {
+                        contact: impact,
+                        inward: event.contact_for(entity).map_or(aabb.center - impact, |hit| -hit.normal),
+                    },
+                    writers.tick.as_deref().map_or(0, |tick| tick.0),
                     &mut writers.sfx,
                     &mut writers.vfx.for_room(rooms.of(entity)),
-                    &mut writers.debris,
                 );
             }
         }

@@ -184,6 +184,17 @@ member/owner presented pose, scene placement, relevant generation or
 projection changes. Resolve affected assemblies that are visible or explicitly
 demanded by a consumer. Ordinary objects keep a direct scene-order path.
 
+When a room has more than one vessel, both render phases use its room
+instance and platform identity to order the assemblies. Each assembly has
+rear, rider, and near slots. Held art and body effects with a visual root
+follow that root's slot. The card view keeps the physical depth of each
+slot. A headless test checks rider selection when two beds overlap. Ultra
+captures of two occupied carts show the same overlap in 2D and side-on 2.5D.
+When a portal cuts a panel, rider, or item, the piece at the entry keeps
+its source slot and physical depth. The piece through the portal uses the
+exit layer. An Ultra fixture checks the overlap while a rider, the cart,
+and a held item cross a paired opening.
+
 ## One shared sample, two concrete Bevy renderers
 
 The existing foundation is useful: `BodyPoseView`, `FeatureViewIndex`,
@@ -902,6 +913,15 @@ shared value preparation are sufficient until source proves otherwise.
    A tilted view projects its viewport onto the play plane. Its capture
    covers the bounds of that projection. The comparison inset and its
    main output share one capture for each portal and observer.
+
+   Portal windows, rims, and exit pieces project from the same play plane
+   in 2.5D. The draw order of each stays in its own layer. An Ultra capture
+   checks the projection with both tilt and roll. At the exit boundary,
+   the card window filters only texels on the visible side. This removes
+   a thin line of glow that could show through a clipped body.
+
+   Text cards use Bevy's layout for the current frame. The brief portal
+   input-direction cue appears in both views and clears on release.
 
    Rigged bodies use the same output coverage as portal windows. A tilted
    view samples a body at its own screen edge. A body keeps sprite slots

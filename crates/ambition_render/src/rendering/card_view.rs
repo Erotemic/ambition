@@ -145,8 +145,10 @@ pub const TERRAIN_DEPTH: f32 = -0.5;
 /// How far the earth under a line is behind the block skin (its 2D band is
 /// under the blocks').
 const EARTH_BEHIND_SKIN: f32 = 0.1;
-/// Depth of a portal window above the terrain.
-pub const PORTAL_DEPTH: f32 = -0.25;
+/// The depth of the room chart that the camera frames.
+const PLAY_PLANE_Z: f32 = 0.0;
+/// The depth of a platform without a near panel.
+const OPEN_PLATFORM_Z: f32 = -0.125;
 /// A line's turf: in front of the block skin's layers, behind the scenery.
 pub const TURF_DEPTH: f32 = TERRAIN_DEPTH + 0.1;
 /// The back of the scenery props' band: in front of the turf, behind the
@@ -326,6 +328,11 @@ impl CardDepth {
         Self::new(plane, plane)
     }
 
+    #[cfg(feature = "portal_render")]
+    fn on_play_plane(self) -> Self {
+        Self { plane: PLAY_PLANE_Z, ..self }
+    }
+
     fn place(self, transform: &Transform) -> Transform {
         sprite_card_place(transform, self.plane)
     }
@@ -470,13 +477,6 @@ impl Plugin for CardViewPlugin {
                 .after(super::parallax::sync_parallax_layers),
         );
         app.add_systems(
-            Update,
-            labels::realize_card_labels
-                .run_if(card_outputs_enabled)
-                .after(realize_card_bodies)
-                .after(super::label_layout::WorldLabelLayoutSet),
-        );
-        app.add_systems(
             PostUpdate,
             (retire_card_outputs, gameplay::route_card_outputs)
                 .chain()
@@ -492,6 +492,13 @@ impl Plugin for CardViewPlugin {
         app.add_systems(
             PostUpdate,
             (realize_card_scenery, drawings::realize_card_drawings)
+                .in_set(world_mesh::CardWorldMeshSet)
+                .run_if(card_outputs_enabled),
+        );
+        app.add_systems(
+            PostUpdate,
+            labels::realize_card_labels
+                .after(bevy::sprite::update_text2d_layout)
                 .in_set(world_mesh::CardWorldMeshSet)
                 .run_if(card_outputs_enabled),
         );
@@ -613,7 +620,7 @@ pub fn place_card_view_cameras(
 /// The card camera's place for a frame: turned and tilted about the frame's
 /// centre on the play plane, rolled as the frame is.
 pub fn card_camera_transform(frame: &PresentedViewFrame, settings: &CardViewSettings) -> Transform {
-    let target = frame.plane_center.extend(0.0);
+    let target = frame.plane_center.extend(PLAY_PLANE_Z);
     let (yaw, pitch) = if settings.mode == CardViewMode::SideOn {
         (0.0, 0.0)
     } else {
@@ -1162,7 +1169,7 @@ pub(super) fn realize_card_bodies(
             } else {
                 let paint = body_paint_z(false, rank) * scale;
                 rank += 1;
-                (CardDepth::new(0.0, paint), scale)
+                (CardDepth::new(PLAY_PLANE_Z, paint), scale)
             };
             if let Some(depths) = root_depths.as_deref_mut() {
                 if seat.is_none() {
@@ -1566,7 +1573,7 @@ fn platform_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>
     } else if platform.sheet.as_ref().and_then(|key| looks?.0.get(key)).is_some_and(|look| look.front_row.is_some()) {
         -VESSEL_DEPTH
     } else {
-        PORTAL_DEPTH * 0.5
+        OPEN_PLATFORM_Z
     }
 }
 
@@ -2079,7 +2086,7 @@ mod tests {
         assert!(near(depth(30.0), BACKDROP_DEPTH - 1.1), "backdrop: {}", depth(30.0));
         assert!(depth(40.0) >= TURF_DEPTH, "turf: {}", depth(40.0));
         assert!(depth(30.0) < -VESSEL_DEPTH, "a backdrop is behind the cart's back panel");
-        assert!(TERRAIN_DEPTH + 0.04 < depth(40.0) && depth(40.0) < depth(10.0) && depth(10.0) < PORTAL_DEPTH,
+        assert!(TERRAIN_DEPTH + 0.04 < depth(40.0) && depth(40.0) < depth(10.0) && depth(10.0) < PLAY_PLANE_Z,
             "skin, turf, scenery, then the portal line");
         assert_eq!(depth(70.0), 0.0);
         assert_eq!(depth(80.0), 0.0);

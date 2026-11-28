@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 #[cfg(feature = "portal_render")]
-use ambition_portal2d_presentation::PortalCarryOrder;
+use ambition_portal2d_presentation::{PortalCarryOrder, PortalGlow};
 use bevy::asset::AssetEventSystems;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems};
 use bevy::ecs::system::{SystemParam, SystemParamItem};
@@ -25,6 +25,8 @@ use bevy::transform::TransformSystems;
 
 use super::{EARTH_BEHIND_SKIN, TERRAIN_DEPTH, sprite_material};
 use super::{CardBodyRepresentation, CardDepth, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
+#[cfg(feature = "portal_render")]
+use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, WornGearVisual};
 use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
@@ -377,6 +379,36 @@ fn realize_color_meshes(
     by_material.retain(|id, _| used.contains(id));
 }
 
+#[cfg(feature = "portal_render")]
+#[derive(SystemParam)]
+struct PortalMeshPlacement<'w, 's> {
+    pieces: Query<'w, 's, &'static PortalCarryOrder>,
+    rims: Query<'w, 's, (), With<PortalGlow>>,
+    sources: Query<'w, 's, (
+        Option<&'static MovingPlatformVisual>,
+        Option<&'static HeldArtOf>,
+        Option<&'static WornGearVisual>,
+        Option<&'static PresentationOf>,
+    )>,
+    looks: Option<Res<'w, PlatformLooks>>,
+}
+
+#[cfg(feature = "portal_render")]
+impl PortalMeshPlacement<'_, '_> {
+    fn entry_depth(&self, source: Entity, source_z: f32, depths: &CardRootDepths) -> Option<CardDepth> {
+        if let Some(body) = depths.roots.get(&source) {
+            return Some(body.depth);
+        }
+        let (platform, held, gear, subject) = self.sources.get(source).ok()?;
+        if let Some(platform) = platform {
+            return Some(CardDepth::on_plane(platform_depth(platform, self.looks.as_deref())));
+        }
+        held.and_then(|item| depths.held_depth(item.0, source_z))
+            .or_else(|| gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer)))
+            .or_else(|| depths.effect_depth(subject, source_z))
+    }
+}
+
 fn realize_shaded_meshes<M: CardMaterialSource>(
     sources: Query<
         (
@@ -400,8 +432,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     settings: Option<Res<CardViewSettings>>,
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
-    #[cfg(feature = "portal_render")] carry_orders: Query<&PortalCarryOrder>,
-    #[cfg(feature = "portal_render")] held_art: Query<&super::HeldArtOf>,
+    #[cfg(feature = "portal_render")] portal: PortalMeshPlacement,
 ) {
     if !cards_are_visible(settings) {
         by_material.clear();
@@ -444,26 +475,27 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
                 current.0 = draw.clone();
             }
         }
-        let body_depth = depths.effect_depth(subject, global.translation().z);
+        let z = global.translation().z;
+        let body_depth = depths.effect_depth(subject, z);
         #[cfg(feature = "portal_render")]
-        let body_depth = match carry_orders.get(source) {
-            Ok(PortalCarryOrder::Entry(root)) => {
-                if let Ok(super::HeldArtOf(holder)) = held_art.get(*root) {
-                    depths.held_depth(*holder, global.translation().z)
-                } else {
-                    depths.roots.get(root).map(|body| body.depth)
-                }
-            }
-            Ok(PortalCarryOrder::Exit) => None,
-            Err(_) => body_depth,
+        let piece = portal.pieces.get(source).ok().copied();
+        #[cfg(feature = "portal_render")]
+        let body_depth = match piece {
+            Some(PortalCarryOrder::Entry(root)) => portal.entry_depth(root, z, &depths),
+            Some(PortalCarryOrder::Exit) => None,
+            None => body_depth,
         };
         let room = rooms.of(source);
-        let z = global.translation().z;
         let mut depth = if terrain {
             CardDepth::on_plane(TERRAIN_DEPTH + local.translation.z)
         } else {
             body_depth.unwrap_or_else(|| depths.scenery(z, room))
         };
+        #[cfg(feature = "portal_render")]
+        if piece == Some(PortalCarryOrder::Exit) || portal.rims.contains(source) {
+            // Use the window plane for the rim and emerging parts.
+            depth = depth.on_play_plane();
+        }
         if draw.paints_in_scene_order() {
             if let Some(paint) = depths.scene_paint_depth(z, room) {
                 depth.paint = paint;
@@ -641,6 +673,22 @@ mod tests {
         assert_eq!(item_place, entry_place);
         assert!((item_paint - (2.5 + 3.0 * super::super::CARD_PART_STEP)).abs() < 0.001);
 
+        let rail = app.world_mut().spawn(MovingPlatformVisual {
+            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
+            index: 0,
+            sheet: Some("cart".into()),
+            front: true,
+        }).id();
+        app.world_mut().entity_mut(piece).insert((
+            PortalCarryOrder::Entry(rail),
+            GlobalTransform::from_translation(Vec3::new(42.0, 13.0, 14.5)),
+        ));
+        app.update();
+        let (rail_card, rail_place, rail_paint) = card(app.world_mut());
+        assert_eq!(rail_card, entry_card);
+        assert_eq!(rail_place, Vec3::new(42.0, 13.0, -super::super::NEAR_PANEL_GAP));
+        assert_eq!(rail_paint, rail_place.z);
+
         app.world_mut().entity_mut(piece).insert((
             PortalCarryOrder::Exit,
             GlobalTransform::from_translation(Vec3::new(-36.0, 13.0, PORTAL_EXIT_COPY_Z)),
@@ -649,7 +697,7 @@ mod tests {
         let (exit_card, exit_place, exit_paint) = card(app.world_mut());
         assert_eq!(entry_card, exit_card);
         let exit = app.world().resource::<CardRootDepths>().scenery(PORTAL_EXIT_COPY_Z, None);
-        assert_eq!(exit_place, Vec3::new(-36.0, 13.0, exit.plane));
+        assert_eq!(exit_place, Vec3::new(-36.0, 13.0, super::super::PLAY_PLANE_Z));
         assert_eq!(exit_paint, exit.paint.0);
     }
 

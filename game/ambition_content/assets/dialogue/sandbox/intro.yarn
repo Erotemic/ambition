@@ -240,11 +240,11 @@ title: alice_lane__after
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
 <<if verdict("world.flag_set", "intro_creator_notes_recovered") == "satisfied">>
-    Alice: You got Dennis's case back. I didn't know you were going after it. Did they damage it?
+    Alice: You got Dennis's case back. I didn't know you were going after it. I hope the notes are still legible.
 <<elseif verdict("world.flag_set", "intro_creator_notes_recovered") == "unanswerable">>
     <<stop>>
 <<elseif verdict("encounter.cleared", "intro_freight_yard_fight") == "satisfied">>
-    Alice: Someone said the goblins at the siding are gone. Was that you?
+    Alice: Someone said the goblins at the siding are gone. I think I'll get the rest of the survey done before the freight carts come down.
 <<elseif verdict("encounter.cleared", "intro_freight_yard_fight") == "unanswerable">>
     <<stop>>
 <<endif>>
@@ -258,6 +258,8 @@ title: bob_woods
 <<present_speaker "npc_bob">>
 <<if verdict("world.flag_set", "bob_field_survey_received") == "satisfied">>
     Bob: Nearly packed. I just have to wind this chain up. Tell Alice thanks, if you see her.
+    -> How do I read your survey?
+        Bob: The paths I marked are ones I walked myself. Some of the old tracks on Alice's map have grown over.
     -> ‹go›
 <<elseif verdict("world.flag_set", "bob_field_survey_received") == "unanswerable">>
     <<stop>>
@@ -421,6 +423,8 @@ title: valley_gatekeeper
 <<present_speaker "npc_valley_gatekeeper">>
 <<if verdict("world.flag_set", "valley_gatekeeper_met") == "satisfied">>
     Gatekeeper: Freight at noon tomorrow. If you have a delivery, leave the receipt with me.
+    -> Did goblins come this way with a handcart?
+        Gatekeeper: Five. They took the freight track to the siding. I put them in the book as freight.
     -> ‹go›
 <<elseif verdict("world.flag_set", "valley_gatekeeper_met") == "not_satisfied">>
     <<command "world.set_flag" "valley_gatekeeper_met" true>>

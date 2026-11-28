@@ -260,3 +260,36 @@ and placement work. In particular, do not add an unreferenced GNU-ton
 redemption scene or Gallus lookout node and call it implemented. New anecdotes,
 individual reactions, and incidental personal details are provisional. No
 encounter IDs, commands, progression gates, or arena geometry changed here.
+
+## Follow-up: revisitable topics and meaningful choices
+
+A first-meeting flag should normally change an NPC's greeting, not consume
+all of the questions the player did not ask on that visit. Move ordinary
+informational topics outside the first-meeting conditional, keeping the
+existing flag write in its original arm and preserving the unanswerable
+stop. Do not apply this blindly to quest hand-ins, purchases, rewards,
+confessions, encounter transitions, or choices that represent one-time
+story decisions. Keep the conditional route hints available while the
+relevant quest or encounter state allows them.
+
+For the Authority information desk, gatekeeper and registrar, Neighbour
+Moore, the Turing machine Head, Marguerite, Zorlack at the college and the
+Frontier station agent, use a dedicated repeatable topic node with an
+explicit exit. Return to the topic menu after an answer, rather than
+replaying the greeting and setting the met flag again. The shorter
+conversations retain their one-answer structure but offer the same
+informational topics on subsequent visits. These patterns follow the
+existing conversation style of PCA and Roo. Marguerite now asks whether
+the player intends to keep or distribute a map; her answers describe
+existing story restrictions and do not implement any licensing mechanic.
+Bob can explain his survey after handing it over, the valley gatekeeper
+can repeat the freight-track clue, and Ruth and Pearl can repeat their
+route hints. Keep the Mother Lode agreement and the shipment raid open.
+New personal details are provisional.
+
+The dojo leader currently offers "Open the arena door" as the only
+non-question exit in several nodes. Determine whether the door is opened
+by the selected choice or by completion of the conversation/placement
+before adding a distinct leave-without-opening option. This pass leaves
+those nodes unchanged: there is no explicit door command in the Yarn
+body and the map submodule is not present in the supplied source archive.

@@ -115,6 +115,9 @@ title: pirate_admiral__crossing
 ---
 Admiral: Gate sickness. Ever watched a traveller come out of the ring? You can see it on them. Mine wouldn't go away.
 Admiral: I lost near a year to it. Even after I was well enough to sail, I had these marks.
+-> Do the marks still bother you?
+    Admiral: I can climb the riggin' with the best of ’em.
+    <<jump pirate_admiral__personal>>
 -> Would you ever go through again?
     <<jump pirate_admiral__travel>>
 -> Something else.

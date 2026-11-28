@@ -113,6 +113,8 @@ title: frontier_foreman
     -> What does the Marshal want?
         Ruth: Ore in the carts. Nobody on the road after the whistle. His toll, his cut, his rules on a board.
         Ruth: He still acts like he runs the place. Four in the morning, even when the carts are backed up and there's nowhere to put the ore.
+    -> How do I get to the corral?
+        Ruth: Up the road past the tower. Mind the chickens on the way.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_foreman_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_foreman_met" true>>
@@ -131,25 +133,33 @@ title: frontier_station_agent
 <<present_speaker "npc_frontier_station_agent">>
 <<if verdict("world.flag_set", "frontier_station_agent_met") == "satisfied">>
     Augusta: Tickets for the gate on the left of the window, tickets for the train on the right. Same window.
-    -> When's the next train?
-        Augusta: The Number 9 goes down the gulch at 9:40. It's freight. It doesn't stop for people.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_station_agent_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_station_agent_met" true>>
     Augusta: Off the gate? Sit on the bench a minute before you walk anywhere.
     Augusta: The inn's up the street if the bench isn't enough. Most people need the inn.
-    -> Is this the main terminal?
-        Augusta: This is the auxiliary. The main pads are at Dry Dock, down the line. We get the overflow and the detours.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump frontier_station_agent__topics>>
+===
+
+title: frontier_station_agent__topics
+---
+-> Is this the main terminal?
+    Augusta: This is the auxiliary. The main pads are at Dry Dock, down the line. We get the overflow and the detours.
+    <<jump frontier_station_agent__topics>>
+-> When's the next train?
+    Augusta: The Number 9 goes down the gulch at 9:40. It's freight. It doesn't stop for people.
+    <<jump frontier_station_agent__topics>>
+-> ‹go›
 ===
 title: frontier_innkeeper
 ---
 <<present_speaker "npc_frontier_innkeeper">>
 <<if verdict("world.flag_set", "frontier_innkeeper_met") == "satisfied">>
     Pearl: Lie down or move along, dear. The cots are for lying down.
+    -> Where are Alice and Bob?
+        Pearl: The cots by the window. Try not to open the curtains all at once.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_innkeeper_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_innkeeper_met" true>>
@@ -165,19 +175,19 @@ title: frontier_inn_alice
 ---
 <<present_speaker "npc_alice">>
 <<if verdict("world.flag_set", "frontier_inn_alice_met") == "satisfied">>
-    Alice: Still here. Bob's just managed to sit up. We'll be a while yet; go and see the mechanic if you haven't.
-    -> ‹go›
+    Alice: Still here. Bob's just managed to sit up. We'll be a while yet.
 <<elseif verdict("world.flag_set", "frontier_inn_alice_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_inn_alice_met" true>>
     Alice: This isn't where we meant to come out. The dialer back home only had the one line working after the bear.
     Alice: Bob and I need about an hour before we can set off again. We'll look at the routes to the city when we can read a map without feeling worse.
-    -> What should I do?
-        Alice: That bear knocked you about. There's a mechanic over the trestle, on Sprocket Row, if you want somebody to check your joints.
-    -> I'll wait with you.
-        Alice: Thanks. Could you put that bucket between the cots? Bob says he's fine. He's gone a funny colour.
 <<else>>
     <<stop>>
 <<endif>>
+-> Where is the mechanic?
+    Alice: Across the trestle on Sprocket Row. That bear knocked you about; ask the mechanic to check your joints.
+-> I'll wait with you.
+    Alice: Thanks. Could you put that bucket between the cots? Bob says he's fine. He's gone a funny colour.
+-> ‹go›
 ===
 title: frontier_inn_bob
 ---
@@ -198,18 +208,19 @@ title: frontier_mechanic
 ---
 <<present_speaker "npc_frontier_mechanic">>
 <<if verdict("world.flag_set", "frontier_mechanic_met") == "satisfied">>
-    Hettie: Anything rattling yet? No? Then I'm busy.
-    -> ‹go›
+    Hettie: Back again. Anything rattling?
 <<elseif verdict("world.flag_set", "frontier_mechanic_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_mechanic_met" true>>
     Hettie: Hettie Gimbal. Pumps, windmills, wagons, the odd automaton. What's broken?
-    -> Nothing, I think. A friend said to come and see you.
-        Hettie: Turn round. Lift that foot. Hm. A dent, a scuff, nothing loose. You're fine.
-        Hettie: If it starts rattling under load, bring it back before it drops off. Saves us both work.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> Could you check my joints?
+    Hettie: Turn round. Lift that foot. Hm. A dent, a scuff, nothing loose. You're fine.
+    Hettie: If it starts rattling under load, bring it back before it drops off. Saves us both work.
+-> What do you work on here?
+    Hettie: Mostly the pumps and wagons. See that spring? Came off a freight wagon. Been waiting two weeks for its replacement.
+-> ‹go›
 ===
 title: frontier_brakeman
 ---
@@ -224,17 +235,16 @@ title: frontier_yardmaster
 <<present_speaker "npc_frontier_yardmaster">>
 <<if verdict("world.flag_set", "frontier_yardmaster_met") == "satisfied">>
     Lou: The tipple road goes up to the works. The street goes under it to the Row. Both come out at the railhead.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_yardmaster_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_yardmaster_met" true>>
     Lou: You came off the Number 9. At speed. I saw that.
     Lou: That engine's been through four times this month and taken cars every time. Nobody in this yard is going to stand on the line and argue with it.
-    -> Where am I?
-        Lou: Clinker Flats. The smelter town. Dry Dock's east along the line, past the railhead.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> Where am I?
+    Lou: Clinker Flats. The smelter town. Dry Dock's east along the line, past the railhead.
+-> ‹go›
 ===
 title: frontier_crane_driver
 ---
@@ -256,14 +266,13 @@ title: frontier_laundress
 <<present_speaker "npc_frontier_laundress">>
 <<if verdict("world.flag_set", "frontier_laundress_met") == "satisfied">>
     Ida: Same as yesterday. Wash it at noon, the works lets out soot at one, wash it again.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_laundress_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_laundress_met" true>>
     Ida: Mind the lines. That's the whole night shift's shirts. The bundles with a red thread are for the smelter crew.
-    -> Why live under the works?
-        Ida: The wind can't get in, the rent's low, and the soot's free.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> Why live under the works?
+    Ida: The wind can't get in, the rent's low, and the soot's free.
+-> ‹go›
 ===

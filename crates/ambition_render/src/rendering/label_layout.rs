@@ -62,6 +62,7 @@ pub enum WorldLabelFamily {
 /// anchor and opacity). With two writers, a pass that reads back its own last
 /// transform accumulates its correction and the label drifts.
 #[derive(Component, Clone, Debug)]
+#[require(super::primitives::WorldText)]
 pub struct WorldLabel {
     /// Stable view identity of the labeled thing. Used only as the final
     /// deterministic tiebreak, because the actor-plate source index iterates

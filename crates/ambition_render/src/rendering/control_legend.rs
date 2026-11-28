@@ -17,12 +17,13 @@
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-use bevy::text::{ComputedTextBlock, TextLayoutInfo};
+use bevy::text::{ComputedTextBlock, TextBounds, TextLayoutInfo};
 
 use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_sim_view::{ControlPrompt, LegendPiece, LEGEND_ACTION_OPEN};
 
 use super::label_layout::MirroredWorldLabel;
+use super::primitives::AnimatedWorldSpriteTint;
 
 /// The authored text of a sign that names controls by action.
 #[derive(Component, Clone, Debug, PartialEq)]
@@ -53,6 +54,7 @@ pub struct LegendSpan {
 
 /// The picture of one control on a sign, placed over its span.
 #[derive(Component, Clone, Debug)]
+#[require(AnimatedWorldSpriteTint)]
 pub struct LegendGlyph;
 
 /// What a sign drawn in pieces shows now: each piece, and the picture drawn
@@ -201,15 +203,19 @@ pub fn place_legend_glyphs(
     // picture, and every name shows.
     images: Option<Res<Assets<Image>>>,
     signs: Query<
-        (&TextLayoutInfo, &ComputedTextBlock, &Anchor, &TextColor, &TextFont, &Children),
+        (&TextLayoutInfo, &ComputedTextBlock, &TextBounds, &Anchor, &TextColor, &TextFont, &Children),
         With<ControlLegend>,
     >,
     mut spans: Query<(&LegendSpan, &mut TextColor, &mut TextFont), Without<ControlLegend>>,
     mut glyphs: Query<(&mut Sprite, &mut Transform), With<LegendGlyph>>,
 ) {
     let Some(images) = images else { return };
-    for (layout, block, anchor, color, font, children) in &signs {
-        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * layout.size;
+    for (layout, block, bounds, anchor, color, font, children) in &signs {
+        let box_size = Vec2::new(
+            bounds.width.unwrap_or(layout.size.x),
+            bounds.height.unwrap_or(layout.size.y),
+        );
+        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * box_size;
         let scale = layout.scale_factor.max(f32::EPSILON).recip();
         for child in children {
             let Ok((span, mut span_color, mut span_font)) = spans.get_mut(*child) else { continue };

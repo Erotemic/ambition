@@ -913,6 +913,14 @@ shared value preparation are sufficient until source proves otherwise.
    output takes its room mask from the plane camera and uses the depth of
    the field's art. Inactive cameras release their passes.
 
+   A field can extend beyond the camera's depth range. The shared
+   projection uses its center to check depth and its edge to measure
+   radius. Boss finish bars use the viewport of each active camera that
+   frames the boss's room. The bars keep their UI nodes as they change
+   height and leave when that camera closes or frames a different room.
+   The shared HUD draws above the bars. A Medium capture of Marshal
+   Gallus's finish shows the bars and color drain in both views.
+
    Mary-O's fire glow, cosmic aura, barrier, quasar, and room shimmer use
    the same materials in both views. The shimmer, room sky, and blueprint
    shaders use the card camera axis at the play plane. An Ultra fixture

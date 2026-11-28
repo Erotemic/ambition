@@ -189,6 +189,15 @@ pub use camera::{
     apply_view_frames_to_2d_cameras, present_view_frames, view_camera_presentation,
     CameraViewState, PresentedViewFrame, PresentedViewFrames, ViewCameraSet,
 };
+
+#[cfg(feature = "card_view")]
+pub(crate) type GameplayOutputCamera = bevy::prelude::Or<(
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
+    bevy::prelude::With<card_view::CardViewCamera>,
+)>;
+#[cfg(not(feature = "card_view"))]
+pub(crate) type GameplayOutputCamera =
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>;
 /// The fallback stand-in's marker: a feature the sim published that no render
 /// family has drawn for long enough to be a bug.
 ///

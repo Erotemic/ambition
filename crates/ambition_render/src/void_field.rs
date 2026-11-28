@@ -291,13 +291,16 @@ mod tests {
         assert_eq!(field(&world, card), None);
 
         let site = Vec3::new(80.0, 20.0, 10.0);
-        world.spawn((AURA, GlobalTransform::from_translation(site), room_layer));
+        let aura = VoidAura { radius: 8000.0, ..AURA };
+        world.spawn((aura, GlobalTransform::from_translation(site), room_layer));
         world.run_system_once(sync_void_fields).unwrap();
         let camera = world.get::<Camera>(card).unwrap();
         let settings = world.get::<VoidFieldSettings>(card).unwrap();
         let rect = camera.logical_viewport_rect().unwrap();
         let expected = (camera.world_to_viewport(&at, site).unwrap() - rect.min) / rect.size();
-        assert_eq!(settings.sources[0].truncate().truncate(), expected);
+        assert!(camera.world_to_viewport(&at, site + Vec3::X * aura.radius).is_err());
+        assert!(settings.sources[0].truncate().truncate().abs_diff_eq(expected, 1e-6));
+        assert!(settings.sources[0].z > 1.0);
         assert_eq!(field(&world, card), Some((1, 0)));
         assert_eq!(field(&world, plane), None);
 

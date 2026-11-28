@@ -20,14 +20,14 @@ fn the_touch_classification_separates_a_stomp_from_a_side_hit() {
 
     // Feet (y + 24) right on the head at 284 → a stomp, falling OR resting.
     assert_eq!(
-        player_touch(body(), player_at(400.0, 260.0), falling),
+        player_touch(&crate::rules::shipped_rules(), body(), player_at(400.0, 260.0), falling),
         Some(PlayerTouch::Top)
     );
     // Clear of it entirely: no touch.
-    assert_eq!(player_touch(body(), player_at(600.0, 300.0), at_rest), None);
+    assert_eq!(player_touch(&crate::rules::shipped_rules(), body(), player_at(600.0, 300.0), at_rest), None);
     // Beside it on the same ground: a side touch, whatever the velocity.
     assert_eq!(
-        player_touch(body(), player_at(410.0, 300.0), at_rest),
+        player_touch(&crate::rules::shipped_rules(), body(), player_at(410.0, 300.0), at_rest),
         Some(PlayerTouch::Side)
     );
 }
@@ -35,7 +35,7 @@ fn the_touch_classification_separates_a_stomp_from_a_side_hit() {
 #[test]
 fn a_player_at_rest_on_a_head_is_stomping_it_not_touching_its_side() {
     assert_eq!(
-        player_touch(body(), player_at(400.0, 260.0), ae::Vec2::ZERO),
+        player_touch(&crate::rules::shipped_rules(), body(), player_at(400.0, 260.0), ae::Vec2::ZERO),
         Some(PlayerTouch::Top),
         "standing on a body is a stomp — it must never be a side contact"
     );
@@ -48,11 +48,11 @@ fn rising_into_a_head_from_below_is_a_side_hit_not_a_stomp() {
     // Overlapping for real (feet at 289, past the head at 284), since
     // edge-touching boxes do not overlap.
     assert_eq!(
-        player_touch(body(), player_at(400.0, 265.0), ae::Vec2::new(0.0, -200.0)),
+        player_touch(&crate::rules::shipped_rules(), body(), player_at(400.0, 265.0), ae::Vec2::new(0.0, -200.0)),
         Some(PlayerTouch::Side)
     );
     assert_eq!(
-        player_touch(body(), player_at(400.0, 265.0), ae::Vec2::new(0.0, 200.0)),
+        player_touch(&crate::rules::shipped_rules(), body(), player_at(400.0, 265.0), ae::Vec2::new(0.0, 200.0)),
         Some(PlayerTouch::Top),
         "the same geometry falling is still a stomp"
     );
@@ -64,12 +64,12 @@ fn a_gap_above_the_head_is_not_a_stomp() {
     // are both spatially separate, regardless of downward velocity.
     let falling = ae::Vec2::new(0.0, 200.0);
     assert_eq!(
-        player_touch(body(), player_at(400.0, 259.0), falling),
+        player_touch(&crate::rules::shipped_rules(), body(), player_at(400.0, 259.0), falling),
         None,
         "a one-pixel gap is not contact"
     );
     assert_eq!(
-        player_touch(body(), player_at(400.0, 245.0), falling),
+        player_touch(&crate::rules::shipped_rules(), body(), player_at(400.0, 245.0), falling),
         None,
         "the stomp tolerance cannot reach through empty space"
     );
@@ -95,11 +95,11 @@ fn running_into_a_short_enemy_on_flat_ground_hits_its_side() {
 
     // The premise: they are actually touching, or the classification is moot.
     assert!(
-        player_touch(short_enemy, her, running).is_some(),
+        player_touch(&crate::rules::shipped_rules(), short_enemy, her, running).is_some(),
         "the fixture does not overlap, so it classifies nothing"
     );
     assert_eq!(
-        player_touch(short_enemy, her, running),
+        player_touch(&crate::rules::shipped_rules(), short_enemy, her, running),
         Some(PlayerTouch::Side),
         "running into a short enemy from the side was classified as a stomp, so \
          the enemy takes the hit instead of her"
@@ -119,7 +119,7 @@ fn the_same_short_enemy_can_still_be_stomped_from_above() {
     );
     let falling = ae::Vec2::new(0.0, 200.0);
     assert_eq!(
-        player_touch(short_enemy, her, falling),
+        player_touch(&crate::rules::shipped_rules(), short_enemy, her, falling),
         Some(PlayerTouch::Top),
         "a short enemy must still be stompable from above, or the clamp traded \
          one bug for another"

@@ -74,7 +74,7 @@ impl Loop {
         app.insert_resource(ambition_demo_mary_o::mary_o_character_catalog());
         app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
         // The bonk handler asks the ROOM what it hit, so the room has to be here.
-        let room = ambition_demo_mary_o::level_1_1();
+        let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
         let struck = room
             .world
             .blocks
@@ -511,7 +511,7 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
     // --- hold run -> run speed ----------------------------------------------
     game.intend(1.0, false, false);
     game.app.update();
-    assert_eq!(game.throttle(), ambition_demo_mary_o::rules::mary_o_rules().walk_throttle, "no run held: she walks");
+    assert_eq!(game.throttle(), ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).walk_throttle, "no run held: she walks");
 
     game.intend(1.0, true, false);
     game.app.update();
@@ -561,7 +561,7 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 
     // Take the shot exactly as the beacon grants it.
     let mut actions = ActionSet::peaceful();
-    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![cinder_beacon()]));
+    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![cinder_beacon(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()))]));
     let shot = actions.ranged.expect("the beacon grants a shot");
     let flight = shot.flight.expect("and authors its flight");
 
@@ -749,7 +749,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
 
     // Her shot, straight from the beacon's grant.
     let mut actions = ActionSet::peaceful();
-    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![cinder_beacon()]));
+    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![cinder_beacon(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()))]));
     let shot = actions.ranged.expect("the beacon grants a shot");
     let flight = shot.flight.expect("and authors its flight");
 
@@ -826,7 +826,7 @@ fn pipe_shell(room_id: &str) -> App {
     app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
     ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ambition_demo_mary_o::provider::mary_o_session_world_entering(room_id).room_set,
+        ambition_demo_mary_o::provider::mary_o_session_world_entering(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()), room_id).room_set,
     );
     // The room the body stands in is a LIVE room (OW1): the pipe rules read
     // its definition from the live room root, and a set with no live room
@@ -937,7 +937,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     );
 
     // Let the whole authored slide run.
-    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules().pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules().pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
+    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
     for _ in 0..ticks {
         app.update();
     }
@@ -993,7 +993,7 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
         "pressing UP at the return pipe's lip must start a transit"
     );
 
-    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules().pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules().pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
+    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
     for _ in 0..ticks {
         app.update();
     }
@@ -1061,7 +1061,7 @@ fn a_warp_tube_authored_outside_1_1_still_warps_her() {
 
     // The whole authored slide, then the arrival — THIS room's paired exit, not
     // a coordinate this test carries.
-    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules().pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules().pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
+    let ticks = ((ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).pipe.swallow_seconds + ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).pipe.emerge_seconds) / (1.0 / 60.0)).ceil() as usize + 4;
     for _ in 0..ticks {
         app.update();
     }

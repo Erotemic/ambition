@@ -109,11 +109,11 @@ fn profile_roster(
             ));
         }
     }
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         ids.iter().map(String::as_str),
         &vec![PROFILE_CPU_LEVEL; ids.len()],
     );
-    ambition_demo_smash::apply_smash_match_rules(&mut roster, config.stocks);
+    ambition_demo_smash::apply_smash_match_rules(&ambition_demo_smash::smash_pack::PACK.prepared(), &mut roster, config.stocks);
     Ok((roster, ids))
 }
 

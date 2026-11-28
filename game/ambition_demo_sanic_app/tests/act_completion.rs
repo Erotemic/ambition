@@ -28,12 +28,12 @@ use bevy::prelude::*;
 
 /// Act 1's course, as the level file lays it out.
 fn course(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ae::World {
-    ambition_demo_sanic::sanic_speedway(&sprite_content).world
+    ambition_demo_sanic::sanic_speedway(&ambition_demo_sanic::pack::PACK.prepared(), &sprite_content).world
 }
 
 /// Act 1's goal line, from its course.
 fn goal_x(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> f32 {
-    ambition_demo_sanic::goal_x_of(&course(&sprite_content))
+    ambition_demo_sanic::goal_x_of(&ambition_demo_sanic::rules::sanic_rules_of(ambition_demo_sanic::pack::PACK.prepared()), &course(&sprite_content))
 }
 
 fn player_x(app: &mut App) -> f32 {
@@ -186,7 +186,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     };
     assert_eq!(still, held, "the clock stops on a clear");
     // The clear plays the burst its rules file states (`effects.act_clear`).
-    let clear = shape_of(&ambition_demo_sanic::rules::sanic_rules().effects.act_clear);
+    let clear = shape_of(&ambition_demo_sanic::rules::sanic_rules_of(ambition_demo_sanic::pack::PACK.prepared()).effects.act_clear);
     let played = &app.world().resource::<PlayedBursts>().0;
     assert!(played.contains(&clear), "the clear did not play the file's burst {clear:?}: played {played:?}");
     eprintln!("sanic completed the act at frame {frame} in {time:.2}s with {rings} rings");
@@ -237,7 +237,7 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     }
     assert!(cleared, "never reached the goal, so this proves nothing");
 
-    let dwell_frames = (ambition_demo_sanic::rules::sanic_rules().act.clear_dwell * 60.0).ceil() as usize;
+    let dwell_frames = (ambition_demo_sanic::rules::sanic_rules_of(ambition_demo_sanic::pack::PACK.prepared()).act.clear_dwell * 60.0).ceil() as usize;
     let mut furthest_back = f32::MAX;
     for _ in 0..dwell_frames {
         app.world_mut()
@@ -251,7 +251,7 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
         "he ended up at x={furthest_back:.0} during his own {}s results card, \
          from a goal at {} — he ran off the end of the course, died, and \
          is replaying the act while the card still shows his time",
-        ambition_demo_sanic::rules::sanic_rules().act.clear_dwell,
+        ambition_demo_sanic::rules::sanic_rules_of(ambition_demo_sanic::pack::PACK.prepared()).act.clear_dwell,
         goal_x(&sprite_content),
     );
 }

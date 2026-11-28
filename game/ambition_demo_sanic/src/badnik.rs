@@ -31,8 +31,8 @@ pub use ambition_demo_sanic_modules::badnik::{BADNIK_BRAIN_KEY, BADNIK_KINDS};
 /// composition with no extension host admits no module and needs no port.
 pub fn install(app: &mut App) {
     if app.has_extension_host() {
-        app.install_extension_observation::<BadnikRulesPort>(BODY_CONTACT, "ambition_demo_sanic", |_, _| {
-            Some(crate::rules::sanic_rules().badnik_observed())
+        app.install_extension_observation::<BadnikRulesPort>(BODY_CONTACT, "ambition_demo_sanic", |world, _| {
+            Some(crate::rules::sanic_rules_in(&crate::pack::PACK.selected_in(world)).badnik_observed())
         });
         app.install_extension_context_observation::<ContactTouchersPort>(
             BODY_CONTACT,

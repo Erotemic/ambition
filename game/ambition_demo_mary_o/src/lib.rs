@@ -542,8 +542,8 @@ const _ENEMY_ART_IS_AUTHORED_NOT_PATCHED: () = ();
 // no archetype rows at all. Every enemy states its body as a character.
 
 /// World 1-1, which is [`authored_level`] and nothing else.
-pub fn level_1_1() -> RoomSpec {
-    authored_level(LEVEL_1_1_ROOM_ID)
+pub fn level_1_1(rules: &crate::rules::MaryORules) -> RoomSpec {
+    authored_level(rules, LEVEL_1_1_ROOM_ID)
 }
 
 /// The authored world file, as Sanic's worlds are: a development build reads
@@ -592,8 +592,8 @@ fn authored_area(area: &str) -> Option<RoomSpec> {
 ///
 /// the pipe pairing is checked on EVERY level now, not just 1-1. A room with no pipes
 /// yields no tubes and no refusals, so this costs the pipeless levels nothing.
-pub fn authored_level(area: &str) -> RoomSpec {
-    finish_authored_room(authored_room(area))
+pub fn authored_level(rules: &crate::rules::MaryORules, area: &str) -> RoomSpec {
+    finish_authored_room(rules, authored_room(area))
 }
 
 /// Every authored area, finished — the room list, read rather than written.
@@ -601,11 +601,11 @@ pub fn authored_level(area: &str) -> RoomSpec {
 /// the test course is NOT here on purpose: it is a Rust-built probe room that
 /// no world file contains, and a session running it carries it INSTEAD of the
 /// shipped levels.
-pub fn authored_levels() -> Vec<RoomSpec> {
+pub fn authored_levels(rules: &crate::rules::MaryORules) -> Vec<RoomSpec> {
     authored_world()
         .rooms
         .into_iter()
-        .map(finish_authored_room)
+        .map(|room| finish_authored_room(rules, room))
         .collect()
 }
 
@@ -618,16 +618,16 @@ pub fn authored_area_ids() -> Vec<String> {
         .collect()
 }
 
-fn finish_authored_room(room: RoomSpec) -> RoomSpec {
-    try_finish_authored_room(room).unwrap_or_else(|why| panic!("{why}"))
+fn finish_authored_room(rules: &crate::rules::MaryORules, room: RoomSpec) -> RoomSpec {
+    try_finish_authored_room(rules, room).unwrap_or_else(|why| panic!("{why}"))
 }
 
 /// One authored area, finished, or why it cannot be played: a `MaryOPipe`
 /// whose `link` is a typo is refused, naming the half that is there and the
 /// partner it wants.
-fn try_finish_authored_room(mut room: RoomSpec) -> Result<RoomSpec, String> {
+fn try_finish_authored_room(rules: &crate::rules::MaryORules, mut room: RoomSpec) -> Result<RoomSpec, String> {
     pipe_tubes(&room)?;
-    lift_the_sky_zones(&mut room);
+    lift_the_sky_zones(rules, &mut room);
     dress_authored_blocks(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
     Ok(room)
@@ -640,8 +640,8 @@ fn try_finish_authored_room(mut room: RoomSpec) -> Result<RoomSpec, String> {
 /// this far out of the view (Jon, 2026-10-12: "I want her to have to go a bit
 /// past the normal visible level boundry before she hits that loading zone, so
 /// players who get the fly ability don't always find it").
-pub fn sky_zone_rise() -> f32 {
-    rules::mary_o_rules().level.sky_zone_rise_tiles * T
+pub fn sky_zone_rise(rules: &crate::rules::MaryORules) -> f32 {
+    rules.level.sky_zone_rise_tiles * T
 }
 
 /// A loading zone on the top line of a level is the sky of the level: the game
@@ -651,12 +651,12 @@ pub fn sky_zone_rise() -> f32 {
 /// holds no thing that is out of its level. Where the sky is, is a rule of the
 /// game and the same for each level. `cosmic::the_sky_has_a_top` lets a body go
 /// up as far as the zone.
-fn lift_the_sky_zones(room: &mut RoomSpec) {
+fn lift_the_sky_zones(rules: &crate::rules::MaryORules, room: &mut RoomSpec) {
     for zone in &mut room.loading_zones {
         if zone.aabb.min.y > 0.5 {
             continue;
         }
-        let rise = zone.aabb.max.y + sky_zone_rise();
+        let rise = zone.aabb.max.y + sky_zone_rise(rules);
         zone.aabb.min.y -= rise;
         zone.aabb.max.y -= rise;
     }
@@ -671,22 +671,20 @@ pub fn sky_top(room: &RoomSpec) -> f32 {
 /// Every authored area, finished, and the graph between them, as the file is
 /// now; or every reason the file cannot be played. The road for a reader that
 /// runs while the game plays: a bad save is a refusal, not a panic.
-pub fn try_authored_levels_and_links(
-) -> Result<(Vec<RoomSpec>, Vec<ambition_platformer2d::world::rooms::RoomLink>), Vec<String>> {
+pub fn try_authored_levels_and_links(rules: &crate::rules::MaryORules) -> Result<(Vec<RoomSpec>, Vec<ambition_platformer2d::world::rooms::RoomLink>), Vec<String>> {
     let text = MARY_O_WORLD.text().map_err(|error| vec![error])?;
-    levels_and_links_of(&text)
+    levels_and_links_of(rules, &text)
 }
 
 /// [`try_authored_levels_and_links`] over the world text `text`.
-fn levels_and_links_of(
-    text: &str,
+fn levels_and_links_of(rules: &crate::rules::MaryORules, text: &str,
 ) -> Result<(Vec<RoomSpec>, Vec<ambition_platformer2d::world::rooms::RoomLink>), Vec<String>> {
     let room_set = room_set_of(text)?;
     let links = room_set.canonical_links();
     let mut rooms = Vec::new();
     let mut refusals = Vec::new();
     for room in room_set.rooms {
-        match try_finish_authored_room(room) {
+        match try_finish_authored_room(rules, room) {
             Ok(room) => rooms.push(room),
             Err(why) => refusals.push(why),
         }
@@ -1103,7 +1101,10 @@ fn begin_a_lap_on_arrival(
         &ambition_platformer2d::session::Departure,
         &ambition_platformer2d::session::ModeVisit,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     let replayed = replays.read().count() > 0;
     let Ok((mut sequence, mut level, departure, visit)) = owners.single_mut() else {
         return;
@@ -1115,15 +1116,15 @@ fn begin_a_lap_on_arrival(
         );
     let arrived = visit.arrival() == ambition_platformer2d::session::Arrival::FromAnotherRoom;
     if own_replay || arrived {
-        start_a_lap(&mut sequence, &mut level);
+        start_a_lap(rules, &mut sequence, &mut level);
     }
 }
 
 /// A fresh lap: the flag back to `Idle`, a full clock and the intro card.
-fn start_a_lap(sequence: &mut flag::FlagSequence, level: &mut MaryOLevelState) {
+fn start_a_lap(rules: &crate::rules::MaryORules, sequence: &mut flag::FlagSequence, level: &mut MaryOLevelState) {
     *sequence = flag::FlagSequence::default();
-    level.time_remaining = crate::rules::mary_o_rules().level.starting_time;
-    level.intro_card = crate::rules::mary_o_rules().level.intro_card_seconds;
+    level.time_remaining = rules.level.starting_time;
+    level.intro_card = rules.level.intro_card_seconds;
     level.tally_dwell = 0.0;
 }
 
@@ -1347,13 +1348,14 @@ pub struct MaryOLevelState {
     pub tally_dwell: f32,
 }
 
-impl Default for MaryOLevelState {
-    fn default() -> Self {
+impl MaryOLevelState {
+    /// A level as `rules` begin one: its clock, lives and intro card.
+    pub fn starting(rules: &crate::rules::MaryORules) -> Self {
         Self {
-            time_remaining: crate::rules::mary_o_rules().level.starting_time,
+            time_remaining: rules.level.starting_time,
             score: 0,
-            lives: crate::rules::mary_o_rules().level.starting_lives,
-            intro_card: crate::rules::mary_o_rules().level.intro_card_seconds,
+            lives: rules.level.starting_lives,
+            intro_card: rules.level.intro_card_seconds,
             tally_dwell: 0.0,
         }
     }
@@ -1411,13 +1413,13 @@ impl Plugin for MaryORulesPlugin {
         if ambition_platformer2d::extension::ExtensionAppExt::has_extension_host(app) {
             ambition_platformer2d::extension::ExtensionAppExt::install_extension_observation::<
                 ambition_demo_mary_o_modules::rules::StompRulesPort,
-            >(app, ambition_platformer2d::extension::sdk::phases::BODY_CONTACT, "ambition_demo_mary_o", |_, _| {
-                Some(rules::mary_o_rules().stomp.observed())
+            >(app, ambition_platformer2d::extension::sdk::phases::BODY_CONTACT, "ambition_demo_mary_o", |world, _| {
+                Some(rules::mary_o_rules_of(crate::pack::PACK.selected_in(world)).stomp.observed())
             });
             ambition_platformer2d::extension::ExtensionAppExt::install_extension_observation::<
                 ambition_demo_mary_o_modules::rules::ShellRulesPort,
-            >(app, ambition_platformer2d::extension::sdk::phases::BODY_CONTACT, "ambition_demo_mary_o", |_, _| {
-                Some(rules::mary_o_rules().shell.observed())
+            >(app, ambition_platformer2d::extension::sdk::phases::BODY_CONTACT, "ambition_demo_mary_o", |world, _| {
+                Some(rules::mary_o_rules_of(crate::pack::PACK.selected_in(world)).shell.observed())
             });
         }
         for module in ambition_demo_mary_o_modules::modules() {
@@ -1515,7 +1517,7 @@ impl Plugin for MaryORulesPlugin {
         // settled tally and its clock reset is not immediately decremented.
         // The level clock and the flag sequence live on the mode's owner, which
         // the engine brings into being the first tick the mode is live.
-        ambition_platformer2d::runtime::install_mode_owner(
+        ambition_platformer2d::runtime::install_mode_owner_with::<ambition_platformer2d::content::SelectedPacks, _>(
             app,
             self.scope,
             MARY_O_MODE,
@@ -1759,8 +1761,8 @@ impl Plugin for MaryORulesPlugin {
 /// The sequence rides the same entity as the clock. The owner is owned by BOTH
 /// the mode (it survives in-session room changes) and the active session (it
 /// is torn down on a shell relaunch, which a same-mode reload is NOT).
-fn mary_o_level_owner() -> (MaryOLevelState, flag::FlagSequence) {
-    (MaryOLevelState::default(), flag::FlagSequence::default())
+fn mary_o_level_owner(packs: &ambition_platformer2d::content::SelectedPacks) -> (MaryOLevelState, flag::FlagSequence) {
+    (MaryOLevelState::starting(&crate::rules::mary_o_rules(packs)), flag::FlagSequence::default())
 }
 
 /// The level clock runs on the SIM clock, so pause and bullet-time slow it exactly
@@ -1832,7 +1834,10 @@ fn spend_lives_on_death(
     >,
     grants: bevy::prelude::Query<Option<&ambition_platformer2d::combat::empowerment::Empowered>>,
     mut commands: bevy::prelude::Commands,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     // Drain unconditionally: the cursor must advance even on a frame with no
     // level, or a death that landed during a load would be re-read later and
     // charged to the next attempt.
@@ -1861,10 +1866,10 @@ fn spend_lives_on_death(
     // substitute for. no floor and no reset. Not `saturating_sub`: the count is allowed
     // below zero on purpose, and the run carries on with its score.
     level.lives -= 1;
-    level.time_remaining = crate::rules::mary_o_rules().level.starting_time;
+    level.time_remaining = rules.level.starting_time;
     // A fresh attempt gets a fresh card — it is how the player reads how many
     // lives that death cost them.
-    level.intro_card = crate::rules::mary_o_rules().level.intro_card_seconds;
+    level.intro_card = rules.level.intro_card_seconds;
     // And she starts it as small Mary-O. Clearing the worn set is what makes
     // that true: `sync_grown_form` reads it, so emptying it is the whole form
     // revert and writing a size here would be a second authority for her shape.
@@ -1964,7 +1969,10 @@ fn warp_through_secret_pipe(
             bevy::prelude::Without<ae::PoseOwnedExternally>,
         ),
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     // Body-local locomotion, `+y` toward the feet (screen-down under Mary-O's
     // normal gravity): press toward the ground to go DOWN a pipe, away to go UP.
     const DIR_DEADZONE: f32 = 0.5;
@@ -2001,7 +2009,7 @@ fn warp_through_secret_pipe(
         // A pipe to another level is entered by the same press at the same
         // mouth: it has no far pipe, so its transit ends in the pipe.
         let transit = match tube_entered(body, down, up, tubes) {
-            Some(tube) => Some(pipe::PipeTransit::begin(
+            Some(tube) => Some(pipe::PipeTransit::begin(rules, 
                 kin.pos,
                 tube.entrance.centre(),
                 tube.exit.arrival(),
@@ -2012,7 +2020,7 @@ fn warp_through_secret_pipe(
                 .iter()
                 .find(|warp| warp.mouth.entered_by(down, up) && at_mouth(body, warp.mouth.mouth_band()))
                 .map(|warp| {
-                    pipe::PipeTransit::begin_leaving(kin.pos, warp.mouth.centre(), warp.mouth.travel_axis(), T)
+                    pipe::PipeTransit::begin_leaving(rules, kin.pos, warp.mouth.centre(), warp.mouth.travel_axis(), T)
                 }),
         };
         let pressed = transit.is_some();
@@ -2156,7 +2164,10 @@ fn cycle_level_on_flag_tally(
         &mut MaryOLevelState,
         &mut ambition_platformer2d::session::Departure,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     let Ok((mut sequence, mut level, mut departure)) = owners.single_mut() else {
         return;
     };
@@ -2164,9 +2175,9 @@ fn cycle_level_on_flag_tally(
         level.tally_dwell = 0.0;
         return;
     }
-    let reading_the_tally = level.tally_dwell < crate::rules::mary_o_rules().level.cycle_dwell_seconds;
+    let reading_the_tally = level.tally_dwell < rules.level.cycle_dwell_seconds;
     level.tally_dwell += time.sim_dt();
-    if level.tally_dwell < crate::rules::mary_o_rules().level.cycle_dwell_seconds {
+    if level.tally_dwell < rules.level.cycle_dwell_seconds {
         return;
     }
     if reading_the_tally {
@@ -2184,7 +2195,7 @@ fn cycle_level_on_flag_tally(
         departure.leave(ambition_platformer2d::session::Destination::NextRoom);
     } else if !departure.is_leaving() {
         // The trip ended with no new room and no admitted replay.
-        start_a_lap(&mut sequence, &mut level);
+        start_a_lap(rules, &mut sequence, &mut level);
     }
 }
 
@@ -2196,7 +2207,7 @@ mod tests {
     /// session's mode lives. A real authored room, because the flag rules resolve
     /// the active room's authored area by id.
     fn rooms_in_mode(mode: Option<&str>) -> ambition_platformer2d::world::rooms::RoomSet {
-        let mut room = level_1_1();
+        let mut room = level_1_1(&crate::rules::shipped_rules());
         room.metadata.mode = mode.map(str::to_string);
         ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
             LEVEL_1_1_ROOM_ID,
@@ -2411,7 +2422,7 @@ mod tests {
             "full run selects the top band"
         );
         assert_eq!(
-            jump.band_for_side_speed(crate::rules::mary_o_rules().walk_throttle * mary_o_tuning.max_run_speed),
+            jump.band_for_side_speed(crate::rules::shipped_rules().walk_throttle * mary_o_tuning.max_run_speed),
             1,
             "a walk selects a lower band, so the two gaits jump differently"
         );
@@ -2449,7 +2460,7 @@ mod tests {
 
     #[test]
     fn no_pit_drops_into_the_secret_vault() {
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         let vault = vault_bounds();
         let runs = authored_ground_runs(&room);
         assert!(runs.len() >= 2, "the level authors ground with pits in it");
@@ -2474,7 +2485,7 @@ mod tests {
     /// fails — which is what makes it a level design and not a pile of boxes.
     #[test]
     fn level_1_1_carries_the_grammar_it_claims() {
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         let world = &room.world;
 
         // The spawn sits inside the room, on the open-teach run.
@@ -2604,7 +2615,7 @@ mod tests {
     #[test]
     fn the_trench_between_the_double_stairs_is_wide_enough_to_patrol() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
         let raised: Vec<f32> = (0..(room.world.size.x / T) as i32)
             .map(|c| c as f32 * T + T * 0.5)
@@ -2645,7 +2656,7 @@ mod tests {
     /// ever seen.
     #[test]
     fn every_authored_enemy_has_ground_under_it() {
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         assert!(
             !room.enemy_spawns.is_empty(),
             "the level authors its enemies"
@@ -2681,7 +2692,7 @@ mod tests {
     /// demo actually publishes a sheet for.
     #[test]
     fn every_authored_enemy_names_the_character_it_wears() {
-        for (label, room) in [("1-1", level_1_1()), ("1-2", level_1_2::level_1_2())] {
+        for (label, room) in [("1-1", level_1_1(&crate::rules::shipped_rules())), ("1-2", level_1_2::level_1_2(&crate::rules::shipped_rules()))] {
             assert!(
                 !room.enemy_spawns.is_empty(),
                 "{label} authors no enemies, so this check would pass by finding \
@@ -2717,7 +2728,7 @@ mod tests {
     #[test]
     fn level_1_1_authors_the_bricks_the_break_runtime_expects() {
         use crate::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         let bricks: Vec<&ae::Block> = room
             .world
             .blocks
@@ -2743,7 +2754,7 @@ mod tests {
     /// The room claims its mode, which is what a hosted `MaryORulesPlugin` wakes on.
     #[test]
     fn level_1_1_claims_the_mary_o_mode() {
-        assert_eq!(level_1_1().metadata.mode.as_deref(), Some(MARY_O_MODE));
+        assert_eq!(level_1_1(&crate::rules::shipped_rules()).metadata.mode.as_deref(), Some(MARY_O_MODE));
         assert_ne!(MARY_O_MODE, "sanic", "two demos, two modes, one binary");
     }
 
@@ -2756,7 +2767,7 @@ mod tests {
     #[test]
     fn each_area_says_its_mode_and_its_biome_in_data() {
         use ambition_platformer2d::sprite_sheet::game_assets::ParallaxTheme;
-        for room in authored_levels() {
+        for room in authored_levels(&crate::rules::shipped_rules()) {
             assert_eq!(room.metadata.mode.as_deref(), Some(MARY_O_MODE), "{} claims no mode", room.id);
             // One of Mary-O's biomes: a room that names another one, or
             // none, is drawn with the look of another game.
@@ -2813,7 +2824,7 @@ mod tests {
         let mut app = shell(MaryORulesPlugin::hosted(), Some(MARY_O_MODE), 1.0);
         app.update();
         app.update();
-        assert_eq!(remaining(&mut app), Some(crate::rules::mary_o_rules().level.starting_time - 2.0));
+        assert_eq!(remaining(&mut app), Some(crate::rules::shipped_rules().level.starting_time - 2.0));
 
         // Hosted, in one of Ambition's own rooms: no owner, no clock.
         let mut app = shell(MaryORulesPlugin::hosted(), None, 1.0);
@@ -2823,10 +2834,10 @@ mod tests {
         // Standalone: the demo IS the game, so no mode is needed.
         let mut app = shell(MaryORulesPlugin::global(), None, 1.0);
         app.update();
-        assert_eq!(remaining(&mut app), Some(crate::rules::mary_o_rules().level.starting_time - 1.0));
+        assert_eq!(remaining(&mut app), Some(crate::rules::shipped_rules().level.starting_time - 1.0));
 
         // The clock clamps at zero rather than running negative.
-        let mut app = shell(MaryORulesPlugin::global(), None, crate::rules::mary_o_rules().level.starting_time * 2.0);
+        let mut app = shell(MaryORulesPlugin::global(), None, crate::rules::shipped_rules().level.starting_time * 2.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(0.0));
     }
@@ -2982,7 +2993,7 @@ mod tests {
     /// nothing to say so.
     #[test]
     fn a_pipe_with_no_partner_is_refused_by_name() {
-        let mut room = level_1_1();
+        let mut room = level_1_1(&crate::rules::shipped_rules());
         // The typo an author actually makes: one half of `ascent` spelled
         // `ascnet`. Both halves still convert; neither is half of a tube.
         let broken = room
@@ -3031,7 +3042,7 @@ mod tests {
         let vault = vault_bounds();
         let arrival = vault_arrival();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-        let authored = level_1_1();
+        let authored = level_1_1(&crate::rules::shipped_rules());
 
         // The vault hangs BELOW the ground slab — that is what makes it secret
         // rather than a visible annex of the level.
@@ -3078,7 +3089,7 @@ mod tests {
         // where the geometry actually ended up. (An earlier version of this test
         // stood the body on the return pipe's top face; that face is now the
         // ceiling, and standing there is not a thing a player can do.)
-        let vault_floor = level_1_1()
+        let vault_floor = level_1_1(&crate::rules::shipped_rules())
             .world
             .blocks
             .iter()
@@ -3137,7 +3148,7 @@ mod tests {
 
         // The level really does carry BOTH pipes and the coins that reward them. A warp whose mouth
         // you cannot see is not a warp, and no assertion about the ZONE would have caught it.
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         let authored_pipes: Vec<_> = pipe_halves_of(&room)
             .into_iter()
             .map(|(half, pipe)| (pipe.link, pipe.role, half.aabb))
@@ -3219,7 +3230,7 @@ mod tests {
     #[test]
     fn a_pipe_you_enter_always_has_a_pipe_you_come_out_of() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         let vault = vault_bounds();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
         let tubes = pipe_tubes(&room).expect("1-1's pipes pair up");
@@ -3340,7 +3351,7 @@ mod tests {
     fn the_vault_ceiling_is_unbroken_no_pit_opens_a_hole() {
         let vault = vault_bounds();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-        let room = level_1_1();
+        let room = level_1_1(&crate::rules::shipped_rules());
         // ASK THE COLLISION, not the name. Terrain is painted into an IntGrid
         // and the merged blocks carry no `ground_*` name to match on — and the
         // question was never about names: is there slab over the secret at this
@@ -3376,7 +3387,7 @@ mod tests {
         let item = app
             .world_mut()
             .spawn(ambition_platformer2d::world_items::WorldItem::equipping(
-                powerups::star_wand(),
+                powerups::star_wand(&crate::forms::shipped_forms()),
                 at,
                 ambition_platformer2d::engine_core::Vec2::splat(8.0),
             ))
@@ -3390,7 +3401,7 @@ mod tests {
                 ..Default::default()
             },
             ambition_platformer2d::characters::equipment::WornEquipment::new(vec![
-                powerups::cinder_beacon(),
+                powerups::cinder_beacon(&crate::forms::shipped_forms()),
             ]),
         ));
         for _ in 0..3 {
@@ -3459,13 +3470,13 @@ mod tests {
         // ── A death spends exactly one life ──────────────────────────────────
         let mut app = shell(0.0);
         app.update();
-        assert_eq!(level(&mut app).0, crate::rules::mary_o_rules().level.starting_lives, "no death, no cost");
+        assert_eq!(level(&mut app).0, crate::rules::shipped_rules().level.starting_lives, "no death, no cost");
 
         kill(&mut app);
         app.update();
         assert_eq!(
             level(&mut app).0,
-            crate::rules::mary_o_rules().level.starting_lives - 1,
+            crate::rules::shipped_rules().level.starting_lives - 1,
             "she died, so a life is spent"
         );
 
@@ -3474,17 +3485,17 @@ mod tests {
         app.update();
         assert_eq!(
             level(&mut app).0,
-            crate::rules::mary_o_rules().level.starting_lives - 1,
+            crate::rules::shipped_rules().level.starting_lives - 1,
             "a life is spent per death, not per frame after one"
         );
 
         // ── Running out of time is a death, and refills the clock ────────────
-        let mut app = shell(crate::rules::mary_o_rules().level.starting_time * 2.0);
+        let mut app = shell(crate::rules::shipped_rules().level.starting_time * 2.0);
         app.update();
         let (lives, _, remaining) = level(&mut app);
-        assert_eq!(lives, crate::rules::mary_o_rules().level.starting_lives - 1, "the clock hitting zero kills");
+        assert_eq!(lives, crate::rules::shipped_rules().level.starting_lives - 1, "the clock hitting zero kills");
         assert_eq!(
-            remaining, crate::rules::mary_o_rules().level.starting_time,
+            remaining, crate::rules::shipped_rules().level.starting_time,
             "and the clock refills, which is also what disarms the timeout so it \
              cannot spend every remaining life on consecutive frames"
         );
@@ -3505,7 +3516,7 @@ mod tests {
             score, 4200,
             "and the run keeps its score, because nothing ended"
         );
-        assert_eq!(remaining, crate::rules::mary_o_rules().level.starting_time, "on a fresh clock, like any death");
+        assert_eq!(remaining, crate::rules::shipped_rules().level.starting_time, "on a fresh clock, like any death");
     }
 
     /// A replay's own body reset must not read as a death.
@@ -3542,7 +3553,7 @@ mod tests {
         app.update();
         assert_eq!(
             level_lives(&mut app),
-            crate::rules::mary_o_rules().level.starting_lives,
+            crate::rules::shipped_rules().level.starting_lives,
             "a fresh level starts on three lives"
         );
 
@@ -3559,7 +3570,7 @@ mod tests {
 
         assert_eq!(
             level_lives(&mut app),
-            crate::rules::mary_o_rules().level.starting_lives,
+            crate::rules::shipped_rules().level.starting_lives,
             "eight body resets with no death reported must cost NOTHING — under \
              the old counter inference this had already drained and wrapped the \
              lives counter"
@@ -3595,7 +3606,7 @@ mod tests {
                 app.world_mut(),
                 ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
                     level_1_2::LEVEL_1_2_ROOM_ID,
-                    vec![level_1_1(), level_1_2::level_1_2()],
+                    vec![level_1_1(&crate::rules::shipped_rules()), level_1_2::level_1_2(&crate::rules::shipped_rules())],
                     Vec::new(),
                 ),
             );
@@ -3659,11 +3670,11 @@ mod tests {
             app.world_mut(),
             ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
                 LEVEL_1_1_ROOM_ID,
-                vec![level_1_1(), level_1_2::level_1_2()],
+                vec![level_1_1(&crate::rules::shipped_rules()), level_1_2::level_1_2(&crate::rules::shipped_rules())],
                 Vec::new(),
             ),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::mary_o_rules().level.cycle_dwell_seconds * 0.5));
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::shipped_rules().level.cycle_dwell_seconds * 0.5));
         app.add_plugins(MaryORulesPlugin::global());
 
         app.update();
@@ -3710,7 +3721,7 @@ mod tests {
             rooms_in_mode(None),
         );
         // Half the dwell per frame: frame 1 arms nothing, frame 2 crosses it.
-        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::mary_o_rules().level.cycle_dwell_seconds * 0.5));
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::shipped_rules().level.cycle_dwell_seconds * 0.5));
         app.add_plugins(MaryORulesPlugin::global());
         app.update();
 
@@ -3774,7 +3785,7 @@ mod tests {
         // spent this frame.
         assert_eq!(
             (phase, remaining),
-            (flag::FlagPhase::Idle, crate::rules::mary_o_rules().level.starting_time - crate::rules::mary_o_rules().level.cycle_dwell_seconds * 0.5),
+            (flag::FlagPhase::Idle, crate::rules::shipped_rules().level.starting_time - crate::rules::shipped_rules().level.cycle_dwell_seconds * 0.5),
             "the level's own replay was admitted and the lap did not start again"
         );
 
@@ -3803,7 +3814,7 @@ mod tests {
             app.world_mut(),
             rooms_in_mode(None),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::mary_o_rules().level.cycle_dwell_seconds));
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, crate::rules::shipped_rules().level.cycle_dwell_seconds));
         app.add_plugins(MaryORulesPlugin::global());
         app.update();
         {
@@ -3846,7 +3857,7 @@ mod tests {
         // One hop per area plus one: enough for the real circuit, never enough
         // to hide a broken one.
         for _ in 0..=authored.len() {
-            let Some(next) = authored_level(&here).metadata.next_room else {
+            let Some(next) = authored_level(&crate::rules::shipped_rules(), &here).metadata.next_room else {
                 panic!(
                     "finishing `{here}` loops in place, so the walk {visited:?} \
                      is a DEAD END — an authored level with no `next_room` is \
@@ -3896,7 +3907,7 @@ mod tests {
         // A goal pointing at a room nobody built degrades to a replay with a
         // warning, which is deliberate but is not something to ship: it would
         // read as "the flag is broken" to a player and to nobody as a typo.
-        let world = mary_o_session_world();
+        let world = mary_o_session_world(&crate::rules::shipped_rules());
         for room in &world.room_set.rooms {
             if let Some(target) = &room.metadata.next_room {
                 assert!(
@@ -3916,8 +3927,8 @@ mod tests {
     /// and only one of them can name a destination.
     #[test]
     fn level_one_two_authors_the_pole_its_resource_describes() {
-        let room = level_1_2::level_1_2();
-        let pole = level_1_2::goal_pole();
+        let room = level_1_2::level_1_2(&crate::rules::shipped_rules());
+        let pole = level_1_2::goal_pole(&crate::rules::shipped_rules());
         let block = room
             .world
             .blocks
@@ -4011,7 +4022,7 @@ mod flag_geometry_oracle {
              room whose pole belongs to another one never fires",
             one_one.x
         );
-        for (room, pole) in [(level_1_1(), one_one), (level_1_2::level_1_2(), one_two)] {
+        for (room, pole) in [(level_1_1(&crate::rules::shipped_rules()), one_one), (level_1_2::level_1_2(&crate::rules::shipped_rules()), one_two)] {
             let shaft = room
                 .world
                 .blocks
@@ -4034,8 +4045,8 @@ mod flag_geometry_oracle {
         let pole = goal_pole();
         let span = pole.base_y - pole.top_y;
         assert!(span > 100.0, "a {span}px pole has no bands worth sliding");
-        assert_eq!(flag::flag_score(pole.grab_height(pole.top_y)), 5000);
-        assert_eq!(flag::flag_score(pole.grab_height(pole.base_y)), 100);
+        assert_eq!(flag::flag_score(&crate::rules::shipped_rules(), pole.grab_height(pole.top_y)), 5000);
+        assert_eq!(flag::flag_score(&crate::rules::shipped_rules(), pole.grab_height(pole.base_y)), 100);
     }
 }
 

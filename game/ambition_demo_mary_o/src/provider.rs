@@ -95,8 +95,8 @@ pub fn mary_o_room_ids() -> Vec<String> {
     ids
 }
 
-pub fn mary_o_session_world() -> MaryOSessionWorld {
-    mary_o_session_world_entering(LEVEL_1_1_ROOM_ID)
+pub fn mary_o_session_world(rules: &crate::rules::MaryORules) -> MaryOSessionWorld {
+    mary_o_session_world_entering(rules, LEVEL_1_1_ROOM_ID)
 }
 
 /// Build the session world with `entry` active, then derive geometry
@@ -107,13 +107,13 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
 /// made both `--room` roads validate the id themselves. They still do, because
 /// a named list of the rooms that exist beats a panic; this is the backstop
 /// behind them.
-pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
-    try_mary_o_session_world_entering(entry).unwrap_or_else(|reasons| panic!("{}", reasons.join("\n")))
+pub fn mary_o_session_world_entering(rules: &crate::rules::MaryORules, entry: &str) -> MaryOSessionWorld {
+    try_mary_o_session_world_entering(rules, entry).unwrap_or_else(|reasons| panic!("{}", reasons.join("\n")))
 }
 
 /// [`mary_o_session_world_entering`], or every reason the world file cannot
 /// be played: the road a running game takes, since the file is read off disk.
-pub fn try_mary_o_session_world_entering(entry: &str) -> Result<MaryOSessionWorld, Vec<String>> {
+pub fn try_mary_o_session_world_entering(rules: &crate::rules::MaryORules, entry: &str) -> Result<MaryOSessionWorld, Vec<String>> {
     // The fixture course is neither of them: it is a self-contained probe room
     // with no loading zones that loops on its own goal (it names no `next_room`), so a
     // session running it carries it INSTEAD of the shipped levels. Its links go
@@ -123,7 +123,7 @@ pub fn try_mary_o_session_world_entering(entry: &str) -> Result<MaryOSessionWorl
     let (rooms, links) = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
         (vec![crate::test_course::test_course()], Vec::new())
     } else {
-        crate::try_authored_levels_and_links()?
+        crate::try_authored_levels_and_links(rules)?
     };
     let room_set = RoomSet::from_parts_or_panic(entry, rooms, links);
     let active = room_set.activation_spec();
@@ -173,6 +173,8 @@ pub struct MaryOExperiencePlugin;
 
 impl Plugin for MaryOExperiencePlugin {
     fn build(&self, app: &mut App) {
+        let mary_o_generation = crate::pack::PACK.selected_in(app.world());
+        let mary_o_pack: &ambition_platformer2d::content::PreparedContentPack = &mary_o_generation;
         crate::install_mary_o_content(app);
         #[cfg(feature = "render")]
         {
@@ -201,9 +203,9 @@ impl Plugin for MaryOExperiencePlugin {
         PlatformerExperienceAuthoring::new(
             MARY_O_EXPERIENCE,
             MARY_O_GAMEPLAY_ROUTE,
-            crate::text::line("launcher.label"),
-            crate::text::line("launcher.description"),
-            crate::text::line("launcher.preparing"),
+            crate::text::line(mary_o_pack, "launcher.label"),
+            crate::text::line(mary_o_pack, "launcher.description"),
+            crate::text::line(mary_o_pack, "launcher.preparing"),
             mary_o_authored_catalogs(),
         )
         // The look of its launcher row.
@@ -256,8 +258,11 @@ impl Plugin for MaryOExperiencePlugin {
 /// preparation; the game keeps running).
 fn mary_o_prepared_session_world(
     entry: Option<bevy::prelude::Res<MaryOEntryRoom>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) -> Result<PreparedPlatformerSource, ambition_platformer2d::provider::WorldRefusal> {
-    let source = try_mary_o_session_world_entering(
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let source = try_mary_o_session_world_entering(rules, 
         entry
             .as_ref()
             .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
@@ -318,7 +323,10 @@ fn publish_mary_o_readouts(
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let mary_o_generation = packs.of(&crate::pack::PACK);
+    let mary_o_pack: &ambition_platformer2d::content::PreparedContentPack = &mary_o_generation;
     let Ok((level, flag)) = level.single() else {
         return;
     };
@@ -347,23 +355,23 @@ fn publish_mary_o_readouts(
         .and_then(|spec| spec.metadata.title.as_deref());
     // Zero-padded like the arcade original: the game owns its formatting, the
     // engine just draws the string.
-    readouts.set_labelled(SCORE_HUD_SLOT, crate::text::line("hud.score"), format!("{:06}", level.score));
+    readouts.set_labelled(SCORE_HUD_SLOT, crate::text::line(mary_o_pack, "hud.score"), format!("{:06}", level.score));
     readouts.set_labelled(
         COINS_HUD_SLOT,
-        crate::text::line("hud.coins"),
+        crate::text::line(mary_o_pack, "hud.coins"),
         format!("{:02}", facts.present.then_some(facts.balance).unwrap_or(0)),
     );
     readouts.set_labelled(
         TIME_HUD_SLOT,
-        crate::text::line("hud.time"),
+        crate::text::line(mary_o_pack, "hud.time"),
         format!("{:03}", level.time_remaining.max(0.0).ceil() as u32),
     );
-    readouts.set_labelled(LIVES_HUD_SLOT, crate::text::line("hud.lives"), level.lives);
+    readouts.set_labelled(LIVES_HUD_SLOT, crate::text::line(mary_o_pack, "hud.lives"), level.lives);
 
     // The card is published ONLY while it should be on screen. An unpublished
     // slot draws nothing, so "stop showing it" needs no hide path and no
     // despawn — the card retires itself when the game stops talking about it.
-    match card_text(level, flag, title) {
+    match card_text(mary_o_pack, level, flag, title) {
         Some(text) => readouts.set(
             CARD_HUD_SLOT,
             ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(text),
@@ -380,12 +388,11 @@ fn publish_mary_o_readouts(
 ///
 /// The intro names the room by the `title` its level authors, so a new level
 /// is titled in the level file. A room with no title shows only her lives.
-fn card_text(
-    level: &crate::MaryOLevelState,
+fn card_text(mary_o_pack: &ambition_platformer2d::content::PreparedContentPack, level: &crate::MaryOLevelState,
     flag: Option<&crate::flag::FlagSequence>,
     title: Option<&str>,
 ) -> Option<String> {
-    let text = crate::text::mary_o_text();
+    let text = crate::text::mary_o_text(mary_o_pack);
     if let Some(score) = flag.and_then(|f| f.score()) {
         let total = format!("{:06}", level.score.saturating_add(score));
         return Some(text.fill("card.course_clear", &[("score", &total)]));
@@ -404,16 +411,17 @@ mod tests {
     /// lives filled; a room with no title has its own line.
     #[test]
     fn her_cards_say_what_her_text_file_states() {
-        let text = crate::text::mary_o_text();
-        let level = crate::MaryOLevelState { intro_card: 1.0, lives: 3, ..Default::default() };
+        let mary_o_generation = crate::pack::PACK.prepared();
+        let text = crate::text::mary_o_text(&mary_o_generation);
+        let level = crate::MaryOLevelState { intro_card: 1.0, lives: 3, ..crate::MaryOLevelState::starting(&crate::rules::shipped_rules()) };
         assert_eq!(
-            card_text(&level, None, Some("WORLD 1-2")),
+            card_text(&crate::pack::PACK.prepared(), &level, None, Some("WORLD 1-2")),
             Some(text.fill("card.intro", &[hole("title", &"WORLD 1-2"), hole("lives", &3)]))
         );
-        assert!(card_text(&level, None, Some("WORLD 1-2")).unwrap().contains("WORLD 1-2"), "the card names the level");
-        assert_eq!(card_text(&level, None, None), Some(text.fill("card.intro_untitled", &[("lives", &3)])));
+        assert!(card_text(&crate::pack::PACK.prepared(), &level, None, Some("WORLD 1-2")).unwrap().contains("WORLD 1-2"), "the card names the level");
+        assert_eq!(card_text(&crate::pack::PACK.prepared(), &level, None, None), Some(text.fill("card.intro_untitled", &[("lives", &3)])));
         let gone = crate::MaryOLevelState { intro_card: 0.0, ..level };
-        assert_eq!(card_text(&gone, None, Some("WORLD 1-2")), None, "the card retires after its time");
+        assert_eq!(card_text(&crate::pack::PACK.prepared(), &gone, None, Some("WORLD 1-2")), None, "the card retires after its time");
     }
 
     /// Each id her ranged actions author has a look, and the look is the
@@ -527,7 +535,7 @@ mod tests {
         if id == crate::test_course::TEST_COURSE_ROOM_ID {
             crate::test_course::test_course()
         } else {
-            crate::authored_level(id)
+            crate::authored_level(&crate::rules::shipped_rules(), id)
         }
     }
 
@@ -575,7 +583,7 @@ mod tests {
         }
 
         for id in ids.iter().map(String::as_str) {
-            let session = mary_o_session_world_entering(id);
+            let session = mary_o_session_world_entering(&crate::rules::shipped_rules(), id);
             let expected = room_named(id);
 
             assert_eq!(
@@ -646,7 +654,7 @@ mod tests {
         let sfx = ambition_platformer2d::audio::content_schema::lowered_sfx_registry(&pack)
             .expect("her pack states her SFX");
         let authorized = sfx.authorized_cue_ids();
-        let forms = crate::forms::mary_o_forms();
+        let forms = crate::forms::shipped_forms();
         for id in [COIN_PICKUP_SFX, crate::pipe::PIPE_WARP_SFX]
             .into_iter()
             .chain(forms.cues.iter().map(|cue| cue.cue.as_str()))

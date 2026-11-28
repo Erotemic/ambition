@@ -37,17 +37,22 @@ pub fn sanic_text_schema() -> SchemaRegistration {
 }
 
 /// The lines, as the demo's pack states them.
-pub fn sanic_text() -> ambition_platformer2d::content::PackRow<ShownText> {
-    crate::pack::PACK.prepared().row(sanic_text_in)
+pub fn sanic_text(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<ShownText> {
+    sanic_text_of(packs.of(&crate::pack::PACK))
+}
+
+/// [`sanic_text`] in `generation`.
+pub fn sanic_text_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<ShownText> {
+    generation.row(sanic_text_in)
 }
 
 /// [`sanic_text`] in `pack`.
-fn sanic_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
+pub(crate) fn sanic_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
     lowered_shown_text(pack, SANIC_TEXT_SCHEMA)
         .expect("the demo's pack states its lines (`data/sanic_text.ron`)")
 }
 
-/// The line `key`.
-pub fn line(key: &str) -> String {
-    sanic_text().line(key).to_string()
+/// The line `key` of `text`.
+pub fn line(text: &ShownText, key: &str) -> String {
+    text.line(key).to_string()
 }

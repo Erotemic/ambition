@@ -26,7 +26,7 @@ fn fire_from_the_hand(item: &str) -> (String, f32, f32) {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster(["mary_o", "mary_o"]));
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), ["mary_o", "mary_o"]));
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,

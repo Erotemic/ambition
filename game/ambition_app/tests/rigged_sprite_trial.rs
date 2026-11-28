@@ -47,7 +47,7 @@ fn seated_pair(admit: Option<bool>) -> App {
     for _ in 0..30 {
         app.update();
     }
-    app.world_mut().insert_resource(ambition_demo_smash::smash_roster([
+    app.world_mut().insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
         "npc_carl_stargan",
         "npc_carl_stargan",
     ]));

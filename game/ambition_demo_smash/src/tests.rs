@@ -117,7 +117,7 @@ fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: crate::stages::smash_stages().respawn.protection_seconds,
+                remaining: crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.protection_seconds,
             },
         ))
         .id();
@@ -169,7 +169,7 @@ fn each_respawn_platform_is_in_its_fighters_own_live_room() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: crate::stages::smash_stages().respawn.protection_seconds,
+                remaining: crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.protection_seconds,
             },
             InRoomInstance(room),
         ));
@@ -224,10 +224,10 @@ fn holding_a_respawn_platform_does_not_touch_the_stages_own() {
 fn the_stages_body_opens_a_window_for_every_verb_the_stage_grants() {
     // The body a fighter that brings nothing of its own plays with: the
     // stage's numbers over the engine's.
-    let body = smash_fighter_body().over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
+    let body = smash_fighter_body(&crate::smash_pack::PACK.prepared()).over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
     // The ceiling, not the floor: a verb the stage only permits (pogo) still
     // needs a live window.
-    let kit = smash_fighter_ceiling();
+    let kit = smash_fighter_ceiling(&crate::smash_pack::PACK.prepared());
     let dead: Vec<&str> = [
         // (granted?, the number without which the verb does nothing, name)
         (kit.dodge, body.air_dodge_time, "dodge (in the air)"),
@@ -276,7 +276,7 @@ fn the_stages_body_opens_a_window_for_every_verb_the_stage_grants() {
 #[test]
 fn a_fighter_keeps_the_wall_verbs_it_authors_and_no_other_fighter_gets_them() {
     use ambition_platformer2d::engine_core::{AbilityGrant, AbilitySet};
-    let rules = smash_roster(["player_robot_v3", "player_robot_v2"])
+    let rules = smash_roster(&crate::smash_pack::PACK.prepared(), ["player_robot_v3", "player_robot_v2"])
         .rules
         .abilities
         .expect("the smash stage declares what a fighter on it may do");
@@ -302,10 +302,10 @@ fn a_fighter_keeps_the_wall_verbs_it_authors_and_no_other_fighter_gets_them() {
 /// checks the stage declares it, which a deletion would not break at compile.
 #[test]
 fn the_roster_supplies_the_fighters_body() {
-    let roster = smash_roster(["player_robot_v3", "player_robot_v2"]);
+    let roster = smash_roster(&crate::smash_pack::PACK.prepared(), ["player_robot_v3", "player_robot_v2"]);
     assert_eq!(
         roster.rules.body,
-        Some(smash_fighter_body()),
+        Some(smash_fighter_body(&crate::smash_pack::PACK.prepared())),
         "the stage grants a platform fighter's verbs and supplies no body \
          to run them on"
     );
@@ -314,8 +314,8 @@ fn the_roster_supplies_the_fighters_body() {
 /// A stocks roster declares the pair the engine insists on.
 #[test]
 fn the_roster_declares_stocks_for_every_seat() {
-    let roster = smash_roster(["player_robot_v3", "player_robot_v2"]);
-    assert_eq!(roster.rules.stocks, Some(starting_stocks()));
+    let roster = smash_roster(&crate::smash_pack::PACK.prepared(), ["player_robot_v3", "player_robot_v2"]);
+    assert_eq!(roster.rules.stocks, Some(starting_stocks(&crate::smash_pack::PACK.prepared())));
     assert_eq!(roster.participants.len(), 2);
     assert!(
         roster.rules.opens_suspended,
@@ -327,7 +327,7 @@ fn the_roster_declares_stocks_for_every_seat() {
 /// controller.
 #[test]
 fn the_first_seat_is_the_player_and_the_rest_are_cpus() {
-    let roster = smash_roster(["a", "b", "c"]);
+    let roster = smash_roster(&crate::smash_pack::PACK.prepared(), ["a", "b", "c"]);
     assert!(matches!(
         roster.participants[0].controller,
         ControllerBinding::Human {
@@ -346,7 +346,7 @@ fn the_first_seat_is_the_player_and_the_rest_are_cpus() {
 /// standing.
 #[test]
 fn every_seat_is_its_own_side() {
-    let roster = smash_roster(["a", "b", "c", "d"]);
+    let roster = smash_roster(&crate::smash_pack::PACK.prepared(), ["a", "b", "c", "d"]);
     let sides: std::collections::BTreeSet<_> = roster
         .participants
         .iter()
@@ -491,16 +491,16 @@ fn only_the_tied_sides_are_carried_into_the_sudden_death_round() {
 /// eight-seat roster is still a fair start.
 #[test]
 fn every_seat_comes_back_to_its_own_point_on_the_platform() {
-    let centre = stage_centre();
-    let seats: Vec<Vec2> = (0..8).map(|seat| respawn_placement(centre, seat)).collect();
+    let centre = stage_centre(&crate::smash_pack::PACK.prepared());
+    let seats: Vec<Vec2> = (0..8).map(|seat| respawn_placement(&crate::smash_pack::PACK.prepared(), centre, seat)).collect();
 
     for (a, first) in seats.iter().enumerate() {
         for second in seats.iter().skip(a + 1) {
             assert!(
-                (first.x - second.x).abs() >= crate::stages::smash_stages().respawn.seat_spacing - 0.01,
+                (first.x - second.x).abs() >= crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.seat_spacing - 0.01,
                 "two seats respawn within {}px of each \
                  other, which is narrower than a standing body: {first:?} vs {second:?}",
-                crate::stages::smash_stages().respawn.seat_spacing
+                crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.seat_spacing
             );
         }
     }
@@ -512,7 +512,7 @@ fn every_seat_comes_back_to_its_own_point_on_the_platform() {
     );
 
     // Every seat is over the platform, not past its lip.
-    let half = smash_stage().world.blocks[0].aabb.width() / 2.0;
+    let half = smash_stage(&crate::smash_pack::PACK.prepared()).world.blocks[0].aabb.width() / 2.0;
     for (seat, at) in seats.iter().enumerate() {
         assert!(
             (at.x - centre.x).abs() < half,
@@ -534,9 +534,9 @@ fn every_seat_comes_back_to_its_own_point_on_the_platform() {
 #[test]
 fn a_respawn_is_above_the_stage_centre() {
     let centre = Vec2::new(400.0, 300.0);
-    let respawn = respawn_placement(centre, 0);
+    let respawn = respawn_placement(&crate::smash_pack::PACK.prepared(), centre, 0);
     assert!(
-        (respawn.x - centre.x).abs() <= crate::stages::smash_stages().respawn.seat_spacing,
+        (respawn.x - centre.x).abs() <= crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.seat_spacing,
         "a respawn is within a seat spacing of the centre, not off across the stage"
     );
     assert!(
@@ -550,7 +550,7 @@ fn a_respawn_is_above_the_stage_centre() {
 /// you cannot leave.
 #[test]
 fn the_stage_is_a_platform_you_can_be_knocked_off() {
-    let room = smash_stage();
+    let room = smash_stage(&crate::smash_pack::PACK.prepared());
     assert_eq!(room.id, SMASH_STAGE_ROOM_ID);
     assert_eq!(
         room.world.blocks.len(),
@@ -573,7 +573,7 @@ fn the_stage_is_a_platform_you_can_be_knocked_off() {
 /// death lines relative to the ledges.
 #[test]
 fn the_stage_and_blast_envelope_keep_their_authored_proportions() {
-    let room = smash_stage();
+    let room = smash_stage(&crate::smash_pack::PACK.prepared());
     let world = &room.world;
     let platform = world.blocks[0].aabb;
     let side_margin = world
@@ -602,16 +602,16 @@ fn the_stage_and_blast_envelope_keep_their_authored_proportions() {
 /// The room carries the demo's MODE, so its rules sleep everywhere else.
 #[test]
 fn the_stage_carries_the_smash_mode() {
-    assert_eq!(smash_stage().metadata.mode.as_deref(), Some(SMASH_MODE));
+    assert_eq!(smash_stage(&crate::smash_pack::PACK.prepared()).metadata.mode.as_deref(), Some(SMASH_MODE));
 }
 
 /// A respawn lands above the platform, not the stage's middle. They coincide
 /// here; a future stage may separate them.
 #[test]
 fn a_respawn_lands_over_the_platform() {
-    let room = smash_stage();
+    let room = smash_stage(&crate::smash_pack::PACK.prepared());
     let platform = room.world.blocks[0].aabb;
-    let respawn = respawn_placement(stage_centre(), 0);
+    let respawn = respawn_placement(&crate::smash_pack::PACK.prepared(), stage_centre(&crate::smash_pack::PACK.prepared()), 0);
     assert!(
         respawn.x >= platform.left() && respawn.x <= platform.right(),
         "a respawning fighter is dropped past the edge of the platform it is \
@@ -664,7 +664,7 @@ fn deciding_the_match_shows_a_card_naming_the_winner() {
     let seat_two = MatchVerdict::Winner("seat 2".to_string());
     assert_eq!(
         announced_outcome(seat_two.clone()).as_deref(),
-        Some(victory_banner(&seat_two, Some("seat 2")).as_str()),
+        Some(victory_banner(&crate::smash_pack::PACK.prepared(), &seat_two, Some("seat 2")).as_str()),
         "the ending wrote no announce card, so the stage says nothing about \
          who won"
     );
@@ -868,8 +868,8 @@ fn prepared_world_for(
 #[test]
 fn the_stage_choice_decides_which_stage_the_match_prepares() {
     use crate::SmashStageChoice as Stage;
-    let flat = prepared_world_for(Stage::of(crate::SMASH_STAGE_ROOM_ID));
-    let platforms = prepared_world_for(Stage::of(crate::SMASH_PLATFORM_STAGE_ROOM_ID));
+    let flat = prepared_world_for(Stage::of(&crate::smash_pack::PACK.prepared(), crate::SMASH_STAGE_ROOM_ID));
+    let platforms = prepared_world_for(Stage::of(&crate::smash_pack::PACK.prepared(), crate::SMASH_PLATFORM_STAGE_ROOM_ID));
 
     assert_eq!(
         flat.geometry().0.blocks.len(),
@@ -881,7 +881,7 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
         4,
         "the platforms choice prepared a stage without its three tiers"
     );
-    let narrow = prepared_world_for(Stage::of(crate::SMASH_NARROW_STAGE_ROOM_ID));
+    let narrow = prepared_world_for(Stage::of(&crate::smash_pack::PACK.prepared(), crate::SMASH_NARROW_STAGE_ROOM_ID));
     assert_eq!(
         narrow.geometry().0.blocks.len(),
         1,
@@ -912,28 +912,28 @@ fn the_stage_choice_decides_which_stage_the_match_prepares() {
     }
 
     // The default is still the stage recorded measurements used.
-    assert_eq!(Stage::default(), Stage::of(crate::SMASH_STAGE_ROOM_ID));
+    assert_eq!(Stage::default(), Stage::of(&crate::smash_pack::PACK.prepared(), crate::SMASH_STAGE_ROOM_ID));
 }
 
 /// The stages the select screen offers, their labels and their order are the
 /// pack's `smash_stages.ron`, and the prepared match holds each of them.
 #[test]
 fn the_offered_stages_are_the_stages_file() {
-    let offered = crate::stages::smash_stages().offered.clone();
+    let offered = crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).offered.clone();
     assert_eq!(
-        crate::SmashStageChoice::all().iter().map(|stage| stage.room_id().to_string()).collect::<Vec<_>>(),
+        crate::SmashStageChoice::all(&crate::smash_pack::PACK.prepared()).iter().map(|stage| stage.room_id().to_string()).collect::<Vec<_>>(),
         offered,
         "the select screen does not offer the file's `offered` list in its order"
     );
-    for stage in crate::SmashStageChoice::all() {
-        assert_eq!(stage.label(), crate::stages::smash_stages().stages[stage.room_id()].label);
+    for stage in crate::SmashStageChoice::all(&crate::smash_pack::PACK.prepared()) {
+        assert_eq!(stage.label(&crate::smash_pack::PACK.prepared()), crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).stages[stage.room_id()].label);
         let blocks = |world: &crate::ae::World| {
             world.blocks.iter().map(|block| (block.name.clone(), block.aabb.min, block.aabb.max)).collect::<Vec<_>>()
         };
         let prepared = prepared_world_for(stage);
         assert_eq!(
             blocks(&prepared.geometry().0),
-            blocks(&crate::smash_stage_room(stage.room_id()).world),
+            blocks(&crate::smash_stage_room(&crate::smash_pack::PACK.prepared(), stage.room_id()).world),
             "the match prepared for `{}` does not start on its row",
             stage.room_id()
         );
@@ -947,24 +947,24 @@ fn the_offered_stages_are_the_stages_file() {
 /// button starts there.
 #[test]
 fn the_stock_choices_are_the_rules_file() {
-    let offered = &crate::rules::smash_rules().stock_choices;
+    let offered = &crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared()).stock_choices;
     assert_eq!(
-        crate::SmashStockChoice::all().iter().map(|choice| choice.count()).collect::<Vec<_>>(),
+        crate::SmashStockChoice::all(&crate::smash_pack::PACK.prepared()).iter().map(|choice| choice.count()).collect::<Vec<_>>(),
         *offered,
         "the stocks button does not offer the rules' `stock_choices` in their order"
     );
     assert!(
-        offered.contains(&crate::starting_stocks()),
+        offered.contains(&crate::starting_stocks(&crate::smash_pack::PACK.prepared())),
         "match_rules.ron starts a match on {} stocks, which `stock_choices` {offered:?} does not offer",
-        crate::starting_stocks()
+        crate::starting_stocks(&crate::smash_pack::PACK.prepared())
     );
-    assert_eq!(crate::SmashStockChoice::default().count(), crate::starting_stocks());
+    assert_eq!(crate::SmashStockChoice::default().count(), crate::starting_stocks(&crate::smash_pack::PACK.prepared()));
     // A lap of the button visits each count once and comes back.
     let mut walk = crate::SmashStockChoice::default();
     let mut seen = Vec::new();
     for _ in 0..offered.len() {
         seen.push(walk.count());
-        walk = walk.next();
+        walk = walk.next(&crate::smash_pack::PACK.prepared());
     }
     assert_eq!(walk, crate::SmashStockChoice::default(), "the stocks button does not come back after a lap");
     seen.sort();
@@ -978,14 +978,14 @@ fn the_stock_choices_are_the_rules_file() {
 /// starts there, and its default sets exactly that clock.
 #[test]
 fn the_clock_choices_are_the_rules_file() {
-    let offered = &crate::rules::smash_rules().clock_choices_seconds;
-    assert_eq!(crate::SmashClockChoice::all().iter().map(|choice| choice.seconds()).collect::<Vec<_>>(), *offered);
-    assert_eq!(crate::SmashClockChoice::default().ticks(), crate::smash_time_limit_ticks());
+    let offered = &crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared()).clock_choices_seconds;
+    assert_eq!(crate::SmashClockChoice::all(&crate::smash_pack::PACK.prepared()).iter().map(|choice| choice.seconds()).collect::<Vec<_>>(), *offered);
+    assert_eq!(crate::SmashClockChoice::default().ticks(), crate::smash_time_limit_ticks(&crate::smash_pack::PACK.prepared()));
     assert!(offered.contains(&crate::SmashClockChoice::default().seconds()), "{offered:?} does not offer match_rules.ron's clock");
-    assert_eq!(crate::SmashClockChoice::of(480).label(), "8:00");
+    assert_eq!(crate::SmashClockChoice::of(&crate::smash_pack::PACK.prepared(), 480).label(), "8:00");
     let mut walk = crate::SmashClockChoice::default();
     for _ in 0..offered.len() {
-        walk = walk.next();
+        walk = walk.next(&crate::smash_pack::PACK.prepared());
     }
     assert_eq!(walk, crate::SmashClockChoice::default(), "the clock button does not come back after a lap");
 }
@@ -994,13 +994,13 @@ fn the_clock_choices_are_the_rules_file() {
 fn every_stage_is_reachable_by_the_cycle_and_names_itself_uniquely() {
     use std::collections::BTreeSet;
 
-    let all = crate::SmashStageChoice::all();
+    let all = crate::SmashStageChoice::all(&crate::smash_pack::PACK.prepared());
     assert!(all.len() >= 3, "the stage-breadth checkpoint wants several");
 
     // Distinct labels, or `--stage <name>` is ambiguous; distinct room ids,
     // or two stages are the same room.
     let labels: BTreeSet<String> =
-        all.iter().map(|s| s.label().to_ascii_lowercase()).collect();
+        all.iter().map(|s| s.label(&crate::smash_pack::PACK.prepared()).to_ascii_lowercase()).collect();
     assert_eq!(labels.len(), all.len(), "two stages share a label: {labels:?}");
     let rooms: BTreeSet<&str> = all.iter().map(|s| s.room_id()).collect();
     assert_eq!(rooms.len(), all.len(), "two stages share a room id: {rooms:?}");
@@ -1011,7 +1011,7 @@ fn every_stage_is_reachable_by_the_cycle_and_names_itself_uniquely() {
     let mut walk = crate::SmashStageChoice::default();
     for _ in 0..all.len() {
         seen.insert(walk.room_id());
-        walk = walk.next();
+        walk = walk.next(&crate::smash_pack::PACK.prepared());
     }
     assert_eq!(
         walk,
@@ -1039,7 +1039,7 @@ fn the_prepared_session_is_the_smash_stage() {
     );
     assert_eq!(
         prepared.geometry().0.edges.side,
-        Some(crate::stages::smash_stages().blast.side),
+        Some(crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).blast.side),
         "the prepared geometry lost the stage's blast margins, so a fighter \
          knocked off would drift instead of dying"
     );
@@ -1056,20 +1056,20 @@ fn the_prepared_session_is_the_smash_stage() {
 #[test]
 fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
     let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::of(["mary_o", "sanic"]);
-    apply_smash_match_rules(&mut roster, starting_stocks());
+    apply_smash_match_rules(&crate::smash_pack::PACK.prepared(), &mut roster, starting_stocks(&crate::smash_pack::PACK.prepared()));
     assert_eq!(
         roster.rules.health_pool,
-        Some(smash_percent_reference()),
+        Some(smash_percent_reference(&crate::smash_pack::PACK.prepared())),
         "a stocks match that does not declare its own pool reads each seat's \
          percent against whatever that character's HOME GAME authored"
     );
     // The reference makes percent comparable across characters; one would
     // make every hit read in the thousands.
     assert!(
-        smash_percent_reference() >= 50,
+        smash_percent_reference(&crate::smash_pack::PACK.prepared()) >= 50,
         "a percent reference of {} makes a single hit \
          read in the hundreds, which is the 14000% bug in a smaller hat",
-        smash_percent_reference()
+        smash_percent_reference(&crate::smash_pack::PACK.prepared())
     );
 }
 
@@ -1089,7 +1089,7 @@ fn shipped_catalog() -> ambition_platformer2d::characters::actor::character_cata
 fn the_cpu_level_button_offers_published_levels_starting_on_the_duelist() {
     let catalog = shipped_catalog();
     let profiles = &catalog.data().autonomous_profiles;
-    let rules = crate::rules::smash_rules();
+    let rules = crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared());
     for level in &rules.cpu_levels {
         let key = format!("{SMASH_DUELIST_BRAIN}_l{level}");
         let profile = profiles
@@ -1176,22 +1176,22 @@ fn every_ending_has_its_own_words() {
     use ambition_platformer2d::actor::MatchVerdict;
     // The words are the pack's (`smash_text.ron`); the code chooses the line
     // and fills its name.
-    let text = crate::text::smash_text();
+    let text = crate::text::smash_text_of(crate::smash_pack::PACK.prepared());
     let seat = MatchVerdict::Winner("seat 2".to_string());
     assert_eq!(
-        victory_banner(&seat, Some("Robot v3")),
+        victory_banner(&crate::smash_pack::PACK.prepared(), &seat, Some("Robot v3")),
         text.fill("banner.winner", &[("name", &"Robot v3")]),
         "the card printed the SIDE when a name was available, which is what \
          Jon was looking at when he asked about `seat 2 wins`"
     );
     assert_eq!(
-        victory_banner(&seat, None),
+        victory_banner(&crate::smash_pack::PACK.prepared(), &seat, None),
         text.fill("banner.winner", &[("name", &"seat 2")]),
         "with no name resolved, the side is the honest answer"
     );
-    assert!(victory_banner(&seat, Some("Robot v3")).contains("Robot v3"), "the shipped card does not name the winner");
-    assert_eq!(victory_banner(&MatchVerdict::Draw, None), text.line("banner.draw"));
-    assert_eq!(victory_banner(&MatchVerdict::NoContest, None), text.line("banner.no_contest"));
+    assert!(victory_banner(&crate::smash_pack::PACK.prepared(), &seat, Some("Robot v3")).contains("Robot v3"), "the shipped card does not name the winner");
+    assert_eq!(victory_banner(&crate::smash_pack::PACK.prepared(), &MatchVerdict::Draw, None), text.line("banner.draw"));
+    assert_eq!(victory_banner(&crate::smash_pack::PACK.prepared(), &MatchVerdict::NoContest, None), text.line("banner.no_contest"));
     assert_ne!(text.line("banner.draw"), text.line("banner.no_contest"), "a draw and a no contest read the same");
 }
 
@@ -1223,7 +1223,7 @@ fn walking_off_the_respawn_platform_ends_the_protection() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: crate::stages::smash_stages().respawn.protection_seconds,
+                remaining: crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.protection_seconds,
             },
         ))
         .id();
@@ -1242,7 +1242,7 @@ fn walking_off_the_respawn_platform_ends_the_protection() {
         .entity_mut(fighter)
         .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>()
         .unwrap()
-        .pos = Vec2::new(120.0 + crate::respawn_platform_size().x * 0.5 + 1.0, 40.0);
+        .pos = Vec2::new(120.0 + crate::respawn_platform_size(&crate::smash_pack::PACK.prepared()).x * 0.5 + 1.0, 40.0);
     app.update();
 
     assert!(
@@ -1281,7 +1281,7 @@ fn falling_toward_the_respawn_platform_keeps_the_protection() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: crate::stages::smash_stages().respawn.protection_seconds,
+                remaining: crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.protection_seconds,
             },
         ))
         .id();
@@ -1324,7 +1324,7 @@ fn the_respawn_platform_stays_where_it_was_placed() {
                 ..Default::default()
             },
             ambition_platformer2d::actor::RespawnGrace {
-                remaining: crate::stages::smash_stages().respawn.protection_seconds,
+                remaining: crate::stages::smash_stages_of(crate::smash_pack::PACK.prepared()).respawn.protection_seconds,
             },
         ))
         .id();
@@ -1358,7 +1358,7 @@ fn the_respawn_platform_stays_where_it_was_placed() {
 fn the_platform_stage_puts_three_one_way_tiers_above_its_solid_floor() {
     use ambition_platformer2d::engine_core::BlockKind;
 
-    let stage = crate::smash_platform_stage();
+    let stage = crate::smash_platform_stage(&crate::smash_pack::PACK.prepared());
     let blocks = &stage.world.blocks;
 
     let solid: Vec<_> = blocks
@@ -1385,7 +1385,7 @@ fn the_platform_stage_puts_three_one_way_tiers_above_its_solid_floor() {
     }
 
     // The original stage is untouched: one solid block, no tiers.
-    let flat = crate::smash_stage();
+    let flat = crate::smash_stage(&crate::smash_pack::PACK.prepared());
     assert_eq!(flat.world.blocks.len(), 1);
     assert!(!flat
         .world
@@ -1411,7 +1411,7 @@ fn the_tiers_sit_inside_the_fighters_measured_jump_arc() {
 
     // Each tier's rise is from the floor's top to the tier's top, as the
     // pack's `smash_stages.ron` places them.
-    let stage = crate::smash_platform_stage();
+    let stage = crate::smash_platform_stage(&crate::smash_pack::PACK.prepared());
     let floor_top = stage.world.blocks[0].aabb.min.y;
     let rises: Vec<f32> = stage.world.blocks.iter().skip(1).map(|tier| floor_top - tier.aabb.min.y).collect();
     let low = rises.iter().copied().fold(f32::INFINITY, f32::min);
@@ -1478,8 +1478,8 @@ fn smashs_match_rules_are_its_match_rules_file() {
     };
 
     let played = rules_of(&authored);
-    assert_eq!(played, crate::smash_match_rules(), "the game reads the file");
-    let roster = crate::smash_roster(["smash_duelist_a", "smash_duelist_b"]);
+    assert_eq!(played, crate::smash_match_rules(&crate::smash_pack::PACK.prepared()), "the game reads the file");
+    let roster = crate::smash_roster(&crate::smash_pack::PACK.prepared(), ["smash_duelist_a", "smash_duelist_b"]);
     assert_eq!(roster.rules.body, played.body, "a roster carries the file's fighter body");
     assert_eq!(roster.rules.time_limit_ticks, played.time_limit_ticks, "and its clock");
 
@@ -1519,7 +1519,7 @@ fn a_respawn_gives_each_fighter_its_own_air_jumps() {
     let mut app = bevy::prelude::App::new();
     app.add_message::<ambition_platformer2d::actor::FighterRespawnDue>();
     app.add_systems(bevy::prelude::Update, place_respawning_fighters);
-    insert_live_room_component(app.world_mut(), ae::RoomGeometry(smash_stage().world.clone()));
+    insert_live_room_component(app.world_mut(), ae::RoomGeometry(smash_stage(&crate::smash_pack::PACK.prepared()).world.clone()));
     let mut abilities = ae::AbilitySet::basic();
     abilities.double_jump = true;
     let fighters: Vec<(u8, bevy::prelude::Entity)> = [0_u8, 1, 3]
@@ -1602,7 +1602,7 @@ fn a_paused_result_card_waits_for_the_game() {
     settled.settle(&active, ambition_platformer2d::actor::MatchVerdict::Winner("seat 1".to_string()));
     app.insert_resource(active).insert_resource(settled);
     app.add_systems(Update, return_to_the_select_screen_when_the_match_ends);
-    let delay = crate::rules::smash_rules().return_to_select_seconds;
+    let delay = crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared()).return_to_select_seconds;
     let step = |app: &mut App, seconds: f32| {
         app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(seconds));
         app.update();

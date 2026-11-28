@@ -134,7 +134,7 @@ fn sanic_stays_above_the_floor_after_a_hosted_pit_death() {
         if rolled {
             let mut bodies = world.query_filtered::<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>();
             let (entity, mut body) = bodies.single_mut(world).unwrap();
-            body.canonical_size = ambition_demo_sanic::ball_dash::spin_dash_tuning().ball_size();
+            body.canonical_size = ambition_demo_sanic::ball_dash::spin_dash_tuning_of(ambition_demo_sanic::pack::PACK.prepared()).ball_size();
             world.entity_mut(entity).insert(ambition_demo_sanic::ball_dash::Rolling {
                 ends: ambition_demo_sanic::ball_dash::RollEnd::Landing,
             });

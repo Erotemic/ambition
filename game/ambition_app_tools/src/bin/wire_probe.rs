@@ -30,7 +30,7 @@ const WATCH_TICKS: usize = 150;
 fn main() {
     // The stage's own numbers (the Smash pack's `smash_stages.ron`), so
     // "fairly large" is measured against something.
-    let stage = ambition_demo_smash::smash_stage();
+    let stage = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared());
     let platform = stage.world.blocks[0].aabb;
     let (platform_top_y, platform_width, fall_blast_depth) = (platform.min.y, platform.max.x - platform.min.x, stage.world.edges.fall);
     // Which way she swings: the swing is the clause with a direction.

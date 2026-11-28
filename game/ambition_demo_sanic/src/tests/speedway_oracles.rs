@@ -266,7 +266,7 @@ fn laps_until_exit(
 #[test]
 fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
@@ -302,7 +302,7 @@ fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
 #[test]
 fn oracle_held_up_reverse_run_exits_down_the_ramp_after_one_lap() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
@@ -366,7 +366,7 @@ fn sticky_topology_params() -> ae::MomentumParams {
 #[test]
 fn oracle_route_bias_isolation_held_up_forward_rider_exits_after_one_lap() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let chain = &room.world.chains[loop_idx];
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
@@ -400,7 +400,7 @@ fn oracle_route_bias_isolation_held_up_forward_rider_exits_after_one_lap() {
 #[test]
 fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let chain = &room.world.chains[loop_idx];
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
@@ -443,7 +443,7 @@ fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
 #[test]
 fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let runout_idx = super::floor_chain_at(&room.world, super::EAST_FLOOR_X);
 
@@ -489,7 +489,7 @@ fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
 #[test]
 fn oracle_descent_launched_rider_lands_on_the_route_chain() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
 
     // The exact airborne state the convex descent leaves behind: fast,
@@ -524,7 +524,7 @@ fn oracle_descent_launched_rider_lands_on_the_route_chain() {
 #[test]
 fn oracle_block_stranded_rider_can_still_take_the_raised_route_by_holding_up() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
 
     // Land the way a descent launch actually lands today (lane +1 over open
@@ -560,7 +560,7 @@ fn oracle_block_stranded_rider_can_still_take_the_raised_route_by_holding_up() {
 #[test]
 fn oracle_speed_booster_boosts_a_momentum_rider() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
 
     // Run right across the pad at x=1640..1712 (authored impulse (1120,-260):
@@ -671,7 +671,7 @@ fn held(steer: ae::Vec2, ticks: usize) -> Vec<(ae::Vec2, bool)> {
 #[test]
 fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
@@ -794,7 +794,7 @@ fn first_landing(trace: &[Sample]) -> Option<&Sample> {
 #[test]
 fn oracle_ramp_jump_relands_on_the_ramp() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let chain = &room.world.chains[loop_idx];
     let mid_ramp_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX) * 0.5;
@@ -819,7 +819,7 @@ fn oracle_ramp_jump_relands_on_the_ramp() {
 #[test]
 fn oracle_ramp_jump_held_forward_lands_on_the_track() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let chain = &room.world.chains[loop_idx];
     let upper_ramp_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX) * 0.75;
@@ -844,7 +844,7 @@ fn oracle_ramp_jump_held_forward_lands_on_the_track() {
 #[test]
 fn oracle_floor_jump_lands_on_the_ramp_face() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
@@ -878,7 +878,7 @@ fn oracle_floor_jump_lands_on_the_ramp_face() {
 #[test]
 fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let loop_idx = chain_index(&room.world, "sanic_loop");
 
     // Straight drop above the post-loop descent (x=2700 keeps clear sky: the
@@ -929,7 +929,7 @@ fn ground_y_at(room: &ambition_platformer2d::world::rooms::RoomSpec, x: f32) -> 
 #[test]
 fn oracle_every_platform_is_jumpable_or_spring_served() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let params = sanic_params();
     // Ballistic jump apex under the rig gravity, with a landing margin.
     let reachable_lift = params.jump_speed * params.jump_speed / (2.0 * GRAVITY) - 15.0;
@@ -958,7 +958,7 @@ fn oracle_every_platform_is_jumpable_or_spring_served() {
 #[test]
 fn oracle_a_floor_jump_lands_on_a_marker_platform() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let floor = &room.world.chains[floor_idx];
     // Stand on the flat floor beneath marker platform 2 (top y=528, lift 144
@@ -987,7 +987,7 @@ fn oracle_a_floor_jump_lands_on_a_marker_platform() {
 #[test]
 fn oracle_the_vertical_spring_lifts_a_slow_walker_to_the_perch() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let runout_idx = super::floor_chain_at(&room.world, super::EAST_FLOOR_X);
     let runout = &room.world.chains[runout_idx];
     // Walk onto the vertical spring (impulse (0,-1000)) at a stroll: the
@@ -1025,7 +1025,7 @@ fn oracle_the_vertical_spring_lifts_a_slow_walker_to_the_perch() {
 #[test]
 fn oracle_the_diagonal_spring_flings_the_runner_up_forward() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let runout_idx = super::floor_chain_at(&room.world, super::EAST_FLOOR_X);
     let runout = &room.world.chains[runout_idx];
     let (s, _) = runout.project(ae::Vec2::new(5170.0, FLOOR_TOP));
@@ -1056,7 +1056,7 @@ fn oracle_the_diagonal_spring_flings_the_runner_up_forward() {
 #[test]
 fn oracle_a_walker_lands_on_the_spike_bed_and_a_speeding_jump_clears_it() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let floor = &room.world.chains[floor_idx];
 
@@ -1116,7 +1116,7 @@ fn oracle_a_walker_lands_on_the_spike_bed_and_a_speeding_jump_clears_it() {
 #[test]
 fn oracle_hills_flow_without_pins_or_flapping() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     // Run the hills from the start, held right: momentum carries over both
     // crests (brief airborne hops at speed are physical) with no position
@@ -1148,7 +1148,7 @@ fn oracle_hills_flow_without_pins_or_flapping() {
 #[test]
 fn oracle_full_course_run_reaches_the_finish() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     // The showcase line: hold Up+Right the whole way (hills → booster → ramp
     // → one loop lap → runout), jump the pit at the lip and hop the spike
@@ -1195,7 +1195,7 @@ fn oracle_full_course_run_reaches_the_finish() {
 #[test]
 fn oracle_every_highway_loop_is_ridden_exactly_once_holding_up() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = crate::sanic_highway(&sprite_content);
+    let room = crate::sanic_highway(&crate::pack::PACK.prepared(), &sprite_content);
     for loop_name in ["highway_loop_a", "highway_loop_b", "highway_loop_d"] {
         let loop_idx = chain_index(&room.world, loop_name);
         // The floor it attached to — painted, so named by the loader — is the

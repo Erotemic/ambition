@@ -12,8 +12,7 @@ use ambition_platformer2d::engine_core as ae;
 /// What a body leaves this tick: how often, how many particles, how fast
 /// they go, their colour (`effects` in his rules file). `None` when it leaves
 /// none.
-fn dust_of(facts: &ae::BodyMotionFacts) -> Option<(f32, u32, f32, [f32; 4])> {
-    let effects = &crate::rules::sanic_rules().effects;
+fn dust_of(effects: &crate::rules::Effects, facts: &ae::BodyMotionFacts) -> Option<(f32, u32, f32, [f32; 4])> {
     let puffs = if facts.skidding {
         effects.skid_dust
     } else if facts.running {
@@ -32,6 +31,7 @@ pub fn emit_speed_dust(
     bodies: Query<(&ae::BodyMotionFacts, &ae::BodyKinematics)>,
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     let body = subject.and_then(|subject| subject.0);
     let Some((body, (facts, kin))) =
@@ -40,7 +40,7 @@ pub fn emit_speed_dust(
         *since = 0.0;
         return;
     };
-    let Some((period, count, speed, color)) = dust_of(facts) else {
+    let Some((period, count, speed, color)) = dust_of(&crate::rules::sanic_rules(&packs).effects, facts) else {
         *since = 0.0;
         return;
     };
@@ -81,15 +81,16 @@ mod tests {
             skidding,
             ..Default::default()
         };
-        assert_eq!(dust_of(&facts(false, false)), None);
-        let run = dust_of(&facts(true, false)).expect("a run leaves dust");
-        let skid = dust_of(&facts(true, true)).expect("a skid leaves dust");
+        let rules = crate::rules::sanic_rules_of(crate::pack::PACK.prepared());
+        let effects = &rules.effects;
+        assert_eq!(dust_of(effects, &facts(false, false)), None);
+        let run = dust_of(effects, &facts(true, false)).expect("a run leaves dust");
+        let skid = dust_of(effects, &facts(true, true)).expect("a skid leaves dust");
         assert!(
             skid.1 > run.1 && skid.0 < run.0,
             "a skid is more dust, more often: {skid:?} against {run:?}"
         );
         // Each is the rules file's row.
-        let effects = &crate::rules::sanic_rules().effects;
         let row = |puffs: crate::rules::Puffs| (puffs.period_s, puffs.count, puffs.speed, puffs.color);
         assert_eq!(run, row(effects.run_dust), "the run's puff is not the file's");
         assert_eq!(skid, row(effects.skid_dust), "the skid's spray is not the file's");

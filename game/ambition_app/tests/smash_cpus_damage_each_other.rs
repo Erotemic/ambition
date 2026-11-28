@@ -218,7 +218,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             .world()
             .get_resource::<PreparedCharacterRegistry>()
             .expect("the composed host has a prepared-character registry");
-        let grid = SmashRoster::assemble(registry);
+        let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
         let ids: Vec<&str> = grid.ids().collect();
         assert!(
             ids.contains(&fighter.as_str()),
@@ -227,7 +227,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         );
     }
 
-    let roster = ambition_demo_smash::smash_roster_at_levels(
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         [fighter.as_str(), fighter.as_str()],
         &[rung(), rung()],
     );
@@ -908,7 +908,7 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
             .world()
             .get_resource::<PreparedCharacterRegistry>()
             .expect("the composed host has a prepared-character registry");
-        SmashRoster::assemble(registry)
+        SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry)
             .ids()
             .map(str::to_string)
             .collect()
@@ -1026,7 +1026,7 @@ fn mirror_bout(
     // broken fighter or a degenerate matchup.
     let foe = std::env::var("AMBITION_GRID_FOE").unwrap_or_else(|_| fighter.to_string());
     let roster =
-        ambition_demo_smash::smash_roster_at_levels([fighter, foe.as_str()], &[rung(), rung()]);
+        ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), [fighter, foe.as_str()], &[rung(), rung()]);
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -1426,7 +1426,7 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
     let mut app =
         ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
-    let roster = ambition_demo_smash::smash_roster_at_levels(
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         ["goblin", "perfect_cellular_automaton"],
         &[rung(), rung()],
     );
@@ -1601,7 +1601,7 @@ fn probe_where_the_goblin_pca_hit_events_come_from() {
     let mut app =
         ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
-    let roster = ambition_demo_smash::smash_roster_at_levels(
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), 
         ["goblin", "perfect_cellular_automaton"],
         &[rung(), rung()],
     );

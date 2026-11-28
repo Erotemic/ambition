@@ -487,7 +487,7 @@ fn both_fighters_can_actually_hit_each_other() {
 /// the fighters come back, and that two rounds take the match.
 #[test]
 fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
-    let rounds_to_win = ambition_app::app::versus_rules::versus_rounds().rounds_to_win;
+    let rounds_to_win = ambition_app::app::versus_rules::versus_rounds(&ambition_app::app::versus_fighters::PACK.prepared()).rounds_to_win;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::versus_match::MatchSeat;
@@ -1790,7 +1790,7 @@ fn the_round_counter_counts_rounds_and_not_wins() {
     let mut app = versus_app();
     settle_to_launcher(&mut app);
     go_to_versus(&mut app);
-    let round_one = ambition_app::app::versus_rules::versus_text().fill("announce.round", &[("number", &1)]);
+    let round_one = ambition_app::app::versus_rules::versus_text(&ambition_app::app::versus_fighters::PACK.prepared()).fill("announce.round", &[("number", &1)]);
     let mut opened_with_a_card = false;
     for _ in 0..900 {
         app.update();
@@ -2435,7 +2435,7 @@ fn every_fighter_the_duel_can_seat_authors_the_abilities_its_ceiling_narrows() {
     // updated has no registered characters at all.
     app.update();
 
-    let roster = ambition_app::app::versus::versus_roster(2);
+    let roster = ambition_app::app::versus::versus_roster(&ambition_app::app::versus_fighters::PACK.prepared(), 2);
     assert!(
         roster.participants.len() >= 2,
         "the duel seated {} fighters, so this census cannot fail",

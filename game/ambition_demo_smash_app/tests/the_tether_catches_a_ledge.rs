@@ -28,8 +28,8 @@ fn a_live_stage() -> App {
     for _ in 0..30 {
         app.update();
     }
-    let roster = ambition_demo_smash::smash_roster(characters);
-    let countdown = ambition_demo_smash::smash_roster(characters)
+    let roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters);
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters)
         .rules
         .opening_countdown_ticks;
     app.world_mut().insert_resource(roster);

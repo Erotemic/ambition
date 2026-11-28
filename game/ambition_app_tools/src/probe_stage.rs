@@ -94,7 +94,7 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
     // Set it on the roster. `PreparedMatch` keeps `rules` private, so the
     // plan cannot change after preparation. `MatchParticipantRoster::rules`
     // is public for this; `smash_roster` sets the clock the same way.
-    let mut roster = ambition_demo_smash::smash_roster(cast);
+    let mut roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), cast);
     roster.rules.time_limit_ticks = 0;
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -109,7 +109,7 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
     // observable. The demo shell boots straight into `smash_stage` and never
     // meets that condition, so wait on the roster's own countdown there.
     if demo_host {
-        let countdown = ambition_demo_smash::smash_roster(cast)
+        let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), cast)
             .rules
             .opening_countdown_ticks;
         for _ in 0..(countdown as usize + 60) {

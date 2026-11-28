@@ -71,8 +71,8 @@ const GRAB_BODY_HALF_WIDTH: f32 = ae::DEFAULT_PLAYER_BODY_WIDTH * 0.5;
 /// Score for a grab at `height` (`0..=1`): the first band of the pack's
 /// `flag.score_bands` that the grab reaches. Admission holds the last band at
 /// 0, so every grab pays.
-pub fn flag_score(height: f32) -> u32 {
-    let bands = crate::rules::mary_o_rules().flag.score_bands;
+pub fn flag_score(rules: &crate::rules::MaryORules, height: f32) -> u32 {
+    let bands = &rules.flag.score_bands;
     bands.iter().find(|band| height >= band.at).unwrap_or(&bands[bands.len() - 1]).score
 }
 
@@ -175,6 +175,7 @@ pub struct FlagDrive {
 }
 
 pub fn step_flag_sequence(
+    rules: &crate::rules::MaryORules,
     seq: &mut FlagSequence,
     pole: &FlagPole,
     body: ae::Vec2,
@@ -184,12 +185,13 @@ pub fn step_flag_sequence(
     // Once the sequence is driving, the body it is driving is the one IT last put
     // down, not whatever the physics step left behind.
     let body = seq.driven.unwrap_or(body);
-    let out = step_phase(seq, pole, body, body_half_height, dt);
+    let out = step_phase(rules, seq, pole, body, body_half_height, dt);
     seq.driven = out.map(|drive| drive.pos);
     out
 }
 
 fn step_phase(
+    rules: &crate::rules::MaryORules,
     seq: &mut FlagSequence,
     pole: &FlagPole,
     body: ae::Vec2,
@@ -206,40 +208,40 @@ fn step_phase(
             // The score is a fact about the moment of contact. Everything after
             // this is a celebration.
             seq.phase = FlagPhase::Sliding {
-                score: flag_score(pole.grab_height(body.y)),
+                score: flag_score(rules, pole.grab_height(body.y)),
             };
             // Snap onto the pole so the slide is straight. She is on it from
             // this tick, and already sliding.
             Some(FlagDrive {
                 pos: ae::Vec2::new(pole.x, body.y.max(pole.top_y)),
-                vel: ae::Vec2::new(0.0, crate::rules::mary_o_rules().flag.slide_speed),
+                vel: ae::Vec2::new(0.0, rules.flag.slide_speed),
                 on_pole: true,
             })
         }
         FlagPhase::Sliding { score } => {
-            let y = body.y + crate::rules::mary_o_rules().flag.slide_speed * dt;
+            let y = body.y + rules.flag.slide_speed * dt;
             // The slide ends when her FEET reach the base, not her centre — the
             // pole's base is a ground line.
             if y >= stand_y {
                 seq.phase = FlagPhase::WalkingOff {
                     score,
-                    remaining: crate::rules::mary_o_rules().flag.walk_off_px,
+                    remaining: rules.flag.walk_off_px,
                 };
                 // Her feet are down: off the pole, and walking from here.
                 return Some(FlagDrive {
                     pos: ae::Vec2::new(pole.x, stand_y),
-                    vel: ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0),
+                    vel: ae::Vec2::new(rules.flag.walk_off_speed, 0.0),
                     on_pole: false,
                 });
             }
             Some(FlagDrive {
                 pos: ae::Vec2::new(pole.x, y),
-                vel: ae::Vec2::new(0.0, crate::rules::mary_o_rules().flag.slide_speed),
+                vel: ae::Vec2::new(0.0, rules.flag.slide_speed),
                 on_pole: true,
             })
         }
         FlagPhase::WalkingOff { score, remaining } => {
-            let step = crate::rules::mary_o_rules().flag.walk_off_speed * dt;
+            let step = rules.flag.walk_off_speed * dt;
             if step >= remaining {
                 seq.phase = FlagPhase::Tallied { score };
                 // she is still WALKING on this tick — it is the stride that
@@ -249,7 +251,7 @@ fn step_phase(
                 // `Tallied`, on the tick she is actually still.
                 return Some(FlagDrive {
                     pos: ae::Vec2::new(body.x + remaining, body.y),
-                    vel: ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0),
+                    vel: ae::Vec2::new(rules.flag.walk_off_speed, 0.0),
                     on_pole: false,
                 });
             }
@@ -259,7 +261,7 @@ fn step_phase(
             };
             Some(FlagDrive {
                 pos: ae::Vec2::new(body.x + step, body.y),
-                vel: ae::Vec2::new(crate::rules::mary_o_rules().flag.walk_off_speed, 0.0),
+                vel: ae::Vec2::new(rules.flag.walk_off_speed, 0.0),
                 on_pole: false,
             })
         }
@@ -322,7 +324,7 @@ mod tests {
     fn run_until_tallied(seq: &mut FlagSequence, pole: &FlagPole, start: ae::Vec2) -> u32 {
         let mut body = start;
         for _ in 0..2000 {
-            if let Some(next) = step_flag_sequence(seq, pole, body, HALF_H, DT) {
+            if let Some(next) = step_flag_sequence(&crate::rules::shipped_rules(), seq, pole, body, HALF_H, DT) {
                 body = next.pos;
             }
             if let FlagPhase::Tallied { score } = seq.phase {
@@ -358,7 +360,7 @@ mod tests {
         // Grab high up.
         let mut body = ae::Vec2::new(p.x, p.top_y + 10.0);
 
-        let grab = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("the grab drives her");
+        let grab = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT).expect("the grab drives her");
         assert!(grab.on_pole, "the grab must put her ON the pole");
         assert!(
             grab.vel.y > 0.0,
@@ -370,7 +372,7 @@ mod tests {
         // Slide to the base, checking every tick of it.
         let mut slide_ticks = 0usize;
         while matches!(seq.phase, FlagPhase::Sliding { .. }) {
-            let d = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("still sliding");
+            let d = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT).expect("still sliding");
             assert!(d.on_pole || !matches!(seq.phase, FlagPhase::Sliding { .. }));
             body = d.pos;
             slide_ticks += 1;
@@ -384,7 +386,7 @@ mod tests {
         // Walking off: on the ground, moving along it, no longer on the pole.
         let mut walk_ticks = 0usize;
         while matches!(seq.phase, FlagPhase::WalkingOff { .. }) {
-            let d = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("still walking");
+            let d = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT).expect("still walking");
             assert!(!d.on_pole, "the walk-off is not on the pole");
             assert!(
                 d.vel.x > 0.0 && d.vel.y == 0.0,
@@ -402,7 +404,7 @@ mod tests {
 
         // And she stops when it is over, rather than drifting into the tally.
         let done =
-            step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("tallied still drives");
+            step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT).expect("tallied still drives");
         assert_eq!(
             done.vel,
             ae::Vec2::ZERO,
@@ -417,21 +419,21 @@ mod tests {
         let p = pole();
         let mut seq = FlagSequence::default();
         assert_eq!(
-            step_flag_sequence(&mut seq, &p, ae::Vec2::new(900.0, 300.0), HALF_H, DT),
+            step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, ae::Vec2::new(900.0, 300.0), HALF_H, DT),
             None
         );
         assert_eq!(seq.phase, FlagPhase::Idle);
 
         // Below the base: the player ran past the pole on the ground behind it.
         assert_eq!(
-            step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 500.0), HALF_H, DT),
+            step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, ae::Vec2::new(1000.0, 500.0), HALF_H, DT),
             None
         );
         assert_eq!(seq.phase, FlagPhase::Idle);
 
         // On it.
         assert!(
-            step_flag_sequence(&mut seq, &p, ae::Vec2::new(1005.0, 300.0), HALF_H, DT).is_some()
+            step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, ae::Vec2::new(1005.0, 300.0), HALF_H, DT).is_some()
         );
         assert!(seq.active());
     }
@@ -442,7 +444,7 @@ mod tests {
     fn the_score_is_decided_at_the_moment_of_contact() {
         let p = pole();
         let mut seq = FlagSequence::default();
-        step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 120.0), HALF_H, DT);
+        step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, ae::Vec2::new(1000.0, 120.0), HALF_H, DT);
         let at_grab = seq.score().unwrap();
         assert_eq!(at_grab, 5000, "caught it near the top");
 
@@ -458,12 +460,12 @@ mod tests {
         let p = pole();
         let mut last = 0;
         for h in [0.0, 0.3, 0.6, 0.8, 1.0] {
-            let s = flag_score(h);
+            let s = flag_score(&crate::rules::shipped_rules(), h);
             assert!(s > last, "band at {h} pays {s}, not more than {last}");
             last = s;
         }
-        assert_eq!(flag_score(1.0), 5000);
-        assert_eq!(flag_score(0.0), 100);
+        assert_eq!(flag_score(&crate::rules::shipped_rules(), 1.0), 5000);
+        assert_eq!(flag_score(&crate::rules::shipped_rules(), 0.0), 100);
         // Grabbing above the top, or below the base, clamps rather than panicking.
         assert_eq!(p.grab_height(p.top_y - 999.0), 1.0);
         assert_eq!(p.grab_height(p.base_y + 999.0), 0.0);
@@ -488,7 +490,7 @@ mod tests {
             if seen.last() != Some(&label) {
                 seen.push(label);
             }
-            if let Some(next) = step_flag_sequence(&mut seq, &p, body, HALF_H, DT) {
+            if let Some(next) = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT) {
                 body = next.pos;
             }
             if matches!(seq.phase, FlagPhase::Tallied { .. }) {
@@ -508,13 +510,13 @@ mod tests {
         let mut body = ae::Vec2::new(1004.0, 200.0);
 
         // Grab snaps onto the pole's x.
-        body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT)
+        body = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT)
             .unwrap()
             .pos;
         assert_eq!(body.x, p.x);
 
         while matches!(seq.phase, FlagPhase::Sliding { .. }) {
-            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT)
+            body = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT)
                 .unwrap()
                 .pos;
             assert_eq!(body.x, p.x, "the slide never drifts sideways");
@@ -527,7 +529,7 @@ mod tests {
 
         let walk_start = body.x;
         while matches!(seq.phase, FlagPhase::WalkingOff { .. }) {
-            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT)
+            body = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT)
                 .unwrap()
                 .pos;
             assert_eq!(
@@ -537,10 +539,10 @@ mod tests {
             );
         }
         assert!(
-            (body.x - walk_start - crate::rules::mary_o_rules().flag.walk_off_px).abs() < 0.001,
+            (body.x - walk_start - crate::rules::shipped_rules().flag.walk_off_px).abs() < 0.001,
             "walked {} px, expected {}",
             body.x - walk_start,
-            crate::rules::mary_o_rules().flag.walk_off_px
+            crate::rules::shipped_rules().flag.walk_off_px
         );
     }
 
@@ -561,7 +563,7 @@ mod tests {
         let mut body = start;
         let mut score = None;
         for _ in 0..2000 {
-            if let Some(next) = step_flag_sequence(&mut kicked, &p, body, HALF_H, DT) {
+            if let Some(next) = step_flag_sequence(&crate::rules::shipped_rules(), &mut kicked, &p, body, HALF_H, DT) {
                 // Physics runs after us and shoves the body a tile down and right.
                 body = next.pos + ae::Vec2::new(16.0, 16.0);
             }
@@ -589,7 +591,7 @@ mod tests {
         };
         for _ in 0..600 {
             assert_eq!(
-                step_flag_sequence(&mut seq, &p, body, HALF_H, DT).map(|d| d.pos),
+                step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, body, HALF_H, DT).map(|d| d.pos),
                 Some(body)
             );
         }
@@ -603,7 +605,7 @@ mod tests {
     fn a_grab_from_above_the_top_starts_at_the_top() {
         let p = pole();
         let mut seq = FlagSequence::default();
-        let at = step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 20.0), HALF_H, DT)
+        let at = step_flag_sequence(&crate::rules::shipped_rules(), &mut seq, &p, ae::Vec2::new(1000.0, 20.0), HALF_H, DT)
             .unwrap()
             .pos;
         assert_eq!(at.y, p.top_y);
@@ -631,6 +633,7 @@ pub fn run_flag_sequence(
     // Her body mode, so the pole can say she is CLIMBING and let the animation
     // picker choose the clip.
     mut modes: Query<&mut ae::BodyModeState>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     let Some(entity) = subject.and_then(|s| s.0) else {
         return;
@@ -654,7 +657,7 @@ pub fn run_flag_sequence(
     // not left with her knees in it.
     let half_height = kin.size().y * 0.5;
     let mut candidate = *sequence;
-    if let Some(drive) = step_flag_sequence(&mut candidate, &pole, kin.pos, half_height, time.sim_dt()) {
+    if let Some(drive) = step_flag_sequence(&crate::rules::mary_o_rules(&packs), &mut candidate, &pole, kin.pos, half_height, time.sim_dt()) {
         if drive_her(&poses, entity, &drive, &mut kin, sweep.as_deref_mut(), modes.get_mut(entity).ok()).is_err() {
             return;
         }

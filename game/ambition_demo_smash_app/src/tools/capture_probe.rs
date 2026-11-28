@@ -171,7 +171,7 @@ pub fn run_with(args: CaptureProbeArgs, build: fn() -> bevy::prelude::App) {
     app.world_mut()
         // `--character` / `--opponent` name the fighters (the same flags as
         // `ladder_rig`), and the header says which ran.
-        .insert_resource(ambition_demo_smash::smash_roster([
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             character.clone(),
             opponent.clone(),
         ]));

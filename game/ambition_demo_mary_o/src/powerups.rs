@@ -30,10 +30,6 @@ use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 #[cfg(test)]
 use crate::provider::MARY_O_CHARACTER_ID;
 
-/// Her power ladder: the forms, the rows she wears on them, and the sound of
-/// each change of form, as her pack states it (`data/mary_o_forms.ron`).
-use crate::forms::mary_o_forms;
-
 /// The presentation art id the wand `WorldItem` carries. The app binds it to the
 /// generated `super_mary_o_star_wand` sprite in `WorldItemArt`; the render draws
 /// that image, or the cream quad until it is regenerated. Shared here so the spawn
@@ -52,16 +48,16 @@ pub const CINDER_BEACON_ID: &str = "cinder_beacon";
 /// swaps the worn identity to a distinct tall sheet, and [`sync_grown_form`]
 /// makes the tall form a view of wearing this wand. Her pack states the row
 /// (`data/mary_o_forms.ron`); the ladder gives it its armor and its slot.
-pub fn star_wand() -> EquipmentRow {
-    mary_o_forms().row(STAR_WAND_ID).expect("her pack states the star wand on her ladder")
+pub fn star_wand(forms: &crate::forms::MaryOForms) -> EquipmentRow {
+    forms.row(STAR_WAND_ID).expect("her pack states the star wand on her ladder")
 }
 
 /// The cinder beacon: the spark, the `Run / Spark` label, x1.5 spark damage,
 /// and the outer layer of armor. A hit spends it into the [`star_wand`], so she
 /// loses the spark and stays tall; the next hit spends the wand and she
 /// shrinks. Her pack states the row (`data/mary_o_forms.ron`).
-pub fn cinder_beacon() -> EquipmentRow {
-    mary_o_forms().row(CINDER_BEACON_ID).expect("her pack states the cinder beacon on her ladder")
+pub fn cinder_beacon(forms: &crate::forms::MaryOForms) -> EquipmentRow {
+    forms.row(CINDER_BEACON_ID).expect("her pack states the cinder beacon on her ladder")
 }
 
 /// The projectile-visual id Mary-O registers her spark look under.
@@ -305,24 +301,29 @@ pub fn refuse_a_weaker_form_pickup(
         With<PlayerEntity>,
     >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     // Each player body. An item that one player takes is gone for the next.
     let mut taken = Vec::new();
     for (body, worn, mut wallet) in &mut players {
         use ae::AabbExt as _;
         let body_aabb = ae::Aabb::new(body.pos, body.size() * 0.5);
-        let rank = worn_form_rank(worn);
+        let rank = worn_form_rank(forms, worn);
         for (entity, item) in &items {
             if taken.contains(&entity) || !body_aabb.strict_intersects(item.aabb()) {
                 continue;
             }
             let ambition_platformer2d::world_items::WorldItemPayload::Equip(row) = &item.payload;
-            let is_form = is_form_row(row);
-            if !is_form || form_rank(&row.id) > rank {
+            let is_form = is_form_row(forms, row);
+            if !is_form || form_rank(forms, &row.id) > rank {
                 continue;
             }
             if let Some(purse) = wallet.as_mut() {
-                purse.add(crate::rules::mary_o_rules().coins_per_block);
+                purse.add(rules.coins_per_block);
             }
             sfx.write_from(
                 crate::provider::MARY_O_EXPERIENCE,
@@ -417,7 +418,12 @@ pub fn bonk_power_blocks(
     // world can say WHICH block that is. It is the live room of the body that
     // struck the block.
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     // The session that owns an item a block pops. With no session there is no
     // body to strike a block.
     let Some(scope) = commands.spawn_scope() else {
@@ -467,7 +473,7 @@ pub fn bonk_power_blocks(
             // { continue }`, and `next_power_reward` answered `None` at the top of the ladder — so
             // a FIRE-form Mary-O hit a ?-block and got nothing at all: no flinch, no spent state,
             // no art change, no sound.
-            let reward = reward_for(authored.contents, worn);
+            let reward = reward_for(forms, rules, authored.contents, worn);
             // a multi-coin block is spent by its COUNTER, not by being hit.
             // Every other block owes one payout and retires on the strike; this one
             // owes N, so `take_one_coin` promotes it to spent on the last of them.
@@ -582,14 +588,14 @@ enum BlockPayout {
 }
 
 /// Whether `row` is one of her form rows: a row in her ladder's slot.
-fn is_form_row(row: &EquipmentRow) -> bool {
-    row.exclusive_slot.as_deref().is_some_and(|slot| slot == mary_o_forms().slot)
+fn is_form_row(forms: &crate::forms::MaryOForms, row: &EquipmentRow) -> bool {
+    row.exclusive_slot.as_deref().is_some_and(|slot| slot == forms.slot)
 }
 
 /// The rung this equipment row puts her on. A row that is not a form is the
 /// bottom rung.
-fn form_rank(row_id: &str) -> u8 {
-    mary_o_forms()
+fn form_rank(forms: &crate::forms::MaryOForms, row_id: &str) -> u8 {
+    forms
         .ladder
         .iter()
         .position(|rung| rung.row.as_ref().is_some_and(|row| row.id == row_id))
@@ -597,8 +603,8 @@ fn form_rank(row_id: &str) -> u8 {
 }
 
 /// The rung she is on now: the highest rung whose row she wears.
-fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
-    mary_o_forms()
+fn worn_form_rank(forms: &crate::forms::MaryOForms, worn: Option<&WornEquipment>) -> u8 {
+    forms
         .ladder
         .iter()
         .rposition(|rung| {
@@ -611,19 +617,19 @@ fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
 
 /// Whether `character_id` is one of her forms: a rung of her ladder, or the
 /// form that is off the ladder (`cosmic`).
-pub(crate) fn is_her_form(character_id: &str) -> bool {
-    mary_o_forms().ladder.iter().any(|rung| rung.character == character_id) || crate::cosmic::is_cosmic(character_id)
+pub(crate) fn is_her_form(forms: &crate::forms::MaryOForms, character_id: &str) -> bool {
+    forms.ladder.iter().any(|rung| rung.character == character_id) || crate::cosmic::is_cosmic(character_id)
 }
 
 /// The character of the rung her equipment puts her on: the form she has
 /// when no other rule says what she wears.
-pub(crate) fn ladder_character(worn: Option<&WornEquipment>) -> &'static str {
-    ambition_platformer2d::content::interned_id(&mary_o_forms().ladder[worn_form_rank(worn) as usize].character)
+pub(crate) fn ladder_character(forms: &crate::forms::MaryOForms, worn: Option<&WornEquipment>) -> &'static str {
+    ambition_platformer2d::content::interned_id(&forms.ladder[worn_form_rank(forms, worn) as usize].character)
 }
 
 /// The rung a worn-character id draws. An id off the ladder is the bottom rung.
-fn power_tier(character_id: &str) -> u8 {
-    mary_o_forms()
+fn power_tier(forms: &crate::forms::MaryOForms, character_id: &str) -> u8 {
+    forms
         .ladder
         .iter()
         .position(|rung| rung.character == character_id)
@@ -647,8 +653,8 @@ fn power_tier(character_id: &str) -> u8 {
 /// form slot, so a small Mary-O carrying one is still small here. That is
 /// the classic behaviour and it falls out of the slot rather than out of a list
 /// of ids this function would otherwise have to exclude.
-pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
-    worn_form_rank(worn) == 0
+pub(crate) fn is_small(forms: &crate::forms::MaryOForms, worn: Option<&WornEquipment>) -> bool {
+    worn_form_rank(forms, worn) == 0
 }
 
 /// A pickup never makes her weaker.
@@ -674,17 +680,17 @@ pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
 /// ⚠ THIS FUNCTION GUARDS THE BLOCK PAYOUT ONLY. The floor is guarded by
 /// [`refuse_a_weaker_form_pickup`], which runs before the engine's collector;
 /// between them the invariant is true of every road a form item can arrive on.
-fn without_downgrading(reward: PowerReward, worn: Option<&WornEquipment>) -> BlockPayout {
-    let is_form = is_form_row(&reward.row);
-    if is_form && form_rank(&reward.row.id) <= worn_form_rank(worn) {
-        return BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block);
+fn without_downgrading(forms: &crate::forms::MaryOForms, rules: &crate::rules::MaryORules, reward: PowerReward, worn: Option<&WornEquipment>) -> BlockPayout {
+    let is_form = is_form_row(forms, &reward.row);
+    if is_form && form_rank(forms, &reward.row.id) <= worn_form_rank(forms, worn) {
+        return BlockPayout::Coins(rules.coins_per_block);
     }
     BlockPayout::Item(Box::new(reward))
 }
 
 /// The payout a block with these contents owes her, or `None` when it owes
 /// nothing at all.
-fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Option<BlockPayout> {
+fn reward_for(forms: &crate::forms::MaryOForms, rules: &crate::rules::MaryORules, contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Option<BlockPayout> {
     Some(match contents {
         // A block holding nothing owes nothing. The caller filters these out
         // (a Brick with no contents BREAKS rather than paying), and saying so
@@ -693,19 +699,19 @@ fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Opt
         // Now the reward builders say `None` for a coin and this is the single place that turns
         // that into coins. levelling TOWARD a coin is still just a coin: a coin is not on the
         // ladder for the same reason the quasar is not — it is not a form.
-        MaryOBlockContents::Always(pickup) => match pickup_reward(pickup) {
-            Some(reward) => without_downgrading(reward, worn),
-            None => BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block),
+        MaryOBlockContents::Always(pickup) => match pickup_reward(forms, rules, pickup) {
+            Some(reward) => without_downgrading(forms, rules, reward, worn),
+            None => BlockPayout::Coins(rules.coins_per_block),
         },
-        MaryOBlockContents::Toward(pickup) => match next_rung_toward(pickup, worn) {
-            Some(reward) => without_downgrading(reward, worn),
-            None => BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block),
+        MaryOBlockContents::Toward(pickup) => match next_rung_toward(forms, rules, pickup, worn) {
+            Some(reward) => without_downgrading(forms, rules, reward, worn),
+            None => BlockPayout::Coins(rules.coins_per_block),
         },
         // one coin per HIT, whatever the authored count. The count says
         // how many hits the block has left, not how much a single hit is worth
         // the caller's, because only it knows which block was struck.
         MaryOBlockContents::Coins(_) => {
-            BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block)
+            BlockPayout::Coins(rules.coins_per_block)
         }
     })
 }
@@ -714,11 +720,11 @@ fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Opt
 ///
 /// A coin genuinely has no ITEM to build, and a caller that forgot the routing above got the most
 /// powerful reward in the game, silently.
-fn pickup_reward(pickup: MaryOPickup) -> Option<PowerReward> {
+fn pickup_reward(forms: &crate::forms::MaryOForms, rules: &crate::rules::MaryORules, pickup: MaryOPickup) -> Option<PowerReward> {
     match pickup {
-        MaryOPickup::Wand => Some(wand_reward()),
-        MaryOPickup::Lantern => Some(beacon_reward()),
-        MaryOPickup::Quasar => Some(quasar_reward()),
+        MaryOPickup::Wand => Some(wand_reward(forms, rules)),
+        MaryOPickup::Lantern => Some(beacon_reward(forms, rules)),
+        MaryOPickup::Quasar => Some(quasar_reward(rules)),
         // A coin is not an item. The caller turns this into `BlockPayout::Coins`.
         MaryOPickup::Coin => None,
     }
@@ -730,37 +736,37 @@ fn pickup_reward(pickup: MaryOPickup) -> Option<PowerReward> {
 /// they are not interchangeable: the quasar is not on the ladder at all (any
 /// form takes one), and the top rung REPEATS rather than answering nothing (see
 /// [`beacon_reward`] for why that matters).
-fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> Option<PowerReward> {
+fn next_rung_toward(forms: &crate::forms::MaryOForms, rules: &crate::rules::MaryORules, target: MaryOPickup, worn: Option<&WornEquipment>) -> Option<PowerReward> {
     match target {
         // Levelling toward the quasar is levelling toward something off the
         // ladder, so it is just the quasar.
-        MaryOPickup::Quasar => Some(quasar_reward()),
+        MaryOPickup::Quasar => Some(quasar_reward(rules)),
         // `None`, not a quasar. Same fix as `pickup_reward`: a coin is off
         // the ladder and has no rung to answer with, and answering the strongest
         // reward in the game for an impossible branch hides the caller's bug
         // instead of surfacing it.
         MaryOPickup::Coin => None,
         // Toward the wand: she gets the wand until she has it, then it repeats.
-        MaryOPickup::Wand => Some(wand_reward()),
+        MaryOPickup::Wand => Some(wand_reward(forms, rules)),
         // Toward the lantern: the full classic progression.
-        MaryOPickup::Lantern => Some(if is_small(worn) {
-            wand_reward()
+        MaryOPickup::Lantern => Some(if is_small(forms, worn) {
+            wand_reward(forms, rules)
         } else {
-            beacon_reward()
+            beacon_reward(forms, rules)
         }),
     }
 }
 
 /// The quasar, which any Mary-O can collect at any power tier.
-fn quasar_reward() -> PowerReward {
+fn quasar_reward(rules: &crate::rules::MaryORules) -> PowerReward {
     PowerReward {
         row: crate::star::pocket_quasar(),
-        half: crate::rules::mary_o_rules().power_ups.quasar_half(),
+        half: rules.power_ups.quasar_half(),
         sprite: crate::star::QUASAR_SPRITE,
-        motion: rises_from_a_block(
-            ItemMotionPlan::bouncer(crate::rules::mary_o_rules().power_ups.quasar_speed, crate::rules::mary_o_rules().power_ups.quasar_restitution,
+        motion: rises_from_a_block(rules, 
+            ItemMotionPlan::bouncer(rules.power_ups.quasar_speed, rules.power_ups.quasar_restitution,
             ),
-            crate::rules::mary_o_rules().power_ups.quasar_half().y,
+            rules.power_ups.quasar_half().y,
         ),
     }
 }
@@ -779,8 +785,8 @@ struct PowerReward {
 /// it. It spawns INSIDE and rises to rest on the top face, so the distance is
 /// half a block plus its own half-height. The time is the rules'
 /// `power_ups.rise_seconds`.
-pub(crate) fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
-    plan.emerging(crate::T * 0.5 + half_y, crate::rules::mary_o_rules().power_ups.rise_seconds,
+pub(crate) fn rises_from_a_block(rules: &crate::rules::MaryORules, plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
+    plan.emerging(crate::T * 0.5 + half_y, rules.power_ups.rise_seconds,
     )
 }
 
@@ -790,13 +796,13 @@ pub(crate) fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotio
 /// Reading the worn set rather than a demo flag is what makes duplicates
 /// unrepresentable: there is no state to drift out of sync with, because the
 /// question "what does she have" has exactly one answer.
-fn wand_reward() -> PowerReward {
+fn wand_reward(forms: &crate::forms::MaryOForms, rules: &crate::rules::MaryORules) -> PowerReward {
     PowerReward {
-        row: star_wand(),
-        half: crate::rules::mary_o_rules().power_ups.wand_half(),
+        row: star_wand(forms),
+        half: rules.power_ups.wand_half(),
         sprite: STAR_WAND_SPRITE,
         // The wand WALKS and turns at walls, like the mushroom.
-        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), crate::rules::mary_o_rules().power_ups.wand_half().y,
+        motion: rises_from_a_block(rules, ItemMotionPlan::walker(rules.power_ups.wand_speed), rules.power_ups.wand_half().y,
         ),
     }
 }
@@ -813,13 +819,13 @@ fn wand_reward() -> PowerReward {
 /// *"spawning another lantern is acceptable unless the existing design clearly
 /// prefers score, a reserve item, or another reward."* Score or a reserve slot
 /// is the classic answer and neither exists yet.
-fn beacon_reward() -> PowerReward {
+fn beacon_reward(forms: &crate::forms::MaryOForms, rules: &crate::rules::MaryORules) -> PowerReward {
     PowerReward {
-        row: cinder_beacon(),
-        half: crate::rules::mary_o_rules().power_ups.beacon_half(),
+        row: cinder_beacon(forms),
+        half: rules.power_ups.beacon_half(),
         sprite: CINDER_BEACON_SPRITE,
         // The beacon waits on its block, like the classic flower.
-        motion: rises_from_a_block(ItemMotionPlan::still(), crate::rules::mary_o_rules().power_ups.beacon_half().y,
+        motion: rises_from_a_block(rules, ItemMotionPlan::still(), rules.power_ups.beacon_half().y,
         ),
     }
 }
@@ -858,14 +864,19 @@ pub fn sync_grown_form(sprite_content: bevy::prelude::Res<ambition_platformer2d:
     catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
     authored: Option<bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>>,
     mut commands: bevy::prelude::Commands,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     // Each player body: a second player has her ladder too.
     for (body, mut worn_char, kin, worn) in &mut players {
         // The form is the rung her worn rows put her on. The fire (beacon) and grown
         // (wand) forms are the SAME height: the beacon downgrades INTO the wand on a
         // hit, so across that transition she stays tall and only her look and spark
         // loadout change. Only the final grown -> small hit changes her size.
-        let target_id = ladder_character(worn);
+        let target_id = ladder_character(forms, worn);
         if worn_char.id() == target_id {
             continue;
         }
@@ -882,7 +893,7 @@ pub fn sync_grown_form(sprite_content: bevy::prelude::Res<ambition_platformer2d:
         // and resizes her feet-planted through the one resize op that owns that rule. Growing is a
         // consequence of the art, not an instruction.
         let previous_id = worn_char.id().to_string();
-        if let Some(cue_id) = power_transition_sfx(&previous_id, target_id) {
+        if let Some(cue_id) = power_transition_sfx(forms, &previous_id, target_id) {
             // The named transition is content-authority: small→big, big→fire, and
             // each loss path have different layered sound design rather than sharing
             // one generic pitch slide.  The hit cue may still play on a downgrade;
@@ -899,12 +910,12 @@ pub fn sync_grown_form(sprite_content: bevy::prelude::Res<ambition_platformer2d:
         // the same beat the growth does. Same shape as the cue above: the transition picks it.
         commands.entity(body).try_insert(
             ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested(
-                transform_beat_policy(&sprite_content,
+                transform_beat_policy(forms, rules, &sprite_content,
                     catalog.as_deref(),
                     authored.as_deref(),
                     target_id,
-                    power_tier(&previous_id),
-                    power_tier(target_id),
+                    power_tier(forms, &previous_id),
+                    power_tier(forms, target_id),
                 ),
             ),
         );
@@ -931,20 +942,20 @@ pub fn sync_grown_form(sprite_content: bevy::prelude::Res<ambition_platformer2d:
 /// stretches its own clip by 1/0.6 in wall seconds, and the beat's wall timer
 /// has to cover that or the clip is cut short by exactly the dilation it asked
 /// for.
-fn transform_beat_policy(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
+fn transform_beat_policy(forms: &crate::forms::MaryOForms, rules: &crate::rules::MaryORules, sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
     target_id: &str,
     from_tier: u8,
     to_tier: u8,
 ) -> ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
-    let anim = transition_anim(from_tier, to_tier);
+    let anim = transition_anim(forms, from_tier, to_tier);
     // A step UP is a moment to savour, so it ASKS the regime to slow the world
     // (`ClockScaleRequest`; a regime with a second participant may refuse). A
     // reversion does not: she was just hit, and slowing the world on a hit takes
     // the recovery away from the player instead of giving it.
     let clock_scale = if to_tier > from_tier {
-        crate::rules::mary_o_rules().step_up_clock_scale
+        rules.step_up_clock_scale
     } else {
         1.0
     };
@@ -962,11 +973,11 @@ const UNREADABLE_CLIP_SECS: f32 = 0.45;
 
 /// Which clip shows this tier change. A transition clip is authored on the
 /// sheet of the form ARRIVED AT, so this is always resolved against the target.
-fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
+fn transition_anim(forms: &crate::forms::MaryOForms, from_tier: u8, to_tier: u8) -> CharacterAnim {
     if to_tier > from_tier {
         // The rung arrived at says how she arrives (`arrival` in her ladder):
         // a change of size, or a change of look at the same size.
-        mary_o_forms().ladder[to_tier as usize]
+        forms.ladder[to_tier as usize]
             .arrival
             .expect("admission: every rung over the bottom states its arrival")
             .anim()
@@ -1002,8 +1013,8 @@ pub(crate) fn clip_seconds(sprite_content: &ambition_platformer2d::sprite_sheet:
 }
 
 /// The exact authored sound for a form transition (`cues` in her ladder).
-fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
-    mary_o_forms().cue(from, to).map(ambition_platformer2d::content::interned_id)
+fn power_transition_sfx(forms: &crate::forms::MaryOForms, from: &str, to: &str) -> Option<&'static str> {
+    forms.cue(from, to).map(ambition_platformer2d::content::interned_id)
 }
 
 #[cfg(feature = "render")]
@@ -1122,22 +1133,22 @@ mod tests {
 
     /// The top rung's rank.
     fn top_rung() -> u8 {
-        mary_o_forms().top()
+        crate::forms::shipped_forms().top()
     }
 
     /// The catalog row of the rung of rank `rank` on her ladder.
     fn character(rank: usize) -> &'static str {
-        ambition_platformer2d::content::interned_id(&mary_o_forms().ladder[rank].character)
+        ambition_platformer2d::content::interned_id(&crate::forms::shipped_forms().ladder[rank].character)
     }
 
     /// The sound of the change of form from rung `from` to rung `to`.
     fn cue(from: usize, to: usize) -> &'static str {
-        ambition_platformer2d::content::interned_id(mary_o_forms().cue(character(from), character(to)).expect("her ladder states this cue"))
+        ambition_platformer2d::content::interned_id(crate::forms::shipped_forms().cue(character(from), character(to)).expect("her ladder states this cue"))
     }
 
     /// The spark: the ranged grant of the cinder beacon.
     fn spark_shot() -> RangedActionSpec {
-        cinder_beacon()
+        cinder_beacon(&crate::forms::shipped_forms())
             .grants
             .into_iter()
             .find_map(|grant| match grant {
@@ -1172,7 +1183,7 @@ mod tests {
         let authored = AuthoredSheets::default();
         let source = include_str!("../assets/data/character_catalog.ron");
         let catalog = CharacterCatalog::from_data(parse_catalog(source));
-        let anim = transition_anim(0, top_rung());
+        let anim = transition_anim(&crate::forms::shipped_forms(), 0, top_rung());
 
         // ⛔ THE PREMISE. A form whose sheet cannot be read answers with
         // `UNREADABLE_CLIP_SECS`, and every assertion below would then be
@@ -1208,11 +1219,11 @@ mod tests {
     #[test]
     fn a_step_up_slows_the_clock_by_the_rules_and_a_step_down_does_not() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-        let scale = crate::rules::mary_o_rules().step_up_clock_scale;
-        let up = transform_beat_policy(&sprite_content, None, None, character(1), 0, 1);
+        let scale = crate::rules::shipped_rules().step_up_clock_scale;
+        let up = transform_beat_policy(&crate::forms::shipped_forms(), &crate::rules::shipped_rules(), &sprite_content, None, None, character(1), 0, 1);
         assert_eq!(up.clock_scale, scale, "a step up does not ask for the rules' `step_up_clock_scale`");
         assert!((up.duration - UNREADABLE_CLIP_SECS / scale).abs() < 1e-5, "the beat does not cover its clip at the slowed clock");
-        let down = transform_beat_policy(&sprite_content, None, None, MARY_O_CHARACTER_ID, 1, 0);
+        let down = transform_beat_policy(&crate::forms::shipped_forms(), &crate::rules::shipped_rules(), &sprite_content, None, None, MARY_O_CHARACTER_ID, 1, 0);
         assert_eq!(down.clock_scale, 1.0, "a step down slows the world on a hit");
     }
 
@@ -1227,7 +1238,7 @@ mod tests {
         let mut heard = Vec::new();
         for from in 0..=top {
             for to in 0..=top {
-                let sfx = power_transition_sfx(character(from), character(to));
+                let sfx = power_transition_sfx(&crate::forms::shipped_forms(), character(from), character(to));
                 // She climbs one rung at a time; she can fall any number.
                 if from == to || to > from + 1 {
                     assert_eq!(sfx, None, "rung {from} to rung {to} is not a change she makes");
@@ -1243,15 +1254,15 @@ mod tests {
     /// Each pickup a block gives is the size her rules file states.
     #[test]
     fn each_pickup_is_the_size_her_rules_state() {
-        let power_ups = crate::rules::mary_o_rules().power_ups;
-        assert_eq!(wand_reward().half, power_ups.wand_half());
-        assert_eq!(beacon_reward().half, power_ups.beacon_half());
-        assert_eq!(quasar_reward().half, power_ups.quasar_half());
+        let power_ups = crate::rules::shipped_rules().power_ups;
+        assert_eq!(wand_reward(&crate::forms::shipped_forms(), &crate::rules::shipped_rules()).half, power_ups.wand_half());
+        assert_eq!(beacon_reward(&crate::forms::shipped_forms(), &crate::rules::shipped_rules()).half, power_ups.beacon_half());
+        assert_eq!(quasar_reward(&crate::rules::shipped_rules()).half, power_ups.quasar_half());
     }
 
     #[test]
     fn the_star_wand_absorbs_one_hit_then_is_spent() {
-        let mut worn = WornEquipment::new(vec![star_wand()]);
+        let mut worn = WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms())]);
         assert!(worn.wears(STAR_WAND_ID), "worn, so she reads as grown");
 
         // A hit spends the wand...
@@ -1271,7 +1282,7 @@ mod tests {
         use ambition_platformer2d::characters::brain::action_set::ActionSet;
         use ambition_platformer2d::combat::moveset::{RANGED_VERB, build_actor_moveset};
 
-        let worn = WornEquipment::new(vec![cinder_beacon()]);
+        let worn = WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]);
 
         // The grant confers a ranged verb the moveset can fire.
         let mut actions = ActionSet::peaceful();
@@ -1332,7 +1343,7 @@ mod tests {
         // lantern always exists. `expect` rather than a match, so a `None` that
         // ever appears on this road is a failure with a name.
         let rung = |worn| {
-            next_rung_toward(MaryOPickup::Lantern, worn)
+            next_rung_toward(&crate::forms::shipped_forms(), &crate::rules::shipped_rules(), MaryOPickup::Lantern, worn)
                 .expect("a lantern always has a next rung")
                 .row
                 .id
@@ -1345,7 +1356,7 @@ mod tests {
         );
 
         // Grown: the beacon.
-        let grown = WornEquipment::new(vec![star_wand()]);
+        let grown = WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms())]);
         assert_eq!(
             rung(Some(&grown)),
             CINDER_BEACON_ID,
@@ -1355,7 +1366,7 @@ mod tests {
         // A player cannot tell "already maxed" from "this block is broken", and only one of those
         // is true. The quasar is NOT the top rung; the beacon repeats until there is a score or a
         // reserve slot to give instead.
-        let sparked = WornEquipment::new(vec![cinder_beacon()]);
+        let sparked = WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]);
         assert_eq!(
             rung(Some(&sparked)),
             CINDER_BEACON_ID,
@@ -1371,16 +1382,16 @@ mod tests {
     fn the_quasar_is_the_same_offer_to_every_form() {
         // It occupies no form slot, so taking it can never cost her a tier.
         assert!(
-            quasar_reward().row.exclusive_slot.is_none(),
+            quasar_reward(&crate::rules::shipped_rules()).row.exclusive_slot.is_none(),
             "the quasar is not a form"
         );
-        assert_eq!(quasar_reward().row.id, crate::star::POCKET_QUASAR_ID);
+        assert_eq!(quasar_reward(&crate::rules::shipped_rules()).row.id, crate::star::POCKET_QUASAR_ID);
 
         // And its blocks are a family of their own: no ?-block reads as a quasar
         // block and no quasar block reads as a ?-block. That disjointness is what
         // lets ONE bonk rule serve both without either shadowing the other.
         use crate::ldtk_vocabulary::{MaryOBlockLook, block_look_of};
-        let room = crate::level_1_1();
+        let room = crate::level_1_1(&crate::rules::shipped_rules());
         let of_kind = |want: MaryOBlockLook| {
             room.world
                 .blocks
@@ -1418,12 +1429,12 @@ mod tests {
     /// there.
     #[test]
     fn damage_downgrades_spark_to_grown_then_grown_to_small() {
-        let mut worn = WornEquipment::new(vec![cinder_beacon()]);
-        assert_eq!(worn_form_rank(Some(&worn)), top_rung(), "the beacon is the top rung");
+        let mut worn = WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]);
+        assert_eq!(worn_form_rank(&crate::forms::shipped_forms(), Some(&worn)), top_rung(), "the beacon is the top rung");
         for rung in (0..top_rung()).rev() {
             assert!(worn.consume_armor().is_some(), "rung {} absorbs a hit", rung + 1);
             assert_eq!(
-                worn_form_rank(Some(&worn)),
+                worn_form_rank(&crate::forms::shipped_forms(), Some(&worn)),
                 rung,
                 "a hit on rung {} did not land on the rung below",
                 rung + 1
@@ -1431,7 +1442,7 @@ mod tests {
         }
         assert_eq!(worn.consume_armor(), None, "the bottom rung holds no armor");
 
-        let mut worn = WornEquipment::new(vec![cinder_beacon()]);
+        let mut worn = WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]);
 
         // Hit one: the beacon is spent and leaves the wand in its place.
         assert_eq!(worn.consume_armor().as_deref(), Some(CINDER_BEACON_ID));
@@ -1450,7 +1461,7 @@ mod tests {
     /// capability) without one shadowing the other.
     #[test]
     fn the_two_powerups_are_distinct_rows() {
-        assert_ne!(star_wand().id, cinder_beacon().id);
+        assert_ne!(star_wand(&crate::forms::shipped_forms()).id, cinder_beacon(&crate::forms::shipped_forms()).id);
     }
 
     /// Her forms are as big as their ART says, and this is the whole of the
@@ -1602,7 +1613,7 @@ mod tests {
         // Equip the wand -> she grows on the next tick.
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![star_wand()]));
+            .insert(WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms())]));
         app.update();
         assert_eq!(
             app.world().get::<CharacterForm>(body).unwrap().id(),
@@ -1669,7 +1680,7 @@ mod tests {
 
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![cinder_beacon()]));
+            .insert(WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]));
         app.update();
         assert_eq!(
             app.world().get::<CharacterForm>(body).unwrap().id(),
@@ -1686,7 +1697,7 @@ mod tests {
         // This is the assertion that can.
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![star_wand(), cinder_beacon()]));
+            .insert(WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms()), cinder_beacon(&crate::forms::shipped_forms())]));
         app.update();
         assert_eq!(
             app.world().get::<CharacterForm>(body).unwrap().id(),
@@ -1722,7 +1733,7 @@ mod tests {
                     canonical_size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
-                WornEquipment::new(vec![cinder_beacon()]),
+                WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]),
             ))
             .id();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
@@ -1815,7 +1826,7 @@ mod tests {
         // small -> grown.
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![star_wand()]));
+            .insert(WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms())]));
         app.update();
         assert_eq!(
             voiced(&mut app),
@@ -1826,7 +1837,7 @@ mod tests {
         // grown -> fire: a DIFFERENT cue, not a repeat of the growth.
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![cinder_beacon()]));
+            .insert(WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]));
         app.update();
         assert_eq!(
             voiced(&mut app),
@@ -1869,7 +1880,7 @@ mod tests {
     fn a_head_bonk_on_a_power_block_pops_one_wand_once() {
         use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
-        let room = crate::level_1_1();
+        let room = crate::level_1_1(&crate::rules::shipped_rules());
         let struck_id = room
             .world
             .blocks
@@ -1944,7 +1955,7 @@ mod tests {
             ActiveSessionScope, InRoomInstance, spawn_live_room,
         };
 
-        let room = crate::level_1_1();
+        let room = crate::level_1_1(&crate::rules::shipped_rules());
         let struck_id = room
             .world
             .blocks
@@ -2439,15 +2450,15 @@ mod tests {
     #[test]
     fn a_pickup_never_downgrades_the_form_she_is_already_in() {
         let small: Option<&WornEquipment> = None;
-        let tall = WornEquipment::new(vec![star_wand()]);
-        let fire = WornEquipment::new(vec![cinder_beacon()]);
+        let tall = WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms())]);
+        let fire = WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]);
 
         // Each row: the form she is in, the pickup authored, what it must pay.
         let wand = MaryOBlockContents::Always(MaryOPickup::Wand);
         let lantern = MaryOBlockContents::Always(MaryOPickup::Lantern);
-        let coins = BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block);
+        let coins = BlockPayout::Coins(crate::rules::shipped_rules().coins_per_block);
 
-        let paid = |contents, worn| match reward_for(contents, worn) {
+        let paid = |contents, worn| match reward_for(&crate::forms::shipped_forms(), &crate::rules::shipped_rules(), contents, worn) {
             Some(BlockPayout::Item(reward)) => reward.row.id.clone(),
             Some(BlockPayout::Coins(amount)) => format!("coins:{amount}"),
             None => "nothing".to_string(),
@@ -2524,7 +2535,7 @@ mod loose_form_tests {
         let at = ae::Vec2::new(100.0, 100.0);
         let item = app
             .world_mut()
-            .spawn(WorldItem::equipping(star_wand(), at, ae::Vec2::splat(8.0)))
+            .spawn(WorldItem::equipping(star_wand(&crate::forms::shipped_forms()), at, ae::Vec2::splat(8.0)))
             .id();
         app.world_mut().spawn((
             PrimaryPlayer,
@@ -2534,7 +2545,7 @@ mod loose_form_tests {
                 canonical_size: ae::Vec2::new(30.0, 48.0),
                 ..Default::default()
             },
-            WornEquipment::new(vec![cinder_beacon()]),
+            WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]),
         ));
         app.add_systems(Update, refuse_a_weaker_form_pickup);
         app.update();
@@ -2552,7 +2563,7 @@ mod loose_form_tests {
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let item = app
             .world_mut()
-            .spawn(WorldItem::equipping(star_wand(), at, ae::Vec2::splat(8.0)))
+            .spawn(WorldItem::equipping(star_wand(&crate::forms::shipped_forms()), at, ae::Vec2::splat(8.0)))
             .id();
         app.world_mut().spawn((
             PrimaryPlayer,

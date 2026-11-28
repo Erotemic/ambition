@@ -24,16 +24,26 @@ pub const MAX_SELECT_SOURCES: usize = MAX_SMASH_SEATS + 1;
 /// The fighter ids the select grid asks for, in grid order: `roster` in the
 /// pack's `data/smash_rules.ron`. [`SmashRoster::assemble`] drops the ids the
 /// composition does not have, in order.
-pub fn smash_roster() -> ambition_platformer2d::content::PackRow<[String]> {
-    crate::smash_pack::PACK.prepared().row(|pack| crate::rules::smash_rules_in(pack).roster.as_slice())
+pub fn smash_roster(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<[String]> {
+    smash_roster_of(packs.of(&crate::smash_pack::PACK))
+}
+
+/// [`smash_roster`] in `generation`: what a caller with no system boundary reads.
+pub fn smash_roster_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<[String]> {
+    generation.row(|pack| crate::rules::smash_rules_in(pack).roster.as_slice())
 }
 
 /// The demo's copies of characters other packs own: `stand_ins` in
 /// `data/smash_rules.ron`. Public so `ambition_app`'s guard ("did every
 /// buildable fighter reach the grid") can tell a fighter dropped by a bug
 /// from one that stood down.
-pub fn stand_ins() -> ambition_platformer2d::content::PackRow<[crate::rules::StandIn]> {
-    crate::smash_pack::PACK.prepared().row(|pack| crate::rules::smash_rules_in(pack).stand_ins.as_slice())
+pub fn stand_ins(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<[crate::rules::StandIn]> {
+    stand_ins_of(packs.of(&crate::smash_pack::PACK))
+}
+
+/// [`stand_ins`] in `generation`: what a caller with no system boundary reads.
+pub fn stand_ins_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<[crate::rules::StandIn]> {
+    generation.row(|pack| crate::rules::smash_rules_in(pack).stand_ins.as_slice())
 }
 
 /// The characters a slot can choose between, in this composition.
@@ -126,18 +136,17 @@ impl SmashRoster {
     ///
     /// An id this host cannot seat is dropped, not kept as a hole: a pickable
     /// portrait the match then refuses is worse.
-    pub fn assemble(
-        registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
+    pub fn assemble(selected_pack: &ambition_platformer2d::content::PreparedContentPack, registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     ) -> Self {
         let present = |id: &str| registry.get(id).is_some();
         Self(
-            smash_roster()
+            crate::rules::smash_rules_in(selected_pack).roster.as_slice()
                 .iter()
                 .filter(|id| present(id))
                 .filter(|id| {
                     // A stand-in steps aside once the character it stands in
                     // for is in the composition.
-                    !stand_ins()
+                    !crate::rules::smash_rules_in(selected_pack).stand_ins.as_slice()
                         .iter()
                         .any(|stand_in| &stand_in.copy == *id && present(&stand_in.stands_in_for))
                 })
@@ -318,14 +327,14 @@ impl SmashSelect {
     /// This is the single ownership primitive for human seats. It refuses to
     /// steal an occupied card or duplicate a source that already owns another
     /// card; callers choose *which* slot/source pair they are asking for.
-    pub fn assign_controller(&mut self, slot: usize, source: usize) -> bool {
+    pub fn assign_controller(&mut self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, slot: usize, source: usize) -> bool {
         if slot >= MAX_SMASH_SEATS
             || self.slots[slot].occupant != SlotOccupant::Absent
             || self.slot_driven_by(source).is_some()
         {
             return false;
         }
-        self.set_occupant(slot, SlotOccupant::Controller { device: source });
+        self.set_occupant(selected_pack, slot, SlotOccupant::Controller { device: source });
         true
     }
 
@@ -334,7 +343,7 @@ impl SmashSelect {
     /// Character selection uses this path: an unseated connected participant may
     /// move a cursor immediately, and the first A press on a fighter both joins
     /// the lobby and makes that fighter the new slot's choice.
-    pub fn slot_for_or_claim(&mut self, source: usize) -> Option<usize> {
+    pub fn slot_for_or_claim(&mut self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, source: usize) -> Option<usize> {
         if let Some(slot) = self.slot_driven_by(source) {
             return Some(slot);
         }
@@ -342,7 +351,7 @@ impl SmashSelect {
             .slots
             .iter()
             .position(|card| card.occupant == SlotOccupant::Absent)?;
-        self.assign_controller(slot, source).then_some(slot)
+        self.assign_controller(selected_pack, slot, source).then_some(slot)
     }
 
     /// Cycle a role button through Human / CPU / Absent.
@@ -357,8 +366,7 @@ impl SmashSelect {
     /// fighter choice; re-entering starts on Random. Controller <-> CPU keeps the
     /// current pick because only the controller policy changed, not the chair.
     pub fn cycle_role(
-        &mut self,
-        slot: usize,
+        &mut self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, slot: usize,
         requesting_source: usize,
         connected_sources: &[usize],
     ) {
@@ -373,13 +381,13 @@ impl SmashSelect {
                     .filter(|source| self.slot_driven_by(*source).is_none())
                     .min_by_key(|source| (*source != requesting_source, *source));
                 if let Some(source) = next_human {
-                    let _ = self.assign_controller(slot, source);
+                    let _ = self.assign_controller(selected_pack, slot, source);
                 } else {
-                    self.set_occupant(slot, SlotOccupant::Cpu);
+                    self.set_occupant(selected_pack, slot, SlotOccupant::Cpu);
                 }
             }
-            SlotOccupant::Controller { .. } => self.set_occupant(slot, SlotOccupant::Cpu),
-            SlotOccupant::Cpu => self.set_occupant(slot, SlotOccupant::Absent),
+            SlotOccupant::Controller { .. } => self.set_occupant(selected_pack, slot, SlotOccupant::Cpu),
+            SlotOccupant::Cpu => self.set_occupant(selected_pack, slot, SlotOccupant::Absent),
         }
     }
 
@@ -412,7 +420,7 @@ impl SmashSelect {
     /// `Absent` owns the reset rule too: there is no hidden remembered fighter
     /// behind an inactive card. Any active occupant entering an undecided card
     /// starts on Random.
-    pub fn set_occupant(&mut self, slot: usize, occupant: SlotOccupant) {
+    pub fn set_occupant(&mut self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, slot: usize, occupant: SlotOccupant) {
         if slot >= MAX_SMASH_SEATS {
             return;
         }
@@ -428,7 +436,7 @@ impl SmashSelect {
             self.slots[slot].cpu_level = 0;
         }
         if occupant == SlotOccupant::Cpu && self.slots[slot].cpu_level == 0 {
-            self.slots[slot].cpu_level = crate::rules::smash_rules().default_cpu_level;
+            self.slots[slot].cpu_level = crate::rules::smash_rules_in(selected_pack).default_cpu_level;
         }
     }
 
@@ -558,21 +566,20 @@ impl SmashSelect {
     ///
     /// `None` until [`Self::ready`].
     pub fn roster(
-        &self,
-        fighters: &SmashRoster,
+        &self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, fighters: &SmashRoster,
         policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
     ) -> Option<MatchParticipantRoster> {
         // Declares no floor and knows no repertoires: a kit-less character
         // seated through this wrapper reaches the stage unarmed. Production
         // uses `roster_seeded` with [`crate::smash_seating_melee`].
-        self.roster_seeded(
+        self.roster_seeded(selected_pack, 
             fighters,
             &SmashSkins::default(),
             0,
             policy,
             &Default::default(),
             None,
-            crate::starting_stocks(),
+            crate::starting_stocks(selected_pack),
         )
     }
 
@@ -584,8 +591,7 @@ impl SmashSelect {
     /// The policy is a parameter, as for [`source_name_under`]: what occupant
     /// index zero means (keyboard or first pad) is the policy's answer.
     pub fn roster_seeded(
-        &self,
-        fighters: &SmashRoster,
+        &self, selected_pack: &ambition_platformer2d::content::PreparedContentPack, fighters: &SmashRoster,
         // Each fighter's looks, for a slot that chose one.
         skins: &SmashSkins,
         seed: u64,
@@ -614,7 +620,7 @@ impl SmashSelect {
         let mut roster = MatchParticipantRoster::of(Vec::<String>::new());
         // The rules first: a handicap is a percent, and the ruleset says what
         // 100% is.
-        crate::apply_smash_match_rules(&mut roster, stocks);
+        crate::apply_smash_match_rules(selected_pack, &mut roster, stocks);
         let pool = roster.rules.health_pool;
         roster.participants = self
             .slots
@@ -694,28 +700,27 @@ pub fn handicap_damage(percent: u32, pool: Option<i32>) -> i32 {
 /// and the policy), not a second table. The keyboard
 /// is device zero only under the multi-source policies; `UnifiedPrimary` has
 /// no keyboard seat. That is why the policy is a parameter.
-pub fn source_name_under(
-    device: usize,
+pub fn source_name_under(selected_pack: &ambition_platformer2d::content::PreparedContentPack, device: usize,
     devices: &ambition_platformer2d::input::LocalDeviceOrder,
     policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
 ) -> String {
     match local_source_under(device, policy) {
-        ambition_platformer2d::actor::LocalInputSource::Keyboard => crate::text::line("select.keyboard"),
+        ambition_platformer2d::actor::LocalInputSource::Keyboard => crate::text::line(selected_pack, "select.keyboard"),
         // A slot for an unplugged pad still names that pad; that is more
         // useful for debugging than hiding the gap.
         ambition_platformer2d::actor::LocalInputSource::Pad(pad)
             if devices.pad(pad as usize).is_some() =>
         {
-            crate::text::smash_text().fill("select.pad", &[("number", &(pad + 1))])
+            crate::text::smash_text_in(selected_pack).fill("select.pad", &[("number", &(pad + 1))])
         }
         ambition_platformer2d::actor::LocalInputSource::Pad(pad) => {
-            crate::text::smash_text().fill("select.pad_missing", &[("number", &(pad + 1))])
+            crate::text::smash_text_in(selected_pack).fill("select.pad_missing", &[("number", &(pad + 1))])
         }
         // A lobby hand names a fixed source (`source_for_seat`); the shared and
         // claimed sources are a running game's, and a lobby never names them.
-        ambition_platformer2d::actor::LocalInputSource::Shared => crate::text::line("select.keyboard"),
+        ambition_platformer2d::actor::LocalInputSource::Shared => crate::text::line(selected_pack, "select.keyboard"),
         ambition_platformer2d::actor::LocalInputSource::Claimed => {
-            crate::text::smash_text().fill("select.pad_missing", &[("number", &(device + 1))])
+            crate::text::smash_text_in(selected_pack).fill("select.pad_missing", &[("number", &(device + 1))])
         }
     }
 }

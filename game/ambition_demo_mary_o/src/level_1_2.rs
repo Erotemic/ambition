@@ -38,12 +38,12 @@ pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 pub const FERRY_ID: &str = "mary_o_1_2_ferry";
 
 /// 1-2's goal.
-pub fn goal_pole() -> crate::flag::FlagPole {
-    crate::authored_pole(&level_1_2())
+pub fn goal_pole(rules: &crate::rules::MaryORules) -> crate::flag::FlagPole {
+    crate::authored_pole(&level_1_2(rules))
 }
 
-pub fn level_1_2() -> RoomSpec {
-    crate::authored_level(LEVEL_1_2_ROOM_ID)
+pub fn level_1_2(rules: &crate::rules::MaryORules) -> RoomSpec {
+    crate::authored_level(rules, LEVEL_1_2_ROOM_ID)
 }
 
 #[cfg(test)]
@@ -93,7 +93,7 @@ mod tests {
     /// to finish: the pit is wider than a jump.
     #[test]
     fn the_ferry_goes_from_one_lip_of_its_pit_to_the_other() {
-        let room = level_1_2();
+        let room = level_1_2(&crate::rules::shipped_rules());
         let mut ferry = room
             .moving_platforms
             .iter()
@@ -141,7 +141,7 @@ mod tests {
     /// stuck or ejected somewhere surprising.
     #[test]
     fn nothing_authored_in_the_cavern_is_buried_in_the_rock() {
-        let room = level_1_2();
+        let room = level_1_2(&crate::rules::shipped_rules());
         let terrain: Vec<_> = room
             .world
             .blocks
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn the_room_is_closed_and_underground() {
-        let room = level_1_2();
+        let room = level_1_2(&crate::rules::shipped_rules());
         // A roof over EVERY cell — the difference between an underground level
         // and a pit. The end columns count: a wall is a roof as far as "can she
         // leave through the top" is concerned.
@@ -220,7 +220,7 @@ mod tests {
     /// gets asked now, and the question is the same one.
     #[test]
     fn the_arrival_spawn_stands_on_the_floor() {
-        let room = level_1_2();
+        let room = level_1_2(&crate::rules::shipped_rules());
         let spawn = room.world.spawn;
         // A body materializes with its FEET on the ground it spawns over, so the
         // block under the spawn is the one whose top is at or below it and whose

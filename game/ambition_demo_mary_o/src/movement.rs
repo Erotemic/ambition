@@ -47,7 +47,9 @@ pub(crate) const RUN: &str = "run";
 pub fn walk_by_default_run_while_held(scope: RulesScope) -> impl System<In = (), Out = ()> {
     IntoSystem::into_system(
         move |mut bodies: Query<(Entity, &mut ActorControl, &ResolvedTechniqueEdges), With<PlayerEntity>>,
-              rooms: LiveRuleRooms| {
+              rooms: LiveRuleRooms,
+              packs: ambition_platformer2d::content::SelectedPacks| {
+            let walk_throttle = crate::rules::mary_o_rules(&packs).walk_throttle;
             for (body, mut control, edges) in &mut bodies {
                 if !governs(scope, &rooms, body) {
                     continue;
@@ -57,7 +59,7 @@ pub fn walk_by_default_run_while_held(scope: RulesScope) -> impl System<In = (),
                     // A pure throttle cut. The TARGET speed drops; accumulated velocity is
                     // left to the kernel's acceleration, which is what makes releasing run
                     // a deceleration rather than a snap.
-                    frame.locomotion.x *= crate::rules::mary_o_rules().walk_throttle;
+                    frame.locomotion.x *= walk_throttle;
                 }
             }
         },

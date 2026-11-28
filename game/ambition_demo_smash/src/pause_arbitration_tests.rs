@@ -404,9 +404,9 @@ fn a_cpu_between_two_people_does_not_swallow_the_second_ones_presses() {
     app.world_mut().resource_mut::<SeatMenuFrames>().clear();
     {
         let mut select = app.world_mut().resource_mut::<select::SmashSelect>();
-        select.set_occupant(0, select::SlotOccupant::Controller { device: 0 });
-        select.set_occupant(1, select::SlotOccupant::Cpu);
-        select.set_occupant(2, select::SlotOccupant::Controller { device: 1 });
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, select::SlotOccupant::Controller { device: 0 });
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, select::SlotOccupant::Cpu);
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), 2, select::SlotOccupant::Controller { device: 1 });
     }
 
     let layout = select_screen::layout::SelectLayout::for_viewport(
@@ -460,9 +460,9 @@ fn two_people_reaching_for_one_cpu_token_do_not_both_get_it() {
     app.world_mut().resource_mut::<SeatMenuFrames>().clear();
     {
         let mut select = app.world_mut().resource_mut::<select::SmashSelect>();
-        select.set_occupant(0, select::SlotOccupant::Controller { device: 0 });
-        select.set_occupant(1, select::SlotOccupant::Controller { device: 1 });
-        select.set_occupant(2, select::SlotOccupant::Cpu);
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, select::SlotOccupant::Controller { device: 0 });
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, select::SlotOccupant::Controller { device: 1 });
+        select.set_occupant(&crate::smash_pack::PACK.prepared(), 2, select::SlotOccupant::Cpu);
     }
 
     let layout = select_screen::layout::SelectLayout::for_viewport(

@@ -69,8 +69,8 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
     //
     // A human seat with no controller deals and takes no damage, so the
     // meter's movement is pure clock and the authored 0.5/s is readable.
-    let roster = ambition_demo_smash::smash_roster(characters);
-    let countdown = ambition_demo_smash::smash_roster(characters)
+    let roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters);
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters)
         .rules
         .opening_countdown_ticks;
     app.world_mut().insert_resource(roster);
@@ -192,7 +192,7 @@ fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
         !caps.is_empty()
             && caps
                 .iter()
-                .all(|cap| *cap == Some(ambition_demo_smash::limit::smash_limit().cap)),
+                .all(|cap| *cap == Some(ambition_demo_smash::limit::smash_limit(&ambition_demo_smash::smash_pack::PACK.prepared()).cap)),
         "a seat does not hold the match's Limit at its cap: {caps:?}",
     );
 
@@ -343,7 +343,7 @@ fn the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration() {
 
     assert_eq!(
         governing::<SmashLimitFill>(&mut app),
-        Some(SmashLimitFill(ambition_demo_smash::limit::smash_limit())),
+        Some(SmashLimitFill(ambition_demo_smash::limit::smash_limit(&ambition_demo_smash::smash_pack::PACK.prepared()))),
         "on the Smash stage the room reads no Limit rule, so the meter never \
          fills and the move priced at the cap is unreachable"
     );

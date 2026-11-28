@@ -17,7 +17,7 @@ fn a_seat_wearing_a_skin_is_its_fighter_drawn_from_the_skins_sheet() {
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster([FIGHTER, LOOK]);
+    let mut roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [FIGHTER, LOOK]);
     roster.participants[0].skin = Some(LOOK.into());
     app.world_mut().insert_resource(roster);
     app.world_mut()

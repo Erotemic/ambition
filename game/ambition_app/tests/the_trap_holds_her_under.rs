@@ -53,7 +53,7 @@ fn the_trap_keeps_her_under_the_stage_until_an_action_press_ends_it() {
         // live CPU walked up and struck her on the fifth tick of the trap
         // after its approach rule changed (2026-10-13), so the test measured
         // the CPU and not the move.
-        app.world_mut().insert_resource(ambition_demo_smash::smash_roster_with_passive_targets([
+        app.world_mut().insert_resource(ambition_demo_smash::smash_roster_with_passive_targets(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             "performer",
             "performer",
         ]));

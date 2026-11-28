@@ -172,7 +172,7 @@ fn the_two_rooms_are_linked_both_ways() {
     let mut seen = vec![LEVEL_1_1_ROOM_ID.to_string()];
     let mut at = LEVEL_1_1_ROOM_ID.to_string();
     for _ in 0..set.rooms.len() {
-        let Some(next) = ambition_demo_mary_o::authored_level(&at).metadata.next_room else {
+        let Some(next) = ambition_demo_mary_o::authored_level(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()), &at).metadata.next_room else {
             panic!("room '{at}' replays instead of leading anywhere, so the demo dead-ends there");
         };
         assert!(
@@ -530,7 +530,7 @@ pub(crate) fn earn_the_star_wand(app: &mut App) {
 /// Rust constant — the same rule `power_loop`'s harness follows, and for the
 /// same reason: a ?-block is wherever the level says it is.
 fn first_power_block() -> ae::world::Block {
-    let room = ambition_demo_mary_o::level_1_1();
+    let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     room.world
         .blocks
         .iter()

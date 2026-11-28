@@ -347,6 +347,18 @@ pub fn install_mode_owner<B: Bundle>(
     mode: &'static str,
     owner: fn() -> B,
 ) {
+    install_mode_owner_with::<(), B>(app, scope, mode, move |_| owner());
+}
+
+/// [`install_mode_owner`] for an owner whose authored state is read from a
+/// system parameter `P` at the spawn: a game's tuning as its App selected it,
+/// so an owner built after a content reload starts from the reloaded values.
+pub fn install_mode_owner_with<P: bevy::ecs::system::SystemParam + 'static, B: Bundle>(
+    app: &mut App,
+    scope: RulesScope,
+    mode: &'static str,
+    owner: impl Fn(&bevy::ecs::system::SystemParamItem<P>) -> B + Send + Sync + 'static,
+) {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt as _,
     };
@@ -355,7 +367,8 @@ pub fn install_mode_owner<B: Bundle>(
     let identity = SimId::singleton("mode_owner", mode);
     let spawn_owner = move |mut commands: Commands,
                             owners: Query<&SimId, With<ModeScopedEntity>>,
-                            session: Option<Res<ActiveSessionScope>>| {
+                            session: Option<Res<ActiveSessionScope>>,
+                            authored: bevy::ecs::system::StaticSystemParam<P>| {
         let session_live = session.as_ref().is_none_or(|scope| scope.current().is_some());
         if !session_live || owners.iter().any(|existing| *existing == identity) {
             return;
@@ -363,7 +376,7 @@ pub fn install_mode_owner<B: Bundle>(
         let spawn_scope = session
             .as_ref()
             .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
-        commands.spawn_mode_owner(spawn_scope, mode, owner());
+        commands.spawn_mode_owner(spawn_scope, mode, owner(&authored));
     };
     app.init_resource::<ModeScopes>();
     app.world_mut().resource_mut::<ModeScopes>().declare(mode, scope);

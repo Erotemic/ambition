@@ -43,7 +43,7 @@ fn the_pose_on_the_swap_tick_is_pending_and_settles_on_the_tall_body() {
     app.world_mut()
         .entity_mut(player)
         .insert(WornEquipment::new(vec![
-            ambition_demo_mary_o::powerups::star_wand(),
+            ambition_demo_mary_o::powerups::star_wand(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared())),
         ]));
     app.update();
     let (swap_id, swap_geometry, swap_base, swap_offset) = read(&app);

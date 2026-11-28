@@ -134,7 +134,7 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster([args.whiffer.as_str(), args.cpu.as_str()]);
+    let mut roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [args.whiffer.as_str(), args.cpu.as_str()]);
     if let Some(cpu) = roster.participants.get_mut(1) {
         cpu.controller = ambition_platformer2d::versus_match::ControllerBinding::Cpu {
             brain_profile: Some(format!("{}_l{}", ambition_demo_smash::SMASH_DUELIST_BRAIN, args.level)),

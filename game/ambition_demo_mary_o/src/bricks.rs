@@ -133,7 +133,12 @@ pub fn break_bricks(
     // the live room of the body that struck it, and the shards are drawn
     // there.
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     // Two bodies can strike one brick in one tick. The first breaks it, so the
     // order decides which strike draws the shards, and a rewind must give the
     // same order: stable `SimId`, not query order.
@@ -149,19 +154,18 @@ pub fn break_bricks(
         // fire.
         // Eternal Cosmic Mary-O breaks a brick whatever her equipment is.
         let cosmic = character.is_some_and(|character| crate::cosmic::is_cosmic(character.id()));
-        if crate::powerups::is_small(worn) && !cosmic {
+        if crate::powerups::is_small(forms, worn) && !cosmic {
             continue;
         }
         let (Some(room), Some(room_geometry)) = (geometry.room_of(striker), geometry.of(striker)) else {
             continue;
         };
-        break_bricks_struck_by(frame, room, room_geometry, &mut broken, &mut vfx, &mut sfx);
+        break_bricks_struck_by(rules, frame, room, room_geometry, &mut broken, &mut vfx, &mut sfx);
     }
 }
 
 /// The bricks one body's head contacts break in its live room `room`.
-fn break_bricks_struck_by(
-    frame: &BodyFrameOutput,
+fn break_bricks_struck_by(rules: &crate::rules::MaryORules, frame: &BodyFrameOutput,
     room: LiveRoomInstance,
     room_geometry: &ae::RoomGeometry,
     broken: &mut BrokenBricks,
@@ -192,7 +196,7 @@ fn break_bricks_struck_by(
             // A fresh break shatters into brick-red shards through the engine's
             // shared particle seam — the same `VfxMessage::Burst` the snake squash
             // pops, so a brick reads as breaking with no bespoke vfx.
-            vfx.for_room(Some(room)).write(crate::rules::mary_o_rules().effects.brick_break.at(center));
+            vfx.for_room(Some(room)).write(rules.effects.brick_break.at(center));
             // ...and cracks, through the engine's shared cue seam. PLACEHOLDER
             // TIMBRE: this reuses the existing `Hit` cue rather than inventing a
             // brick-specific one, and the provider synthesizes it as a short noisy
@@ -250,7 +254,10 @@ pub fn drop_planks_when_the_goal_is_taken(
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
     tick: Option<Res<ambition_platformer2d::time::SimTick>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     let Ok(sequence) = sequences.single() else {
         return;
     };
@@ -275,7 +282,7 @@ pub fn drop_planks_when_the_goal_is_taken(
     let how_many = match (sequence.driven, tick.as_ref()) {
         (Some(at), Some(tick)) => {
             planks.sort_by(|a, b| (a.1.x - at.x).abs().total_cmp(&(b.1.x - at.x).abs()));
-            usize::from(tick.get() % crate::rules::mary_o_rules().plank_ticks == 0)
+            usize::from(tick.get() % rules.plank_ticks == 0)
         }
         _ => planks.len(),
     };
@@ -283,7 +290,7 @@ pub fn drop_planks_when_the_goal_is_taken(
         if !broken.mark(room, &name) {
             continue;
         }
-        let effects = &crate::rules::mary_o_rules().effects;
+        let effects = &rules.effects;
         vfx.for_room(Some(room)).write(effects.plank_break.at(center));
         explosions.write(
             ambition_platformer2d::vfx::FxRequest::classic(Some(room), center)
@@ -351,7 +358,7 @@ mod tests {
     /// level used the feature it was written to support. The filter mirrors
     /// `break_bricks`'s own predicate so the fixture cannot drift from it again.
     fn two_authored_bricks() -> (String, String) {
-        let room = crate::level_1_1();
+        let room = crate::level_1_1(&crate::rules::shipped_rules());
         let mut names: Vec<String> = room
             .world
             .blocks
@@ -372,7 +379,7 @@ mod tests {
     }
 
     fn authored_brick_id(name: &str) -> ae::GeoId {
-        crate::level_1_1()
+        crate::level_1_1(&crate::rules::shipped_rules())
             .world
             .blocks
             .iter()
@@ -392,7 +399,7 @@ mod tests {
     /// still be caught here, and `only_a_tall_or_fire_mary_o_breaks_a_brick`
     /// covers the fire side explicitly.
     fn tall() -> WornEquipment {
-        WornEquipment::new(vec![crate::powerups::star_wand()])
+        WornEquipment::new(vec![crate::powerups::star_wand(&crate::forms::shipped_forms())])
     }
 
     fn head_bonk_frame(id: ae::GeoId) -> BodyFrameOutput {
@@ -427,7 +434,7 @@ mod tests {
         // empty world rather than a test about bricks.
         ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
             app.world_mut(),
-            ae::RoomGeometry(crate::level_1_1().world.clone()),
+            ae::RoomGeometry(crate::level_1_1(&crate::rules::shipped_rules()).world.clone()),
         );
         app.add_systems(Update, break_bricks);
         app
@@ -482,8 +489,8 @@ mod tests {
         let id = authored_brick_id(&struck);
         app.world_mut().spawn((PlayerEntity, head_bonk_frame(id), tall()));
         app.update();
-        let block = crate::level_1_1().world.blocks.iter().find(|block| block.name == struck).expect("the struck brick").aabb;
-        let stated = crate::rules::burst_shape(&crate::rules::mary_o_rules().effects.brick_break.at((block.min + block.max) * 0.5));
+        let block = crate::level_1_1(&crate::rules::shipped_rules()).world.blocks.iter().find(|block| block.name == struck).expect("the struck brick").aabb;
+        let stated = crate::rules::burst_shape(&crate::rules::shipped_rules().effects.brick_break.at((block.min + block.max) * 0.5));
         let played: Vec<_> = app
             .world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::VfxInRoom>>()
@@ -611,12 +618,12 @@ mod tests {
              row at all, which is exactly what being small IS"
         );
         assert!(
-            strike(Some(WornEquipment::new(vec![star_wand()]))),
+            strike(Some(WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms())]))),
             "TALL Mary-O (the star wand) must still break `{brick}` — without \
              this the gate above is satisfied by a system that broke nothing"
         );
         assert!(
-            strike(Some(WornEquipment::new(vec![cinder_beacon()]))),
+            strike(Some(WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]))),
             "FIRE Mary-O (the cinder beacon) must still break `{brick}`. The \
              beacon is worn ALONE here: it is the top of the ladder and does \
              not imply the wand, so a gate that only asked `wears(STAR_WAND)` \
@@ -646,7 +653,7 @@ mod tests {
     /// END TO END: a broken brick is gone from the world a sweep reads.
     #[test]
     fn a_broken_brick_leaves_the_collision_world_the_body_reads() {
-        let room = crate::level_1_1();
+        let room = crate::level_1_1(&crate::rules::shipped_rules());
         let mut overlay = FeatureEcsWorldOverlay::default();
         let bricks: Vec<String> = room
             .world
@@ -765,7 +772,7 @@ mod tests {
         spawn_live_room(
             app.world_mut(),
             bob,
-            ae::RoomGeometry(crate::level_1_1().world.clone()),
+            ae::RoomGeometry(crate::level_1_1(&crate::rules::shipped_rules()).world.clone()),
         );
         app.world_mut().spawn((
             PlayerEntity,
@@ -799,7 +806,7 @@ mod tests {
         spawn_live_room(
             app.world_mut(),
             bob,
-            ae::RoomGeometry(crate::level_1_1().world.clone()),
+            ae::RoomGeometry(crate::level_1_1(&crate::rules::shipped_rules()).world.clone()),
         );
         app.world_mut().spawn((
             PlayerEntity,

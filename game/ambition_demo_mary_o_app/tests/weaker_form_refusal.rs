@@ -168,7 +168,7 @@ fn item_of(app: &mut App, entity: Entity) -> Option<Vec2> {
 /// quasar is not on the form ladder at all, so bonking one would pay a pocket
 /// quasar and level her nowhere.
 fn laddered_blocks() -> Vec<ae::world::Block> {
-    let room = ambition_demo_mary_o::level_1_1();
+    let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     let mut blocks: Vec<ae::world::Block> = room
         .world
         .blocks

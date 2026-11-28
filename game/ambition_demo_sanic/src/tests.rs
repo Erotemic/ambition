@@ -63,7 +63,7 @@ fn enter_room(app: &mut App, room: ambition_platformer2d::world::rooms::RoomSpec
 
 /// The speedway's first distance marker, read from the file that authors it.
 fn first_speedway_marker(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> f32 {
-    distance_markers(&sanic_speedway(&sprite_content))[0]
+    distance_markers(&sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content))[0]
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn super_form_edge_does_not_leak_across_sessions() {
 #[test]
 fn sanic_speedway_composes_through_the_umbrella() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     assert_eq!(room.id, SPEEDWAY_ROOM_ID);
 
     // The LDtk-authored course made it into the world: the painted ground and
@@ -239,7 +239,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
     assert!(
         room.debug_labels
             .iter()
-            .any(|label| label.payload.text == crate::text::sanic_text().line("sign.loop")),
+            .any(|label| label.payload.text == crate::text::sanic_text_of(crate::pack::PACK.prepared()).line("sign.loop")),
         "the speedway labels its major features in world space"
     );
     assert!(
@@ -551,7 +551,7 @@ impl MomentumRig {
 #[test]
 fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let chain = room
         .world
         .chains
@@ -606,7 +606,7 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
 #[test]
 fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let chain = room
         .world
         .chains
@@ -666,7 +666,7 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
             ..Default::default()
         },
     ));
-    enter_room(&mut app, sanic_speedway(&sprite_content));
+    enter_room(&mut app, sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content));
     app.world_mut().spawn(SanicActState::default());
     app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
 
@@ -693,7 +693,7 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
 #[test]
 fn the_speedway_authors_its_distance_markers_once() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let markers = distance_markers(&room);
     assert_eq!(markers, vec![808.0, 1608.0, 2600.0, 3608.0, 5000.0]);
     let texts: Vec<&str> = room
@@ -724,7 +724,7 @@ fn the_speedway_start_sign_is_the_world_files_label() {
         .filter_map(|entity| field(entity, "text"))
         .collect();
     assert_eq!(authored.len(), 1, "the file authors one start sign: {authored:?}");
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let signs: Vec<(&str, &str)> = room
         .debug_labels
         .iter()
@@ -749,7 +749,7 @@ fn an_act_without_markers_sounds_no_milestone() {
             ..Default::default()
         },
     ));
-    let highway = sanic_highway(&sprite_content);
+    let highway = sanic_highway(&crate::pack::PACK.prepared(), &sprite_content);
     assert!(distance_markers(&highway).is_empty(), "the premise: Act 2 authors no markers");
     enter_room(&mut app, highway);
     app.world_mut().spawn(SanicActState::default());
@@ -940,7 +940,7 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
             ..Default::default()
         },
     ));
-    enter_room(&mut app, sanic_speedway(&sprite_content));
+    enter_room(&mut app, sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content));
     app.world_mut().spawn(SanicActState::default());
     app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
     app.update();
@@ -1042,7 +1042,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
     use ambition_platformer2d::runtime::in_mode;
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
 
     let mut app = App::new();
@@ -1074,7 +1074,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
 #[test]
 fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let chain = room
         .world
         .chains
@@ -1150,7 +1150,7 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
 #[test]
 fn floor_route_steering_enters_the_ramp_without_jumping() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let floor_index = floor_chain_at(&room.world, WEST_FLOOR_X);
     let floor = &room.world.chains[floor_index];
     // The ramp-fork junction vertex is located by position: the hills give the
@@ -1211,7 +1211,7 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
 #[test]
 fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let chain = room
         .world
         .chains
@@ -1312,20 +1312,20 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
 #[test]
 fn rev_tier_climbs_with_charge() {
     // Each tier starts at the charge the rules' `spin_dash.rev_tiers` state.
-    let [second, third] = crate::ball_dash::spin_dash_tuning().rev_tiers;
-    assert_eq!(rev_tier_id(0.0), SFX_REV_TIERS[0]);
-    assert_eq!(rev_tier_id(second - 0.01), SFX_REV_TIERS[0]);
-    assert_eq!(rev_tier_id(second), SFX_REV_TIERS[1]);
-    assert_eq!(rev_tier_id(third - 0.01), SFX_REV_TIERS[1]);
-    assert_eq!(rev_tier_id(third), SFX_REV_TIERS[2]);
-    assert_eq!(rev_tier_id(1.0), SFX_REV_TIERS[2]);
+    let [second, third] = crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()).rev_tiers;
+    assert_eq!(rev_tier_id(&crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()), 0.0), SFX_REV_TIERS[0]);
+    assert_eq!(rev_tier_id(&crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()), second - 0.01), SFX_REV_TIERS[0]);
+    assert_eq!(rev_tier_id(&crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()), second), SFX_REV_TIERS[1]);
+    assert_eq!(rev_tier_id(&crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()), third - 0.01), SFX_REV_TIERS[1]);
+    assert_eq!(rev_tier_id(&crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()), third), SFX_REV_TIERS[2]);
+    assert_eq!(rev_tier_id(&crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()), 1.0), SFX_REV_TIERS[2]);
     // Monotonic: never steps down as charge rises.
     let mut prev = 0usize;
     let mut c = 0.0;
     while c <= 1.0 {
         let tier = SFX_REV_TIERS
             .iter()
-            .position(|id| *id == rev_tier_id(c))
+            .position(|id| *id == rev_tier_id(&crate::ball_dash::spin_dash_tuning_of(crate::pack::PACK.prepared()), c))
             .unwrap();
         assert!(tier >= prev, "rev tier must not decrease with charge");
         prev = tier;
@@ -1377,7 +1377,7 @@ fn the_speedway_authors_a_field_of_collectible_rings() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::entity_catalog::PickupKind;
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let rings = room
         .placements
         .iter()
@@ -1424,7 +1424,7 @@ fn the_ring_collect_cue_is_the_shared_currency_pickup_id() {
 fn the_speedway_tags_every_ring_with_the_animated_sprite() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let rings: Vec<_> = room
         .placements
         .iter()
@@ -1450,17 +1450,17 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
 #[test]
 fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_highway(&sprite_content);
+    let room = sanic_highway(&crate::pack::PACK.prepared(), &sprite_content);
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
     assert_eq!(
         room.metadata.music_track.as_deref(),
         Some(HIGHWAY_MUSIC_TRACK)
     );
     assert!(
-        room.world.size.x > 2.0 * sanic_speedway(&sprite_content).world.size.x,
+        room.world.size.x > 2.0 * sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content).world.size.x,
         "Act 2 is the bigger course: {} wide against the speedway's {}",
         room.world.size.x,
-        sanic_speedway(&sprite_content).world.size.x
+        sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content).world.size.x
     );
     // Each loop attaches to the PAINTED floor under it: loops A and D to the
     // ground (`terrain:`), loop B to the sky bridge (`track:`).
@@ -1506,7 +1506,7 @@ fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
 #[test]
 fn the_highway_rolls_climbs_and_drops() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_highway(&sprite_content);
+    let room = sanic_highway(&crate::pack::PACK.prepared(), &sprite_content);
     let ground: Vec<&ae::SurfaceChain> = room
         .world
         .chains
@@ -1536,21 +1536,21 @@ fn the_highway_rolls_climbs_and_drops() {
 fn the_three_acts_form_one_course() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     assert_eq!(
-        sanic_speedway(&sprite_content).metadata.next_room.as_deref(),
+        sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content).metadata.next_room.as_deref(),
         Some(HIGHWAY_ROOM_ID),
         "the speedway's goal leads to Act 2"
     );
     assert_eq!(
-        sanic_highway(&sprite_content).metadata.next_room.as_deref(),
+        sanic_highway(&crate::pack::PACK.prepared(), &sprite_content).metadata.next_room.as_deref(),
         Some(DARKNESS_ROOM_ID),
         "the highway's goal leads to Act 3"
     );
     assert_eq!(
-        sanic_darkness(&sprite_content).metadata.next_room.as_deref(),
+        sanic_darkness(&crate::pack::PACK.prepared(), &sprite_content).metadata.next_room.as_deref(),
         Some(SPEEDWAY_ROOM_ID),
         "Act 3's goal leads back to Act 1"
     );
-    let rooms = provider::sanic_session_world(&sprite_content).room_set;
+    let rooms = provider::sanic_session_world(&crate::pack::PACK.prepared(), &sprite_content).room_set;
     for id in [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID, DARKNESS_ROOM_ID] {
         assert!(
             rooms.rooms.iter().any(|room| room.id == id),
@@ -1566,11 +1566,11 @@ fn the_three_acts_form_one_course() {
 fn each_act_says_its_mode_and_look_in_its_world_file() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let acts = [
-        (sanic_speedway(&sprite_content), &world_text(&SPEEDWAY_WORLD), SPEEDWAY_ROOM_ID, "skybridge", "skybridge",
+        (sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content), &world_text(&SPEEDWAY_WORLD), SPEEDWAY_ROOM_ID, "skybridge", "skybridge",
         ),
-        (sanic_highway(&sprite_content), &world_text(&HIGHWAY_WORLD), HIGHWAY_ROOM_ID, "cove", "cove",
+        (sanic_highway(&crate::pack::PACK.prepared(), &sprite_content), &world_text(&HIGHWAY_WORLD), HIGHWAY_ROOM_ID, "cove", "cove",
         ),
-        (sanic_darkness(&sprite_content), &world_text(&DARKNESS_WORLD), DARKNESS_ROOM_ID, "basement", "eclipse",
+        (sanic_darkness(&crate::pack::PACK.prepared(), &sprite_content), &world_text(&DARKNESS_WORLD), DARKNESS_ROOM_ID, "basement", "eclipse",
         ),
     ];
     for (room, world, id, biome, theme) in acts {
@@ -1598,13 +1598,13 @@ fn the_dark_act_has_three_portal_pairs_and_room_to_run() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 
-    let room = sanic_darkness(&sprite_content);
+    let room = sanic_darkness(&crate::pack::PACK.prepared(), &sprite_content);
     assert_eq!(
         room.metadata.music_track.as_deref(),
         Some(DARKNESS_MUSIC_TRACK)
     );
-    assert!(room.world.size.x >= 2.0 * sanic_highway(&sprite_content).world.size.x);
-    assert!(room.world.size.y > sanic_highway(&sprite_content).world.size.y);
+    assert!(room.world.size.x >= 2.0 * sanic_highway(&crate::pack::PACK.prepared(), &sprite_content).world.size.x);
+    assert!(room.world.size.y > sanic_highway(&crate::pack::PACK.prepared(), &sprite_content).world.size.y);
     let portals: Vec<_> = room
         .placements
         .iter()
@@ -1653,7 +1653,7 @@ fn the_highway_score_is_a_track_the_sanic_catalog_carries() {
 #[test]
 fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_highway(&sprite_content);
+    let room = sanic_highway(&crate::pack::PACK.prepared(), &sprite_content);
     let sizes: Vec<_> = room
         .placements
         .iter()
@@ -1668,14 +1668,14 @@ fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
     assert!(sizes
         .iter()
         .all(|size| {
-        (*size - ae::Vec2::splat(crate::rules::sanic_rules().ring_loss.ring_size)).abs().max_element() < 0.01
+        (*size - ae::Vec2::splat(crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.ring_size)).abs().max_element() < 0.01
     }));
 }
 
 #[test]
 fn every_ring_the_speedway_places_is_the_size_a_hit_scatters() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let room = sanic_speedway(&sprite_content);
+    let room = sanic_speedway(&crate::pack::PACK.prepared(), &sprite_content);
     let sizes: Vec<_> = room
         .placements
         .iter()
@@ -1687,7 +1687,7 @@ fn every_ring_the_speedway_places_is_the_size_a_hit_scatters() {
         "the premise: a field of rings; got {}",
         sizes.len()
     );
-    let scattered = crate::rules::sanic_rules().ring_loss.ring_size;
+    let scattered = crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.ring_size;
     for size in sizes {
         assert!(
             (size - ae::Vec2::splat(scattered)).abs().max_element() < 0.01,
@@ -1788,7 +1788,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     );
     // Each is the size the rules state (`ring_loss.ring_size`), which is the
     // size the levels place a ring at.
-    let ring_size = crate::rules::sanic_rules().ring_loss.ring_size;
+    let ring_size = crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.ring_size;
     let mut sizes = app
         .world_mut()
         .query_filtered::<&ae::CenteredAabb, bevy::prelude::With<crate::ScatteredRing>>();
@@ -1844,7 +1844,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
 
     // The sparkle is the rules file's row (`effects.ring_loss`), at the
     // rings' own launch speed.
-    let rules = crate::rules::sanic_rules();
+    let rules = crate::rules::sanic_rules_of(crate::pack::PACK.prepared());
     let played: Vec<_> = app
         .world()
         .resource::<bevy::prelude::Messages<ambition_platformer2d::vfx::VfxInRoom>>()
@@ -1864,11 +1864,11 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     assert_eq!(bursts.len(), 6, "all six lost rings burst outward");
     for r in &bursts {
         assert!(
-            r.vel.length() >= crate::rules::sanic_rules().ring_loss.burst_speed - 0.01,
+            r.vel.length() >= crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.burst_speed - 0.01,
             "the outer shell launches at the full burst speed, got {}",
             r.vel.length()
         );
-        assert_eq!(r.life, crate::rules::sanic_rules().ring_loss.life_seconds, "each ring starts its clock");
+        assert_eq!(r.life, crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.life_seconds, "each ring starts its clock");
     }
 
     // Radial, not a fan: every quadrant gets a ring, and the velocities sum to
@@ -1889,7 +1889,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     }
     let net: ae::Vec2 = bursts.iter().fold(ae::Vec2::ZERO, |acc, r| acc + r.vel);
     assert!(
-        net.length() < crate::rules::sanic_rules().ring_loss.burst_speed * 0.1,
+        net.length() < crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.burst_speed * 0.1,
         "an even radial spray has (almost) no net direction; got {net:?}"
     );
 
@@ -1982,8 +1982,8 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
             crate::ScatteredRing {
                 // Straight down, fast, from just above the floor.
                 vel: ae::Vec2::new(0.0, 400.0),
-                lock: crate::rules::sanic_rules().ring_loss.lock_seconds,
-                life: crate::rules::sanic_rules().ring_loss.life_seconds,
+                lock: crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.lock_seconds,
+                life: crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.life_seconds,
             },
             ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(400.0, floor_y - 40.0),
@@ -2048,8 +2048,8 @@ fn each_scattered_ring_bounces_off_the_floor_of_its_own_live_room() {
             .spawn((
                 crate::ScatteredRing {
                     vel: ae::Vec2::new(0.0, 400.0),
-                    lock: crate::rules::sanic_rules().ring_loss.lock_seconds,
-                    life: crate::rules::sanic_rules().ring_loss.life_seconds,
+                    lock: crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.lock_seconds,
+                    life: crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.life_seconds,
                 },
                 ae::CenteredAabb::from_center_size(
                     ae::Vec2::new(400.0, floor_y - 40.0),
@@ -2319,8 +2319,8 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
     use crate::{act_score, act_time_text};
 
     // Faster is worth more, all else equal.
-    let quick = act_score(20.0, 0);
-    let slow = act_score(50.0, 0);
+    let quick = act_score(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), 20.0, 0);
+    let slow = act_score(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), 50.0, 0);
     assert!(
         quick > slow,
         "a faster run must score higher ({quick} vs {slow}) — this is the whole \
@@ -2330,16 +2330,16 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
     // Rings kept are worth something, all else equal. The fast line usually
     // costs rings, so the two terms must pull against each other.
     assert!(
-        act_score(20.0, 30) > act_score(20.0, 0),
+        act_score(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), 20.0, 30) > act_score(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), 20.0, 0),
         "rings you finish holding must be worth keeping"
     );
 
     // Past par the time bonus floors at zero; a slow run does not owe back
     // its ring bonus.
-    let past_par = act_score(crate::rules::sanic_rules().act.par_seconds + 30.0, 10);
+    let past_par = act_score(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).act.par_seconds + 30.0, 10);
     assert_eq!(
         past_par,
-        act_score(crate::rules::sanic_rules().act.par_seconds, 10),
+        act_score(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).act.par_seconds, 10),
         "the time bonus clamps at par rather than turning negative"
     );
     assert!(past_par > 0, "and a slow run still keeps its ring bonus");
@@ -2360,13 +2360,13 @@ fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
         .map(|i| {
             let t = (i as f32 + 0.5) / 6.0;
             let angle = std::f32::consts::TAU * t;
-            let vel = ae::Vec2::new(angle.cos(), angle.sin()) * crate::rules::sanic_rules().ring_loss.burst_speed;
+            let vel = ae::Vec2::new(angle.cos(), angle.sin()) * crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.burst_speed;
             app.world_mut()
                 .spawn((
                     crate::ScatteredRing {
                         vel,
-                        lock: crate::rules::sanic_rules().ring_loss.lock_seconds,
-                        life: crate::rules::sanic_rules().ring_loss.life_seconds,
+                        lock: crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.lock_seconds,
+                        life: crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.life_seconds,
                     },
                     ae::CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::splat(18.0)),
                 ))
@@ -2451,7 +2451,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
         .expect("Sanic keeps his combat state")
         .damage_invuln_timer;
     assert!(
-        armed >= crate::rules::sanic_rules().ring_loss.invulnerable_seconds,
+        armed >= crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.invulnerable_seconds,
         "losing the purse left only {armed}s of recovery — the rings have not \
          even landed yet, and the badnik that hit him is still touching him"
     );
@@ -2461,7 +2461,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     app.world_mut()
         .get_mut::<BodyCombat>(sanic)
         .expect("still there")
-        .damage_invuln_timer = crate::rules::sanic_rules().ring_loss.invulnerable_seconds + 5.0;
+        .damage_invuln_timer = crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.invulnerable_seconds + 5.0;
     emit_ring_shield_spend(&mut app, sanic, 1);
     app.update();
     let after = app
@@ -2470,7 +2470,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
         .expect("still there")
         .damage_invuln_timer;
     assert!(
-        after >= crate::rules::sanic_rules().ring_loss.invulnerable_seconds + 5.0,
+        after >= crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).ring_loss.invulnerable_seconds + 5.0,
         "a longer window already running was CUT SHORT to {after}s by a later \
          ring loss"
     );
@@ -2516,7 +2516,7 @@ fn the_utility_button_reads_transform_and_never_fly() {
 #[test]
 fn every_painted_joint_can_be_ridden_past() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    for room in [crate::sanic_darkness(&sprite_content), crate::sanic_highway(&sprite_content)] {
+    for room in [crate::sanic_darkness(&crate::pack::PACK.prepared(), &sprite_content), crate::sanic_highway(&crate::pack::PACK.prepared(), &sprite_content)] {
         for chain in room.world.chains.iter().filter(|c| c.name.starts_with("terrain:")) {
             for v in 1..chain.segment_count() {
                 let arc = chain.arc_at_vertex(v);
@@ -2665,14 +2665,14 @@ fn the_act_clock_counts_hundredths_and_each_act_has_a_title() {
     let numbers: Vec<u8> = [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID, DARKNESS_ROOM_ID]
         .into_iter()
         .map(|room| {
-            act_title(room).unwrap_or_else(|| panic!("`{room}` has no title")).1
+            act_title(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), room).unwrap_or_else(|| panic!("`{room}` has no title")).1
         })
         .collect();
     assert_eq!(numbers, [1, 2, 3]);
-    assert_eq!(act_title("somewhere_else"), None);
+    assert_eq!(act_title(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), "somewhere_else"), None);
     // Each card shows the name the rules' `acts` give its room.
-    for (index, act) in crate::rules::sanic_rules().acts.iter().enumerate() {
-        assert_eq!(act_title(&act.room), Some((act.title.clone(), index as u8 + 1)), "the card of `{}` is not the rules'", act.room);
+    for (index, act) in crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).acts.iter().enumerate() {
+        assert_eq!(act_title(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()), &act.room), Some((act.title.clone(), index as u8 + 1)), "the card of `{}` is not the rules'", act.room);
     }
 }
 
@@ -2698,8 +2698,8 @@ fn every_schema_of_the_pack_reloads_between_sessions() {
 /// file: its length and its slow-down.
 #[test]
 fn the_super_form_beat_is_the_rules_file() {
-    let form = crate::rules::sanic_rules().super_form;
-    let beat = crate::super_form_beat();
+    let form = crate::rules::sanic_rules_of(crate::pack::PACK.prepared()).super_form;
+    let beat = crate::super_form_beat(&crate::rules::sanic_rules_of(crate::pack::PACK.prepared()));
     assert_eq!(beat.duration, form.beat_seconds, "the beat is not the rules' `super_form.beat_seconds`");
     assert_eq!(beat.clock_scale, form.beat_clock_scale, "the beat is not the rules' `super_form.beat_clock_scale`");
     assert!(beat.untouchable, "he can be hit while he transforms");

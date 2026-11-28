@@ -37,7 +37,7 @@ fn mary_o_enemies(app: &mut App) -> Vec<(String, bool)> {
 /// Compare against authored placements rather than a literal count so level edits remain valid.
 #[test]
 fn each_authored_enemy_placement_builds_exactly_one_actor() {
-    let authored: Vec<String> = ambition_demo_mary_o::level_1_1()
+    let authored: Vec<String> = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()))
         .enemy_spawns
         .iter()
         .map(|spawn| spawn.id.clone())
@@ -227,7 +227,7 @@ fn authored_enemy_starts_do_not_overlap_their_constructed_bodies() {
     use ambition_platformer2d::engine_core::{Aabb, AabbExt};
     use ambition_platformer2d::platformer::body::SpawnBaseline;
     let mut overlaps = Vec::new();
-    for room in ambition_demo_mary_o::authored_levels() {
+    for room in ambition_demo_mary_o::authored_levels(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared())) {
         if room.enemy_spawns.is_empty() { continue; }
         let mut app = ambition_demo_mary_o_app::build_demo_app();
         app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(room.id.clone()));

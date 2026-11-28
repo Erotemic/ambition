@@ -20,7 +20,7 @@ fn a_live_stage() -> App {
     for _ in 0..30 {
         app.update();
     }
-    let roster = ambition_demo_smash::smash_roster(characters);
+    let roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters);
     let countdown = roster.rules.opening_countdown_ticks;
     app.world_mut().insert_resource(roster);
     app.world_mut().write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(

@@ -43,7 +43,7 @@ fn the_first_frames() -> (usize, Vec<(String, f32)>) {
 
 #[test]
 fn no_enemy_of_1_1_falls_when_the_level_starts() {
-    let authored = ambition_demo_mary_o::level_1_1().enemy_spawns.len();
+    let authored = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared())).enemy_spawns.len();
     let (_, fell) = the_first_frames();
     assert!(
         fell.len() >= authored && authored > 0,
@@ -66,7 +66,7 @@ fn no_enemy_of_1_1_falls_when_the_level_starts() {
 fn each_enemy_of_1_1_starts_with_its_feet_on_a_surface() {
     use ae::AabbExt;
 
-    let room = ambition_demo_mary_o::level_1_1();
+    let room = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     let mut app = ambition_demo_mary_o_app::build_demo_app();
     // The frames in which the session is published and its room is built.
     let mut bodies = Vec::new();

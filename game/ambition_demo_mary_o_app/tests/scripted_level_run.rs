@@ -305,7 +305,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // the run went green here and failed three beats later in a room where `vault_exit()` and
     // `goal_pole()` mean nothing — which read as a broken return pipe and was nothing of the kind.
     let before = wallet(&mut app);
-    let surface = ambition_demo_mary_o::level_1_1();
+    let surface = ambition_demo_mary_o::level_1_1(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()));
     let far_wall = surface
         .world
         .blocks
@@ -371,7 +371,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     for _ in 0..600 {
         step(&mut app, hold_right());
         let (_, _, remaining) = level(&mut app);
-        if (remaining - ambition_demo_mary_o::rules::mary_o_rules().level.starting_time).abs() < 0.001 {
+        if (remaining - ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).level.starting_time).abs() < 0.001 {
             // The clock refilled: the tally settled and the level cycled.
             return;
         }

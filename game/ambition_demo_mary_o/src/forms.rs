@@ -248,9 +248,21 @@ pub fn mary_o_forms_schema() -> SchemaRegistration {
     )
 }
 
-/// Her power ladder, as the demo's pack states it (`data/mary_o_forms.ron`).
-pub fn mary_o_forms() -> ambition_platformer2d::content::PackRow<MaryOForms> {
-    crate::pack::PACK.prepared().row(mary_o_forms_in)
+/// Her power ladder, as this App selected the demo's pack
+/// (`data/mary_o_forms.ron`).
+pub fn mary_o_forms(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<MaryOForms> {
+    mary_o_forms_of(packs.of(&crate::pack::PACK))
+}
+
+/// [`mary_o_forms`] in `generation`.
+pub fn mary_o_forms_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<MaryOForms> {
+    generation.row(mary_o_forms_in)
+}
+
+/// The shipped file's ladder: what a test of the demo's own forms reads.
+#[cfg(test)]
+pub(crate) fn shipped_forms() -> ambition_platformer2d::content::PackRow<MaryOForms> {
+    mary_o_forms_of(crate::pack::PACK.prepared())
 }
 
 /// [`mary_o_forms`] in `pack`.
@@ -362,7 +374,7 @@ mod tests {
         };
 
         let file = forms_of(&authored);
-        assert_eq!(&file, &*mary_o_forms(), "the demo plays the file");
+        assert_eq!(&file, &*crate::forms::shipped_forms(), "the demo plays the file");
         assert_eq!(spark(&file).damage, 4);
 
         let damage = "damage: 4,";

@@ -478,14 +478,14 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
 
     assert_eq!(
         *app.world().resource::<SmashStageOffer>(),
-        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID)),
+        SmashStageOffer::Stage(SmashStageChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), ambition_demo_smash::SMASH_STAGE_ROOM_ID)),
         "the default is the stage every recorded measurement was taken on"
     );
 
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageOffer>(),
-        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_PLATFORM_STAGE_ROOM_ID)),
+        SmashStageOffer::Stage(SmashStageChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), ambition_demo_smash::SMASH_PLATFORM_STAGE_ROOM_ID)),
         "pressing the stage button did not change the stage"
     );
 
@@ -502,7 +502,7 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageOffer>(),
-        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_NARROW_STAGE_ROOM_ID)),
+        SmashStageOffer::Stage(SmashStageChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), ambition_demo_smash::SMASH_NARROW_STAGE_ROOM_ID)),
         "the third stage is not reachable from the button"
     );
     click(&mut app, 0, layout.stage_button());
@@ -511,7 +511,7 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageOffer>(),
-        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID)),
+        SmashStageOffer::Stage(SmashStageChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), ambition_demo_smash::SMASH_STAGE_ROOM_ID)),
         "the stage cycle does not return to its start"
     );
 }
@@ -527,7 +527,7 @@ fn a_random_stage_resolves_from_the_agreed_seed_at_start() {
     plug_in(&mut app, 2);
     app.update();
     let layout = layout(&app);
-    let stages = SmashStageChoice::all().len();
+    let stages = SmashStageChoice::all(&ambition_demo_smash::smash_pack::PACK.prepared()).len();
     for _ in 0..stages {
         click(&mut app, 0, layout.stage_button());
     }
@@ -552,7 +552,7 @@ fn a_random_stage_resolves_from_the_agreed_seed_at_start() {
     );
     assert_eq!(
         *app.world().resource::<SmashStageChoice>(),
-        SmashStageOffer::Random.resolve(seed),
+        SmashStageOffer::Random.resolve(&ambition_demo_smash::smash_pack::PACK.prepared(), seed),
         "the match does not play the stage its seed draws"
     );
     assert_eq!(*app.world().resource::<SmashStageOffer>(), SmashStageOffer::Random, "START rewrote the button");
@@ -565,7 +565,7 @@ fn the_buttons_and_tokens_wear_the_files_colours() {
     let mut app = build_demo_app();
     plug_in(&mut app, 0);
     app.update();
-    let look = ambition_demo_smash::select_screen::select_look();
+    let look = ambition_demo_smash::select_screen::select_look(&ambition_demo_smash::smash_pack::PACK.prepared());
     let [r, g, b] = look.button;
     let fills: Vec<Color> = app
         .world_mut()
@@ -785,7 +785,7 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
 
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::of(3),
+        SmashStockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 3),
         "the default is the count every recorded ladder number was measured at"
     );
 
@@ -793,13 +793,13 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
     click(&mut app, 0, layout.stocks_button());
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::of(5),
+        SmashStockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 5),
         "pressing the stocks button did not change the count"
     );
     click(&mut app, 0, layout.stocks_button());
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::of(1),
+        SmashStockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 1),
         "the stocks button latched instead of cycling"
     );
     assert!(
@@ -813,12 +813,12 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
     click(&mut app, 1, layout.stocks_button());
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),
-        SmashStockChoice::of(3),
+        SmashStockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 3),
         "only seat zero could change the count — the player-one-centric shape"
     );
     click(&mut app, 1, layout.stocks_button());
     click(&mut app, 1, layout.stocks_button());
-    assert_eq!(*app.world().resource::<SmashStockChoice>(), SmashStockChoice::of(1));
+    assert_eq!(*app.world().resource::<SmashStockChoice>(), SmashStockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 1));
 
     // Seat the two players and start.
     click(&mut app, 0, layout.role_button(0));
@@ -863,12 +863,12 @@ fn the_clock_button_sets_the_clock_the_published_match_runs() {
 
     assert_eq!(
         *app.world().resource::<SmashClockChoice>(),
-        SmashClockChoice::of(480),
+        SmashClockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 480),
         "the default is match_rules.ron's eight minutes"
     );
     // The cycle wraps from the last clock to the first.
     click(&mut app, 0, layout.clock_button());
-    assert_eq!(*app.world().resource::<SmashClockChoice>(), SmashClockChoice::of(180));
+    assert_eq!(*app.world().resource::<SmashClockChoice>(), SmashClockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 180));
     assert!(
         clock_label_text(&mut app).contains("3:00"),
         "the button reads {:?} after the clock changed",
@@ -876,7 +876,7 @@ fn the_clock_button_sets_the_clock_the_published_match_runs() {
     );
     // Any seat can cycle it.
     click(&mut app, 1, layout.clock_button());
-    assert_eq!(*app.world().resource::<SmashClockChoice>(), SmashClockChoice::of(300));
+    assert_eq!(*app.world().resource::<SmashClockChoice>(), SmashClockChoice::of(&ambition_demo_smash::smash_pack::PACK.prepared(), 300));
 
     click(&mut app, 0, layout.role_button(0));
     click(&mut app, 1, layout.role_button(1));

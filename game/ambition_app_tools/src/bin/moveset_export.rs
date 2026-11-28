@@ -741,7 +741,7 @@ fn main() {
     let catalog = world
         .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
         .expect("the composed host has an assembled character catalog");
-    let grid = ambition_demo_smash::select::SmashRoster::assemble(registry);
+    let grid = ambition_demo_smash::select::SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     let on_grid: Vec<String> = grid.ids().map(|id| id.to_string()).collect();
     // The select screen resolves still portraits through this baked registry.
     // Build it once, not once per fighter.

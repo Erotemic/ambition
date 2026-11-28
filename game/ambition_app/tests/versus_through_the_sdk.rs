@@ -266,7 +266,7 @@ fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
 
     // One local player: seat 1 is the CPU, which is the default versus
     // experience and the one anybody with a single controller plays.
-    let roster = ambition_app::app::versus::versus_roster(1);
+    let roster = ambition_app::app::versus::versus_roster(&ambition_app::app::versus_fighters::PACK.prepared(), 1);
     let problems = roster.unsatisfiable_seats(Some(&profiles));
     assert!(
         problems.is_empty(),

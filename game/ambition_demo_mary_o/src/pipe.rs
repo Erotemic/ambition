@@ -112,8 +112,8 @@ impl PipeTransit {
     /// point of the near pipe's centre line. A mouth is wider than a body, so
     /// she can press into it off the line; a slide from there would go down
     /// the pipe's wall.
-    pub fn begin(at: ae::Vec2, mouth: ae::Vec2, arrival: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
-        let travel = axis * (crate::rules::mary_o_rules().pipe.travel_tiles * tile);
+    pub fn begin(rules: &crate::rules::MaryORules, at: ae::Vec2, mouth: ae::Vec2, arrival: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
+        let travel = axis * (rules.pipe.travel_tiles * tile);
         // Across the mouth only: the part of the way to `mouth` that is not
         // along the pipe.
         let to_mouth = mouth - at;
@@ -142,13 +142,13 @@ impl PipeTransit {
     /// Begin the transit into a pipe that goes to another level: the same step
     /// to the centre line and the same slide down, and no far pipe. She stays
     /// where the swallow ends.
-    pub fn begin_leaving(at: ae::Vec2, mouth: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
-        let swallowed = Self::begin(at, mouth, at, axis, tile).swallowed;
+    pub fn begin_leaving(rules: &crate::rules::MaryORules, at: ae::Vec2, mouth: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
+        let swallowed = Self::begin(rules, at, mouth, at, axis, tile).swallowed;
         Self {
             throat: swallowed,
             arrival: swallowed,
             leaves: true,
-            ..Self::begin(at, mouth, at, axis, tile)
+            ..Self::begin(rules, at, mouth, at, axis, tile)
         }
     }
 }
@@ -172,12 +172,12 @@ pub struct TransitEffects {
 /// The ease is smoothstep, so the body leaves the lip gently, moves fastest in
 /// the middle of the tube, and settles rather than stopping dead. A linear slide
 /// reads as a machine; this reads as being pulled through.
-pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
+pub fn step_pipe_transit(rules: &crate::rules::MaryORules, transit: PipeTransit, dt: f32) -> TransitEffects {
     let elapsed = transit.elapsed + dt;
     let duration = match transit.phase {
-        TransitPhase::Centering => crate::rules::mary_o_rules().pipe.center_seconds,
-        TransitPhase::Swallowing => crate::rules::mary_o_rules().pipe.swallow_seconds,
-        TransitPhase::Emerging => crate::rules::mary_o_rules().pipe.emerge_seconds,
+        TransitPhase::Centering => rules.pipe.center_seconds,
+        TransitPhase::Swallowing => rules.pipe.swallow_seconds,
+        TransitPhase::Emerging => rules.pipe.emerge_seconds,
         // No end of its own: the room she arrives in ends it.
         TransitPhase::Leaving => {
             return TransitEffects {
@@ -287,7 +287,10 @@ pub fn run_pipe_transits(
         ),
         With<PlayerEntity>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     let dt = world_time.sim_dt();
     for (entity, clusters, mut model, mut transit, mut control_holds, pose_holds, stamp) in &mut bodies {
         let here = stamp.map(|stamp| stamp.0);
@@ -300,7 +303,7 @@ pub fn run_pipe_transits(
             ae::release_pose_hold(&mut commands, entity, ae::PoseHold::Transit);
             continue;
         }
-        let fx = step_pipe_transit(*transit, dt);
+        let fx = step_pipe_transit(rules, *transit, dt);
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
         // Re-issued every tick, not once at the end: this is what keeps the body

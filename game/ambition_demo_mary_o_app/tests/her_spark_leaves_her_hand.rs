@@ -76,7 +76,7 @@ fn in_her_fire_form(mut app: App) -> (App, Entity) {
     for _ in 0..30 {
         step(&mut app, ControlFrame::default());
     }
-    app.world_mut().entity_mut(body).insert(WornEquipment::new(vec![cinder_beacon()]));
+    app.world_mut().entity_mut(body).insert(WornEquipment::new(vec![cinder_beacon(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared()))]));
     for _ in 0..30 {
         step(&mut app, ControlFrame::default());
     }

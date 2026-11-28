@@ -538,14 +538,15 @@ fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
-fn look_at_the_pack_sources(mut watches: ResMut<EmbeddedPackWatches>) {
+fn look_at_the_pack_sources(mut watches: ResMut<EmbeddedPackWatches>, packs: super::SelectedPacks) {
     for watch in &mut watches.0 {
-        look_at(watch);
+        look_at(watch, &packs);
     }
 }
 
 /// On a changed file, compile the pack from disk and stage it or refuse it.
-fn look_at(watch: &mut EmbeddedPackWatch) {
+/// It is compared with the generation this App selected.
+fn look_at(watch: &mut EmbeddedPackWatch, packs: &super::SelectedPacks) {
     if watch.frames_until_poll > 0 {
         watch.frames_until_poll -= 1;
         return;
@@ -572,13 +573,13 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
         Err(failure) => {
             let why = format!("the pack `{}` does not compile; the running pack stays:\n{failure}", watch.root.display());
             error!("{why}");
-            acknowledge("refused", &watch.pack.prepared(), &format!("prepare_ms={prepare_ms:.1}"));
+            acknowledge("refused", &packs.of(watch.pack), &format!("prepare_ms={prepare_ms:.1}"));
             watch.staged = None;
             watch.refused = Some(why);
             return;
         }
     };
-    let running = watch.pack.prepared();
+    let running = packs.of(watch.pack);
     if candidate.fingerprint == running.fingerprint {
         // A save with no change, or an edit put back before it was published.
         watch.staged = None;
@@ -622,12 +623,14 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
     let in_session = if in_a_session { in_session_publication(world) } else { InSession::NotInOne };
     let mut published = Vec::new();
     let mut rebase = false;
+    world.init_resource::<super::PackSelections>();
     world.resource_scope(|world, mut watches: Mut<EmbeddedPackWatches>| {
         for watch in &mut watches.0 {
             let Some(staged) = watch.staged.as_ref() else {
                 continue;
             };
-            let changed = changed_domains(&watch.pack.prepared(), staged);
+            let running = watch.pack.selected_in(world);
+            let changed = changed_domains(&running, staged);
             // Inside a session, only a change to schemas the game reads where
             // it uses them, and only where the timeline allows it. A restated
             // schema (the cast, the tables a start registered) waits for the
@@ -653,15 +656,15 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
                 Err(why) => {
                     let why = format!("the edit to the pack `{}` is refused, and the running pack stays: {why}", generation.id.0);
                     error!("{why}");
-                    acknowledge("refused", &watch.pack.prepared(), "");
+                    acknowledge("refused", &running, "");
                     watch.refused = Some(why);
                     continue;
                 }
             };
             rebase |= in_session == InSession::PublishAndRebase;
             info!("the pack `{}` is published again from its files", generation.id.0);
-            watch.pack.publish(generation);
-            let selected = watch.pack.prepared();
+            world.resource_mut::<super::PackSelections>().select(watch.pack, generation);
+            let selected = watch.pack.selected_in(world);
             for commit in commits {
                 commit(world, &selected);
             }
@@ -677,7 +680,7 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
     let _ = rebase;
     // After the products and the rebase: from here the generation is played.
     for pack in published {
-        acknowledge("published", &pack.prepared(), "");
+        acknowledge("published", &pack.selected_in(world), "");
     }
 }
 
@@ -784,42 +787,65 @@ mod tests {
         #[cfg(feature = "rollback")]
         {
             assert_eq!(watch_of(&app, pack).published, 1, "with no timeline, the live session takes the edit at once");
-            assert_eq!(heavy(&pack.prepared()), heavy(&authority), "the pack reads the saved file");
+            assert_eq!(heavy(&pack.selected_in(app.world())), heavy(&authority), "the pack reads the saved file");
         }
         #[cfg(not(feature = "rollback"))]
         {
             let watch = watch_of(&app, pack);
             assert_eq!(watch.published, 0, "nothing is published while a session is live");
-            assert_eq!(heavy(&pack.prepared()), before, "the live session reads the generation it began with");
+            assert_eq!(heavy(&pack.selected_in(app.world())), before, "the live session reads the generation it began with");
             assert!(watch.is_staged(), "the edit is admitted: {:?}", watch.refused);
             app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
             app.update();
             assert_eq!(watch_of(&app, pack).published, 1);
-            assert_eq!(heavy(&pack.prepared()), heavy(&authority), "the pack reads the saved file");
+            assert_eq!(heavy(&pack.selected_in(app.world())), heavy(&authority), "the pack reads the saved file");
         }
-        assert_ne!(heavy(&pack.prepared()), before);
+        assert_ne!(heavy(&pack.selected_in(app.world())), before);
         let _ = std::fs::remove_dir_all(root);
     }
 
-    /// A published generation replaces the one before it for every later
-    /// read, and the replaced one lives exactly as long as its last reader:
-    /// a row read before the reload keeps reading the old file, and when it
-    /// is dropped nothing holds the old generation.
+    /// A generation an App selects replaces the one before it for every later
+    /// read in that App, and the replaced one lives exactly as long as its
+    /// last reader: a row read before the reload keeps reading the old file,
+    /// and when it is dropped nothing holds the old generation.
     #[test]
     fn a_replaced_generation_is_dropped_with_its_last_reader() {
+        use super::super::PackSelections;
         let (pack, root) = pack_with_rules("generation_release", "(heavy_hit_damage: Some(12))");
-        let first = pack.prepared();
+        let mut world = World::new();
+        world.init_resource::<PackSelections>();
+        std::fs::write(root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(20))").unwrap();
+        world.resource_mut::<PackSelections>().select(pack, pack.compile().unwrap());
+        let first = pack.selected_in(&world);
         let before = heavy(&first);
         let replaced = first.downgrade();
         let reader = first.row(|pack| lowered_room_rules(pack).expect("the probe pack states room rules"));
         std::fs::write(root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))").unwrap();
-        pack.publish(pack.compile().unwrap());
+        world.resource_mut::<PackSelections>().select(pack, pack.compile().unwrap());
 
-        assert_ne!(heavy(&pack.prepared()), before, "a later read gets the new generation");
+        assert_ne!(heavy(&pack.selected_in(&world)), before, "a later read gets the new generation");
         assert_eq!(*reader, before, "a reader of the old generation still reads it");
         assert!(replaced.upgrade().is_some(), "the old generation is held by its reader");
         drop(reader);
         assert!(replaced.upgrade().is_none(), "the replaced generation outlived its last reader");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// ⭐ A reload selects its generation in the App that watched the edit,
+    /// not for the process: a second App built from the same embedded source
+    /// keeps the generation it selected, and a new App starts from the
+    /// compiled source.
+    #[test]
+    fn a_reload_in_one_app_leaves_another_apps_selection() {
+        let (pack, root) = pack_with_rules("two_apps", "(heavy_hit_damage: Some(12))");
+        let mut first = app_watching(pack, &["room_rules"]);
+        let second = app_watching(pack, &["room_rules"]);
+        let before = heavy(&pack.prepared());
+        save_and_look(&mut first, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
+        assert_eq!(watch_of(&first, pack).published, 1, "the watching App publishes the edit");
+        assert_ne!(heavy(&pack.selected_in(first.world())), before, "the watching App plays the saved file");
+        assert_eq!(heavy(&pack.selected_in(second.world())), before, "the other App keeps its generation");
+        assert_eq!(heavy(&pack.prepared()), before, "the compiled source is not replaced");
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -846,12 +872,12 @@ mod tests {
 
         save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
         assert_eq!(watch_of(&app, pack).published, 0, "nothing is published while a route prepares");
-        assert_eq!(heavy(&pack.prepared()), before);
+        assert_eq!(heavy(&pack.selected_in(app.world())), before);
 
         app.world_mut().resource_mut::<ShellRouter>().pending = None;
         app.update();
         assert_eq!(watch_of(&app, pack).published, 1);
-        assert_ne!(heavy(&pack.prepared()), before);
+        assert_ne!(heavy(&pack.selected_in(app.world())), before);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -1156,7 +1182,7 @@ mod tests {
         assert!(!watch.is_staged(), "the refused edit is not kept to be tried again");
         let refused = watch.refused.clone().unwrap_or_default();
         assert!(refused.contains("audio") && refused.contains("host_theme"), "the refusal names its owner and why: {refused:?}");
-        assert_eq!(heavy(&pack.prepared()), rules, "the old pack's rules stay selected");
+        assert_eq!(heavy(&pack.selected_in(app.world())), rules, "the old pack's rules stay selected");
         assert_eq!(app.world().resource::<AudioCatalogRegistry>().music_for("probe").cloned(), catalog, "the old music stays");
         let _ = std::fs::remove_dir_all(root);
         let _ = std::fs::remove_dir_all(host_root);
@@ -1364,7 +1390,7 @@ mod tests {
         let why = watch.refused.as_deref().expect("the edit is refused");
         assert!(why.contains("room_rules") && why.contains("restart"), "{why}");
         assert_eq!(watch.published, 0);
-        assert_eq!(heavy(&pack.prepared()), before);
+        assert_eq!(heavy(&pack.selected_in(app.world())), before);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -1385,7 +1411,7 @@ mod tests {
         app.update();
         let watch = watch_of(&app, pack);
         assert!(!watch.is_staged() && watch.refused.is_none() && watch.published == 0);
-        assert_eq!(heavy(&pack.prepared()), before);
+        assert_eq!(heavy(&pack.selected_in(app.world())), before);
         let _ = std::fs::remove_dir_all(root);
     }
 }

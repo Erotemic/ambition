@@ -491,9 +491,22 @@ pub fn mary_o_rules_schema() -> SchemaRegistration {
     )
 }
 
-/// The demo's tuning, as its pack states it (`assets/data/mary_o_rules.ron`).
-pub fn mary_o_rules() -> ambition_platformer2d::content::PackRow<MaryORules> {
-    crate::pack::PACK.prepared().row(mary_o_rules_in)
+/// The demo's tuning, as this App selected its pack
+/// (`assets/data/mary_o_rules.ron`).
+pub fn mary_o_rules(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<MaryORules> {
+    mary_o_rules_of(packs.of(&crate::pack::PACK))
+}
+
+/// The shipped file's tuning: what a test of the demo's own rules reads.
+#[cfg(test)]
+pub(crate) fn shipped_rules() -> ambition_platformer2d::content::PackRow<MaryORules> {
+    mary_o_rules_of(crate::pack::PACK.prepared())
+}
+
+/// [`mary_o_rules`] in `generation`: what a caller with no system boundary
+/// reads (a test of the shipped file, or of a running App's selection).
+pub fn mary_o_rules_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<MaryORules> {
+    generation.row(mary_o_rules_in)
 }
 
 /// [`mary_o_rules`] in `pack`.
@@ -534,17 +547,17 @@ mod tests {
         };
 
         let file = rules_of(&authored);
-        assert_eq!(&file, &*mary_o_rules(), "the demo plays the file");
+        assert_eq!(&file, &*crate::rules::shipped_rules(), "the demo plays the file");
         // The plant rises over the file's travel ticks: half out halfway up,
         // all the way out at the end of the rise.
         let travel = file.snake_plant.travel_ticks;
-        assert_eq!(crate::plant::wanted_out((travel / 2) as f32), (travel / 2) as f32 / travel as f32);
-        assert_eq!(crate::plant::wanted_out(travel as f32), 1.0);
+        assert_eq!(crate::plant::wanted_out(&crate::rules::shipped_rules(), (travel / 2) as f32), (travel / 2) as f32 / travel as f32);
+        assert_eq!(crate::plant::wanted_out(&crate::rules::shipped_rules(), travel as f32), 1.0);
 
         // The flag pays by the file's ladder: its top band at the top of the
         // pole, its bottom band at the base.
-        assert_eq!(crate::flag::flag_score(1.0), file.flag.score_bands[0].score);
-        assert_eq!(crate::flag::flag_score(0.0), file.flag.score_bands[4].score);
+        assert_eq!(crate::flag::flag_score(&crate::rules::shipped_rules(), 1.0), file.flag.score_bands[0].score);
+        assert_eq!(crate::flag::flag_score(&crate::rules::shipped_rules(), 0.0), file.flag.score_bands[4].score);
         let top = "(at: 0.9, score: 5000),";
         assert_eq!(authored.matches(top).count(), 1, "the probe edits one band of the ladder");
         assert_eq!(rules_of(&authored.replace(top, "(at: 0.9, score: 9000),")).flag.score_bands[0].score, 9000);
@@ -556,7 +569,7 @@ mod tests {
         // The level clock and the power-ups' motion are the file's: the run
         // starts on the file's clock, an edit is the next start's value, and
         // a value the level cannot use is refused with its field named.
-        assert_eq!(crate::MaryOLevelState::default().time_remaining, file.level.starting_time);
+        assert_eq!(crate::MaryOLevelState::starting(&crate::rules::shipped_rules()).time_remaining, file.level.starting_time);
         let clock = "starting_time: 400.0,";
         assert_eq!(authored.matches(clock).count(), 1, "the probe edits the clock");
         assert_eq!(rules_of(&authored.replace(clock, "starting_time: 300.0,")).level.starting_time, 300.0);
@@ -602,7 +615,7 @@ mod tests {
 
         // Each sky zone sits the file's rise over the top of its level, and a
         // rise that sinks the sky into the level is refused.
-        let lifted: Vec<f32> = crate::authored_levels()
+        let lifted: Vec<f32> = crate::authored_levels(&crate::rules::shipped_rules())
             .iter()
             .flat_map(|level| level.loading_zones.iter().map(|zone| zone.aabb.max.y))
             .filter(|bottom| *bottom < 0.0)
@@ -626,7 +639,7 @@ mod tests {
         // A reward climbs out of its block for the file's time, and a rise
         // that runs backwards is refused.
         let still = ambition_platformer2d::world_items::ItemMotionPlan::still();
-        let rise = crate::powerups::rises_from_a_block(still, 0.0).emerge.map(|emerge| emerge.seconds);
+        let rise = crate::powerups::rises_from_a_block(&crate::rules::shipped_rules(), still, 0.0).emerge.map(|emerge| emerge.seconds);
         assert_eq!(rise, Some(file.power_ups.rise_seconds), "a reward rises for a time that is not the file's");
         let seconds = "rise_seconds: 0.4,";
         assert_eq!(authored.matches(seconds).count(), 1, "the probe edits the rise");

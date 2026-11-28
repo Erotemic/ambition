@@ -91,7 +91,7 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
     // run a frame — reading it gave the DEFAULT (this demo's own two) and the
     // vacuity guard below caught it. `assemble` is a pure function of the
     // SEATABLE registry, so calling it is the same answer the screen will see.
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
 
     let mut unarmed: Vec<String> = Vec::new();
     let mut report: Vec<String> = Vec::new();
@@ -172,7 +172,7 @@ fn every_id_on_the_smash_wish_list_names_a_real_character() {
         .get_resource::<CharacterCatalog>()
         .expect("the composed host has an assembled character catalog");
 
-    let wish_list = ambition_demo_smash::select::smash_roster();
+    let wish_list = ambition_demo_smash::select::smash_roster_of(ambition_demo_smash::smash_pack::PACK.prepared());
     assert!(
         wish_list.len() >= 8,
         "the wish list has shrunk to {} — Jon sized this grid by hand",
@@ -224,7 +224,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
         .world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     assert!(grid.len() >= 8, "the grid is too short to be the host's");
 
     // Two seats, and deliberately the two whose CATALOG rows are peaceful —
@@ -246,13 +246,13 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
     );
 
     let mut select = SmashSelect::default();
-    select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+    select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
     select.set_pick(0, unarmed[0]);
-    select.set_occupant(1, SlotOccupant::Cpu);
+    select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
     select.set_pick(1, unarmed[1]);
 
     let roster = select
-        .roster_seeded(
+        .roster_seeded(&ambition_demo_smash::smash_pack::PACK.prepared(), 
             &grid,
             &Default::default(),
             0,
@@ -260,8 +260,8 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
             &Default::default(),
             // Both sides call one function now, so a stage that stops declaring a floor turns
             // this red instead of passing.
-            Some(ambition_demo_smash::smash_seating_melee()),
-            ambition_demo_smash::starting_stocks(),
+            Some(ambition_demo_smash::smash_seating_melee(&ambition_demo_smash::smash_pack::PACK.prepared())),
+            ambition_demo_smash::starting_stocks(&ambition_demo_smash::smash_pack::PACK.prepared()),
         )
         .expect("two decided seats are a match");
     for participant in &roster.participants {
@@ -300,7 +300,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
 /// techniques, and every one of them is only worth anything if it is selectable.
 #[test]
 fn every_fighter_this_composition_can_build_reaches_the_grid() {
-    use ambition_demo_smash::select::{smash_roster, stand_ins, SmashRoster};
+    use ambition_demo_smash::select::{smash_roster_of, stand_ins_of, SmashRoster};
 
     let mut app =
         ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
@@ -308,11 +308,11 @@ fn every_fighter_this_composition_can_build_reaches_the_grid() {
     let registry =
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     let offered: Vec<&str> = grid.ids().collect();
 
     let mut missing: Vec<&str> = Vec::new();
-    let roster = smash_roster();
+    let roster = smash_roster_of(ambition_demo_smash::smash_pack::PACK.prepared());
     for id in roster.iter().map(String::as_str) {
         // Not buildable in this composition — correctly dropped, and the row
         // beside this one already says why a hole is worse than an absence.
@@ -320,7 +320,7 @@ fn every_fighter_this_composition_can_build_reaches_the_grid() {
             continue;
         }
         // A stand-in steps aside once the character it stands in for is present.
-        let stood_down = stand_ins()
+        let stood_down = stand_ins_of(ambition_demo_smash::smash_pack::PACK.prepared())
             .iter()
             .any(|stand_in| stand_in.copy == id && registry.get(&stand_in.stands_in_for).is_some());
         if stood_down {
@@ -340,7 +340,7 @@ fn every_fighter_this_composition_can_build_reaches_the_grid() {
 
 #[test]
 fn the_grid_offers_only_named_and_seatable_fighters() {
-    use ambition_demo_smash::select::{smash_roster, SmashRoster};
+    use ambition_demo_smash::select::{smash_roster_of, SmashRoster};
 
     let mut app =
         ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
@@ -348,7 +348,7 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     let registry =
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
 
     assert!(
         grid.len() >= 8,
@@ -358,7 +358,7 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     );
     for id in grid.ids() {
         assert!(
-            smash_roster().iter().any(|named| named == id),
+            smash_roster_of(ambition_demo_smash::smash_pack::PACK.prepared()).iter().any(|named| named == id),
             "`{id}` is on the grid and the roster never named it"
         );
         assert!(
@@ -386,7 +386,7 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
         .world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
-    let assembled = SmashRoster::assemble(registry);
+    let assembled = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     let grid: Vec<String> = assembled.ids().map(str::to_string).collect();
 
     // The real lineage is what this host offers.
@@ -460,13 +460,13 @@ fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
         .world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
 
     // The stage's own declaration, from the stage's own roster builder rather
     // than a literal. the CAST does not matter: `smash_roster` states one rule
     // for the match, which is the whole reason the fighters below can be
     // compared against a single kit.
-    let rules = ambition_demo_smash::smash_roster(grid.ids().take(2))
+    let rules = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), grid.ids().take(2))
         .rules
         .abilities
         .expect("the smash stage declares what a fighter on it may do");
@@ -475,8 +475,8 @@ fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
         "the stage GRANTS a verb it does not PERMIT, so `apply` drops it and          every fighter below is short of the kit this stage promised: {rules:?}"
     );
 
-    let floor = ambition_demo_smash::smash_fighter_kit();
-    let ceiling = ambition_demo_smash::smash_fighter_ceiling();
+    let floor = ambition_demo_smash::smash_fighter_kit(&ambition_demo_smash::smash_pack::PACK.prepared());
+    let ceiling = ambition_demo_smash::smash_fighter_ceiling(&ambition_demo_smash::smash_pack::PACK.prepared());
     assert_ne!(
         floor, ceiling,
         "the stage's floor and ceiling are the same set, so this test is about \
@@ -755,7 +755,7 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
     let registry =
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
 
     let mut rows: Vec<String> = Vec::new();
     for id in grid.ids() {
@@ -900,7 +900,7 @@ fn the_smash_stages_body_reaches_no_game_that_did_not_ask_for_one() {
          encounter, boss and fixture in the engine just became a platform fighter"
     );
     assert!(
-        ambition_app::app::versus::versus_roster(1)
+        ambition_app::app::versus::versus_roster(&ambition_app::app::versus_fighters::PACK.prepared(), 1)
             .rules
             .body
             .is_none(),
@@ -955,11 +955,11 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
         .world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
 
     // The stage's own declaration, from the stage's own roster builder rather
     // than a literal — the same source the kit census reads.
-    let roster = ambition_demo_smash::smash_roster(grid.ids().take(2));
+    let roster = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), grid.ids().take(2));
     let rules = ambition_platformer2d::versus_match::MatchRules {
         body: roster.rules.body,
         ..Default::default()
@@ -1005,7 +1005,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
         // on the way up. The only term that varies across the grid is the body.
         let maneuver = ae::resolve_burst_maneuver(
             &ae::BodyAbilities {
-                abilities: ambition_demo_smash::smash_fighter_kit(),
+                abilities: ambition_demo_smash::smash_fighter_kit(&ambition_demo_smash::smash_pack::PACK.prepared()),
                 ..Default::default()
             },
             &ae::BodyGroundState {
@@ -1113,7 +1113,7 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
     let registry =
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     let declared = ambition_demo_smash::smash_combat_rules().knockback_growth;
 
     let mut volumes_seen = 0usize;
@@ -1200,7 +1200,7 @@ fn the_goblin_offers_its_raider_and_squat_skins() {
     let world = app.world();
     let registry = world.resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let catalog = world.resource::<ambition_platformer2d::character::CharacterCatalog>();
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     assert!(grid.ids().any(|id| id == "goblin"), "the goblin is on the grid");
     let skins = SmashSkins::assemble(&grid, catalog, registry);
     assert_eq!(skins.look("goblin", 1), Some("goblin_raider"));
@@ -1248,7 +1248,7 @@ fn the_smash_stage_reads_each_fighters_move_clocks_and_home_keeps_its_own() {
     let home = polygon.authored_moveset.as_ref().expect("authored").move_by_id(&nair_id).expect("home nair");
     assert!(home.duration_s < 0.4, "home nair keeps its own clock ({} s)", home.duration_s);
 
-    let grid = SmashRoster::assemble(registry);
+    let grid = SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry);
     let mut without_lag = Vec::new();
     for id in grid.ids() {
         let Some(prepared) = registry.get(id) else { continue };

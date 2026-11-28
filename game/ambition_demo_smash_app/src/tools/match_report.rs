@@ -539,7 +539,7 @@ fn run_one(
     let characters: Vec<&str> =
         [character, opponent].into_iter().chain(also.iter().map(String::as_str)).take(4).collect();
     let levels = vec![level; characters.len()];
-    let roster = ambition_demo_smash::smash_roster_at_levels(characters.clone(), &levels);
+    let roster = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), characters.clone(), &levels);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -558,7 +558,7 @@ fn run_one(
     // classes" story — the simulation itself is deterministic. The fighters
     // are held for the ceremony, so the first tick a seat moves is the live
     // edge, and it is a sim fact, not a frame count.
-    let countdown = ambition_demo_smash::smash_roster(characters)
+    let countdown = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), characters)
         .rules
         .opening_countdown_ticks;
     let mut waited = 0usize;
@@ -656,7 +656,7 @@ fn run_one(
     let mut steer_was: Vec<f32> = vec![0.0; 4];
     let mut last_world: Vec<(usize, f32, f32, Option<f32>)> = Vec::new();
     let mut camera = CameraTally {
-        room: ambition_demo_smash::smash_stage().world.size,
+        room: ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size,
         ..CameraTally::default()
     };
     {
@@ -842,7 +842,7 @@ fn sample_camera(app: &mut App, camera: &mut CameraTally) {
             .map(|(_, _, kin, flight, frame)| {
                 let staged = flight.pending_launch_state().velocity;
                 let gravity = frame.map(|f| f.get().acceleration());
-                let world_size = ambition_demo_smash::smash_stage().world;
+                let world_size = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world;
                 let predicted = gravity.is_some_and(|g| ae::hit_response::launch_leaves_the_world(kin.pos, staged, g, &world_size));
                 format!(
                     "    t{tick} last-stock launch at ({:.0},{:.0}) v ({:.0},{:.0}) gravity {:?} -> leaves {predicted}",
@@ -1572,7 +1572,7 @@ fn sample(
             }
             let recovery_press = carried.map_or_else(
                 || {
-                    let stage = ambition_demo_smash::smash_stage().world.size;
+                    let stage = ambition_demo_smash::smash_stage(&ambition_demo_smash::smash_pack::PACK.prepared()).world.size;
                     let offstage = here < 0.0 || here > stage.x || pos_y > stage.y;
                     offstage && recovery_route_of(&id)
                 },

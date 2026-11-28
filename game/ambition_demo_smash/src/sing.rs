@@ -30,9 +30,12 @@ pub fn mash_out_of_sleep(
         &mut ambition_platformer2d::characters::actor::BodyCombat,
         &ambition_platformer2d::characters::control::ActorControl,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     // A ruleset rate, not a move's: every sleep shares one escape.
-    let mash = crate::rules::smash_rules().sleep_mash_seconds;
+    let mash = crate::rules::smash_rules_in(selected_pack).sleep_mash_seconds;
     for (mut combat, control) in &mut sleepers {
         // Read before write: an awake body must not take a change-detection
         // write to rollback state every tick.
@@ -281,7 +284,7 @@ mod tests {
         );
         // Each press bought back the rules' `sleep_mash_seconds`.
         let bought = slept(&app, still) - slept(&app, masher);
-        let rule = crate::rules::smash_rules().sleep_mash_seconds;
+        let rule = crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared()).sleep_mash_seconds;
         assert!(
             (bought - 10.0 * rule).abs() < 1e-4,
             "ten presses bought back {bought}s, not ten of the rules' {rule}s",

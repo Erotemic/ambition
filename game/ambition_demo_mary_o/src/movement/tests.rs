@@ -62,7 +62,7 @@ fn direction_alone_selects_walk_speed() {
 
     assert_eq!(
         throttle(&app, body),
-        crate::rules::mary_o_rules().walk_throttle,
+        crate::rules::shipped_rules().walk_throttle,
         "no run held -> the walk throttle reaches the body"
     );
 }
@@ -88,7 +88,7 @@ fn the_walk_throttle_is_symmetric() {
     let (mut app, body) = app_with_policy();
     intend(&mut app, body, -1.0, false);
     app.update();
-    assert_eq!(throttle(&app, body), -crate::rules::mary_o_rules().walk_throttle);
+    assert_eq!(throttle(&app, body), -crate::rules::shipped_rules().walk_throttle);
 }
 
 /// The held state survives the frame->tick latch. A sustained technique that
@@ -158,7 +158,7 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     // Releasing run lowers the target to a walk and uses the authored coast
     // rate. It decelerates rather than snapping.
     let dt = 1.0 / 60.0;
-    let walk_target = crate::rules::mary_o_rules().walk_throttle * tuning.max_run_speed;
+    let walk_target = crate::rules::shipped_rules().walk_throttle * tuning.max_run_speed;
     let after_one_tick = tuning.max_run_speed - momentum.ground_coast_decel * dt;
     assert!(
         after_one_tick > walk_target,
@@ -251,7 +251,7 @@ fn fired(app: &App, body: Entity) -> bool {
 /// is requested on the very tick the button goes down.
 #[test]
 fn firing_uses_the_press_edge_and_needs_no_charge() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon()]));
+    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]));
     press_run(&mut app, body);
     app.update();
 
@@ -264,7 +264,7 @@ fn firing_uses_the_press_edge_and_needs_no_charge() {
 /// Without the beacon the same button is run-only: pressing it fires nothing.
 #[test]
 fn without_the_beacon_the_run_button_does_not_fire() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![star_wand()]));
+    let (mut app, body) = app_with_fire(WornEquipment::new(vec![star_wand(&crate::forms::shipped_forms())]));
     press_run(&mut app, body);
     app.update();
     assert!(
@@ -277,7 +277,7 @@ fn without_the_beacon_the_run_button_does_not_fire() {
 /// run, only the EDGE means fire.
 #[test]
 fn holding_run_does_not_repeat_fire() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon()]));
+    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon(&crate::forms::shipped_forms())]));
     route_run(&mut app, body, false, true);
     app.update();
 

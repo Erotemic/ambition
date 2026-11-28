@@ -50,7 +50,7 @@ fn a_player_who_is_not_the_first_player_has_her_powers() {
             app.world_mut().entity_mut(body).remove::<PrimaryPlayer>();
         }
         let before = app.world().get::<CharacterForm>(body).unwrap().id().to_string();
-        let (grown, _) = after_equipping(&mut app, body, ambition_demo_mary_o::powerups::star_wand());
+        let (grown, _) = after_equipping(&mut app, body, ambition_demo_mary_o::powerups::star_wand(&ambition_demo_mary_o::forms::mary_o_forms_of(ambition_demo_mary_o::pack::PACK.prepared())));
         let (_, star) = after_equipping(&mut app, body, ambition_demo_mary_o::star::pocket_quasar());
         seen.push((first, before != grown, star));
     }

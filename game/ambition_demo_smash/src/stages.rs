@@ -157,12 +157,17 @@ pub fn smash_stages_schema() -> SchemaRegistration {
 }
 
 /// The stages, as the demo's pack states them (`assets/data/smash_stages.ron`).
-pub fn smash_stages() -> ambition_platformer2d::content::PackRow<SmashStages> {
-    crate::smash_pack::PACK.prepared().row(smash_stages_in)
+pub fn smash_stages(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<SmashStages> {
+    smash_stages_of(packs.of(&crate::smash_pack::PACK))
+}
+
+/// [`smash_stages`] in `generation`: what a caller with no system boundary reads.
+pub fn smash_stages_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<SmashStages> {
+    generation.row(smash_stages_in)
 }
 
 /// [`smash_stages`] in `pack`.
-fn smash_stages_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &SmashStages {
+pub(crate) fn smash_stages_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &SmashStages {
     lowered_rules::<SmashStages>(pack, SMASH_STAGES_SCHEMA)
         .expect("the demo's pack states its stages (`data/smash_stages.ron`)")
 }
@@ -203,11 +208,11 @@ mod tests {
         };
 
         let file = stages_of(&authored);
-        assert_eq!(&file, &*smash_stages(), "the demo plays the file");
+        assert_eq!(&file, &*smash_stages_of(crate::smash_pack::PACK.prepared()), "the demo plays the file");
         let blocks = |room: ambition_platformer2d::world::rooms::RoomSpec| {
             room.world.blocks.iter().map(|block| (block.name.clone(), block.aabb.min, block.aabb.max)).collect::<Vec<_>>()
         };
-        assert_eq!(blocks(crate::stage_room(&file, crate::SMASH_STAGE_ROOM_ID)), blocks(crate::smash_stage()));
+        assert_eq!(blocks(crate::stage_room(&file, crate::SMASH_STAGE_ROOM_ID)), blocks(crate::smash_stage(&crate::smash_pack::PACK.prepared())));
 
         let narrow = r#"(name: "smash_platform", kind: Solid, at: (160.0, 300.0), size: (320.0, 32.0)),"#;
         assert_eq!(authored.matches(narrow).count(), 1, "the probe edits one block");
@@ -260,12 +265,12 @@ mod tests {
         let shipped = Respawn { rise: 160.0, protection_seconds: 2.0, seat_spacing: 64.0, platform: (96.0, 12.0) };
         assert_eq!(file.respawn, shipped);
         // The runtime places a returning fighter by the file's rise.
-        let placed = crate::respawn_placement(bevy::math::Vec2::ZERO, 0);
+        let placed = crate::respawn_placement(&crate::smash_pack::PACK.prepared(), bevy::math::Vec2::ZERO, 0);
         assert_eq!(placed.y, -file.respawn.rise, "the respawn point is the file's rise above the centre");
         // Seat 1 is half a spacing right of the centre, and its platform is
         // the file's size.
-        assert_eq!(crate::respawn_placement(bevy::math::Vec2::ZERO, 1).x, file.respawn.seat_spacing * 0.5);
-        assert_eq!(crate::respawn_platform_size(), bevy::math::Vec2::new(96.0, 12.0));
+        assert_eq!(crate::respawn_placement(&crate::smash_pack::PACK.prepared(), bevy::math::Vec2::ZERO, 1).x, file.respawn.seat_spacing * 0.5);
+        assert_eq!(crate::respawn_platform_size(&crate::smash_pack::PACK.prepared()), bevy::math::Vec2::new(96.0, 12.0));
         let edited = stages_of(&authored.replace(
             respawn,
             "respawn: (rise: 96.0, protection_seconds: 3.5, seat_spacing: 80.0, platform: (128.0, 10.0)),",

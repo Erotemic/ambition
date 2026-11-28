@@ -123,11 +123,14 @@ fn set_aura(commands: &mut Commands, visual: Entity, current: Option<&VoidAura>,
 fn ward_her_with_the_quasar(
     mut commands: Commands,
     bodies: Query<(Entity, &CharacterForm, &BodyHealth, Has<VoidWard>), With<PlayerVisual>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     for (body, worn, health, warded) in &bodies {
         // The quasar, or the form that is the quasar worn for good.
         let has_quasar = crate::cosmic::is_cosmic(worn.id())
-            || (crate::powerups::is_her_form(worn.id()) && health.health.invulnerable.holds(Invulnerability::EMPOWERED));
+            || (crate::powerups::is_her_form(forms, worn.id()) && health.health.invulnerable.holds(Invulnerability::EMPOWERED));
         if has_quasar && !warded {
             commands.entity(body).try_insert(VoidWard {
                 radius: QUASAR_WARD_RADIUS,

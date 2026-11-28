@@ -503,7 +503,7 @@ fn main() {
                 .world()
                 .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
                 .expect("the composed host has a prepared-character registry");
-            ambition_demo_smash::select::SmashRoster::assemble(registry)
+            ambition_demo_smash::select::SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry)
                 .ids()
                 .map(|id| id.to_string())
                 .collect()
@@ -760,12 +760,12 @@ fn render_pair(
     // The target is a seat with a stand-still brain, not a frozen body. A
     // live opponent walks into the strike.
     let roster = if passive_target {
-        ambition_demo_smash::smash_roster_with_passive_targets([
+        ambition_demo_smash::smash_roster_with_passive_targets(&ambition_demo_smash::smash_pack::PACK.prepared(), [
             character,
             target,
         ])
     } else {
-        ambition_demo_smash::smash_roster([character, target])
+        ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, target])
     };
     app.world_mut().insert_resource(roster);
     app.world_mut()

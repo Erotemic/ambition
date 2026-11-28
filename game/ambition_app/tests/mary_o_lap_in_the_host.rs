@@ -371,7 +371,7 @@ fn a_warp_pipe_in_the_host_arrives_at_the_start_of_its_level() {
     {
         let mut q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
         let body = q.iter(app.world()).next().expect("a controlled body");
-        app.world_mut().entity_mut(body).insert(PipeTransit::begin_leaving(
+        app.world_mut().entity_mut(body).insert(PipeTransit::begin_leaving(&ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()), 
             on_it,
             (pipe.min + pipe.max) * 0.5,
             ae::Vec2::new(0.0, 1.0),

@@ -576,9 +576,9 @@ fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior
         // The stand-still brain is a real driver. A CPU seat with no brain
         // profile is refused at preparation, so name the policy.
         TargetBehavior::Passive => {
-            ambition_demo_smash::smash_roster_with_passive_targets([character, target])
+            ambition_demo_smash::smash_roster_with_passive_targets(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, target])
         }
-        TargetBehavior::Cpu => ambition_demo_smash::smash_roster([character, target]),
+        TargetBehavior::Cpu => ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), [character, target]),
     };
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -970,7 +970,7 @@ fn main() {
                 .world()
                 .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
                 .expect("the composed host has a prepared-character registry");
-            ambition_demo_smash::select::SmashRoster::assemble(registry)
+            ambition_demo_smash::select::SmashRoster::assemble(&ambition_demo_smash::smash_pack::PACK.prepared(), registry)
                 .ids()
                 .map(|id| id.to_string())
                 .collect()

@@ -253,10 +253,10 @@ fn the_level_timeout_actually_replays_the_room() {
     // Refilled to `level.starting_time`, then ticking down again — the fresh attempt
     // is already running, so this is a proximity check, not equality.
     assert!(
-        (ambition_demo_mary_o::rules::mary_o_rules().level.starting_time - remaining) < 1.0 && remaining > 0.0,
+        (ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).level.starting_time - remaining) < 1.0 && remaining > 0.0,
         "and rearms the clock for the fresh attempt (got {remaining}, expected \
          just under {})",
-        ambition_demo_mary_o::rules::mary_o_rules().level.starting_time
+        ambition_demo_mary_o::rules::mary_o_rules_of(ambition_demo_mary_o::pack::PACK.prepared()).level.starting_time
     );
 
     // The part no existing test reached: the fresh attempt actually starts at spawn.

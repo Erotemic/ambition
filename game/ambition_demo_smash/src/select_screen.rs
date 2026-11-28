@@ -121,8 +121,8 @@ pub struct StageButtonLabel;
 
 /// What the stage button reads. Prefixed so it reads as a control, not only a
 /// state.
-pub fn stage_button_text(choice: crate::SmashStageOffer) -> String {
-    crate::text::smash_text().fill("select.stage", &[("stage", &choice.label())])
+pub fn stage_button_text(selected_pack: &ambition_platformer2d::content::PreparedContentPack, choice: crate::SmashStageOffer) -> String {
+    crate::text::smash_text_in(selected_pack).fill("select.stage", &[("stage", &choice.label(selected_pack))])
 }
 
 /// The stocks button's own label marker.
@@ -130,8 +130,8 @@ pub fn stage_button_text(choice: crate::SmashStageOffer) -> String {
 pub struct StocksButtonLabel;
 
 /// What the stocks button reads. Prefixed like the stage button's.
-pub fn stocks_button_text(choice: crate::SmashStockChoice) -> String {
-    crate::text::smash_text().fill("select.stocks", &[("stocks", &choice.label())])
+pub fn stocks_button_text(selected_pack: &ambition_platformer2d::content::PreparedContentPack, choice: crate::SmashStockChoice) -> String {
+    crate::text::smash_text_in(selected_pack).fill("select.stocks", &[("stocks", &choice.label())])
 }
 
 /// The clock button's own label marker.
@@ -139,8 +139,8 @@ pub fn stocks_button_text(choice: crate::SmashStockChoice) -> String {
 pub struct ClockButtonLabel;
 
 /// What the clock button reads. Prefixed like the stage button's.
-pub fn clock_button_text(choice: crate::SmashClockChoice) -> String {
-    crate::text::smash_text().fill("select.clock", &[("clock", &choice.label())])
+pub fn clock_button_text(selected_pack: &ambition_platformer2d::content::PreparedContentPack, choice: crate::SmashClockChoice) -> String {
+    crate::text::smash_text_in(selected_pack).fill("select.clock", &[("clock", &choice.label())])
 }
 
 /// A card's handicap button (the node, for its visibility).
@@ -152,8 +152,8 @@ pub struct HandicapButton(pub usize);
 pub struct HandicapButtonLabel(pub usize);
 
 /// What a card's handicap button reads.
-pub fn handicap_button_text(percent: u32) -> String {
-    crate::text::smash_text().fill("select.handicap", &[("percent", &percent)])
+pub fn handicap_button_text(selected_pack: &ambition_platformer2d::content::PreparedContentPack, percent: u32) -> String {
+    crate::text::smash_text_in(selected_pack).fill("select.handicap", &[("percent", &percent)])
 }
 
 /// A CPU card's level button (the node, for its visibility).
@@ -165,8 +165,8 @@ pub struct CpuLevelButton(pub usize);
 pub struct CpuLevelButtonLabel(pub usize);
 
 /// What a CPU card's level button reads.
-pub fn cpu_level_button_text(level: u8) -> String {
-    crate::text::smash_text().fill("select.cpu_level", &[("level", &level)])
+pub fn cpu_level_button_text(selected_pack: &ambition_platformer2d::content::PreparedContentPack, level: u8) -> String {
+    crate::text::smash_text_in(selected_pack).fill("select.cpu_level", &[("level", &level)])
 }
 
 /// The chosen fighter's portrait on a card.
@@ -309,14 +309,14 @@ impl SelectLook {
 }
 
 /// The look Smash's rules file states.
-pub fn select_look() -> SelectLook {
-    crate::rules::smash_rules().select_look
+pub fn select_look(selected_pack: &ambition_platformer2d::content::PreparedContentPack) -> SelectLook {
+    crate::rules::smash_rules_in(selected_pack).select_look
 }
 
 /// The colour of a seat's hand. A hand is a local input source, and there
 /// is one more of them than slots (`MAX_SELECT_SOURCES`).
-fn hand_color(seat: usize) -> Color {
-    let look = select_look();
+fn hand_color(selected_pack: &ambition_platformer2d::content::PreparedContentPack, seat: usize) -> Color {
+    let look = select_look(selected_pack);
     look.slots.get(seat).copied().map_or(srgb(look.extra_hand), srgb)
 }
 
@@ -325,26 +325,24 @@ fn hand_color(seat: usize) -> Color {
 /// It names the device, not the slot index. `devices`/`policy` are optional
 /// because fixtures and the walkthrough binary render it without an input
 /// world; then it falls back to the index.
-pub fn role_button_text(
-    occupant: SlotOccupant,
+pub fn role_button_text(selected_pack: &ambition_platformer2d::content::PreparedContentPack, occupant: SlotOccupant,
     naming: Option<(
         &ambition_platformer2d::input::LocalDeviceOrder,
         ambition_platformer2d::input::sources::InputAssignmentPolicy,
     )>,
 ) -> String {
     match occupant {
-        SlotOccupant::Absent => crate::text::line("select.not_playing"),
+        SlotOccupant::Absent => crate::text::line(selected_pack, "select.not_playing"),
         SlotOccupant::Controller { device } => match naming {
-            Some((devices, policy)) => crate::select::source_name_under(device, devices, policy),
-            None => crate::text::smash_text().fill("select.controller", &[("number", &(device + 1))]),
+            Some((devices, policy)) => crate::select::source_name_under(selected_pack, device, devices, policy),
+            None => crate::text::smash_text_in(selected_pack).fill("select.controller", &[("number", &(device + 1))]),
         },
-        SlotOccupant::Cpu => crate::text::line("select.cpu"),
+        SlotOccupant::Cpu => crate::text::line(selected_pack, "select.cpu"),
     }
 }
 
 /// The fighter one card has chosen, in words.
-pub fn card_name_text(
-    catalog: Option<&CharacterCatalog>,
+pub fn card_name_text(selected_pack: &ambition_platformer2d::content::PreparedContentPack, catalog: Option<&CharacterCatalog>,
     fighters: &SmashRoster,
     pick: Option<SlotPick>,
     // The look the card's fighter wears, when it is a skin.
@@ -353,7 +351,7 @@ pub fn card_name_text(
     match pick {
         // "RANDOM", not a fighter's name: the draw has not happened. A slot on
         // random is decided, so `ready()` counts it.
-        Some(SlotPick::Random) => crate::text::line("select.random"),
+        Some(SlotPick::Random) => crate::text::line(selected_pack, "select.random"),
         Some(SlotPick::Fighter(index)) => match (fighters.get(index), skin) {
             // A skin's row names itself ("Goblin (Raider)").
             (Some(_), Some(skin)) => display_name(catalog, skin),
@@ -559,6 +557,7 @@ pub fn current_layout(
 /// Built once and positioned every frame by [`layout`]. Respawning per frame
 /// would drop resolved image handles and restart every load.
 pub fn spawn_select_screen(
+    selected_pack: &ambition_platformer2d::content::PreparedContentPack,
     mut commands: Commands,
     existing: Query<(), With<SmashSelectUiRoot>>,
     fighters: Res<SmashRoster>,
@@ -611,7 +610,7 @@ pub fn spawn_select_screen(
                 height: Val::Percent(100.0),
                 ..default()
             },
-            BackgroundColor(select_look().backdrop()),
+            BackgroundColor(select_look(selected_pack).backdrop()),
             // Above the world, below the pause menu.
             GlobalZIndex(600),
             Name::new("smash select screen"),
@@ -622,9 +621,9 @@ pub fn spawn_select_screen(
             title.1.align_items = AlignItems::Center;
             root.spawn(title).with_children(|node| {
                 node.spawn((
-                    Text::new(crate::text::line("select.title")),
+                    Text::new(crate::text::line(selected_pack, "select.title")),
                     text_font(26.0),
-                    TextColor(select_look().ink()),
+                    TextColor(select_look(selected_pack).ink()),
                 ));
             });
 
@@ -641,12 +640,12 @@ pub fn spawn_select_screen(
                 root.spawn((
                     back,
                     BackButton,
-                    BackgroundColor(select_look().panel()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).panel()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     Name::new("back button"),
                 ))
                 .with_children(|node| {
-                    node.spawn((Text::new(crate::text::line("select.back")), text_font(15.0), TextColor(select_look().dim_ink())));
+                    node.spawn((Text::new(crate::text::line(selected_pack, "select.back")), text_font(15.0), TextColor(select_look(selected_pack).dim_ink())));
                 });
             }
 
@@ -664,8 +663,8 @@ pub fn spawn_select_screen(
                 root.spawn((
                     cell,
                     PortraitCell(index),
-                    BackgroundColor(select_look().panel()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).panel()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     Name::new(format!("portrait cell {index}")),
                 ))
                 .with_children(|cell| {
@@ -689,7 +688,7 @@ pub fn spawn_select_screen(
                         slate.spawn((
                             Text::new(monogram(&display_name(catalog, id))),
                             text_font(46.0),
-                            TextColor(srgb(select_look().monogram_ink)),
+                            TextColor(srgb(select_look(selected_pack).monogram_ink)),
                         ));
                     });
                     match art {
@@ -718,7 +717,7 @@ pub fn spawn_select_screen(
                     cell.spawn((
                         Text::new(display_name(catalog, id)),
                         text_font(13.0),
-                        TextColor(select_look().ink()),
+                        TextColor(select_look(selected_pack).ink()),
                         TextLayout::justify(Justify::Center),
                     ));
                 });
@@ -742,8 +741,8 @@ pub fn spawn_select_screen(
                 root.spawn((
                     cell,
                     PortraitCell(index),
-                    BackgroundColor(select_look().panel()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).panel()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     Name::new("portrait cell random"),
                 ))
                 .with_children(|cell| {
@@ -771,9 +770,9 @@ pub fn spawn_select_screen(
                         }
                     }
                     cell.spawn((
-                        Text::new(crate::text::line("select.random")),
+                        Text::new(crate::text::line(selected_pack, "select.random")),
                         text_font(13.0),
-                        TextColor(select_look().ink()),
+                        TextColor(select_look(selected_pack).ink()),
                         TextLayout::justify(Justify::Center),
                     ));
                 });
@@ -787,7 +786,7 @@ pub fn spawn_select_screen(
                     SelectPrompt,
                     Text::new(String::new()),
                     text_font(14.0),
-                    TextColor(select_look().dim_ink()),
+                    TextColor(select_look(selected_pack).dim_ink()),
                 ));
             });
 
@@ -800,8 +799,8 @@ pub fn spawn_select_screen(
                 arrow.1.border_radius = BorderRadius::all(Val::Px(6.0));
                 root.spawn((
                     arrow,
-                    BackgroundColor(select_look().button()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).button()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     GlobalZIndex(610),
                     Name::new(if next { "next page button" } else { "previous page button" }),
                 ))
@@ -809,10 +808,10 @@ pub fn spawn_select_screen(
                     node.spawn((
                         Text::new(if next { ">" } else { "<" }),
                         text_font(17.0),
-                        TextColor(select_look().ink()),
+                        TextColor(select_look(selected_pack).ink()),
                     ));
                     if next {
-                        node.spawn((PageCountLabel, Text::new(String::new()), text_font(10.0), TextColor(select_look().dim_ink())));
+                        node.spawn((PageCountLabel, Text::new(String::new()), text_font(10.0), TextColor(select_look(selected_pack).dim_ink())));
                     }
                 });
             }
@@ -825,12 +824,12 @@ pub fn spawn_select_screen(
             root.spawn((
                 start,
                 StartButton,
-                BackgroundColor(select_look().panel()),
-                BorderColor::all(select_look().panel_edge()),
+                BackgroundColor(select_look(selected_pack).panel()),
+                BorderColor::all(select_look(selected_pack).panel_edge()),
                 Name::new("start button"),
             ))
             .with_children(|node| {
-                node.spawn((Text::new(crate::text::line("select.start")), text_font(17.0), TextColor(select_look().ink())));
+                node.spawn((Text::new(crate::text::line(selected_pack, "select.start")), text_font(17.0), TextColor(select_look(selected_pack).ink())));
             });
 
             let mut stage = anchored(Anchored::Stage);
@@ -840,8 +839,8 @@ pub fn spawn_select_screen(
             stage.1.border_radius = BorderRadius::all(Val::Px(6.0));
             root.spawn((
                 stage,
-                BackgroundColor(select_look().button()),
-                BorderColor::all(select_look().panel_edge()),
+                BackgroundColor(select_look(selected_pack).button()),
+                BorderColor::all(select_look(selected_pack).panel_edge()),
                 GlobalZIndex(610),
                 Name::new("stage button"),
             ))
@@ -850,9 +849,9 @@ pub fn spawn_select_screen(
                     StageButtonLabel,
                     // Seeded with the default, so it is not blank before its
                     // sync system first runs.
-                    Text::new(stage_button_text(crate::SmashStageOffer::default())),
+                    Text::new(stage_button_text(selected_pack, crate::SmashStageOffer::default())),
                     text_font(14.0),
-                    TextColor(select_look().ink()),
+                    TextColor(select_look(selected_pack).ink()),
                 ));
             });
 
@@ -863,8 +862,8 @@ pub fn spawn_select_screen(
             stocks.1.border_radius = BorderRadius::all(Val::Px(6.0));
             root.spawn((
                 stocks,
-                BackgroundColor(select_look().button()),
-                BorderColor::all(select_look().panel_edge()),
+                BackgroundColor(select_look(selected_pack).button()),
+                BorderColor::all(select_look(selected_pack).panel_edge()),
                 GlobalZIndex(610),
                 Name::new("stocks button"),
             ))
@@ -872,9 +871,9 @@ pub fn spawn_select_screen(
                 node.spawn((
                     StocksButtonLabel,
                     // Seeded with the default, like the stage button.
-                    Text::new(stocks_button_text(crate::SmashStockChoice::default())),
+                    Text::new(stocks_button_text(selected_pack, crate::SmashStockChoice::default())),
                     text_font(14.0),
-                    TextColor(select_look().ink()),
+                    TextColor(select_look(selected_pack).ink()),
                 ));
             });
 
@@ -885,8 +884,8 @@ pub fn spawn_select_screen(
             clock.1.border_radius = BorderRadius::all(Val::Px(6.0));
             root.spawn((
                 clock,
-                BackgroundColor(select_look().button()),
-                BorderColor::all(select_look().panel_edge()),
+                BackgroundColor(select_look(selected_pack).button()),
+                BorderColor::all(select_look(selected_pack).panel_edge()),
                 GlobalZIndex(610),
                 Name::new("clock button"),
             ))
@@ -894,9 +893,9 @@ pub fn spawn_select_screen(
                 node.spawn((
                     ClockButtonLabel,
                     // Seeded with the default, like the stage button.
-                    Text::new(clock_button_text(crate::SmashClockChoice::default())),
+                    Text::new(clock_button_text(selected_pack, crate::SmashClockChoice::default())),
                     text_font(14.0),
-                    TextColor(select_look().ink()),
+                    TextColor(select_look(selected_pack).ink()),
                 ));
             });
 
@@ -911,15 +910,15 @@ pub fn spawn_select_screen(
                 root.spawn((
                     card,
                     SlotCardFrame(slot),
-                    BackgroundColor(select_look().panel()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).panel()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     Name::new(format!("slot card {}", slot + 1)),
                 ))
                 .with_children(|card| {
                     card.spawn((
-                        Text::new(crate::text::smash_text().fill("select.slot", &[("number", &(slot + 1))])),
+                        Text::new(crate::text::smash_text_in(selected_pack).fill("select.slot", &[("number", &(slot + 1))])),
                         text_font(18.0),
-                        TextColor(select_look().slot(slot)),
+                        TextColor(select_look(selected_pack).slot(slot)),
                     ));
                     // The fighter's name sits at the BOTTOM of the card, under
                     // the portrait the layout places over it.
@@ -937,9 +936,9 @@ pub fn spawn_select_screen(
                     .with_children(|row| {
                         row.spawn((
                             CardName(slot),
-                            Text::new(card_name_text(catalog, &fighters, None, None)),
+                            Text::new(card_name_text(selected_pack, catalog, &fighters, None, None)),
                             text_font(13.0),
-                            TextColor(select_look().dim_ink()),
+                            TextColor(select_look(selected_pack).dim_ink()),
                             TextLayout::justify(Justify::Center),
                         ));
                     });
@@ -952,17 +951,17 @@ pub fn spawn_select_screen(
                 button.1.border_radius = BorderRadius::all(Val::Px(6.0));
                 root.spawn((
                     button,
-                    BackgroundColor(select_look().button()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).button()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     GlobalZIndex(610),
                     Name::new(format!("slot {} role button", slot + 1)),
                 ))
                 .with_children(|node| {
                     node.spawn((
                         RoleButtonLabel(slot),
-                        Text::new(role_button_text(SlotOccupant::Absent, None)),
+                        Text::new(role_button_text(selected_pack, SlotOccupant::Absent, None)),
                         text_font(14.0),
-                        TextColor(select_look().ink()),
+                        TextColor(select_look(selected_pack).ink()),
                     ));
                 });
 
@@ -986,8 +985,8 @@ pub fn spawn_select_screen(
                 root.spawn((
                     handicap,
                     HandicapButton(slot),
-                    BackgroundColor(select_look().button()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).button()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     GlobalZIndex(610),
                     // Shown while somebody sits at the slot.
                     Visibility::Hidden,
@@ -996,9 +995,9 @@ pub fn spawn_select_screen(
                 .with_children(|node| {
                     node.spawn((
                         HandicapButtonLabel(slot),
-                        Text::new(handicap_button_text(0)),
+                        Text::new(handicap_button_text(selected_pack, 0)),
                         text_font(14.0),
-                        TextColor(select_look().ink()),
+                        TextColor(select_look(selected_pack).ink()),
                     ));
                 });
 
@@ -1010,8 +1009,8 @@ pub fn spawn_select_screen(
                 root.spawn((
                     level,
                     CpuLevelButton(slot),
-                    BackgroundColor(select_look().button()),
-                    BorderColor::all(select_look().panel_edge()),
+                    BackgroundColor(select_look(selected_pack).button()),
+                    BorderColor::all(select_look(selected_pack).panel_edge()),
                     GlobalZIndex(610),
                     // Shown while a CPU sits at the slot.
                     Visibility::Hidden,
@@ -1020,9 +1019,9 @@ pub fn spawn_select_screen(
                 .with_children(|node| {
                     node.spawn((
                         CpuLevelButtonLabel(slot),
-                        Text::new(cpu_level_button_text(crate::rules::smash_rules().default_cpu_level)),
+                        Text::new(cpu_level_button_text(selected_pack, crate::rules::smash_rules_in(selected_pack).default_cpu_level)),
                         text_font(14.0),
-                        TextColor(select_look().ink()),
+                        TextColor(select_look(selected_pack).ink()),
                     ));
                 });
             }
@@ -1041,8 +1040,8 @@ pub fn spawn_select_screen(
                         border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BackgroundColor(select_look().slot(slot)),
-                    BorderColor::all(select_look().token_rim()),
+                    BackgroundColor(select_look(selected_pack).slot(slot)),
+                    BorderColor::all(select_look(selected_pack).token_rim()),
                     GlobalZIndex(620),
                     Visibility::Hidden,
                     Name::new(format!("slot {} token", slot + 1)),
@@ -1051,7 +1050,7 @@ pub fn spawn_select_screen(
             // One hand per seat, in the seat's slot colour, so the hand
             // matches the token it grabs.
             for seat in 0..MAX_SELECT_SOURCES {
-                let tint = hand_color(seat);
+                let tint = hand_color(selected_pack, seat);
                 root.spawn((
                     CursorNode(seat),
                     Node {
@@ -1140,7 +1139,10 @@ pub(crate) fn drive_the_cursor(
     policy: Res<SelectInteractionPolicy>,
     inputs: SelectScreenInputs,
     mut local: Local<SelectDriverLocal>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     let layout = current_layout(&inputs.windows, &inputs.headless, &fighters, &page);
     let exit = exit_leads_somewhere(inputs.host.as_deref());
     // The layout says where things are; the screen says what is reachable
@@ -1443,9 +1445,9 @@ pub(crate) fn drive_the_cursor(
             // Advance the ramp every frame the stick is read, including at
             // rest, so a released stick resets its speed.
             let dt = inputs.time.delta_secs();
-            let ramp = pointer.ramp.advance(drive.analog, dt);
+            let ramp = pointer.ramp.advance(selected_pack, drive.analog, dt);
             if drive.analog != Vec2::ZERO {
-                let travel = cursor::cursor_travel(drive.analog, layout.cell(), dt, ramp);
+                let travel = cursor::cursor_travel(selected_pack, drive.analog, layout.cell(), dt, ramp);
                 let roamed = pointer.position + travel;
                 pointer.move_to(Vec2::new(
                     roamed.x.clamp(0.0, layout.viewport.x),
@@ -1464,7 +1466,7 @@ pub(crate) fn drive_the_cursor(
         // hold timer is per seat.
         if drive.back_held {
             local.back_hold_seconds[seat] += inputs.time.delta_secs();
-            if exit && local.back_hold_seconds[seat] >= crate::rules::smash_rules().back_hold_to_leave_seconds {
+            if exit && local.back_hold_seconds[seat] >= crate::rules::smash_rules_in(selected_pack).back_hold_to_leave_seconds {
                 leave.0 = true;
             }
         } else {
@@ -1554,7 +1556,7 @@ pub(crate) fn drive_the_cursor(
                 // cursor is seat-keyed.
                 (None, _, Some(SelectTarget::Portrait(cell))) => {
                     if let Some(pick) = fighters.cell(cell) {
-                        if let Some(own) = select.slot_for_or_claim(seat) {
+                        if let Some(own) = select.slot_for_or_claim(selected_pack, seat) {
                             select.set_pick(own, pick);
                         }
                     }
@@ -1583,7 +1585,7 @@ pub(crate) fn drive_the_cursor(
                 // either carried or placed.
                 (Some(_), _, _) => {}
                 (None, None, Some(SelectTarget::RoleButton(slot))) => {
-                    select.cycle_role(slot, seat, &connected_sources);
+                    select.cycle_role(selected_pack, slot, seat, &connected_sources);
                 }
                 // Any seat may dress a card's fighter, as for roles.
                 (None, None, Some(SelectTarget::CardPortrait(slot))) => {
@@ -1599,24 +1601,24 @@ pub(crate) fn drive_the_cursor(
                 // Any seat may set a card's handicap, as for roles: a couch
                 // agrees on it out loud.
                 (None, None, Some(SelectTarget::CardHandicap(slot))) => {
-                    select.cycle_handicap(slot, &crate::rules::smash_rules().handicap_choices);
+                    select.cycle_handicap(slot, &crate::rules::smash_rules_in(selected_pack).handicap_choices);
                 }
                 // And a CPU card's level, as for its handicap.
                 (None, None, Some(SelectTarget::CardCpuLevel(slot))) => {
-                    select.cycle_cpu_level(slot, &crate::rules::smash_rules().cpu_levels);
+                    select.cycle_cpu_level(slot, &crate::rules::smash_rules_in(selected_pack).cpu_levels);
                 }
                 // Any seat may cycle the stage, as for roles; the match is not
                 // player one's.
                 (None, None, Some(SelectTarget::Stage)) => {
-                    *stage = stage.next();
+                    *stage = stage.next(selected_pack);
                 }
                 // Any seat may cycle stocks, as for the stage.
                 (None, None, Some(SelectTarget::Stocks)) => {
-                    *stocks = stocks.next();
+                    *stocks = stocks.next(selected_pack);
                 }
                 // And the clock, as for stocks.
                 (None, None, Some(SelectTarget::Clock)) => {
-                    *clock = clock.next();
+                    *clock = clock.next(selected_pack);
                 }
                 (None, None, Some(SelectTarget::Start)) => {
                     if select.ready() {
@@ -1736,7 +1738,10 @@ pub fn sync_select_grid(
     art: ScreenArt,
     mut cells: Query<(&PortraitCell, &mut BorderColor)>,
     mut monograms: Query<(&PortraitMonogram, &mut Visibility)>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     for (cell, mut border) in &mut cells {
         let owner = (0..MAX_SMASH_SEATS).find(|slot| {
             let card = select.slot(*slot);
@@ -1745,7 +1750,7 @@ pub fn sync_select_grid(
         });
         set_border(
             &mut border,
-            owner.map_or(select_look().panel_edge(), |slot| select_look().slot(slot)),
+            owner.map_or(select_look(selected_pack).panel_edge(), |slot| select_look(selected_pack).slot(slot)),
         );
     }
 
@@ -1810,7 +1815,10 @@ pub fn sync_select_cards(
         ),
     >,
     mut card_portraits: Query<(&CardPortrait, &mut ShownPortrait, &mut ImageNode, &mut Visibility)>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     let catalog = Some(&*art.catalog);
     let no_skins = SmashSkins::default();
     let skins = skins.as_deref().unwrap_or(&no_skins);
@@ -1828,15 +1836,15 @@ pub fn sync_select_cards(
         set_border(
             &mut border,
             if select.slot(card.0).occupant.participates() {
-                select_look().slot(card.0)
+                select_look(selected_pack).slot(card.0)
             } else {
-                select_look().panel_edge()
+                select_look(selected_pack).panel_edge()
             },
         );
     }
 
     for (label, mut text) in &mut role_labels {
-        let next = role_button_text(select.slot(label.0).occupant, naming);
+        let next = role_button_text(selected_pack, select.slot(label.0).occupant, naming);
         if text.0 != next {
             text.0 = next;
         }
@@ -1844,13 +1852,13 @@ pub fn sync_select_cards(
 
     // Keep the label in step with the stage the match will prepare.
     for mut text in &mut stage_label {
-        let next = stage_button_text(*stage);
+        let next = stage_button_text(selected_pack, *stage);
         if text.0 != next {
             text.0 = next;
         }
     }
     for mut text in &mut stocks_label {
-        let next = stocks_button_text(*stocks);
+        let next = stocks_button_text(selected_pack, *stocks);
         if text.0 != next {
             text.0 = next;
         }
@@ -1859,11 +1867,11 @@ pub fn sync_select_cards(
     for (name, mut text, mut color) in &mut card_names {
         let card = select.slot(name.0);
         let shown = card.occupant.participates().then_some(card.pick).flatten();
-        let next = card_name_text(catalog, &fighters, shown, card_skin(&fighters, skins, card));
+        let next = card_name_text(selected_pack, catalog, &fighters, shown, card_skin(&fighters, skins, card));
         if text.0 != next {
             text.0 = next;
         }
-        let next_color = if shown.is_some() { select_look().ink() } else { select_look().dim_ink() };
+        let next_color = if shown.is_some() { select_look(selected_pack).ink() } else { select_look(selected_pack).dim_ink() };
         if color.0 != next_color {
             color.0 = next_color;
         }
@@ -1919,26 +1927,29 @@ pub fn sync_select_chrome(
     mut prompt: Query<&mut Text, With<SelectPrompt>>,
     clock: Res<crate::SmashClockChoice>,
     mut clock_label: Query<&mut Text, (With<ClockButtonLabel>, Without<SelectPrompt>)>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     for mut text in &mut clock_label {
-        let next = clock_button_text(*clock);
+        let next = clock_button_text(selected_pack, *clock);
         if text.0 != next {
             text.0 = next;
         }
     }
 
     for mut border in &mut start_button {
-        set_border(&mut border, if select.ready() { select_look().ink() } else { select_look().panel_edge() });
+        set_border(&mut border, if select.ready() { select_look(selected_pack).ink() } else { select_look(selected_pack).panel_edge() });
     }
 
     for mut text in &mut prompt {
         let next = if let Some(refusal) = refusal.as_deref() {
-            crate::text::smash_text().fill("select.refused", &[("refusal", &refusal)])
+            crate::text::smash_text_in(selected_pack).fill("select.refused", &[("refusal", &refusal)])
         } else {
             select
                 .blocker()
-                .map(crate::text::line)
-                .unwrap_or_else(|| crate::text::line("select.ready"))
+                .map(|key| crate::text::line(selected_pack, key))
+                .unwrap_or_else(|| crate::text::line(selected_pack, "select.ready"))
         };
         if text.0 != next {
             text.0 = next;
@@ -1956,7 +1967,10 @@ pub fn sync_card_buttons(
     mut handicap_labels: Query<(&HandicapButtonLabel, &mut Text), Without<CpuLevelButtonLabel>>,
     mut levels: Query<(&CpuLevelButton, &mut Visibility), Without<HandicapButton>>,
     mut level_labels: Query<(&CpuLevelButtonLabel, &mut Text), Without<HandicapButtonLabel>>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
     // `Mut`, not `&mut`: reborrowing through `DerefMut` marks the component
     // changed even when the value is left alone.
     fn show(mut visibility: Mut<Visibility>, shown: bool) {
@@ -1974,7 +1988,7 @@ pub fn sync_card_buttons(
         show(visibility, select.slot(button.0).occupant.participates());
     }
     for (label, text) in &mut handicap_labels {
-        say(text, handicap_button_text(select.slot(label.0).handicap));
+        say(text, handicap_button_text(selected_pack, select.slot(label.0).handicap));
     }
     for (button, visibility) in &mut levels {
         show(visibility, select.slot(button.0).occupant == SlotOccupant::Cpu);
@@ -1982,7 +1996,7 @@ pub fn sync_card_buttons(
     for (label, text) in &mut level_labels {
         let card = select.slot(label.0);
         if card.occupant == SlotOccupant::Cpu {
-            say(text, cpu_level_button_text(card.cpu_level));
+            say(text, cpu_level_button_text(selected_pack, card.cpu_level));
         }
     }
 }
@@ -2106,11 +2120,11 @@ mod look_tests {
     /// than there are slots wears the file's extra hand.
     #[test]
     fn each_hand_wears_the_files_colour() {
-        let look = select_look();
+        let look = select_look(&crate::smash_pack::PACK.prepared());
         for (seat, slot) in look.slots.iter().enumerate() {
-            assert_eq!(hand_color(seat), srgb(*slot), "seat {seat}'s hand");
+            assert_eq!(hand_color(&crate::smash_pack::PACK.prepared(), seat), srgb(*slot), "seat {seat}'s hand");
         }
-        assert_eq!(hand_color(MAX_SMASH_SEATS), srgb(look.extra_hand), "the extra hand");
+        assert_eq!(hand_color(&crate::smash_pack::PACK.prepared(), MAX_SMASH_SEATS), srgb(look.extra_hand), "the extra hand");
     }
 }
 
@@ -2162,8 +2176,8 @@ mod touch_tests {
         let mut app = screen();
         {
             let mut select = app.world_mut().resource_mut::<SmashSelect>();
-            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
-            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
         }
 
         let layout = headless_layout();
@@ -2211,7 +2225,7 @@ mod touch_tests {
         let mut app = screen();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+            .set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
 
         let layout = headless_layout();
         let token = placed_token(&app, &layout, 0);
@@ -2249,7 +2263,7 @@ mod touch_tests {
         let mut app = screen();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+            .set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
 
         let layout = headless_layout();
         let portrait = layout.portrait(1).expect("a grid with two cells");
@@ -2272,7 +2286,7 @@ mod touch_tests {
         let mut app = screen();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+            .set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
 
         let layout = headless_layout();
         let portrait = layout.portrait(1).expect("a grid with two cells");
@@ -2305,8 +2319,8 @@ mod touch_tests {
         let mut app = screen();
         {
             let mut select = app.world_mut().resource_mut::<SmashSelect>();
-            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
-            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
         }
         let layout = headless_layout();
         let token_one = placed_token(&app, &layout, 1);
@@ -2358,8 +2372,8 @@ mod touch_tests {
         app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
         {
             let mut select = app.world_mut().resource_mut::<SmashSelect>();
-            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
-            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
             select.set_pick(0, 0);
             select.set_pick(1, 1);
         }
@@ -2403,7 +2417,7 @@ mod touch_tests {
         app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(1, SlotOccupant::Cpu);
+            .set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Cpu);
 
         let layout = headless_layout();
         let cpu_token = placed_token(&app, &layout, 1);
@@ -2446,8 +2460,8 @@ mod touch_tests {
             .allow_other_human_token_grab = false;
         {
             let mut select = app.world_mut().resource_mut::<SmashSelect>();
-            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
-            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(&crate::smash_pack::PACK.prepared(), 1, SlotOccupant::Controller { device: 1 });
             select.set_pick(0, 0);
             select.set_pick(1, 1);
         }
@@ -2799,7 +2813,7 @@ mod touch_tests {
         let mut app = screen();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+            .set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
 
         let layout = headless_layout();
         let token = token_of_slot_zero(&app, &layout);
@@ -2879,7 +2893,7 @@ mod touch_tests {
         let mut app = screen();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+            .set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
 
         let layout = headless_layout();
         let token = token_of_slot_zero(&app, &layout);
@@ -2929,7 +2943,7 @@ mod touch_tests {
         let mut app = screen();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+            .set_occupant(&crate::smash_pack::PACK.prepared(), 0, SlotOccupant::Controller { device: 0 });
 
         let layout = headless_layout();
         let token = token_of_slot_zero(&app, &layout);

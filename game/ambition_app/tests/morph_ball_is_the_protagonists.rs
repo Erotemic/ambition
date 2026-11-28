@@ -82,7 +82,7 @@ fn the_protagonist_seated_in_versus_cannot_morph() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster(["player_robot_v3", "player_robot_v3"]));
+        .insert_resource(ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), ["player_robot_v3", "player_robot_v3"]));
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,

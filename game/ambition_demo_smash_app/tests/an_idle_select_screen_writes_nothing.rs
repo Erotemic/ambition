@@ -118,7 +118,7 @@ fn a_card_shows_the_look_it_holds_after_the_look_changes() {
     };
 
     select(&mut app, &|select| {
-        select.set_occupant(0, SlotOccupant::Cpu);
+        select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Cpu);
         select.set_pick(0, SlotPick::Fighter(0));
     });
     let own = picture(&mut app).expect("the first fighter's portrait is drawn");
@@ -136,6 +136,6 @@ fn a_card_shows_the_look_it_holds_after_the_look_changes() {
     select(&mut app, &|select| select.cycle_skin(0, 1));
     assert_eq!(picture(&mut app).as_ref(), Some(&other), "the first fighter in the second's look");
 
-    select(&mut app, &|select| select.set_occupant(0, SlotOccupant::Absent));
+    select(&mut app, &|select| select.set_occupant(&ambition_demo_smash::smash_pack::PACK.prepared(), 0, SlotOccupant::Absent));
     assert_eq!(picture(&mut app), None, "a card nobody holds draws no portrait");
 }

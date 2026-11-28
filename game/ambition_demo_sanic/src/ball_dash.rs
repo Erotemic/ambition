@@ -54,8 +54,13 @@ impl BallDashTuning {
 pub const ROLL_LAW: ae::EffectSource = ae::EffectSource::named("sanic.roll_law");
 
 /// The spin dash tuning the demo plays: its pack's `spin_dash` row.
-pub fn spin_dash_tuning() -> ambition_platformer2d::content::PackRow<BallDashTuning> {
-    crate::pack::PACK.prepared().row(|pack| &crate::rules::sanic_rules_in(pack).spin_dash)
+pub fn spin_dash_tuning(packs: &ambition_platformer2d::content::SelectedPacks) -> ambition_platformer2d::content::PackRow<BallDashTuning> {
+    spin_dash_tuning_of(packs.of(&crate::pack::PACK))
+}
+
+/// [`spin_dash_tuning`] in `generation`.
+pub fn spin_dash_tuning_of(generation: ambition_platformer2d::content::PackGeneration) -> ambition_platformer2d::content::PackRow<BallDashTuning> {
+    generation.row(|pack| &crate::rules::sanic_rules_in(pack).spin_dash)
 }
 
 /// Per-body charge state. Attached to whichever body is being driven; a possessed
@@ -104,9 +109,10 @@ pub fn capture_ball_dash_input(
         ),
         With<BallDash>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
     let controlled = subject.and_then(|subject| subject.0);
-    let tuning = spin_dash_tuning();
+    let tuning = spin_dash_tuning(&packs);
     for (entity, control, techniques, motion, ground, mut input) in &mut bodies {
         *input = if Some(entity) == controlled {
             let grounded_at_capture = ground.on_ground
@@ -166,8 +172,9 @@ pub fn ball_up_on_jump(
         ),
         bevy::prelude::With<BallDash>,
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
-    let tuning = spin_dash_tuning();
+    let tuning = spin_dash_tuning(&packs);
     for (entity, output, mut kin, rolling) in &mut bodies {
         let jumped = output
             .events
@@ -285,8 +292,9 @@ pub fn tick_ball_dash(
         Option<&Rolling>,
         Option<&mut ambition_platformer2d::characters::actor::BodyAnimFacts>,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
-    let tuning = spin_dash_tuning();
+    let tuning = spin_dash_tuning(&packs);
     for (entity, input, resolved_frame, mut motion, mut kin, mut state, rolling, mut anim) in
         &mut bodies
     {
@@ -331,7 +339,7 @@ pub fn tick_ball_dash(
                         entity,
                         ambition_platformer2d::sfx::SfxMessage::Play {
                             id: ambition_platformer2d::sfx::SfxId::from_static(crate::rev_tier_id(
-                                charge,
+                                &tuning, charge,
                             )),
                             emitter: (kin.pos).into(),
                         },
@@ -380,8 +388,9 @@ pub fn tick_rolling(
             &Rolling,
         ),
     >,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
-    let tuning = spin_dash_tuning();
+    let tuning = spin_dash_tuning(&packs);
     for (entity, motion, mut kin, base, rolling) in &mut bodies {
         let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = motion else {
             continue;
@@ -412,8 +421,8 @@ pub fn tick_rolling(
 /// ended the tick it is not, so it follows the [`Rolling`] authority through
 /// a stand-up, a restart or a rewind. A jump's ball keeps the run's law: it
 /// stands up on landing, so a ground law would never apply to it.
-pub fn hold_roll_law(mut bodies: Query<(Option<&Rolling>, &mut ae::BodyEffects), With<BallDash>>) {
-    let tuning = spin_dash_tuning();
+pub fn hold_roll_law(mut bodies: Query<(Option<&Rolling>, &mut ae::BodyEffects), With<BallDash>>, packs: ambition_platformer2d::content::SelectedPacks) {
+    let tuning = spin_dash_tuning(&packs);
     for (rolling, mut effects) in &mut bodies {
         let rolls = rolling.is_some_and(|rolling| rolling.ends == RollEnd::Slow);
         if rolls && !effects.holds(ROLL_LAW) {

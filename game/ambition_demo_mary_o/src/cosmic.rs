@@ -48,9 +48,9 @@ const LEAVE_ANIM: CharacterAnim = CharacterAnim::Shrink;
 /// The beat of the form she comes back to: `cosmic.arrive_beat_seconds` long,
 /// and with no clip. A clip of that form is the clip of a hit, and she was not
 /// hit.
-fn arrive_beat() -> TransformBeatPolicy {
+fn arrive_beat(rules: &crate::rules::MaryORules) -> TransformBeatPolicy {
     TransformBeatPolicy {
-        duration: crate::rules::mary_o_rules().cosmic.arrive_beat_seconds,
+        duration: rules.cosmic.arrive_beat_seconds,
         anim: CharacterAnim::Idle,
         clock_scale: 1.0,
         untouchable: true,
@@ -83,8 +83,7 @@ pub(crate) fn transform_technique() -> ambition_platformer2d::entity_catalog::ac
 }
 
 /// Resolve a named transition through the cosmic sheet's authored timing.
-fn cosmic_beat(
-    content: &ambition_platformer2d::sprite_sheet::SpriteContent,
+fn cosmic_beat(rules: &crate::rules::MaryORules, content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
     clip: &str,
@@ -95,7 +94,7 @@ fn cosmic_beat(
     )?;
     let seconds = spec.named_clip_seconds(clip)?;
     Some(TransformBeatPolicy {
-        duration: seconds + if anim == LEAVE_ANIM { crate::rules::mary_o_rules().cosmic.leave_hold_seconds } else { 0.0 },
+        duration: seconds + if anim == LEAVE_ANIM { rules.cosmic.leave_hold_seconds } else { 0.0 },
         anim,
         clip: Some(clip.to_owned()),
         clock_scale: 1.0,
@@ -125,7 +124,12 @@ pub fn toggle_cosmic_form(sprite_content: bevy::prelude::Res<ambition_platformer
     authored: Option<Res<ambition_platformer2d::character::AuthoredSheets>>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut commands: Commands,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     for (body, edges, mut worn, kin, equipment, beat) in &mut bodies {
         if !edges.pressed(TRANSFORM_TECHNIQUE_ID) {
             continue;
@@ -146,22 +150,22 @@ pub fn toggle_cosmic_form(sprite_content: bevy::prelude::Res<ambition_platformer
         let cue = if in_form {
             // Her way out: the row plays on the form, and she wears the form
             // until it ends.
-            let target = crate::powerups::ladder_character(equipment);
-            let forms = crate::forms::mary_o_forms();
+            let target = crate::powerups::ladder_character(forms, equipment);
+            let forms = crate::forms::mary_o_forms(&packs);
             let Some(clips) = forms.cosmic_clips(target) else { continue; };
-            let Some(policy) = cosmic_beat(&sprite_content, catalog.as_deref(), authored.as_deref(), &clips.leave, LEAVE_ANIM) else { continue; };
+            let Some(policy) = cosmic_beat(rules, &sprite_content, catalog.as_deref(), authored.as_deref(), &clips.leave, LEAVE_ANIM) else { continue; };
             commands.entity(body).try_insert(TransformBeatRequested(policy));
-            crate::forms::mary_o_forms().top_cue_down().map(ambition_platformer2d::content::interned_id)
-        } else if crate::powerups::is_her_form(worn.id()) {
-            let forms = crate::forms::mary_o_forms();
+            crate::forms::mary_o_forms(&packs).top_cue_down().map(ambition_platformer2d::content::interned_id)
+        } else if crate::powerups::is_her_form(forms, worn.id()) {
+            let forms = crate::forms::mary_o_forms(&packs);
             let Some(clips) = forms.cosmic_clips(worn.id()) else { continue; };
-            let Some(policy) = cosmic_beat(&sprite_content, catalog.as_deref(), authored.as_deref(), &clips.enter, CharacterAnim::Transform) else { continue; };
+            let Some(policy) = cosmic_beat(rules, &sprite_content, catalog.as_deref(), authored.as_deref(), &clips.enter, CharacterAnim::Transform) else { continue; };
             worn.0 = COSMIC_CHARACTER_ID.into();
             commands.entity(body).try_insert((
                 TransformBeatRequested(policy),
                 RecharacterizeBody,
             ));
-            crate::forms::mary_o_forms().top_cue_up().map(ambition_platformer2d::content::interned_id)
+            crate::forms::mary_o_forms(&packs).top_cue_up().map(ambition_platformer2d::content::interned_id)
         } else {
             // A body that is not Mary-O has no such form.
             continue;
@@ -187,14 +191,17 @@ pub fn update_cosmic_return_clip(
     catalog: Option<Res<ambition_platformer2d::character::CharacterCatalog>>,
     authored: Option<Res<ambition_platformer2d::character::AuthoredSheets>>,
     mut bodies: Query<(&CharacterForm, Option<&WornEquipment>, &mut TransformBeat)>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     for (worn, equipment, mut beat) in &mut bodies {
         if !is_cosmic(worn.id()) || !is_leaving(&beat) { continue; }
-        let forms = crate::forms::mary_o_forms();
-        let Some(clips) = forms.cosmic_clips(crate::powerups::ladder_character(equipment)) else { continue; };
+        let forms = crate::forms::mary_o_forms(&packs);
+        let Some(clips) = forms.cosmic_clips(crate::powerups::ladder_character(&forms, equipment)) else { continue; };
         if beat.policy.clip.as_deref() == Some(&clips.leave) { continue; }
-        let Some(policy) = cosmic_beat(&content, catalog.as_deref(), authored.as_deref(), &clips.leave, LEAVE_ANIM) else { continue; };
-        let hold = crate::rules::mary_o_rules().cosmic.leave_hold_seconds;
+        let Some(policy) = cosmic_beat(rules, &content, catalog.as_deref(), authored.as_deref(), &clips.leave, LEAVE_ANIM) else { continue; };
+        let hold = rules.cosmic.leave_hold_seconds;
         let old_clip = (beat.policy.duration - hold).max(f32::EPSILON);
         let progress = ((beat.policy.duration - beat.remaining) / old_clip).clamp(0.0, 1.0);
         beat.remaining = if progress < 1.0 { (policy.duration - hold) * (1.0 - progress) + hold } else { beat.remaining.min(hold) };
@@ -214,18 +221,23 @@ pub fn come_back_from_the_form(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut bodies: Query<(Entity, &mut CharacterForm, Option<&WornEquipment>, &TransformBeat)>,
     mut commands: Commands,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
+    let forms_row = crate::forms::mary_o_forms(&packs);
+    let forms: &crate::forms::MaryOForms = &forms_row;
     for (body, mut worn, equipment, beat) in &mut bodies {
         if !is_cosmic(worn.id()) || !is_leaving(beat) {
             continue;
         }
-        if beat.remaining > crate::rules::mary_o_rules().cosmic.leave_hold_seconds.max(2.0 * time.wall_dt()) {
+        if beat.remaining > rules.cosmic.leave_hold_seconds.max(2.0 * time.wall_dt()) {
             continue;
         }
-        worn.0 = crate::powerups::ladder_character(equipment).into();
+        worn.0 = crate::powerups::ladder_character(forms, equipment).into();
         commands
             .entity(body)
-            .try_insert((TransformBeatRequested(arrive_beat()), RecharacterizeBody));
+            .try_insert((TransformBeatRequested(arrive_beat(rules)), RecharacterizeBody));
     }
 }
 
@@ -272,10 +284,13 @@ pub fn the_sky_has_a_top(
 /// timer on the next tick. Each body in the form, not only the first player.
 pub fn shorten_her_hit_stop(
     mut bodies: Query<(&CharacterForm, &mut ambition_platformer2d::characters::actor::BodyCombat)>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
+    let rules_row = crate::rules::mary_o_rules(&packs);
+    let rules: &crate::rules::MaryORules = &rules_row;
     for (worn, mut combat) in &mut bodies {
-        if is_cosmic(worn.id()) && combat.hitstop_timer > crate::rules::mary_o_rules().cosmic.hit_stop_max_seconds {
-            combat.hitstop_timer = crate::rules::mary_o_rules().cosmic.hit_stop_max_seconds;
+        if is_cosmic(worn.id()) && combat.hitstop_timer > rules.cosmic.hit_stop_max_seconds {
+            combat.hitstop_timer = rules.cosmic.hit_stop_max_seconds;
         }
     }
 }
@@ -332,8 +347,8 @@ mod tests {
     /// `cosmic.arrive_beat_seconds`, with no clip and no slow-down.
     #[test]
     fn the_arrive_beat_is_the_rules_file() {
-        let beat = arrive_beat();
-        assert_eq!(beat.duration, crate::rules::mary_o_rules().cosmic.arrive_beat_seconds, "the arrive beat is not the rules'");
+        let beat = arrive_beat(&crate::rules::shipped_rules());
+        assert_eq!(beat.duration, crate::rules::shipped_rules().cosmic.arrive_beat_seconds, "the arrive beat is not the rules'");
         assert_eq!((beat.anim, beat.clock_scale), (CharacterAnim::Idle, 1.0));
     }
 }

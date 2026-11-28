@@ -20,8 +20,11 @@ pub fn mash_out_of_paralysis(
         &mut ambition_platformer2d::characters::actor::BodyCombat,
         &ambition_platformer2d::characters::control::ActorControl,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
-    let mash = crate::rules::smash_rules().paralysis_mash_seconds;
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
+    let mash = crate::rules::smash_rules_in(selected_pack).paralysis_mash_seconds;
     for (mut combat, control) in &mut held {
         // Read before write: a free body takes no change-detection write.
         if combat.paralysis_timer <= 0.0 {
@@ -40,8 +43,11 @@ pub fn mash_out_of_burial(
         &mut ambition_platformer2d::characters::actor::BodyCombat,
         &ambition_platformer2d::characters::control::ActorControl,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
-    let mash = crate::rules::smash_rules().bury_mash_seconds;
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
+    let mash = crate::rules::smash_rules_in(selected_pack).bury_mash_seconds;
     for (mut combat, control) in &mut buried {
         if combat.bury_timer <= 0.0 {
             continue;
@@ -59,8 +65,11 @@ pub fn mash_out_of_freeze(
         &mut ambition_platformer2d::characters::actor::BodyCombat,
         &ambition_platformer2d::characters::control::ActorControl,
     )>,
+    packs: ambition_platformer2d::content::SelectedPacks,
 ) {
-    let mash = crate::rules::smash_rules().freeze_mash_seconds;
+    let selected_generation = packs.of(&crate::smash_pack::PACK);
+    let selected_pack: &ambition_platformer2d::content::PreparedContentPack = &selected_generation;
+    let mash = crate::rules::smash_rules_in(selected_pack).freeze_mash_seconds;
     for (mut combat, control) in &mut frozen {
         if combat.freeze_timer <= 0.0 {
             continue;
@@ -128,7 +137,7 @@ mod tests {
         frame.melee_pressed = true;
         frame.jump_pressed = true;
         app.update();
-        let rule = crate::rules::smash_rules().paralysis_mash_seconds;
+        let rule = crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared()).paralysis_mash_seconds;
         assert!((held(&app, victim) - (0.6 - rule)).abs() < 1e-6, "a chord bought {} s", 0.6 - held(&app, victim));
     }
 
@@ -140,7 +149,7 @@ mod tests {
         app.world_mut().get_mut::<BodyCombat>(victim).unwrap().bury_timer = 1.0;
         app.world_mut().get_mut::<ActorControl>(victim).unwrap().0.melee_pressed = true;
         app.update();
-        let rule = crate::rules::smash_rules().bury_mash_seconds;
+        let rule = crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared()).bury_mash_seconds;
         let left = app.world().get::<BodyCombat>(victim).unwrap().bury_timer;
         assert!((left - (1.0 - rule)).abs() < 1e-6, "one press dug {} s", 1.0 - left);
     }
@@ -153,7 +162,7 @@ mod tests {
         app.world_mut().get_mut::<BodyCombat>(victim).unwrap().freeze_timer = 1.2;
         app.world_mut().get_mut::<ActorControl>(victim).unwrap().0.special_pressed = true;
         app.update();
-        let rule = crate::rules::smash_rules().freeze_mash_seconds;
+        let rule = crate::rules::smash_rules_of(crate::smash_pack::PACK.prepared()).freeze_mash_seconds;
         assert!((app.world().get::<BodyCombat>(victim).unwrap().freeze_timer - (1.2 - rule)).abs() < 1e-6);
     }
 

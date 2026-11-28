@@ -139,10 +139,10 @@ fn watch(roster: ambition_platformer2d::actor::MatchParticipantRoster, label: &s
 #[test]
 fn local_hitlag_holds_only_the_struck_bodies_with_cpus_and_with_a_human_seat() {
     let fighters = [ambition_demo_smash::SMASH_GEORGE_BOOUL; 2];
-    let mut cpu_only = ambition_demo_smash::smash_roster_at_levels(fighters, &[9, 9]);
+    let mut cpu_only = ambition_demo_smash::smash_roster_at_levels(&ambition_demo_smash::smash_pack::PACK.prepared(), fighters, &[9, 9]);
     cpu_only.rules.stocks = Some(25);
     // Seat 0 is a human with no controller: neutral input, struck by the CPU.
-    let mut human = ambition_demo_smash::smash_roster(fighters);
+    let mut human = ambition_demo_smash::smash_roster(&ambition_demo_smash::smash_pack::PACK.prepared(), fighters);
     human.rules.stocks = Some(25);
     for (roster, label) in [(cpu_only, "cpu-only"), (human, "human seat")] {
         let holds = watch(roster, label, 1800);

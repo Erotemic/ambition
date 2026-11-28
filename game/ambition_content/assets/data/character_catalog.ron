@@ -7230,7 +7230,7 @@
             manifest: "sprites/barrow_king_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            standing_height: Some(70.0),
+            standing_height: Some(184.0),
             composition: None,
             default_action_set: "barrow_king_slash",
             // A jab (1 or 2) does not stagger him; a heavier blow does. The

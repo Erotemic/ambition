@@ -74,6 +74,7 @@ fn the_halls_copied_bosses_are_practice_copies_at_their_own_placements() {
         ("hall_gram_reaper_arena", &["hall.gram_reaper"][..], "math_hotel_gram_reaper"),
         // The final boss's stage, cloned into the hall (2026-11-12).
         ("hall_bossofthegame_stage", &["hall.bossofthegame"][..], "boss_main_stage"),
+        ("hall_barrow_king_tomb", &["hall.barrow_king"][..], "intro_barrow_royal_tomb"),
     ] {
         let hall = room(hall_room);
         let game = room(game_room);
@@ -159,6 +160,19 @@ fn the_halls_mockingbird_spawns_as_a_practice_boss() {
         vec![("hall.wolfenstein".to_string(), true), ("hall.wolfenstein_inugami".to_string(), true)]
     );
     assert_eq!(boss_practice_in("hall_gram_reaper_arena"), vec![("hall.gram_reaper".to_string(), true)]);
+}
+
+#[test]
+fn the_barrow_king_door_leads_to_practice_and_back() {
+    use crate::common::walk::{Pad, Walker as _, walk_through};
+
+    let mut sim = hall();
+    let mut pad = Pad::new(&mut sim);
+    walk_through(&mut pad, "hall_barrow_king_tomb").expect("enter the Barrow King's practice tomb");
+    let world = pad.world_mut();
+    let mut bosses = world.query::<&BossConfig>();
+    assert!(bosses.iter(world).any(|boss| boss.id == "hall.barrow_king" && boss.practice));
+    walk_through(&mut pad, HALL).expect("return from the practice tomb");
 }
 
 // ---- The life switches ------------------------------------------------------

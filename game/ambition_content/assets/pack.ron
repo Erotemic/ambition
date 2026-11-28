@@ -200,6 +200,7 @@
         (path: "data/boss_encounters/bossofthegame.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/marshal_gallus.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/mother_lode.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/barrow_king.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_seeds.ron", schema: "boss_seed_library", version: 1),
         (path: "data/boss_validator_bands.ron", schema: "boss_validator_bands", version: 1),
         (path: "audio/music_registry.ron", library: Some("ambition_shared"), schema: "music_registry", version: 1),

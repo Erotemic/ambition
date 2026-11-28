@@ -109,6 +109,10 @@
         "lode_fault": ["fault"],
         "lode_shed": ["shed"],
         "lode_split": ["split"],
+        "barrow_reap": ["reap"],
+        "barrow_sceptre": ["sceptre_slam"],
+        "barrow_brand": ["brand"],
+        "barrow_sentence": ["sentence"],
         // The Supreme Leader: each move's row on his sheet.
         "sl_lines": ["order"],
         "sl_decree": ["decree"],

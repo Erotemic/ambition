@@ -1,0 +1,15 @@
+(
+    id: "barrow_king",
+    name: "The Barrow King",
+    max_hp: 28,
+    phase1_to_transition_hp: 0.67,
+    phase2_to_enrage_hp: 0.34,
+    intro_seconds: 0.80,
+    transition_seconds: 0.75,
+    enrage_seconds: 0.80,
+    wake_radius: Some(535.0),
+    music_intro: "fast_paced_violin_boss",
+    music_phase1: "fast_paced_violin_boss",
+    music_phase2: "fast_paced_violin_boss",
+    music_enrage: "fast_paced_violin_boss",
+)

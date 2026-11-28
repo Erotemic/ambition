@@ -50,6 +50,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom;
 use ambition_platformer2d_shared_tangle::camera_layers::{
     PrivateCameraLayer, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
 };
@@ -307,6 +308,10 @@ pub struct CarryCameras<'w, 's> {
     >,
 }
 
+// A reaching effect can supply bounds before it has a 2D binding.
+type CarryablePicture =
+    Or<(With<Sprite>, With<Mesh2d>, With<Text2d>, (With<Aabb>, With<ReachesFrom>))>;
+
 /// A drawable's family and its layers.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct CarryFamilies<'w, 's> {
@@ -326,7 +331,7 @@ pub struct CarryFamilies<'w, 's> {
             With<PortalDrawnWith>,
             Without<ChildOf>,
             Without<PortalCarryCamera>,
-            Or<(With<Sprite>, With<Mesh2d>, With<Text2d>)>,
+            CarryablePicture,
         ),
     >,
     layers: Query<'w, 's, &'static mut RenderLayers>,
@@ -362,11 +367,11 @@ pub fn carry_through_pairs(
             Option<(&Sprite, &bevy::sprite::Anchor)>,
             &Transform,
             &Visibility,
-            Option<&ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom>,
+            Option<&ReachesFrom>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
         ),
         (
-            Or<(With<Sprite>, With<Mesh2d>, With<Text2d>)>,
+            CarryablePicture,
             Without<ChildOf>,
             Without<PortalSceneBody>,
             Without<PortalDrawnWith>,

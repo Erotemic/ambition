@@ -148,7 +148,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                     .and_then(|handle| world.get_resource::<Assets<engine::portal_presentation::PortalClipMaterial>>()?.get(&handle.0))
                     .map(|material| format!("{material:?}")),
                 "mesh_positions": entity.get::<Mesh2d>().and_then(|handle| world.get_resource::<Assets<Mesh>>()?.get(&handle.0))
-                    .and_then(|mesh| mesh.attribute(Mesh::ATTRIBUTE_POSITION)).map(|positions| format!("{positions:?}")),
+                    .and_then(|mesh| mesh.try_attribute(Mesh::ATTRIBUTE_POSITION).ok()).map(|positions| format!("{positions:?}")),
                 "camera": entity.get::<Camera>().map(|camera| json!({"active":camera.is_active,"order":camera.order})),
             }));
         }

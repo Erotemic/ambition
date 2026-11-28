@@ -565,21 +565,22 @@ fn a_material_proxy_keeps_physical_scale_and_persistent_reflection() {
 }
 
 #[test]
-fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget() {
-    use ambition_platformer2d_shared_tangle::{body::geometry::ReachesFrom, lifecycle::PresentationOf};
+fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget_without_2d_art() {
+    use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
     let mut app = test_app();
     add_pair(&mut app, authored_entry(), 500.0, 800.0);
+    app.update();
     let budget = PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED };
     let owner = app.world_mut().spawn((MaterialBudget(budget), ae::BodyKinematics {
         pos: Vec2::new(480.0, 300.0), ..Default::default()
     })).id();
     let visual = app.world_mut().spawn((
-        Sprite::from_color(Color::WHITE, Vec2::new(58.0, 7.0)),
-        bevy::sprite::Anchor::default(), Visibility::Visible,
+        Aabb::from_min_max(Vec3::new(-29.0, -3.5, 0.0), Vec3::new(29.0, 3.5, 0.0)),
+        Visibility::Visible,
         Transform::from_translation(PortalWorldFrame { size: WORLD }.to_render(Vec2::new(508.0, 300.0), 20.0)),
         ReachesFrom(Vec2::new(480.0, 300.0)), PresentationOf(owner),
     )).id();
-    for _ in 0..3 { app.update(); }
+    app.update();
     // The holder's refusal constrains its reach: drawn only in front of the
     // mouth that refused it, and nothing of it past the source face.
     let refused = outcome(&mut app, visual);
@@ -592,7 +593,7 @@ fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget() {
         "a refused reach draws nothing behind the source face"
     );
     app.world_mut().entity_mut(owner).insert(MaterialBudget(PieceBudget::SINGLE_HOP));
-    for _ in 0..3 { app.update(); }
+    app.update();
     let cut = outcome(&mut app, visual);
     assert!(cut.active_capture && !cut.on_world);
     assert_eq!(cut.pieces.len(), 2);

@@ -872,6 +872,12 @@ shared value preparation are sufficient until source proves otherwise.
    An Ultra fixture checks additive light and blended colors in 2D,
    side-on 2.5D, and oblique 2.5D.
 
+   The default attack sweep supplies mesh bounds before either renderer
+   binds the mesh. Portal carry uses these bounds on the first active
+   strike tick. A Medium fixture in Portal Lab checks both halves of
+   the sweep in all three views. A cold graphics pipeline can still
+   delay the first draw.
+
    Chain fills and room terrain use the same mesh preparation. A room
    keeps its terrain meshes when the quality setting changes their material.
    The 2D bindings are present only when an active 2D camera needs them.

@@ -752,15 +752,20 @@ shared value preparation are sufficient until source proves otherwise.
    gameplay camera supplies the room and view mask for the card output.
    A gameplay camera without a mask draws layer zero.
 
-   World labels use the glyph atlas and layout from Bevy. A private
-   visibility camera keeps that layout available when the plane output
-   is inactive. The workshop window capture shows signs, nameplates,
+   World labels use the glyph atlas and layout from Bevy. The plane
+   camera supplies the target scale when a card output replaces it.
+   The workshop window capture shows signs, nameplates,
    Scout, Dennis, and the pause cube. It shows both renderers in the
    comparison mode. Switching the output kept one workshop session
    active and kept it paused while the cube was open.
    Text cards use each span's color. Control signs show the input glyph
-   when its image is ready. Nameplate outlines draw behind the text in
-   the same room and view.
+   when its image is ready. Nameplates, speech bubbles, and Mary-O pipe
+   signs share one outline path. The outline uses the label's font and
+   opacity. A copy of a static sign keeps its outline and live room.
+   Medium captures of GNU-ton at tick 350 show the same wrapped speech
+   and outline in 2D and side-on 2.5D. Portal fault glyphs use the body
+   identity and live room for their drift. Medium captures of Portal Scale
+   Lab at tick 152 show the glyphs in 2D, side-on, and oblique views.
 
    A card uses the existing portal capture mesh and texture for the far-side
    window. It stays at the seam and uses the source pane order and opaque

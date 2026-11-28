@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
-use super::label_layout::{WorldLabel, WorldLabelFamily};
+use super::label_layout::{WorldLabel, WorldLabelFamily, WorldLabelOutline};
 use super::primitives::RoomVisual;
 
 /// Presentation policy for world nameplates.
@@ -102,12 +102,6 @@ pub struct ActorNameplateVisual {
     pub owner_id: String,
     pub label: String,
 }
-
-/// Marker on outline child text entities, so style systems can change only
-/// the shadow pass.
-#[derive(Component, Clone, Copy, Debug)]
-#[require(super::primitives::WorldText)]
-pub struct ActorNameplateOutlineVisual;
 
 /// System set for nameplates, so other code can order against it.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
@@ -539,7 +533,7 @@ fn spawn_actor_nameplate(
                     font.clone(),
                     TextColor(outline_color),
                     Transform::from_xyz(offset.x, offset.y, -0.1),
-                    ActorNameplateOutlineVisual,
+                    WorldLabelOutline,
                 ));
             }
         });

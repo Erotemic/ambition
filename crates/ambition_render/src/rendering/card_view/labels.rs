@@ -252,9 +252,10 @@ mod tests {
     use bevy::text::{detect_text_needs_rerender, TextLayoutInfo, TextPlugin};
 
     use super::{
-        prepare_label_layout, realize_card_labels, CardLabel, CardMeshes, CardRootDepths,
+        prepare_label_layout, realize_card_labels, CardLabel, CardMeshes, CardRootDepths, CardScope,
         CardViewCamera, PlaneCameraForCard, WorldText,
     };
+    use crate::rendering::WorldLabelOutline;
 
     #[test]
     fn span_color_changes_without_replacing_its_card() {
@@ -290,8 +291,12 @@ mod tests {
         let plane = world.spawn((camera, MainCamera, layers.clone())).id();
         world.spawn((Camera::default(), CardViewCamera, PlaneCameraForCard(plane)));
         let red = Color::srgb_u8(210, 70, 70);
-        let root = world.spawn((Text2d::new("Press "), font.clone(), WorldText, Visibility::Visible, layers)).id();
+        let root = world.spawn((Text2d::new("Press "), font.clone(), WorldText, Visibility::Visible, layers.clone())).id();
         let away = world.spawn((Text2d::new("Elsewhere"), font.clone(), WorldText, RenderLayers::layer(8))).id();
+        let outline = world.spawn((
+            Text2d::new("Press "), font.clone(), TextColor(Color::BLACK), WorldLabelOutline,
+            Visibility::Visible, layers, bevy::prelude::ChildOf(root),
+        )).id();
         let span = world.spawn((TextSpan::new("B"), font, TextColor(red), bevy::prelude::ChildOf(root))).id();
         for _ in 0..3 {
             app.update();
@@ -312,6 +317,8 @@ mod tests {
         let white = [255; 4];
         let lettering = card_with(app.world_mut(), white);
         let button = card_with(app.world_mut(), red.to_srgba().to_u8_array());
+        let border = card_with(app.world_mut(), [0, 0, 0, 255]);
+        assert!(matches!(app.world().get::<CardScope>(border), Some(CardScope::Source(source)) if *source == outline));
         assert_ne!(lettering, button);
 
         app.world_mut().entity_mut(span).insert(TextColor(Color::NONE));

@@ -223,6 +223,7 @@ pub use label_layout::{
     WorldLabelLayoutPlugin,
     WorldLabelLayoutSet,
     WorldLabelLayoutSettings,
+    WorldLabelOutline,
 };
 pub use nameplates::{
     sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,
@@ -257,6 +258,7 @@ pub use primitives::{
     PlayerVisual, PortalSprite, PropClip, PropTint, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
     WorldSprite,
 };
+pub(crate) use primitives::WorldText;
 // Game-supplied art map for walk-into world items: the renderer owns the
 // seam, and each game fills it with its own pickup images.
 pub use item_visuals::{sync_ground_item_visuals, GroundItemVisual, HeldItemAppearance, WorldItemArt};

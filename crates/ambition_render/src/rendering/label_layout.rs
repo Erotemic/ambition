@@ -23,7 +23,7 @@
 use ambition_platformer2d_core as ae;
 use ambition_sim_view::ControlledBodiesView;
 use bevy::prelude::*;
-use bevy::text::TextLayoutInfo;
+use bevy::text::{TextBounds, TextLayoutInfo};
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
@@ -121,6 +121,11 @@ impl WorldLabel {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct StaticWorldLabel;
 
+/// A text child that draws the outline of its parent label.
+#[derive(Component, Clone, Copy)]
+#[require(super::primitives::WorldText)]
+pub struct WorldLabelOutline;
+
 /// A mirrored copy of a static world label, naming its source label. When the
 /// room despawns the root, the copy goes with it.
 #[derive(Component, Clone, Copy, Debug)]
@@ -155,6 +160,8 @@ pub fn mirror_static_world_labels_per_view(
             &TextColor,
             &WorldLabel,
             Option<&ambition_sim_view::PresentedForView>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&Children>,
         ),
         (With<StaticWorldLabel>, Without<MirroredWorldLabel>),
     >,
@@ -166,6 +173,7 @@ pub fn mirror_static_world_labels_per_view(
         ),
         With<StaticWorldLabel>,
     >,
+    outlines: Query<(&Text2d, &TextFont, &TextColor, &Transform, &TextBounds, &TextLayout), With<WorldLabelOutline>>,
 ) {
     use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt as _;
 
@@ -202,7 +210,7 @@ pub fn mirror_static_world_labels_per_view(
         mirrored.insert((copy.root, key.0));
     }
 
-    for (root, text, font, color, label, key) in &roots {
+    for (root, text, font, color, label, key, room, children) in &roots {
         if key.map(|key| key.0) != Some(root_view) {
             commands
                 .entity(root)
@@ -217,7 +225,7 @@ pub fn mirror_static_world_labels_per_view(
             // opacity for a different view.
             copied_label.rendered_opacity = 0.0;
             commands.spawn_session_scoped(
-                session_scope,
+                session_scope.in_room(room.map(|room| room.0)),
                 (
                     text.clone(),
                     font.clone(),
@@ -233,7 +241,14 @@ pub fn mirror_static_world_labels_per_view(
                     // No `Name`: `entity.name` is registered for rollback, so it
                     // would enlist a whole view's presentation set in the sim sweep.
                 ),
-            );
+            ).with_children(|copy| {
+                for (text, font, color, place, bounds, layout) in children.into_iter()
+                    .flat_map(|children| children.iter())
+                    .filter_map(|child| outlines.get(child).ok())
+                {
+                    copy.spawn((text.clone(), font.clone(), *color, *place, *bounds, *layout, WorldLabelOutline));
+                }
+            });
         }
     }
 }
@@ -548,19 +563,24 @@ pub fn a_label_font_may_be_off(
 /// `Mut` deref marks it changed.
 pub fn apply_world_label_fonts(
     ui_fonts: Option<Res<UiFonts>>,
-    mut labels: Query<(&WorldLabel, &mut TextFont)>,
+    mut labels: Query<(&WorldLabel, &mut TextFont, Option<&Children>), Without<WorldLabelOutline>>,
+    mut outlines: Query<&mut TextFont, (With<WorldLabelOutline>, Without<WorldLabel>)>,
 ) {
-    let Some(fonts) = ui_fonts.as_deref() else {
-        return;
-    };
-    for (label, mut font) in &mut labels {
+    for (label, mut font, children) in &mut labels {
         // Family and weight are one request. Assigning only the family draws
         // every plate at Regular. Guarded by
         // `a_label_spawned_before_its_font_still_ends_up_on_it`.
-        let wanted = fonts.text_font(font.font_size, font_weight_for(label.family));
-        if font.font != wanted.font || font.weight != wanted.weight {
-            font.font = wanted.font;
-            font.weight = wanted.weight;
+        if let Some(fonts) = ui_fonts.as_deref() {
+            let wanted = fonts.text_font(font.font_size, font_weight_for(label.family));
+            if font.font != wanted.font || font.weight != wanted.weight {
+                font.font = wanted.font;
+                font.weight = wanted.weight;
+            }
+        }
+        for child in children.into_iter().flat_map(|children| children.iter()) {
+            if let Ok(mut outline) = outlines.get_mut(child) {
+                outline.set_if_neq(font.clone());
+            }
         }
     }
 }
@@ -603,7 +623,7 @@ pub fn layout_world_labels(
         Option<&Children>,
         Option<&ambition_sim_view::PresentedForView>,
     )>,
-    mut outline_colors: Query<&mut TextColor, Without<WorldLabel>>,
+    mut outline_colors: Query<&mut TextColor, (With<WorldLabelOutline>, Without<WorldLabel>)>,
 ) {
     let ease = ease_fraction(settings.opacity_ease_secs, time.delta_secs());
     if !settings.enabled {
@@ -723,7 +743,7 @@ fn apply_view_layout(
         Option<&Children>,
         Option<&ambition_sim_view::PresentedForView>,
     )>,
-    outline_colors: &mut Query<&mut TextColor, Without<WorldLabel>>,
+    outline_colors: &mut Query<&mut TextColor, (With<WorldLabelOutline>, Without<WorldLabel>)>,
 ) {
     for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children, key) in
         labels.iter_mut()
@@ -781,7 +801,7 @@ fn visibility_for(opacity: f32) -> Visibility {
 }
 
 fn paint_outlines(
-    outline_colors: &mut Query<&mut TextColor, Without<WorldLabel>>,
+    outline_colors: &mut Query<&mut TextColor, (With<WorldLabelOutline>, Without<WorldLabel>)>,
     children: Option<&Children>,
     label: &WorldLabel,
     opacity: f32,
@@ -919,6 +939,7 @@ mod tests {
                 },
             ))
             .id();
+        let outline = app.world_mut().spawn((Text2d::new("name"), WorldLabelOutline, ChildOf(plate))).id();
         app.update();
         assert_eq!(
             app.world().get::<TextFont>(plate).unwrap().font,
@@ -950,6 +971,7 @@ mod tests {
             FontSize::Px(12.0),
             "the pass owns the FACE and must not touch the size the spawner chose"
         );
+        assert_eq!(app.world().get::<TextFont>(outline), Some(font));
     }
 
     fn settings() -> WorldLabelLayoutSettings {
@@ -1474,6 +1496,9 @@ mod tests {
                     StaticWorldLabel,
                 ))
                 .id();
+            let room = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION;
+            world.entity_mut(root).insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
+            let edge = world.spawn((Text2d::new("abcdefghij"), WorldLabelOutline, ChildOf(root))).id();
 
             fn projections(world: &mut World) -> Vec<Entity> {
                 let mut query = world.query_filtered::<Entity, With<StaticWorldLabel>>();
@@ -1492,11 +1517,18 @@ mod tests {
                  cannot hold two views' transforms, which is the whole reason this \
                  mirror exists"
             );
+            let copy = world.query_filtered::<Entity, With<MirroredWorldLabel>>().single(&world).unwrap();
+            assert_eq!(world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(copy).unwrap().0, room);
+            let copied_edge = world.get::<Children>(copy).unwrap()[0];
+            assert!(world.get::<WorldLabelOutline>(copied_edge).is_some());
+            assert!(world.get::<crate::rendering::WorldText>(copied_edge).is_some());
 
             world.despawn(second);
             world
                 .run_system_once(mirror_static_world_labels_per_view)
                 .expect("the mirror runs");
+            assert!(world.get_entity(copied_edge).is_err());
+            assert!(world.get_entity(edge).is_ok());
             assert_eq!(
                 projections(&mut world),
                 vec![root],

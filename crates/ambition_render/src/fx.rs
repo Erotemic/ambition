@@ -125,12 +125,6 @@ pub struct SpeechBubbleVisual {
     duration: f32,
 }
 
-/// Marker on the shadow copies behind a bubble's text. The placement pass
-/// paints their colour with the line (`paint_outlines`); this marker only
-/// identifies them.
-#[derive(Component)]
-pub struct SpeechBubbleOutline;
-
 const SPEECH_BUBBLE_DURATION: f32 = 2.2;
 const SPEECH_BUBBLE_BASE_RISE: f32 = 14.0;
 /// The alpha a bubble's text and its shadow are drawn at when the line is at
@@ -1054,7 +1048,7 @@ pub fn spawn_speech_bubble(
     let Some(session_scope) = session_scope else {
         return;
     };
-    use crate::rendering::label_layout::{WorldLabel, WorldLabelFamily};
+    use crate::rendering::label_layout::{WorldLabel, WorldLabelFamily, WorldLabelOutline};
 
     let visual = SpeechBubbleVisual::new(pos, SPEECH_BUBBLE_DURATION);
     let text_color = Color::srgba(1.0, 1.0, 1.0, SPEECH_BUBBLE_TEXT_ALPHA);
@@ -1117,7 +1111,7 @@ pub fn spawn_speech_bubble(
                     // is only the first frame's value.
                     TextColor(outline_color),
                     Transform::from_xyz(offset.x, offset.y, -0.1),
-                    SpeechBubbleOutline,
+                    WorldLabelOutline,
                     Name::new("Speech bubble outline"),
                 ));
             }

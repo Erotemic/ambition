@@ -12,10 +12,8 @@
 //!
 //! A sign is a world label of the engine (`WorldLabel`, `StaticWorldLabel`),
 //! of the family of a plate on a door: the engine gives it its font, in the
-//! weight of a name that is read at a glance, and its place in the view. The
-//! edge is copies of the words behind them, as an actor's nameplate has; the
-//! engine gives a font to the label only, so
-//! [`edges_take_the_font_of_their_sign`] gives the same font to its edge.
+//! weight of a name that is read at a glance, and its place in the view.
+//! The outline uses the label's font.
 
 use bevy::prelude::*;
 
@@ -26,6 +24,7 @@ use ambition_platformer2d::platformer::lifecycle::{
 };
 use ambition_platformer2d::render::rendering::{
     RoomVisual, StaticWorldLabel, WorldLabel, WorldLabelFamily, WorldLabelLayoutSettings,
+    WorldLabelOutline,
 };
 use ambition_platformer2d::world::rooms::LiveRoomSpecs;
 
@@ -37,10 +36,6 @@ const EDGE_AT: [(f32, f32); 8] =
 /// One per live room that has its signs.
 #[derive(Component)]
 struct PresentedPipeSigns;
-
-/// A copy of the words of a sign, behind them: a part of its edge.
-#[derive(Component)]
-struct PipeSignEdge;
 
 /// The words over a pipe to the level whose title is `title`, or whose id is
 /// `id` when it has no title.
@@ -69,14 +64,9 @@ pub fn install(app: &mut App) {
 fn add_systems(app: &mut App) {
     app.add_systems(
         Update,
-        (
-            // With the room's own visuals, and only where the engine draws
-            // world labels: a composition with no view draws no sign.
-            present_pipe_signs
-                .in_set(SessionScopeSet::Presentation)
-                .run_if(resource_exists::<WorldLabelLayoutSettings>),
-            edges_take_the_font_of_their_sign,
-        )
+        present_pipe_signs
+            .in_set(SessionScopeSet::Presentation)
+            .run_if(resource_exists::<WorldLabelLayoutSettings>)
             .in_set(crate::MaryOPresentationSet),
     );
 }
@@ -143,27 +133,12 @@ fn present_pipe_signs(
                             font.clone(),
                             TextColor(edge),
                             Transform::from_xyz(dx * look.edge_px, dy * look.edge_px, -0.1),
-                            PipeSignEdge,
+                            WorldLabelOutline,
                         ));
                     }
                 });
         }
         commands.spawn_session_scoped(scope, (PresentedPipeSigns, RoomVisual));
-    }
-}
-
-/// The engine gives a world label its font after it is spawned. The edge of a
-/// sign is not a label: it takes the font of the sign it is a part of.
-fn edges_take_the_font_of_their_sign(
-    signs: Query<(&TextFont, &Children), (With<WorldLabel>, Changed<TextFont>)>,
-    mut edges: Query<&mut TextFont, (With<PipeSignEdge>, Without<WorldLabel>)>,
-) {
-    for (font, children) in &signs {
-        for child in children.iter() {
-            if let Ok(mut edge) = edges.get_mut(child) {
-                *edge = font.clone();
-            }
-        }
     }
 }
 

@@ -888,6 +888,13 @@ shared value preparation are sufficient until source proves otherwise.
    comparison capture shows the same night light in the 2D main view and
    the 2.5D inset.
 
+   Indoor darkness uses the light settings and light sources of each
+   view's live room. Low and Medium center the light on the participant
+   that the view follows, or the nearest participant in that room. High
+   and Ultra share a light map across the outputs of that view. The
+   two-view test checks overlapping rooms, a quality change, and veil
+   removal on entry to a lit room.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

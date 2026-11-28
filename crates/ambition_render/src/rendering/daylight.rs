@@ -28,7 +28,6 @@
 use std::collections::HashMap;
 
 use bevy::{
-    camera::visibility::RenderLayers,
     ecs::system::SystemParam,
     mesh::MeshVertexBufferLayoutRef,
     prelude::*,
@@ -42,7 +41,6 @@ use bevy::{
 };
 
 use ambition_persistence::settings::{DarknessQuality, ResolvedVisualQuality};
-use ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_shared_tangle::gameplay_presentation::CastsLight;
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
@@ -53,7 +51,7 @@ use super::camera::coverage::GameplayOutputs;
 use super::darkness::{room_lamps, GridKey, Lamp, RoomShadows};
 use super::lamps::{pack, reach_image, LampsPlugin, LampsUniform, ReachWrites};
 use super::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
-use super::view_isolation::ProjectionRestingLayers;
+use super::view_isolation::lighting_layers;
 use super::AnimatedWorldSpriteTint;
 
 /// Over the world and the parallax foreground (`FOREGROUND_PARALLAX_Z`), under the UI.
@@ -305,7 +303,7 @@ impl DaylightAssets<'_> {
         let mut veil = commands.spawn((
             DaylightVeil,
             PresentedForView(view),
-            daylight_layers(),
+            lighting_layers(),
             Transform::from_translation(center.extend(DAYLIGHT_VEIL_Z)),
             Name::new("Daylight veil"),
         ));
@@ -327,7 +325,7 @@ impl DaylightAssets<'_> {
         let glow_entity = commands.spawn((
             LampGlow,
             ChildOf(veil_entity),
-            daylight_layers(),
+            lighting_layers(),
             PreparedPlanarMesh { mesh: mesh.0.clone(), material: glow.clone() },
             Transform::from_xyz(0.0, 0.0, 0.25),
             Visibility::Hidden,
@@ -360,13 +358,6 @@ impl DaylightAssets<'_> {
             }
         }
     }
-}
-
-// A portal capture has its own lighting path. The veil lights its window
-// as part of the main view.
-fn daylight_layers() -> (RenderLayers, ProjectionRestingLayers) {
-    let layers = RenderLayers::layer(PARALLAX_BACKGROUND_LAYER);
-    (layers.clone(), ProjectionRestingLayers(layers))
 }
 
 impl DaylightShading {
@@ -521,12 +512,13 @@ mod tests {
     fn each_view_draws_only_the_daylight_and_lamps_of_its_room() {
         use ambition_persistence::settings::{VisualQualityBudget, VisualQualityProfile};
         use ambition_platformer2d_core as ae;
-        use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
+        use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, PARALLAX_BACKGROUND_LAYER};
         use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance};
         use ambition_platformer2d_world::rooms::{insert_room_set, LiveRoomDefinition, RoomSet};
         use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
         use ambition_time::{DayClock, DayCycle};
         use bevy::camera::RenderTargetInfo;
+        use bevy::camera::visibility::RenderLayers;
         use crate::rendering::{PresentedViewFrame, PresentedViewFrames};
 
         let mut app = App::new();

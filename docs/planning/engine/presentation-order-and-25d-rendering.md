@@ -882,6 +882,9 @@ shared value preparation are sufficient until source proves otherwise.
    Cards and sprite effects use the same texture region. A crop uses
    coordinates relative to the atlas cell. An Ultra capture checks both
    atlas and whole-image crops with an offset anchor and two-axis flips.
+   Card meshes use the sprite's fit or fill mode. An Ultra fixture checks
+   all six modes with wide and tall bounds, a crop, a flip, and an offset
+   anchor. The 2D and side-on images agree within one color value per channel.
 
    Card caches keep meshes and materials that a draw used recently.
    Hidden sprite cards release their handles. The last view releases the card

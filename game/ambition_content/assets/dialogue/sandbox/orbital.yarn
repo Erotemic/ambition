@@ -68,7 +68,7 @@ title: station_reyes
     Captain Reyes: That pen on the gate deck holds my lenses. Without them the survey is blind.
     -> What do you haul?
         Captain Reyes: Whatever the ring brings that has to go farther than the ring. Moons, mines, the slow places. The survey moon doesn't have one at all.
-    -> Why not put a ring on the moon?
+    -> Could you deliver the cargo by gate instead?
         Captain Reyes: It would need its own power plant and a crew to keep the gate running. We've only got a few people on that moon. I'm cheaper.
     -> What's the work out beyond the rings?
         Captain Reyes: Two weeks out, two back. We bring batteries, food, water. They send us rocks in labeled bags.
@@ -99,7 +99,7 @@ title: station_rahimi
 ---
 <<if verdict("world.flag_set", "switch_orbital_spur_breaker_used") == "satisfied">>
     Hamid Rahimi: Power is back in the spur. The crawlers went quiet when the breaker closed. I owe you.
-    -> What broke them?
+    -> What went wrong with the crawlers?
         Hamid Rahimi: Their orders. "Repair anything damaged." The storm damaged everything. They kept cutting.
     -> Is the rest of the station all right?
         Hamid Rahimi: Better than yesterday. The gravity-works people want their instruments back now. They can collect them themselves.
@@ -147,7 +147,7 @@ Wen Liang: I tuned this station's first stable ring. The first link held three s
     Wen Liang: We can hold the link for a lot less power than the old design took. The hard part now is finding a crew to look after it.
 -> Do you miss the work?
     Wen Liang: Sometimes. Hamid lets me watch when they do the calibration. I can usually tell if the gate is out of tune by ear.
--> Ever worked with Gnu-ton?
+-> Have you worked with Gnu-ton?
     Wen Liang: He sent me a plan for a gravity test. I asked where the shutoff was. He sent me a diagram of the control circuit.
     Wen Liang: I know how it works. I want somebody outside the room to be able to turn it off.
 -> How many dimensions are there?

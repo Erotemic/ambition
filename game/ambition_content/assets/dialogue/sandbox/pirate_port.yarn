@@ -93,7 +93,7 @@ Jory: Mind the boards. There are two gaps in the pier and the harbour is deeper 
 -> Has the ring changed fishing?
     Jory: I can sell a catch on three worlds before supper. Used to be I knew every buyer by his hat.
     Jory: Agnes says I should charge more. I know what my neighbours can pay.
--> What is the quarrel with Bram about?
+-> What are you and Bram arguing about?
     Jory: He charges me for a day's berth. I'm there for an hour in the morning, and I unload my own catch.
     Jory: Ask him whether he wants the fish delivered to his house or to his office tonight.
 -> Carry on.
@@ -104,7 +104,7 @@ title: pirate_port_bram
 Bram: Harbour master. The docks are mine, the cove is the crews', and the sky over it is anyone's who can fly.
 -> What is past that door?
     Bram: The pirate cove. Mind your manners there. The crews keep a lookout above it, where the skyship raiders gather. They do not like visitors.
--> Does the ring bother you?
+-> Has the gate changed the way you run the port?
     Bram: It took me ten years to get the piers laid out properly. Then freight started coming through the ring and I had to find room for a warehouse. We're busier now.
 -> Is the cove safe?
     Bram: Depends who you ask. The Admiral pays his mooring fees. His raiders are less reliable.
@@ -137,7 +137,7 @@ Lark: Welcome to The Drowned Compass. Sit wherever there's a stool. Leave the on
 title: pirate_port_bess
 ---
 Broadside Bess: Shore leave. A table, a chowder, and nobody to board. Do not ruin it.
--> Do you crew from the cove?
+-> Are you based in the cove?
     Broadside Bess: The cove is home. The port is where the money is. The sky is where the trouble is.
 -> Have you been through the ring?
     Broadside Bess: Once. I came out the other side and fired a broadside at the floor. On purpose. Probably.

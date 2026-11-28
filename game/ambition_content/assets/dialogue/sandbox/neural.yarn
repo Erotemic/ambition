@@ -10,7 +10,7 @@ title: neural_grandmother
 <<else>>
     <<stop>>
 <<endif>>
--> I think you have me confused with someone.
+-> I don't think I'm who you think I am.
     Grandmother: Nonsense. I've seen you in profile and from the front. The cells I listen to keep telling me it's you, however you turn.
     Grandmother: Look at me. All lit up.
 -> Where am I?
@@ -30,7 +30,7 @@ title: neural_hebb
 <<else>>
     <<stop>>
 <<endif>>
--> What do you do here?
+-> How can you tell the connection is stronger?
     Donna: Watch the needle when I stimulate this cell. That's the response from its neighbour. If I get them firing together often enough, the response gets larger.
     Donna: Could you tell me the reading? I can't see the scale from this side.
 -> What are the purple clouds?

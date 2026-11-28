@@ -14,7 +14,7 @@ Casey: EYES FRONT. Keep clear of the parade deck when the squad is drilling.
     Casey: Formations, guard changes, weapons handling. Half my recruits have only worked civilian gate posts.
 -> Do your recruits travel through the gates?
     Casey: Some do. The first time out, I give them a good long rest after the crossing. Nobody takes a rifle on watch while they're seeing double.
--> Fall out.
+-> Thank you.
 ===
 
 title: military_tower_dorsey
@@ -26,7 +26,7 @@ Dorsey: Halt! Oh, a visitor. Carry on if you're here to see the General.
 -> Have you been posted here long?
     Dorsey: Six months. Used to work on a civilian gate. Lot more visitors there, but nobody made me salute every time the door opened.
     Dorsey: I keep a copy of arrivals for the signals floor. Nobody told me the civilians needed one too.
--> Carry on, Private.
+-> Thank you, Private.
 ===
 
 title: military_tower_tanaka
@@ -46,13 +46,13 @@ Bankole: Corporal Bankole. You can sit on the bunk if you want. Don't wake Tanak
     Bankole: Fine. I can visit the shops on leave. The civilians are always asking me to help carry their suitcases. I suppose it's the uniform.
 -> Why the beret?
     Bankole: My old regiment's. It's against the barracks dress code. Brandt hasn't spotted it yet.
--> As you were.
+-> See you around.
 ===
 
 title: military_tower_granger
 ---
 Granger: Quartermaster's counter. Bring your kit here for inspection before you sign it back in.
--> What can I draw from the armory?
+-> Can a visitor get equipment here?
     Granger: Nothing without a chit. The chits are upstairs. The forms for the chits are downstairs. Welcome to the army.
 -> Where do you get the equipment?
     Granger: We order parts from all over. Half the requisitions on my desk are waiting for freight. One supplier in PVN sent me a very polite apology and no boots.
@@ -62,12 +62,12 @@ Granger: Quartermaster's counter. Bring your kit here for inspection before you 
 title: military_tower_ruiz
 ---
 Ruiz: Signals. Every dial of the annex ring prints a line on my tape.
--> What can you learn from the tape?
+-> Does the tape tell you who came through?
     Ruiz: Which gate called, and when the connection closed. I need the sentry's report to know who walked through it.
     Ruiz: Major Brandt asked me for a second copy for the Manifest Office. I told him the same tape twice won't tell the registrar who was on the other side.
 -> Who dialed today?
     Ruiz: Two test calls from a public ring. The General wanted to check that the printer works. It works.
--> Back to your tape.
+-> I'll let you work.
 ===
 
 title: military_tower_brandt

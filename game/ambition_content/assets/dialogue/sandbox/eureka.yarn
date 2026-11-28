@@ -40,7 +40,7 @@ title: eureka_priya
 Priya: Sorry, I thought you were the next shift. Do you know where Mina is?
 -> How long have you been awake?
     Priya: Four days since I had a night off. I slept in the lab last night and woke up when the temperature alarm went off.
--> What are you measuring?
+-> What are you trying to find out?
     Priya: Whether a clock at the top of the elevator runs fast. It does. The question is by how much, and whether my supervisor believes me.
     Priya: Teodora logs both clocks. I still have to account for the signal delay before I can compare the readings.
 -> You should rest.
@@ -83,7 +83,7 @@ Coulomba Tezla: You counted them three times. The third time you counted the nap
     Coulomba Tezla: Dmitri installed the second switch on the ceiling. We still have a bucket under the sink.
     <<present_speaker "npc_science_nikobolt">>
     Nicholas Tezla: I told Dmitri I would pay for the pipe.
--> Why do you guard your drawings?
+-> Has anyone tried to copy your drawings?
     <<present_speaker "npc_science_nikobolt">>
     Nicholas Tezla: A visitor took a copy of my coil drawings. I've since heard about a lightning machine at Castle Godwin.
     Nicholas Tezla: I'd like to know how much of my design they've used. I have no intention of going there to ask.
@@ -233,7 +233,7 @@ Ottoline Hum: (She holds one hand near the antenna, the other by the loop. A not
     Ottoline Hum: The trick is standing still. Breathe wrong and you're a semitone flat.
 -> What are you playing?
     Ottoline Hum: Whatever the institute's working on. Monday it was the hydrogen spectrum. The physicists cried. The chemists asked for it in a minor key.
--> Do people pay?
+-> What do visitors pay you in?
     Ottoline Hum: Visitors off the gate pay in coins I've never seen. I've got a case of forty different currencies. The patent clerk says one of them is technically a button.
 -> Do you play anywhere else?
     Ottoline Hum: Occasionally in the cafe. Mina put a table too close to me once. Every time somebody reached for the sugar I played a little trill.
@@ -309,7 +309,7 @@ Avery Gadro: Ninety seconds to air. Do not touch the board. Do not stand on the 
 -> What happened on air last week?
     Avery Gadro: Someone typed a question mark on the teleprompter. He read it exactly as it was. "Good evening. I'm Will Force?"
     Avery Gadro: Then he said, "That is a good question," and he talked about identity for eleven minutes. The ratings went up. I hate that the ratings went up.
--> Is he careful with the science?
+-> Who checks Will's demonstrations?
     Avery Gadro: He sends every story to two professors and Dmitri, who checks whether the thing has a plug. If a fact is wrong, he will not go on air.
     Avery Gadro: If his hair is wrong, he also will not go on air. One of those is a policy I wrote.
 -> Good luck with the show.

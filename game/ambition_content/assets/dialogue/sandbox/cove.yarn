@@ -4,11 +4,11 @@ Admiral: Ahoy, landstrider! Admiral R. Badely, at your service. If you're buying
 <<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
     Admiral: I hear you've been busy up in the sky. Come have a drink when you're done flying.
 <<endif>>
--> What are you up to?
+-> What's the fleet getting ready for?
     <<jump pirate_admiral__1>>
--> What's your deal with the ninjas?
+-> Are you and the ninjas enemies?
     <<jump pirate_admiral__ninja>>
--> Tell me about yourself.
+-> Can I ask you something personal?
     <<jump pirate_admiral__personal>>
 -> What's above the cove?
     <<jump pirate_admiral__2>>
@@ -68,11 +68,11 @@ Admiral: The crews are due their pay, and the quartermaster says I owe him a mas
 title: pirate_admiral__personal
 ---
 Admiral: Aye? Pull up a chair.
--> What do you do for a living?
+-> What do you usually raid?
     <<jump pirate_admiral__business>>
 -> Have you always been a pirate?
     <<jump pirate_admiral__authority>>
--> What are those marks?
+-> How did you get those marks?
     <<jump pirate_admiral__crossing>>
 -> Would you come through a gate with me?
     <<jump pirate_admiral__travel>>
@@ -91,7 +91,7 @@ Admiral: Used to go after the big merchant ships. These days there's freight com
     Admiral: I've plenty against some of 'em. There's people in there I'd be glad to have a drink with, too.
     Admiral: Doesn't mean I'm giving their cargo back.
     <<jump pirate_admiral__personal>>
--> Do you raid the gate itself?
+-> Do you ever take cargo straight from the ring?
     Admiral: No. I wait till it's on a ship. I know what it's like to be the poor bastard lying on the other side of that ring.
     <<jump pirate_admiral__personal>>
 -> Something else.
@@ -129,7 +129,7 @@ title: pirate_admiral__travel
 ---
 Admiral: No.
 Admiral: ...I'd like to. Last time I went down to the port I stood by the ring for a while. Couldn't bring meself to dial.
--> Don't you want to go home?
+-> Do you miss home?
     Admiral: Aye. I do.
     Admiral: Not today, landstrider.
     <<jump pirate_admiral__personal>>
@@ -158,7 +158,7 @@ Broadside Bess: AHOY! Bess, gunner. Stand on me left. The other side's been know
 title: pirate_heavy_broadside_bess__1
 ---
 Broadside Bess: All the guns on one side, fired together! Twelve of em when the deckhands remember powder. Want to hear how loud this blade is?
--> Aye, another question.
+-> Another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
 ===
@@ -166,7 +166,7 @@ Broadside Bess: All the guns on one side, fired together! Twelve of em when the 
 title: pirate_heavy_broadside_bess__2
 ---
 Broadside Bess: Worked the guns on the Stormpetrel. Captain told me to hold fire. Then the ship rolled, I fired, and off he went over the rail. He swam back to port. I kept sailing.
--> Aye, another question.
+-> Another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
 ===
@@ -174,7 +174,7 @@ Broadside Bess: Worked the guns on the Stormpetrel. Captain told me to hold fire
 title: pirate_heavy_iron_mary
 ---
 Iron Mary: Hmm. If ye want Bess, she's over there. Follow the noise.
--> Why Iron Mary?
+-> Where did you get your armour?
     <<jump pirate_heavy_iron_mary__1>>
 -> How do you fight a ninja?
     <<jump pirate_heavy_iron_mary__2>>
@@ -186,7 +186,7 @@ Iron Mary: Hmm. If ye want Bess, she's over there. Follow the noise.
 title: pirate_heavy_iron_mary__1
 ---
 Iron Mary: This plate came off a navy cutter we sank. Good metal, so I dragged it home and bolted it to me leathers. First lot rattled. Put in twice as many. Hasn't rattled since.
--> Another, then.
+-> Another question.
     <<jump pirate_heavy_iron_mary>>
 -> Carry on.
 ===
@@ -194,7 +194,7 @@ Iron Mary: This plate came off a navy cutter we sank. Good metal, so I dragged i
 title: pirate_heavy_iron_mary__2
 ---
 Iron Mary: Last one jumped over me shoulder, so I backed him against the bulkhead. If ye get aboard with me, leave that bit of deck clear.
--> Another, then.
+-> Another question.
     <<jump pirate_heavy_iron_mary>>
 -> Carry on.
 ===
@@ -202,9 +202,9 @@ Iron Mary: Last one jumped over me shoulder, so I backed him against the bulkhea
 title: pirate_heavy_salt_annet
 ---
 Salt Annet: Sit here, wee skipper. That end's wet. I've just been out on the foredeck.
--> How long ye been here?
+-> How long have you sailed with the Admiral?
     <<jump pirate_heavy_salt_annet__1>>
--> Got a shanty for me?
+-> Can you teach me a shanty?
     <<jump pirate_heavy_salt_annet__2>>
 -> Carry on.
 ===
@@ -213,7 +213,7 @@ title: pirate_heavy_salt_annet__1
 ---
 Salt Annet: Signed on under the last Badely. This one was still learning his knots when I met him.
 Salt Annet: He's got a good eye for weather. If he ever tells ye to put in at a port when the sky looks clear, do it.
--> One more, ye old salt.
+-> Another question.
     <<jump pirate_heavy_salt_annet>>
 -> Carry on.
 ===
@@ -221,7 +221,7 @@ Salt Annet: He's got a good eye for weather. If he ever tells ye to put in at a 
 title: pirate_heavy_salt_annet__2
 ---
 Salt Annet: (coughs, clears throat, sings) 'Yo-ho, an' a barrel o' tar / we'll follow the freight by the light of a star / up with the anchor an' out with the oar / whoever comes last can be scrubbin' the floor.' Aye, that last line'll do. Sing it for Bess next time she's on deck.
--> One more, ye old salt.
+-> Another question.
     <<jump pirate_heavy_salt_annet>>
 -> Carry on.
 ===
@@ -229,9 +229,9 @@ Salt Annet: (coughs, clears throat, sings) 'Yo-ho, an' a barrel o' tar / we'll f
 title: pirate_lookout
 ---
 Lookout: Hist! Shark riders aloft since first light. Same arc, then a sharp double-back. They reckon no one's watchin'.
--> What's on the horizon?
+-> What should I watch for up there?
     <<jump pirate_lookout__1>>
--> Why be the crew so cross?
+-> Why is everyone so cross?
     <<jump pirate_lookout__2>>
 -> ‹climb past›
 ===
@@ -239,7 +239,7 @@ Lookout: Hist! Shark riders aloft since first light. Same arc, then a sharp doub
 title: pirate_lookout__1
 ---
 Lookout: Sky an' clouds, lubber. Watch the riders. When one breaks orbit and reverses her heading, she's about to dive. Step PORT, smartly.
--> Aught else, sentry?
+-> Another question.
     <<jump pirate_lookout>>
 -> ‹climb past›
 ===
@@ -247,7 +247,7 @@ Lookout: Sky an' clouds, lubber. Watch the riders. When one breaks orbit and rev
 title: pirate_lookout__2
 ---
 Lookout: Quartermaster halved the salt pork. Six pirates, three burnin' sharks, half portions. Raider bit a spoon this mornin'. Keep yer hands where folk can see 'em.
--> Aught else, sentry?
+-> Another question.
     <<jump pirate_lookout>>
 -> ‹climb past›
 ===
@@ -255,7 +255,7 @@ Lookout: Quartermaster halved the salt pork. Six pirates, three burnin' sharks, 
 title: pirate_navigator
 ---
 Navigator: Get away from the chart, lubber! I had that weighted down. If ye see ink on your boots, give me a rag.
--> What are the riders doing aloft?
+-> Do all the shark riders attack the same way?
     <<jump pirate_navigator__1>>
 -> How do I dodge their broadside?
     <<jump pirate_navigator__2>>
@@ -267,7 +267,7 @@ Navigator: Get away from the chart, lubber! I had that weighted down. If ye see 
 title: pirate_navigator__1
 ---
 Navigator: One rider stays high and shoots, one swoops down, and one likes to climb away after a pass. Watch where the sharks are heading. They change direction often enough to throw yer aim off.
--> One more question, cap'n cartographer.
+-> Another question.
     <<jump pirate_navigator>>
 -> ‹ready your blade›
 ===
@@ -275,7 +275,7 @@ Navigator: One rider stays high and shoots, one swoops down, and one likes to cl
 title: pirate_navigator__2
 ---
 Navigator: Don't stand at the edge waitin' to see where the shot lands. Move when the rider starts his turn. If ye can get close, strike as he comes past.
--> One more question, cap'n cartographer.
+-> Another question.
     <<jump pirate_navigator>>
 -> ‹ready your blade›
 ===
@@ -283,7 +283,7 @@ Navigator: Don't stand at the edge waitin' to see where the shot lands. Move whe
 title: pirate_quartermaster
 ---
 Quartermaster: Name and business, please. Badely's signature goes here. Don't put that hand on the ledger, it's covered in tar.
--> How's the hold lookin'?
+-> Do you have enough supplies?
     <<jump pirate_quartermaster__1>>
 -> What's above decks?
     <<jump pirate_quartermaster__2>>
@@ -295,7 +295,7 @@ Quartermaster: Name and business, please. Badely's signature goes here. Don't pu
 title: pirate_quartermaster__1
 ---
 Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bess asked for twice the usual powder. I sent half. Enough, if she leaves the clouds alone.
--> Aught else, master?
+-> Another question.
     <<jump pirate_quartermaster>>
 -> ‹step aside›
 ===
@@ -303,7 +303,7 @@ Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bess asked for tw
 title: pirate_quartermaster__2
 ---
 Quartermaster: Up the riggin', through the hatch in the overhead. Lookout's up there. Take care past him; the shark riders have been circlin' the cove all morning, and they shoot at folk they don't know.
--> Aught else, master?
+-> Another question.
     <<jump pirate_quartermaster>>
 -> ‹step aside›
 ===
@@ -416,7 +416,7 @@ title: pirate_quartermaster__port
 ---
 Quartermaster: Ines? Aye. She's got a line for every barrel we dock, an' she'll come down here with a ruler if she thinks we've shorted her.
 Quartermaster: Our last lot of powder went through the ring. Two casks arrived damp. I don't know who to yell at.
--> Aught else, master?
+-> Another question.
     <<jump pirate_quartermaster>>
 -> ‹step aside›
 ===

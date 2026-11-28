@@ -55,7 +55,7 @@ title: creator_intro
     Dennis: We can go through yesterday's training run again, if you'd like. Just your legs and a few strikes on the sandbag.
     -> Yes. Show me the basics.
         <<jump creator_intro__training>>
-    -> I remember. Ask your questions.
+    -> I remember yesterday's practice. Ask your questions.
         <<jump creator_intro__questions>>
     -> Who are you?
         Dennis: Dennis. I built you, Scout. I was up late making a few adjustments. If something feels different from yesterday, tell me where.
@@ -76,7 +76,7 @@ Dennis: We can start whenever you're ready. I've got a little filing to finish.
     <<jump creator_intro__training>>
 -> Ask your questions first.
     <<jump creator_intro__questions>>
--> What's up on the loft?
+-> What's that up in the loft?
     Dennis: My torque gauge. You can fetch it if you want to try a higher jump. The crate gets you up to the boards.
 -> ‹look around›
 ===
@@ -115,7 +115,7 @@ Dennis: First question. What's your name?
 -> I don't know.
     Dennis: You called yourself Scout yesterday. Let's see if it comes back to you.
 Dennis: Suppose I hand you a wrench and ask you to pass me the hammer. What do you do?
--> Ask if you meant the wrench.
+-> Ask which tool you meant.
     Dennis: Good. I do get the names of things wrong sometimes.
 -> Fetch a hammer.
     Dennis: Fine. Most people just hit it with the wrench.
@@ -186,7 +186,7 @@ title: alice_lane__topics
 ---
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
--> What did you see?
+-> Did you see where they went?
     Alice: Five goblins and a handcart with a crate on it. They went up the cart track toward the gate.
     Alice: The freight window isn't until tomorrow. If they meant to take the gate, the siding is where I'd look.
     Alice: One of them had a hammer as long as I am. I'd leave them alone.
@@ -248,7 +248,7 @@ title: alice_lane__after
 <<elseif verdict("encounter.cleared", "intro_freight_yard_fight") == "unanswerable">>
     <<stop>>
 <<endif>>
--> What's on Bob's sheet? <<if condition("world.flag_set", "bob_field_survey_received")>>
+-> Which paths should I trust on the survey? <<if condition("world.flag_set", "bob_field_survey_received")>>
     Alice: The woods and the old footpaths. If one of his paths doesn't match the office map, I generally trust his. He's the one who's walked it.
 -> ‹go›
 ===
@@ -258,14 +258,14 @@ title: bob_woods
 <<present_speaker "npc_bob">>
 <<if verdict("world.flag_set", "bob_field_survey_received") == "satisfied">>
     Bob: Nearly packed. I just have to wind this chain up. Tell Alice thanks, if you see her.
-    -> How do I read your survey?
+    -> Which paths did you check yourself?
         Bob: The paths I marked are ones I walked myself. Some of the old tracks on Alice's map have grown over.
     -> ‹go›
 <<elseif verdict("world.flag_set", "bob_field_survey_received") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "satisfied">>
     Bob: Don't step on the chain. Who are you?
-    -> Alice says move your camp off the trail. Goblins came through.
+    -> Alice sent me. Goblins came through here; you should move your camp.
         <<jump bob_woods__warned>>
     -> ‹leave›
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "not_satisfied">>
@@ -409,7 +409,7 @@ title: valley_trader
 ---
 <<present_speaker "npc_valley_trader">>
 Trader: Lamp oil, salt, batteries. Everything here came through the gate this week.
--> You were a smith.
+-> Were you a smith?
     Trader: Twenty years. Now I sell imports. I still shoe the miller's mule, but there isn't enough work to keep a second smith.
     Trader: The knight brought me a sword with a battery in it. Took me a morning to fit the crossguard.
 -> Have you sold anything to the Barrow King?
@@ -464,7 +464,7 @@ title: valley_wizard
 ---
 <<present_speaker "npc_valley_wizard">>
 Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
--> What book?
+-> What does your book do?
     Hedge Wizard: The Book of Sums. Ask it anything with a number in. Seven times eight. *he presses it* Fifty-six. Every time. Every single time.
     Hedge Wizard: Forty years I had three charms: one for warts, one for lost keys, one for a fair wind on a Tuesday. Now I have every sum there is.
 -> Is it magic?
@@ -472,10 +472,10 @@ Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
 -> What about the ghosts at the barrow?
     Hedge Wizard: Ghosts have been there since my grandfather's time. You could walk right past them. Now the King has things that follow you down to the bridge.
     Hedge Wizard: I told the knight I could try the fair-wind spell on them. He asked what day it was.
--> Do you know any real spells?
+-> Can you cast spells without the book?
     Hedge Wizard: Three. I've just told you all of them.
     Hedge Wizard: The Tuesday one is quite good.
--> Dennis, from the barn. <<if condition("world.flag_set", "intro_creator_dead")>>
+-> Did you know Dennis from the barn? <<if condition("world.flag_set", "intro_creator_dead")>>
     Hedge Wizard: He could make a thing that talks back. I can make a wart go. I'd have liked to compare notes.
 -> ‹go›
 ===

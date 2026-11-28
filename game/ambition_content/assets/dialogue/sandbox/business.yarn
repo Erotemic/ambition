@@ -81,7 +81,7 @@ title: business_clerk
 
 title: business_clerk__topics
 ---
--> What is this place?
+-> What do you process here?
     Marguerite: Records & Processing. Original in the left tray, duplicate in the right. If they match I can stamp them both.
     Marguerite: Mind the shredder by the stairs. We've been waiting for a replacement lid.
     <<jump business_clerk__topics>>
@@ -150,7 +150,7 @@ title: business_zorlack__topics
 -> What is your clan doing while you study?
     Zorlack: We have been hired to guard a shipment. I have a good duelist who can organize the watches while I attend class. I go back when I am needed.
     <<jump business_zorlack__topics>>
--> Why the armour?
+-> Why wear armour to the college?
     Zorlack: The careers office asked the same. Their dress code says: bring your whole self, in a navy suit.
     Zorlack: This armour belonged to my grandfather. I had it polished. I will purchase a suit if they insist.
     Zorlack: I have not been given an interview.

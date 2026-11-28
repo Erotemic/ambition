@@ -15,7 +15,7 @@ Celeste Crumpet: Welcome to the Star Bakery! A robot! Mostly we get void these d
 title: magical_lumen
 ---
 Ollie Lumen: Evening. Or it will be. I light the star lamps, you see, and they don't light themselves. They have to be talked into it.
--> Talked into it?
+-> What do you say to a star?
     Ollie Lumen: Stars are shy. You hold the pole up, you tell the star it's doing a wonderful job, and it lights up out of embarrassment. Forty years I've been complimenting lamps.
 -> Where do the stars go in the day?
     Ollie Lumen: Down the old well, into the hollow, where nobody looks at them. Since the void came, some of them don't come back up. The hollow's gone dark. Things live in the dark now that aren't stars.
@@ -99,7 +99,7 @@ Void Star: Hey. Robot. You're not lit up either. Come over here. The others keep
 title: magical_void_curator
 ---
 Void Star: Welcome to the gallery. Don't touch the exhibits. You can't. They aren't there. That's the exhibit.
--> What is all this?
+-> What are you collecting down here?
     Void Star: Things the void has taken. A lamp. A wheel. A crescent, bitten. A wand, bent. We keep the outlines. The outlines are what's left when you take the thing.
 -> Can I have the lamp back?
     Void Star: You can have its outline. Hold it up to a dark room and it lights nothing. Very restful.

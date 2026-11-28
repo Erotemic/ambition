@@ -86,7 +86,7 @@ title: frontier_prospector
     -> Where's the lead?
         Elias: In the creek, if you believe me, and nobody does. Lead in the gravel, grey as a bad tooth.
         Elias: The refinery pays by the pound. Gallus has been taking his cut before I get to the weigh station.
-    -> What happened to the Marshal?
+    -> How did the Marshal end up with all those mechanical parts?
         Elias: Accident at the cracking tower, back when he was a plain rooster on a plain farm. So they say.
         Elias: Then the company built him back up out of the parts they had. I'd have asked for fewer guns.
     -> ‹go›
@@ -115,7 +115,7 @@ title: frontier_foreman
     <<stop>>
 <<elseif verdict("world.flag_set", "frontier_foreman_met") == "satisfied">>
     Ruth: Hat on, or off the terrace.
-    -> What does the Marshal want?
+    -> What does he expect from the crew?
         Ruth: Ore in the carts. Nobody on the road after the whistle. His toll, his cut, his rules on a board.
         Ruth: He still acts like he runs the place. Four in the morning, even when the carts are backed up and there's nowhere to put the ore.
     -> How do I get to the corral?
@@ -150,7 +150,7 @@ title: frontier_station_agent
 
 title: frontier_station_agent__topics
 ---
--> Is this the main terminal?
+-> Is there a bigger gate terminal nearby?
     Augusta: This is the auxiliary, SIDING. The main pads are at Dry Dock, down the line. Dial LEADENSADDLE if you're taking the ring instead of the road.
     <<command "world.set_flag" "gate.known.LEADENSADDLE" true>>
     Augusta: We get the overflow and the detours.
@@ -193,7 +193,7 @@ title: frontier_inn_alice
 <<else>>
     <<stop>>
 <<endif>>
--> Where is the mechanic?
+-> Where can I find the mechanic?
     Alice: Across the trestle on Sprocket Row. If you've taken a few knocks, ask the mechanic to check your joints.
 -> I'll wait with you.
     Alice: Thanks. Could you put that bucket between the cots? Bob says he's fine. He's gone a funny colour.
@@ -287,7 +287,7 @@ title: frontier_laundress
 <<else>>
     <<stop>>
 <<endif>>
--> Why live under the works?
+-> Is it difficult living so close to the works?
     Ida: The wind can't get in, the rent's low, and the soot's free.
 -> Who leaves clothes with you?
     Ida: Magda brings me a clean shirt before work and takes a clean one home after. I wash the dirty one. The works manager pays me by the piece and never asks why she needs two a day.

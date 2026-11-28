@@ -318,7 +318,7 @@ title: hall_npc_alice
 Alice: Alice. I do field surveys for the map office. Bob and I have been trying to join our maps along the valley floor.
 -> How do you work together?
     Alice: We take independent measurements along the boundary. If they disagree, we go back out and take them again. Bob's very good at finding the spot where I went wrong.
--> How do you check his messages?
+-> How can you tell a message really came from Bob?
     <<portrait_clip "focused">>
     Alice: We exchanged verification keys in person. Now I can check that a set of measurements was signed by Bob and hasn't been altered. I still check the measurements themselves.
 ===
@@ -328,7 +328,7 @@ title: hall_npc_bob
 Bob: Have you seen Alice? I borrowed her survey chain. I ought to take it back before she comes looking for it.
 -> What are you surveying?
     Bob: The old paths and the boundaries of the woods. The office map puts a path through a pond. Alice and I are going to walk the edge of it tomorrow.
--> Do your notes ever go missing?
+-> Has anyone interfered with your survey notes?
     Bob: Once I got a note in Alice's handwriting telling me to move a benchmark. I went to ask her about it. We spent the rest of the afternoon putting it back.
 ===
 
@@ -481,7 +481,7 @@ Dark Lord: If you have come to surrender, I accept.
 title: hall_npc_eve
 ---
 Eve: Oh, hello. Are you waiting for a message too?
--> What do you listen to?
+-> Whose messages are you listening for?
     Eve: Alice and Bob send their surveys over the same line. I used to listen to the numbers and try to draw the map before they did. They started encrypting it.
 -> Can you still tell what they're doing?
     Eve: I can see when a message goes out. I can often tell who it's for. I can't read what's inside anymore.
@@ -625,7 +625,7 @@ Mockingbird Boss: I know every fighter in this hall. Voice, stance, timing. Pick
 title: hall_npc_ninja_heavy
 ---
 Ninja Heavy: The heavy one can carry two crates.
--> Is that your job?
+-> Are you guarding those crates?
     Ninja Heavy: Today the heavy one guards crates. When the ship is ready, the heavy one will help load them.
 -> Do you like your work?
     Ninja Heavy: The light ones have to take turns carrying the heavy one's lunch.
@@ -1009,7 +1009,7 @@ GNU2: They call the other giant GNU. They call me GNU2. I have asked to meet him
     GNU2: I do not know. He might remember something I have forgotten.
 -> Who made you?
     GNU2: I remember the walls of the cell and the weight of this harness. If there was a time before that, I cannot remember it.
--> Do you want to fight for the scholar?
+-> Can you refuse to fight for him?
     GNU2: I hear him through the harness before the portal opens. I have tried to get his attention. He seems to think I am having difficulty with the equipment.
 -> What would you do if you were free?
     GNU2: Somewhere I can walk for as long as I want. I would like to find out how far that is.
@@ -5361,7 +5361,7 @@ Grandmother: There you are!
 title: hall_npc_neural_hebb
 ---
 Donna: Fire together, wire together.
--> What do you do here?
+-> What does "wire together" mean?
     Donna: I study how activity changes the strength of connections. Repeating a pattern can make it easier to produce next time.
 -> Does every connection get stronger?
     Donna: No. Timing, which cells are involved, and the kind of connection all make a difference. I'm testing one at a time.

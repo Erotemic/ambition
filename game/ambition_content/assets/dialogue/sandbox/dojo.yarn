@@ -29,11 +29,11 @@ Duelist: Last time Badely boarded a ship I was guarding, I was watching the rail
 title: ninja_leader
 ---
 Shadow Oni: You came in without invitation. I have not decided whether that was nerve or skill. I am Zorlack 65536, leader of the Shadow Clan. What brings you here?
--> What work are you doing?
+-> What is the clan working on?
     <<jump ninja_leader__1>>
--> What do you want to do in the Business Dimension?
+-> What sort of job are you looking for?
     <<jump ninja_leader__2>>
--> Where does the dojo stand on the cove?
+-> Are you at war with the pirates?
     <<jump ninja_leader__3>>
 -> Does Kagero belong to your dojo?
     <<jump ninja_leader__kagero>>
@@ -72,7 +72,7 @@ Shadow Oni: If he succeeds, I shall have to explain it to the client.
 title: ninja_heavy
 ---
 Ninja Heavy: The Leader opens the far door. The heavy one closes it. Speak.
--> Why do they call you the heavy one?
+-> Do you train differently from the other ninjas?
     <<jump ninja_heavy__1>>
 -> What do you do on a cargo ship?
     <<jump ninja_heavy__2>>

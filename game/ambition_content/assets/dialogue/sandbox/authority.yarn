@@ -14,7 +14,7 @@ title: authority_information
 
 title: authority_information__topics
 ---
--> Where can I go from here?
+-> How do I find the address of another gate?
     Ottilie: The terminal lists public addresses. For an unlisted one, ask the office that runs that gate.
     Ottilie: Keep LEGAL written down. It is this gate, and every terminal lists it.
     Ottilie: Our terminal also posts a way back to the public hub. If you know another address, you can dial it yourself.
@@ -29,7 +29,7 @@ title: authority_information__topics
 -> Where can I recover from a crossing?
     Ottilie: Rest here in the Concourse. Some need a few minutes, some most of the day. If you are still ill after the others recover, ask a member of staff.
     <<jump authority_information__topics>>
--> Who works out when the gates are open?
+-> Who decides which crossings get priority?
     Ottilie: The timetable office. We asked them for more evening passenger slots because people were sleeping on the benches here.
     Ottilie: They sent me a letter from a station freight clerk asking for one of his slots back. I have to find out how many passengers we actually send on Thursdays.
     <<jump authority_information__topics>>
@@ -86,7 +86,7 @@ title: authority_gatekeeper__topics
 -> Does the military use this gate?
     Imre: Sometimes. Their annex has its own checkpoint. If they want to bring a squad through here, I ask them to wait until the civilians are clear.
     <<jump authority_gatekeeper__topics>>
--> Who can dial a military gate?
+-> Can I dial a military gate myself?
     Imre: Anybody who has its address. Getting past the sentry when you arrive is another question.
     <<jump authority_gatekeeper__topics>>
 -> ‹go›
@@ -110,11 +110,11 @@ title: authority_registrar__topics
 -> What if I don't have a number?
     Registrar: Then you were never in the queue. Then you were never here. That's quicker for both of us.
     <<jump authority_registrar__topics>>
--> What is this place?
+-> What do you do with the passenger lists?
     Registrar: The Manifest Office. We receive manifests from the staffed gates. If an office reports the same passenger twice, we have to reconcile the entries.
     Registrar: And if a director sends a correction, we file the corrected record. No, you cannot see the original.
     <<jump authority_registrar__topics>>
--> Can you check whether I am on the manifest?
+-> Is there a record of my arrival?
     Registrar: Let me see. Nothing under that name in the copy I have.
     Registrar: Bring me the receipt from your last crossing. I can ask that office for its record.
     <<jump authority_registrar__topics>>

@@ -439,3 +439,28 @@ as the busy beaver's work and the Echo Chamber) are not inherently flaws.
 Avoid a uniform terse voice: the broadcast anchor, bureaucrats, clan
 leader and pirates should still sound like themselves. Debug dialogue and
 the historical gallery are outside the scope of this pass.
+
+## Follow-up: Scout's response options
+
+Scout's questions should sound like a curious participant, not a menu of
+NPC biographies. Let a question refer to something the player can observe
+or something the current speaker is already talking about. Ask how an
+instrument works, why a procedure is necessary, or what a person knows
+about an event. Prefer ordinary words; Scout need not imitate the pirates'
+dialect, and a visitor need not issue orders to military personnel.
+
+Keep the player's available attitudes and decisions. Do not turn the
+optional name response into an assertion about Scout's identity, assume
+which fights Scout personally won, or presume that another optional
+conversation has already happened. Keep the intentionally literal responses
+and comic misunderstandings where they are the joke. In particular, do
+not force a judgment about Alice and Bob's relationship or the unresolved
+PVN shipment. The opening training instructions and all arena, gate,
+item, quest, and other action choices retain their existing semantics.
+
+This is a choice-label-only pass. Retain each existing choice's ordinal
+position, indentation, condition, and branch body, along with all spoken
+NPC lines and commands. No new choices, story events, flags, or facts are
+introduced. Explicit action prompts and the historical gallery are outside
+the scope of this pass. Rephrasing questions may still affect how players
+interpret a choice, so in-game review remains useful.

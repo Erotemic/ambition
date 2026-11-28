@@ -35,9 +35,9 @@ calling it done, and go on to the next.
 2. **Hobford polish (Jon, 2026-11-14).** [Hobford polish](game/hobford-polish.md)
    with [LEVEL-1](#level-1--the-lab-raid-and-the-first-level-after-it) and [LEVEL-TRUTH](#level-truth--authored-level-data-in-the-map-submodule-one-owner-per-room) for the level data. Story
    sequences SS1–SS8 (SS7/SS8 landed 2026-11-21) and dark rooms and tunnels
-   (DR1–DR3, TN1–TN3) are done. The open story items (no general policy
-   when a required command is refused; save recovery during a projectile's
-   flight) are kept in [story sequences](engine/story-sequences.md).
+   (DR1–DR3, TN1–TN3) are done. The open story item (no general policy
+   when a required command is refused) is kept in
+   [story sequences](engine/story-sequences.md).
 3. **Script-first gameplay (Jon, 2026-11-20).** New flagship gameplay follows
    the [capability program](engine/script-first-ambition-gameplay.md); the
    [capability census](engine/script-first-capability-census.md) records the

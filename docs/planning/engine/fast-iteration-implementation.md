@@ -485,10 +485,15 @@ Witness: `a_durable_session_record_comes_back_with_its_save_and_a_transient_one_
 Game reducer, each red at its own assertion; no offer, refused at admission).
 A death keeps the record. The save's flags and quest steps do not: since 2026-11-11 a death that spares nobody puts them back to the checkpoint with the bag (Q164, DIALOGUE-CHECKPOINT slice 1).
 
-**Open:** save eligibility for body records and checkpoints (`Body` +
-`Durable` and `Checkpoint` are
-refused at admission); durable references to unloaded entities; measurement of
-record visits and copied bytes.
+Body records joined the durable save on 2026-11-16 (`dca3002c0`,
+`SaveRoad::BodyDurable` in `ambition_platformer2d_runtime::module_save_road`):
+a body's record is kept under its durable identity (the `SimId` of an
+authored or provider-staged occurrence) and comes back when a body with
+that identity is built again.
+
+**Open:** `Checkpoint` eligibility (no road; such a schema is refused at
+admission); durable references to unloaded entities; measurement of record
+visits and copied bytes.
 
 **Rules:** schema descriptors live in immutable generation metadata. Register
 the store through the current rollback registration method. `SnapshotState`

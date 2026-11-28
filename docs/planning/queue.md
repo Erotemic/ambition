@@ -1847,9 +1847,13 @@ session's world through its provider's declared reader; Mary-O's world and
 Sanic's three acts reload in their running sessions. See the
 [fast iteration](engine/fast-iteration-implementation.md) receipt.
 
-**Next action:** the owner pages' open items: I5 durable-record
-eligibility, I6's native-ABI comparison (M1), and I7's deterministic
-cancellation and cleanup.
+**Next action:** the owner pages' open items: I5's `Checkpoint`
+eligibility (body and session durable records are kept already), I6's
+native-ABI comparison (M1), and I7's deterministic cancellation. For I7, a
+despawned entity's records retire with it and its queued requests are
+dropped (`private_behavior_records_share_a_subject_without_sharing_state_or_receipts`);
+an interrupted move or a room retirement has no reproducer yet, so measure
+before building.
 
 **Acceptance:** a foreign-audio collision plus a rules edit leaves the old
 pack and all affected products selected, with one refusal and no published

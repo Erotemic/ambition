@@ -173,6 +173,15 @@ impl ModuleBackend for WasmModules {
 /// The target a loaded module is built for.
 pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 
+/// The stack a loaded module is linked with, in bytes. Rust's wasm default
+/// is 1 MiB, and every instance zeroes its linear memory, so with a fresh
+/// instance per call the default stack was about half the cost of a call
+/// (M1, 2026-11-28: a sentry call went from about 89 to 59 µs at 128 KiB).
+/// The stack sits first in memory, so a guest that overflows it traps, the
+/// same on every peer. `scripts/regen/build_extension_modules.sh` links with
+/// the same value.
+pub const MODULE_STACK_BYTES: u32 = 128 * 1024;
+
 /// True when the toolchain that builds `workspace_root` has the standard
 /// library for [`WASM_TARGET`]. Without it, cargo fails with "can't find crate
 /// for `core`", which does not say what to do.
@@ -220,6 +229,8 @@ pub fn build_module_crate(workspace_root: &std::path::Path, package: &str) -> Re
             "--target-dir",
         ])
         .arg(&target_dir)
+        .arg("--")
+        .arg(format!("-Clink-arg=-zstack-size={MODULE_STACK_BYTES}"))
         .status()
         .map_err(|e| format!("could not run cargo: {e}"))?;
     if !status.success() {

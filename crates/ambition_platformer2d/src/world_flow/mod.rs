@@ -11,7 +11,8 @@ mod transition_surfaces;
 
 pub use room_transition_assets::{
     build_loaded_room_asset_manifest, demand_room_character_sheets, inspect_demanded_characters,
-    inspect_room_asset_manifest, realized_character_count, room_character_tokens, RoomAssetManifest,
+    inspect_room_asset_manifest, realized_character_count, room_character_tokens,
+    room_encounter_characters, RoomAssetManifest,
     RoomAssetReadiness, RoomResidencyOwners,
 };
 pub use room_transition_presentation::RoomTransitionCoverSet;

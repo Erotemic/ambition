@@ -204,6 +204,7 @@ struct StartupAssetInputs<'w, 's> {
     layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
     quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     boss_catalog: Option<Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>>,
+    encounter_waves: Option<Res<'w, ambition_platformer2d::encounter::EncounterWaveBook>>,
     worn: Query<
         'w,
         's,
@@ -605,6 +606,10 @@ fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::
     // (`demand_worn_character_sheets`) realizes a sheet the manifest would
     // otherwise never list, so the cover could lift on its page still loading.
     staged_names.extend(worn.iter().cloned());
+    staged_names.extend(ambition_platformer2d::world_flow::room_encounter_characters(
+        room,
+        inputs.encounter_waves.as_deref(),
+    ));
     staged_names.sort();
     staged_names.dedup();
     ambition_platformer2d::world_flow::demand_room_character_sheets(&sprite_content,

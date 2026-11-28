@@ -8,8 +8,8 @@
 //! (`CastFramingTuning::bubble`); with no declaration, nothing here runs.
 //!
 //! Each bubble is a camera that draws the gameplay layers, centred on the
-//! member, into a texture. The texture is drawn on a disc on the front HUD
-//! layer, inside a ring in the member's colour. The world is drawn by its own
+//! member, into a texture. The front HUD draws the texture as a disc inside
+//! a ring in the member's color. The world is drawn by its own
 //! cameras, so a portal, a parallax-free stage and every body show in the
 //! bubble as they show in the view; nothing is copied.
 //!
@@ -17,12 +17,13 @@
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
+use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
 use ambition_platformer2d_core::{config::world_to_bevy, RoomGeometry};
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    FrontHudCamera, MainCamera, FRONT_HUD_LAYER, PARALLAX_BACKGROUND_LAYER,
+    FrontHudCamera, MainCamera, PARALLAX_BACKGROUND_LAYER,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRoomOf};
 use ambition_platformer2d_shared_tangle::markers::{CastFramingTuning, FramedCast};
@@ -43,25 +44,27 @@ const RING_FRACTION: f32 = 0.12;
 /// The space between a bubble and the view's edge, in logical pixels.
 const EDGE_GAP_PX: f32 = 6.0;
 
-/// One bubble: its camera, its texture, and the disc that shows it.
+/// Draw behind the HUD controls and above the display surround.
+const BUBBLE_UI_ORDER: i32 = -1;
+
+/// The camera and HUD node that hold a bubble's texture.
 struct BubbleSlot {
     camera: Entity,
     disc: Entity,
-    ring_material: Handle<ColorMaterial>,
 }
 
-/// The bubbles made so far, one per cast position. Made on first need and
-/// kept; an unused bubble is hidden and its camera rests.
+/// One bubble per cast position that needs it. Hide unused slots and keep
+/// them while the game has a bubble declaration.
 #[derive(Resource, Default)]
 pub struct CastBubbles {
-    slots: Vec<BubbleSlot>,
+    slots: Vec<Option<BubbleSlot>>,
 }
 
 /// Marks a bubble's camera.
 #[derive(Component)]
 pub struct CastBubbleCamera;
 
-/// Marks a bubble's disc (the ring is its child).
+/// Marks the bubble's root HUD node.
 #[derive(Component)]
 pub struct CastBubbleDisc;
 
@@ -87,35 +90,40 @@ fn bubble_on_edge(half_view: Vec2, at: Vec2, radius: f32) -> Vec2 {
 pub fn present_cast_bubbles(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     mut bubbles: ResMut<CastBubbles>,
-    tuning: Res<CastFramingTuning>,
+    tuning: Option<Res<CastFramingTuning>>,
+    ui_scale: Option<Res<UiScale>>,
     framed: Option<Res<FramedCast>>,
     poses: Query<(&BodyPoseView, Option<&PresentedPose>)>,
     outputs: GameplayOutputs,
     rooms: LiveRoomOf<RoomGeometry>,
     main: Query<(&Camera, &Transform), (With<MainCamera>, Without<CastBubbleCamera>)>,
-    hud: Query<&Camera, (With<FrontHudCamera>, Without<MainCamera>, Without<CastBubbleCamera>)>,
+    hud: Query<(Entity, &Camera), (With<FrontHudCamera>, Without<MainCamera>, Without<CastBubbleCamera>)>,
     mut cameras: Query<
         (&mut Camera, &mut Transform, &mut RenderLayers, &mut Projection),
         (With<CastBubbleCamera>, Without<MainCamera>, Without<FrontHudCamera>),
     >,
     mut discs: Query<
-        (&mut Transform, &mut Visibility),
+        (&mut Node, &mut BorderColor, &mut UiTargetCamera, &mut Visibility),
         (With<CastBubbleDisc>, Without<Camera>),
     >,
 ) {
-    let shown = tuning
-        .bubble
-        .zip(framed.as_deref().filter(|framed| !framed.0.is_empty()))
-        .zip(placement(&outputs, &main, &hud).and_then(|frame| {
-            let room = rooms.in_room(frame.room)?;
-            Some((frame, &room.0))
-        }));
+    let Some(bubble) = tuning.and_then(|tuning| tuning.bubble) else {
+        for slot in bubbles.slots.drain(..).flatten() {
+            commands.entity(slot.camera).try_despawn();
+            commands.entity(slot.disc).try_despawn();
+        }
+        return;
+    };
+    let shown = framed.as_deref().filter(|framed| !framed.0.is_empty()).and_then(|framed| {
+        let frame = placement(&outputs, &main, &hud)?;
+        let room = rooms.in_room(frame.room)?;
+        Some((framed, frame, &room.0))
+    });
     let mut used = vec![false; bubbles.slots.len()];
-    if let Some(((bubble, framed), (frame, world))) = shown {
+    if let Some((framed, frame, world)) = shown {
         let radius = bubble.diameter_px * 0.5;
+        let ui_scale = ui_scale.as_ref().map_or(1.0, |scale| scale.0);
         for (index, member) in framed.0.iter().enumerate() {
             let Ok((pose, presented)) = poses.get(*member) else {
                 continue;
@@ -129,45 +137,43 @@ pub fn present_cast_bubbles(
                 continue;
             };
             let centre = bubble_on_edge(frame.output.logical_size * 0.5, offscreen, radius);
-            while bubbles.slots.len() <= index {
-                let slot = spawn_slot(&mut commands, &mut images, &mut meshes, &mut materials, bubbles.slots.len());
-                bubbles.slots.push(slot);
-                used.push(false);
+            let [r, g, b, a] = bubble.rings[index % bubble.rings.len()];
+            let [red, green, blue, alpha] = bubble.backdrop;
+            let screen_center = frame.view_centre_hud + Vec2::new(centre.x, -centre.y);
+            let draw = BubbleDraw {
+                camera: Transform::from_translation(at).with_rotation(frame.capture_rotation),
+                hud: UiTargetCamera(frame.hud),
+                disc: bubble_node(screen_center / ui_scale, radius / ui_scale),
+                layers: &frame.layers,
+                scaling: ScalingMode::Fixed { width: bubble.span, height: bubble.span },
+                backdrop: ClearColorConfig::Custom(Color::srgba(red, green, blue, alpha)),
+                ring: BorderColor::all(Color::srgba(r, g, b, a)),
+            };
+            if bubbles.slots.len() <= index {
+                bubbles.slots.resize_with(index + 1, || None);
+                used.resize(index + 1, false);
             }
             used[index] = true;
-            let slot = &bubbles.slots[index];
+            let Some(slot) = &bubbles.slots[index] else {
+                bubbles.slots[index] = Some(spawn_slot(&mut commands, &mut images, index, draw));
+                continue;
+            };
             if let Ok((mut camera, mut transform, mut layers, mut projection)) = cameras.get_mut(slot.camera) {
                 camera.is_active = true;
-                camera.clear_color = ClearColorConfig::Custom(Color::srgba(
-                    bubble.backdrop[0],
-                    bubble.backdrop[1],
-                    bubble.backdrop[2],
-                    bubble.backdrop[3],
-                ));
-                transform.translation = at;
-                transform.rotation = frame.capture_rotation;
-                let wanted = frame.layers.clone();
-                if *layers != wanted {
-                    *layers = wanted;
+                camera.clear_color = draw.backdrop;
+                *transform = draw.camera;
+                if *layers != *draw.layers {
+                    *layers = draw.layers.clone();
                 }
                 if let Projection::Orthographic(orthographic) = &mut *projection {
-                    orthographic.scaling_mode = ScalingMode::Fixed {
-                        width: bubble.span,
-                        height: bubble.span,
-                    };
+                    orthographic.scaling_mode = draw.scaling;
                 }
             }
-            if let Ok((mut transform, mut visibility)) = discs.get_mut(slot.disc) {
-                transform.translation = (frame.view_centre_hud + centre).extend(0.0);
-                transform.scale = Vec3::splat(bubble.diameter_px);
-                *visibility = Visibility::Visible;
-            }
-            let [r, g, b, a] = bubble.rings[index % bubble.rings.len()];
-            let ring = Color::srgba(r, g, b, a);
-            if materials.get(&slot.ring_material).is_some_and(|material| material.color != ring) {
-                if let Some(mut material) = materials.get_mut(&slot.ring_material) {
-                    material.color = ring;
-                }
+            if let Ok((mut node, mut ring, mut hud, mut visibility)) = discs.get_mut(slot.disc) {
+                node.set_if_neq(draw.disc);
+                ring.set_if_neq(draw.ring);
+                hud.set_if_neq(draw.hud);
+                visibility.set_if_neq(Visibility::Visible);
             }
         }
     }
@@ -175,12 +181,13 @@ pub fn present_cast_bubbles(
         if taken {
             continue;
         }
+        let Some(slot) = slot else { continue };
         if let Ok((mut camera, ..)) = cameras.get_mut(slot.camera) {
             if camera.is_active {
                 camera.is_active = false;
             }
         }
-        if let Ok((_, mut visibility)) = discs.get_mut(slot.disc) {
+        if let Ok((.., mut visibility)) = discs.get_mut(slot.disc) {
             if *visibility != Visibility::Hidden {
                 *visibility = Visibility::Hidden;
             }
@@ -198,7 +205,8 @@ struct ViewPlacement {
     /// The layers the main camera draws, less the parallax (a parallax
     /// layer is placed for the main camera and would be wrong in a bubble).
     layers: RenderLayers,
-    /// The view's centre in the front HUD camera's space (+y up).
+    hud: Entity,
+    /// The view center in logical pixels from the top left of the HUD.
     view_centre_hud: Vec2,
 }
 
@@ -207,7 +215,7 @@ struct ViewPlacement {
 fn placement(
     outputs: &GameplayOutputs,
     main: &Query<(&Camera, &Transform), (With<MainCamera>, Without<CastBubbleCamera>)>,
-    hud: &Query<&Camera, (With<FrontHudCamera>, Without<MainCamera>, Without<CastBubbleCamera>)>,
+    hud: &Query<(Entity, &Camera), (With<FrontHudCamera>, Without<MainCamera>, Without<CastBubbleCamera>)>,
 ) -> Option<ViewPlacement> {
     let mut outputs = outputs.coverage();
     let primary = outputs.next()?;
@@ -218,8 +226,8 @@ fn placement(
     let output = primary.plane.or(primary.cards)?;
     let (camera, transform) = main.get(primary.source).ok()?;
     let viewport = camera.logical_viewport_rect()?;
-    let target = hud.single().ok()?.logical_target_size()?;
-    let centre_screen = viewport.center();
+    let (hud, hud_camera) = hud.single().ok()?;
+    let hud_viewport = hud_camera.logical_viewport_rect()?;
     Some(ViewPlacement {
         room: primary.frame.room,
         output,
@@ -229,18 +237,42 @@ fn placement(
             .cloned()
             .unwrap_or_default()
             .without(PARALLAX_BACKGROUND_LAYER),
-        view_centre_hud: Vec2::new(centre_screen.x - target.x * 0.5, target.y * 0.5 - centre_screen.y),
+        hud,
+        view_centre_hud: viewport.center() - hud_viewport.min,
     })
 }
 
-/// One bubble: a texture, the camera that draws into it, and the disc and
-/// ring that show it on the front HUD layer.
+struct BubbleDraw<'a> {
+    camera: Transform,
+    hud: UiTargetCamera,
+    disc: Node,
+    layers: &'a RenderLayers,
+    scaling: ScalingMode,
+    backdrop: ClearColorConfig,
+    ring: BorderColor,
+}
+
+fn bubble_node(center: Vec2, radius: f32) -> Node {
+    let ring = radius * RING_FRACTION;
+    let outer = radius + ring;
+    Node {
+        position_type: PositionType::Absolute,
+        left: Val::Px(center.x - outer),
+        top: Val::Px(center.y - outer),
+        width: Val::Px(outer * 2.0),
+        height: Val::Px(outer * 2.0),
+        border: UiRect::all(Val::Px(ring)),
+        border_radius: BorderRadius::MAX,
+        ..default()
+    }
+}
+
+/// Give the new camera and disc their draw state in the first frame.
 fn spawn_slot(
     commands: &mut Commands,
     images: &mut Assets<Image>,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
     slot: usize,
+    draw: BubbleDraw<'_>,
 ) -> BubbleSlot {
     let mut target = Image::new_uninit(
         Extent3d { width: BUBBLE_TEXELS, height: BUBBLE_TEXELS, depth_or_array_layers: 1 },
@@ -253,45 +285,45 @@ fn spawn_slot(
             Camera2d,
             Camera {
                 order: BUBBLE_CAMERA_ORDER - slot as isize,
-                is_active: false,
+                clear_color: draw.backdrop,
                 ..default()
             },
             // A 4x-MSAA camera draws nothing into a single-sampled target.
             bevy::render::view::Msaa::Off,
             RenderTarget::Image(ImageRenderTarget::from(image.clone())),
-            RenderLayers::layer(0),
-            Projection::Orthographic(OrthographicProjection::default_2d()),
+            draw.layers.clone(),
+            draw.camera,
+            Projection::Orthographic(OrthographicProjection {
+                scaling_mode: draw.scaling,
+                ..OrthographicProjection::default_2d()
+            }),
             CastBubbleCamera,
             Name::new("Cast bubble camera"),
         ))
         .id();
-    let disc_material = materials.add(ColorMaterial {
-        texture: Some(image),
-        ..default()
-    });
-    let ring_material = materials.add(ColorMaterial::from_color(Color::WHITE));
     let disc = commands
         .spawn((
-            Mesh2d(meshes.add(Circle::new(0.5))),
-            MeshMaterial2d(disc_material),
-            Transform::default(),
-            Visibility::Hidden,
-            RenderLayers::layer(FRONT_HUD_LAYER),
+            draw.disc,
+            draw.ring,
+            draw.hud,
+            GlobalZIndex(BUBBLE_UI_ORDER),
+            Pickable::IGNORE,
+            Visibility::Visible,
             CastBubbleDisc,
             Name::new("Cast bubble"),
         ))
         .with_child((
-            Mesh2d(meshes.add(Annulus::new(0.5, 0.5 * (1.0 + RING_FRACTION)))),
-            MeshMaterial2d(ring_material.clone()),
-            Transform::from_xyz(0.0, 0.0, 0.1),
-            RenderLayers::layer(FRONT_HUD_LAYER),
+            ImageNode::new(image),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                border_radius: BorderRadius::MAX,
+                ..default()
+            },
+            Pickable::IGNORE,
         ))
         .id();
-    BubbleSlot {
-        camera,
-        disc,
-        ring_material,
-    }
+    BubbleSlot { camera, disc }
 }
 
 #[cfg(test)]
@@ -328,9 +360,9 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<Assets<Image>>();
-        world.init_resource::<Assets<Mesh>>();
-        world.init_resource::<Assets<ColorMaterial>>();
         world.init_resource::<CastBubbles>();
+        let ui_scale = 1.25;
+        world.insert_resource(UiScale(ui_scale));
         let bubble = CastBubble { diameter_px: 96.0, span: 100.0, rings: [[1.0; 4]; 4], backdrop: [0.1; 4] };
         world.insert_resource(CastFramingTuning { bubble: Some(bubble), ..Default::default() });
         let size = Vec2::new(1200.0, 800.0);
@@ -350,31 +382,34 @@ mod tests {
         world.spawn((camera.clone(), Camera2d, MainCamera, PresentsView(observer),
             Transform::from_xyz(0.0, 0.0, 1000.0), Projection::Orthographic(projection)));
         world.spawn((camera, Camera2d, FrontHudCamera));
+        let onstage = world.spawn(BodyPoseView { pos: center, ..Default::default() }).id();
         let fighter = world.spawn(BodyPoseView {
             pos: center + Vec2::X * 635.0,
             size: Vec2::splat(24.0),
             ..Default::default()
         }).id();
-        world.insert_resource(FramedCast(vec![fighter]));
+        world.insert_resource(FramedCast(vec![onstage, fighter]));
         let discs = |world: &mut World| {
-            world.query_filtered::<(&Visibility, &Transform), With<CastBubbleDisc>>()
+            world.query_filtered::<(&Visibility, &Node), With<CastBubbleDisc>>()
                 .iter(world)
                 .filter(|(visibility, _)| **visibility == Visibility::Visible)
-                .map(|(_, transform)| transform.translation.truncate())
+                .map(|(_, node)| (node.left, node.top))
                 .collect::<Vec<_>>()
         };
 
         world.insert_resource(CardViewSettings::gameplay());
         world.run_system_once(present_cast_bubbles).unwrap();
-        world.run_system_once(present_cast_bubbles).unwrap();
         assert!(discs(&mut world).is_empty(), "the tilted output still shows part of the fighter");
 
+        let mut cameras = world.query_filtered::<&Camera, With<CastBubbleCamera>>();
         for mode in [CardViewMode::Plane, CardViewMode::SideOn, CardViewMode::Inset] {
             world.insert_resource(CardViewSettings::for_game(mode));
             world.run_system_once(present_cast_bubbles).unwrap();
-            world.run_system_once(present_cast_bubbles).unwrap();
             let [at] = discs(&mut world)[..] else { panic!("one bubble in {mode:?}") };
-            assert!(at.abs_diff_eq(Vec2::new(546.0, 0.0), 0.01), "{mode:?}: {at:?}");
+            let (Val::Px(x), Val::Px(y)) = at else { panic!("pixel placement") };
+            let expected = Vec2::new(1146.0, 400.0) - Vec2::splat(48.0 * (1.0 + RING_FRACTION));
+            assert!(Vec2::new(x, y).abs_diff_eq(expected / ui_scale, 0.01), "{mode:?}: {at:?}");
+            assert!(cameras.single(&world).expect("one close-up").is_active);
         }
 
         world.insert_resource(CardViewSettings::gameplay());
@@ -385,7 +420,11 @@ mod tests {
         world.get_mut::<BodyPoseView>(fighter).unwrap().pos.x -= 100.0;
         world.run_system_once(present_cast_bubbles).unwrap();
         assert!(discs(&mut world).is_empty());
-        let mut cameras = world.query_filtered::<&Camera, With<CastBubbleCamera>>();
         assert!(cameras.iter(&world).all(|camera| !camera.is_active));
+
+        world.remove_resource::<CastFramingTuning>();
+        world.run_system_once(present_cast_bubbles).unwrap();
+        assert_eq!(cameras.iter(&world).count(), 0);
+        assert!(world.query_filtered::<Entity, With<CastBubbleDisc>>().iter(&world).next().is_none());
     }
 }

@@ -518,14 +518,15 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         app.add_plugins(ambition_sprite_fx::SpriteFxPlugin);
 
         // The off-screen bubble of a cast member (`CastFramingTuning::bubble`).
-        // Its camera draws into an image, which needs a render app.
+        // Its camera requests sprite slots for the close-up.
         if app.get_sub_app(bevy::render::RenderApp).is_some() {
             app.init_resource::<cast_bubble::CastBubbles>().add_systems(
                 bevy::prelude::Update,
                 cast_bubble::present_cast_bubbles
                     .run_if(cast_bubble::bubbles_are_asked_for_or_drawn)
                     .after(ambition_sim_view::PresentedPoseSet)
-                    .after(camera::ViewCameraSet),
+                    .after(camera::ViewCameraSet)
+                    .before(actors::rigged::RiggedDriveSet),
             );
         }
 

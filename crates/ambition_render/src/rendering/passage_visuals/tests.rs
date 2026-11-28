@@ -40,6 +40,7 @@ fn actor_view(height: f32) -> FeatureView {
 
 fn frame(passage_look: Option<PassageLookView>) -> ActorAnimFrame {
     ActorAnimFrame {
+        room: None,
         opacity: 1.0,
         anim: ambition_sprite_sheet::character::CharacterAnim::Idle,
         conversation_held: false,
@@ -60,32 +61,48 @@ fn drawn(app: &App, body: Entity) -> (Vec3, f32, Srgba) {
     (transform.scale, transform.translation.y, sprite.color.to_srgba())
 }
 
-/// Review finding #3 (2026-10-19). A body drawn on the actor road (a
-/// possessed body, an NPC) in a passage is drawn at its passage's size,
-/// opacity and shade, about its feet; when the passage is over it is drawn at
-/// its own size again. Measured before: the look was applied to player bodies
-/// only, so a possessed body walked through a door at full size. Poison:
-/// filter the actor query out.
+/// Apply the passage look and its composite only to the actor at the door.
 #[test]
 fn a_body_drawn_as_a_feature_takes_its_passage_look() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use ambition_sprite_sheet::character::rigged::ComposedBodyDemand;
+
     let mut app = App::new();
     app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-    app.add_systems(Update, apply_passage_looks);
-    app.insert_resource(ActorAnimIndex::from_rows([("npc".to_string(), frame(Some(LOOK)))]));
-    app.insert_resource(FeatureViewIndex::from_rows([("npc".to_string(), actor_view(40.0))]));
-    let body = app
-        .world_mut()
-        .spawn((FeatureVisual { id: "npc".to_string() }, Transform::from_xyz(0.0, 100.0, 0.0), Sprite::default()))
-        .id();
+    app.init_resource::<ComposedBodyDemand>();
+    app.add_systems(Update, (apply_passage_looks, declare_passage_fade_demand));
+    let room = LiveRoomInstance::ACTIVATION;
+    let other_room = room.next();
+    let rows = |look| ActorAnimIndex::from_rows([
+        ("npc".to_owned(), ActorAnimFrame { room: Some(room), ..frame(look) }),
+        ("npc".to_owned(), ActorAnimFrame { room: Some(other_room), ..frame(None) }),
+    ]);
+    app.insert_resource(rows(Some(LOOK)));
+    app.insert_resource(FeatureViewIndex::from_rows([
+        ("npc".to_owned(), FeatureView { room: Some(room), ..actor_view(40.0) }),
+        ("npc".to_owned(), FeatureView { room: Some(other_room), ..actor_view(80.0) }),
+    ]));
+    let [body, bystander] = [room, other_room].map(|room| {
+        app.world_mut().spawn((
+            FeatureVisual { id: "npc".to_owned() },
+            InRoomInstance(room),
+            Transform::from_xyz(0.0, 100.0, 0.0),
+            Sprite::default(),
+        )).id()
+    });
     app.update();
     let (scale, y, color) = drawn(&app, body);
     assert_eq!(scale, Vec3::new(0.5, 0.5, 1.0), "the body is drawn at its passage's size");
     assert!((y - 90.0).abs() < 1e-4, "about its feet: half of the 40 px body, halved, is 10 px down; y is {y}");
     assert!((color.alpha - 0.4).abs() < 1e-4 && (color.red - 0.5).abs() < 1e-4, "opacity and shade: {color:?}");
+    assert_eq!(drawn(&app, bystander), (Vec3::ONE, 100.0, Color::WHITE.to_srgba()));
+    let demand = app.world().resource::<ComposedBodyDemand>();
+    assert!(demand.is_declared(body));
+    assert!(!demand.is_declared(bystander));
 
     // The passage is over. `sync_visuals` places the body again each frame,
     // at its own size.
-    app.insert_resource(ActorAnimIndex::from_rows([("npc".to_string(), frame(None))]));
+    app.insert_resource(rows(None));
     *app.world_mut().get_mut::<Transform>(body).expect("a transform") = Transform::from_xyz(0.0, 100.0, 0.0);
     app.update();
     let (scale, y, _) = drawn(&app, body);

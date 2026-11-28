@@ -912,6 +912,11 @@ shared value preparation are sufficient until source proves otherwise.
    sprite bind test gives the same placement ID different character art
    in two live rooms and checks the texture on each sprite.
 
+   Actor pose clocks follow the body when it changes rooms. Sprite
+   animation, passage fades, glows, and flashes read the frame in the
+   body's live room. The passage tests give two actors the same ID and
+   check the pose, scale, and fade of the actor at the door.
+
    Ground shadows use the shared presented body position. Each shadow uses
    the floor and art of its live room. A test checks the sprite and card
    positions for two actors with the same ID in different live rooms.

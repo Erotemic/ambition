@@ -7,8 +7,10 @@ use serde_json::json;
 pub fn snapshot(world: &World) -> serde_json::Value {
     let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     use engine::characters::actor::{BodyHealth, CharacterForm};
+    use engine::platformer::lifecycle::{live_room_of, sole_live_room_entity, InRoomInstance, LiveRoomInstance};
     use engine::sprite_sheet::character::CharacterAnimator;
     use engine::render::rendering::actors::{BoundActorArt, BoundSpriteQuality, PlayerSpriteCharacter};
+    let sole_room = sole_live_room_entity(world).and_then(|room| world.get::<LiveRoomInstance>(room)).copied();
     let carry_load = world.get_resource::<engine::portal_presentation::PortalCarryAtlas>().map(|atlas| json!({
         "families":atlas.load.families,"texture_bytes":atlas.load.texture_bytes,
         "reduced_resolution":atlas.load.reduced_resolution,"material_proxies":atlas.load.material_proxies,
@@ -154,7 +156,8 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                 .or_else(|| entity.get::<PlayerSpriteCharacter>().map(|art| art.id.as_str()));
             let row = animator.drawn_row().and_then(|slot| animator.spec.row_name(slot));
             let feature = entity.get::<engine::render::rendering::FeatureVisual>();
-            let actor = feature.and_then(|feature| world.get_resource::<engine::sim_view::ActorAnimIndex>()?.get(&feature.id));
+            let room = live_room_of(entity.get::<InRoomInstance>(), entity.get::<LiveRoomInstance>()).or(sole_room);
+            let actor = feature.and_then(|feature| world.get_resource::<engine::sim_view::ActorAnimIndex>()?.get_in(&feature.id, room));
             let body_pose = entity.get::<engine::sim_view::BodyPoseView>();
             let requested = body_pose.map(|pose| pose.anim).or_else(|| actor.map(|frame| frame.anim));
             let clip = body_pose.and_then(|pose| pose.clip.as_ref()).or_else(|| actor.and_then(|frame| frame.clip.as_ref()));

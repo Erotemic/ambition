@@ -43,7 +43,7 @@
 //!
 //! Source-of-truth per body kind:
 //!
-//! - Actor (NPC / enemy / seated fighter): the `FeatureView` row, by feature id.
+//! - Actor (NPC / enemy / seated fighter): the `FeatureView` row in its live room.
 //! - Boss: the boss encounter fields exposed through the same read-model seam.
 //! - Player-bodied: the `BodyPoseView` component on the sprite's own entity.
 
@@ -58,6 +58,8 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
+#[cfg(not(target_os = "android"))]
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -368,6 +370,7 @@ pub fn sync_hit_flash_overlays(
     // sprite's own entity.
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     anim_frames: Res<ambition_sim_view::ActorAnimIndex>,
+    rooms: LiveRooms,
     poses: Query<&ambition_sim_view::BodyPoseView>,
     passage_looks: Query<&ambition_sim_view::PassageLookView>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -409,16 +412,11 @@ pub fn sync_hit_flash_overlays(
     {
         // One dispatch for player, NPC, enemy, and boss. Each has different
         // storage, but all reach the same shader uniform through this lookup.
-        let mut facts = overlay_facts_for_source(
-            source_entity,
-            feature,
-            player,
-            &feature_views,
-            &anim_frames,
-            &poses,
-            defense_policy.0,
-        );
-        facts.transit = transit_fact(source_entity, feature, &anim_frames, &passage_looks, quality.as_deref());
+        let occurrence = feature.map(|feature| (feature.id.as_str(), rooms.of(source_entity)));
+        let actor_frame = occurrence.and_then(|(id, room)| anim_frames.get_in(id, room));
+        let view = occurrence.and_then(|(id, room)| feature_views.get_in(id, room));
+        let mut facts = overlay_facts_for_source(source_entity, player, view, actor_frame, &poses, defense_policy.0);
+        facts.transit = transit_fact(source_entity, actor_frame, &passage_looks, quality.as_deref());
         let source_visibility = source_visibility.map(|visibility| *visibility);
         let (intensity, tint) = overlay_look(facts, tick.0, source_visibility);
         let transit = if tint == TRANSIT_TINT { facts.transit } else { 0.0 };
@@ -532,6 +530,7 @@ pub fn declare_hit_flash_demand(
     >,
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     anim_frames: Res<ambition_sim_view::ActorAnimIndex>,
+    rooms: LiveRooms,
     poses: Query<&ambition_sim_view::BodyPoseView>,
     passage_looks: Query<&ambition_sim_view::PassageLookView>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -547,16 +546,11 @@ pub fn declare_hit_flash_demand(
     mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
 ) {
     for (source_entity, feature, player, source_visibility) in &sources {
-        let mut facts = overlay_facts_for_source(
-            source_entity,
-            feature,
-            player,
-            &feature_views,
-            &anim_frames,
-            &poses,
-            defense_policy.0,
-        );
-        facts.transit = transit_fact(source_entity, feature, &anim_frames, &passage_looks, quality.as_deref());
+        let occurrence = feature.map(|feature| (feature.id.as_str(), rooms.of(source_entity)));
+        let actor_frame = occurrence.and_then(|(id, room)| anim_frames.get_in(id, room));
+        let view = occurrence.and_then(|(id, room)| feature_views.get_in(id, room));
+        let mut facts = overlay_facts_for_source(source_entity, player, view, actor_frame, &poses, defense_policy.0);
+        facts.transit = transit_fact(source_entity, actor_frame, &passage_looks, quality.as_deref());
         let source_visibility = source_visibility.map(|visibility| *visibility);
         if overlay_look(facts, tick.0, source_visibility).0 > 0.0 {
             demand.declare(source_entity);
@@ -626,17 +620,15 @@ pub struct OverlayFacts {
 /// the whole look.
 fn transit_fact(
     source_entity: Entity,
-    feature: Option<&FeatureVisual>,
-    anim_frames: &ambition_sim_view::ActorAnimIndex,
+    actor_frame: Option<&ambition_sim_view::ActorAnimFrame>,
     passage_looks: &Query<&ambition_sim_view::PassageLookView>,
     quality: Option<&crate::quality::ResolvedVisualQuality>,
 ) -> f32 {
     if !quality.is_some_and(|quality| quality.budget.shaders.allow_showcase_materials) {
         return 0.0;
     }
-    let look = passage_looks.get(source_entity).ok().copied().or_else(|| {
-        feature.and_then(|feature| anim_frames.get(feature.id.as_str())).and_then(|frame| frame.passage_look)
-    });
+    let look = passage_looks.get(source_entity).ok().copied()
+        .or_else(|| actor_frame.and_then(|frame| frame.passage_look));
     look.map_or(0.0, |look| look.transit.clamp(0.0, 1.0))
 }
 
@@ -649,16 +641,13 @@ fn transit_fact(
 /// | type | read-model row |
 /// |------|----------------|
 /// | player-bodied | `BodyPoseView` on the sprite's own entity |
-/// | enemy / NPC / seated fighter | the `FeatureView` row, by feature id |
-/// | boss | the `FeatureView` row, by feature id |
+/// | enemy / NPC / seated fighter | the `FeatureView` row in its room |
+/// | boss | the `FeatureView` row in its room |
 fn overlay_facts_for_source(
     source_entity: Entity,
-    feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
-    feature_views: &ambition_sim_view::FeatureViewIndex,
-    // The charge is on the per-frame pose row, not the feature row, so join
-    // the two indexes on the feature id.
-    anim_frames: &ambition_sim_view::ActorAnimIndex,
+    feature: Option<&ambition_sim_view::FeatureView>,
+    actor_frame: Option<&ambition_sim_view::ActorAnimFrame>,
     poses: &Query<&ambition_sim_view::BodyPoseView>,
     defense_policy: ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy,
 ) -> OverlayFacts {
@@ -673,16 +662,10 @@ fn overlay_facts_for_source(
     // Feature path: facts are on the `FeatureView` row (actors, seated
     // fighters, bosses). The rebuild site applies "no silhouette over a boss
     // corpse". Kinds with no body get the defaults.
-    let Some(feature) = feature else {
-        return OverlayFacts::default();
-    };
-    let mut facts = feature_views
-        .get(feature.id.as_str())
+    let mut facts = feature
         .map(|view| overlay_facts_from_feature(view, defense_policy))
         .unwrap_or_default();
-    facts.move_charge = anim_frames
-        .get(feature.id.as_str())
-        .and_then(|frame| frame.move_charge);
+    facts.move_charge = actor_frame.and_then(|frame| frame.move_charge);
     facts
 }
 

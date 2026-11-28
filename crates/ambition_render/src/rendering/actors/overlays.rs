@@ -178,6 +178,7 @@ pub fn placeholders_are_on_or_kept(
 
 pub fn apply_placeholder_sprites_override(
     mut commands: Commands,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     feature_views: Res<FeatureViewIndex>,
     projectile_visuals: Res<ambition_projectiles::ProjectileVisualCatalog>,
@@ -206,7 +207,7 @@ pub fn apply_placeholder_sprites_override(
                     image_mode: sprite.image_mode.clone(),
                 });
             }
-            let feature_view = feature.and_then(|fv| feature_views.get(&fv.id));
+            let feature_view = feature.and_then(|fv| feature_views.get_in(&fv.id, rooms.of(entity)));
             // Projectiles read their placeholder color from their visual id's
             // authored debug tint, resolved through the content-owned catalog.
             let proj_tint = proj_id.map(|id| projectile_visuals.debug_tint(id.as_str()));

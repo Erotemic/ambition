@@ -18,6 +18,7 @@
 use bevy::prelude::*;
 
 use ambition_sfx::{ids, SfxMessage, SfxWriter};
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 
 /// Which body a remembered beat belongs to.
 ///
@@ -25,8 +26,8 @@ use ambition_sfx::{ids, SfxMessage, SfxWriter};
 /// differently. One map keyed by this avoids two maps kept in step.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 enum BodyCueKey {
-    /// An id-keyed actor — every seated fighter.
-    Feature(String),
+    /// A feature ID in one live room.
+    Feature(Option<LiveRoomInstance>, String),
     /// A player-bodied entity, whose read-model rides the entity itself.
     Body(Entity),
 }
@@ -59,13 +60,10 @@ pub fn emit_smash_charge_cues(
     poses: Query<(Entity, &ambition_sim_view::BodyPoseView)>,
     mut sfx: SfxWriter,
 ) {
-    // One stream, so the edge rule is written once. The actor index iterates
-    // in hash order, which is fine here: presentation only, and the cues are
-    // unordered anyway.
     let actors = anim_frames.iter().filter_map(|(id, frame)| {
         frame
             .move_charge
-            .map(|charge| (BodyCueKey::Feature(id.to_string()), frame.pos, charge))
+            .map(|charge| (BodyCueKey::Feature(frame.room, id.to_owned()), frame.pos, charge))
     });
     let bodies = poses.iter().filter_map(|(entity, pose)| {
         pose.move_charge
@@ -122,7 +120,7 @@ pub fn emit_parry_cues(
     mut sfx: SfxWriter,
 ) {
     let actors = features.iter().filter_map(|(id, view)| {
-        (view.parry_flash_secs > 0.0).then(|| (BodyCueKey::Feature(id.to_string()), view.pos))
+        (view.parry_flash_secs > 0.0).then(|| (BodyCueKey::Feature(view.room, id.to_owned()), view.pos))
     });
     let bodies = poses.iter().filter_map(|(entity, pose)| {
         (pose.parry_flash_secs > 0.0).then(|| (BodyCueKey::Body(entity), pose.pos))
@@ -337,6 +335,7 @@ mod tests {
                 (
                     (*id).to_string(),
                     ActorAnimFrame {
+                        room: None,
                         opacity: 1.0,
                         anim: ambition_sprite_sheet::character::CharacterAnim::Idle,
                         conversation_held: false,

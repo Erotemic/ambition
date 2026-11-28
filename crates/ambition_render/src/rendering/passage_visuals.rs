@@ -37,7 +37,8 @@ pub fn apply_passage_looks(
         (&mut Transform, &mut Sprite, &ambition_sim_view::BodyPoseView, Option<&ambition_sim_view::PassageLookView>),
         With<PlayerVisual>,
     >,
-    mut actors: Query<(&FeatureVisual, &mut Transform, &mut Sprite), Without<PlayerVisual>>,
+    mut actors: Query<(Entity, &FeatureVisual, &mut Transform, &mut Sprite), Without<PlayerVisual>>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
     features: Option<Res<ambition_sim_view::FeatureViewIndex>>,
 ) {
@@ -46,11 +47,12 @@ pub fn apply_passage_looks(
             draw_passage_look(&mut transform, &mut sprite, *look, pose.size.y);
         }
     }
-    for (visual, mut transform, mut sprite) in &mut actors {
-        let Some(look) = frames.as_deref().and_then(|frames| frames.get(&visual.id)).and_then(|frame| frame.passage_look) else {
+    for (entity, visual, mut transform, mut sprite) in &mut actors {
+        let room = rooms.of(entity);
+        let Some(look) = frames.as_deref().and_then(|frames| frames.get_in(&visual.id, room)).and_then(|frame| frame.passage_look) else {
             continue;
         };
-        let height = features.as_deref().and_then(|views| views.get(&visual.id)).map_or(0.0, |view| view.size.y);
+        let height = features.as_deref().and_then(|views| views.get_in(&visual.id, room)).map_or(0.0, |view| view.size.y);
         draw_passage_look(&mut transform, &mut sprite, look, height);
     }
 }
@@ -83,6 +85,7 @@ fn draw_passage_look(transform: &mut Transform, sprite: &mut Sprite, look: ambit
 pub fn declare_passage_fade_demand(
     players: Query<(Entity, &ambition_sim_view::PassageLookView), With<PlayerVisual>>,
     actors: Query<(Entity, &FeatureVisual), Without<PlayerVisual>>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
     mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
 ) {
@@ -96,7 +99,7 @@ pub fn declare_passage_fade_demand(
         return;
     };
     for (body, visual) in &actors {
-        if frames.get(&visual.id).and_then(|frame| frame.passage_look.as_ref()).is_some_and(fades) {
+        if frames.get_in(&visual.id, rooms.of(body)).and_then(|frame| frame.passage_look.as_ref()).is_some_and(fades) {
             demand.declare(body);
         }
     }

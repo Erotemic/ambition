@@ -729,11 +729,10 @@ shared value preparation are sufficient until source proves otherwise.
    view's card camera (`realize_card_backdrop`, `backdrop_card_place`). It
    stands along the camera's view, 1 500 behind the play plane (further
    back for a layer further back in 2D), inside the camera's far plane.
-   A foreground layer stands 1 000 in front of the plane. Its offset from
-   the view's centre and its size are the 2D ones times `1 / zoom`, since
-   the card view shows `1 / zoom` of the 2D view's width. So the card view
-   frames the backdrop as the 2D view does. Only the panels the 2D view
-   draws for that view are used.
+   A foreground layer stands 1 000 in front of the plane. Scale its size
+   and offset from the view's centre by the ratio of the card output width
+   to the 2D output width in world units. Use the panels that belong to
+   that view.
    Portal capture copies stay with their capture cameras. A background
    card faces the camera's tilt and keeps the 2D orientation and offset
    when the view rolls. A foreground card follows the same rule in front
@@ -919,6 +918,9 @@ shared value preparation are sufficient until source proves otherwise.
    `--card-view` capture uses the game inset settings and draws both
    outputs to the selected gameplay target. The live F3 panel can
    switch between the inset and 2D while the simulation is stopped.
+   A backdrop uses the routed width of the inset. When the view switches
+   from a zoomed inset to full-screen 2.5D, the backdrop uses the same
+   size and offset as the 2D view.
 
    Each portal capture draws its own backdrop from the room it serves.
    Local views, card outputs, menus, and portal captures use separate

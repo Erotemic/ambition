@@ -763,9 +763,12 @@ shared value preparation are sufficient until source proves otherwise.
    signs share one outline path. The outline uses the label's font and
    opacity. A copy of a static sign keeps its outline and live room.
    Medium captures of GNU-ton at tick 350 show the same wrapped speech
-   and outline in 2D and side-on 2.5D. Portal fault glyphs use the body
-   identity and live room for their drift. Medium captures of Portal Scale
-   Lab at tick 152 show the glyphs in 2D, side-on, and oblique views.
+   and outline in 2D and side-on 2.5D. Medium captures of the Mary-O Warp
+   Zone show all eight pipe signs in 2D, side-on, and oblique views. The
+   capture enters through the provider's room setting. Portal fault glyphs
+   use the body identity and live room for their drift. Medium captures of
+   Portal Scale Lab at tick 152 show the glyphs in 2D, side-on, and oblique
+   views.
 
    A card uses the existing portal capture mesh and texture for the far-side
    window. It stays at the seam and uses the source pane order and opaque
@@ -983,6 +986,10 @@ shared value preparation are sufficient until source proves otherwise.
    Both renderers draw emitted trails and retained debug lines from the same
    line buffers. Each card camera draws the lines for its room and local
    view. Switching to 2D removes the card draws and keeps the line buffers.
+   The navigation graph and rollback ghost overlays use these buffers.
+   Medium Central Hub captures show the graph in both renderers. A test
+   checks that a rollback ghost stays in its source room and disappears
+   when the room is removed.
 
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
@@ -995,6 +1002,9 @@ shared value preparation are sufficient until source proves otherwise.
    the military gate annex, Gravity Lab, Portal Lab, and the central hub.
    The Clean / corrupted exhibit uses the same sky, fog, and front effects
    in both renderers. Medium captures show the front in all three views.
+   The Central Hub has an open difference. A fixed Medium capture at tick
+   160 shows a clean sky behind the developer wing in 2D and a corrupted
+   sky in side-on 2.5D.
 
    `capture_scene --renderer` fills the image with the selected renderer.
    Each camera uses the same presented frame. The card view keeps each

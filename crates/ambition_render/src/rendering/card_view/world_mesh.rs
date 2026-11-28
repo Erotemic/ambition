@@ -813,8 +813,7 @@ mod tests {
             });
             sources.push(world.spawn((
                 PresentationOf(actor),
-                Mesh2d::default(),
-                MeshMaterial2d(material.clone()),
+                PreparedPlanarMesh { mesh: Handle::default(), material: material.clone() },
                 GlobalTransform::from_translation(Vec3::Z * (20.0 + FLASH_OVERLAY_Z_BIAS)),
                 InheritedVisibility::VISIBLE,
             )).id());

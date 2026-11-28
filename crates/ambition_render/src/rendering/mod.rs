@@ -651,6 +651,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // looks). The renderer resolves each projectile's `ProjectileVisualId`
         // through it.
         app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
+        #[cfg(not(target_os = "android"))]
+        if app.world().contains_resource::<bevy::asset::Assets<bevy::mesh::Mesh>>() {
+            app.init_resource::<planar_mesh::PlanarUnitQuad>();
+        }
         hit_flash::add_hit_flash_material_plugin(app);
         actor_glow::add_actor_glow_material_plugin(app);
         // The live layer of the bubble shield: a shader, on Android as the hit
@@ -734,18 +738,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // on the root. Drawn after the driver, the baked frame would
                 // cover the parts.
                 actors::animate_bosses.run_if(bevy::prelude::any_with_component::<ambition_sprite_sheet::boss::BossAnimator>).in_set(actors::BossAnimation).in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
-                // Attach the hit-flash overlay to every character sprite once its
-                // texture or atlas is loaded.
-                // Guarded on all three assets it uses (`Assets<Mesh>`,
-                // `Assets<HitFlashMaterial>`, `Assets<TextureAtlasLayout>`): Bevy
-                // 0.19 panics when a parameter is missing, and a headless
-                // composition has no render stack. See
-                // `engine/headless-verification.md`.
-                // Android draws no flash: none of the four is scheduled there.
+                // Prepare the flash when the sprite frame and quad are available.
                 #[cfg(not(target_os = "android"))]
                 hit_flash::attach_hit_flash_overlays
                     .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
-                        bevy::asset::Assets<bevy::mesh::Mesh>,
+                        planar_mesh::PlanarUnitQuad,
                     >)
                     .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
                         bevy::asset::Assets<hit_flash::HitFlashMaterial>,

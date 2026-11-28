@@ -1002,6 +1002,11 @@ shared value preparation are sufficient until source proves otherwise.
    Their paint order follows their source depth between the bodies of the
    same room. A light can overlap another body without moving to its plane.
 
+   The hit flash and shader glow use the shared quad and its bounds. A
+   portal can request the quad before the 2D draw binding exists. Medium
+   captures show the flash behind the workshop cart rail and on both ends
+   of a portal crossing. High captures check the shader glow in both views.
+
    Cards and sprite effects use the same texture region. A crop uses
    coordinates relative to the atlas cell. An Ultra capture checks both
    atlas and whole-image crops with an offset anchor and two-axis flips.

@@ -54,9 +54,11 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
     sprite::Anchor,
-    sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d},
 };
 
+#[cfg(not(target_os = "android"))]
+use super::planar_mesh::{install_planar_mesh_2d, PlanarUnitQuad, PreparedPlanarMesh};
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
 #[cfg(not(target_os = "android"))]
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
@@ -163,6 +165,7 @@ pub fn add_hit_flash_material_plugin(app: &mut App) {
         ambition_sprite_fx::install_mesh_fragment_shader(app);
         bevy::asset::embedded_asset!(app, "hit_flash.wgsl");
         app.add_plugins(bevy::sprite_render::Material2dPlugin::<HitFlashMaterial>::default());
+        install_planar_mesh_2d::<HitFlashMaterial>(app);
     }
 }
 
@@ -248,7 +251,7 @@ pub fn attach_hit_flash_overlays() {}
 #[cfg(not(target_os = "android"))]
 pub fn attach_hit_flash_overlays(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    quad: Res<PlanarUnitQuad>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
@@ -292,7 +295,6 @@ pub fn attach_hit_flash_overlays(
             color_texture: sprite.image.clone(),
             tint: FLASH_TINT.extend(1.0),
         });
-        let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
         let session_scope = session_owner.map_or(SessionSpawnScope::UNSCOPED, |owner| {
             SessionSpawnScope::scoped(owner.0)
@@ -301,8 +303,7 @@ pub fn attach_hit_flash_overlays(
             .spawn_session_scoped(
                 session_scope,
                 (
-                    Mesh2d(mesh),
-                    MeshMaterial2d(material),
+                    quad.prepare(material),
                     overlay_transform,
                     // Always spawn `Visible`. The shader discards fragments at zero
                     // intensity. Spawning `Hidden` can leave the auto-inserted
@@ -393,7 +394,7 @@ pub fn sync_hit_flash_overlays(
     >,
     mut overlays: Query<(
         &mut Transform,
-        &MeshMaterial2d<HitFlashMaterial>,
+        &PreparedPlanarMesh<HitFlashMaterial>,
         &HitFlashOverlay,
         &mut ambition_sprite_fx::DeclaredFrame,
         &mut Visibility,
@@ -447,7 +448,7 @@ pub fn sync_hit_flash_overlays(
 
         let Ok((
             mut overlay_transform,
-            material_handle,
+            draw,
             overlay,
             mut declared,
             mut overlay_visibility,
@@ -481,14 +482,14 @@ pub fn sync_hit_flash_overlays(
         let seconds = if transit > 0.0 { (tick.0 % CHARGE_PHASE_WRAP) as f32 / 60.0 } else { 0.0 };
         let control = Vec4::new(intensity, flip, transit, seconds);
         let tint = tint.extend(1.0);
-        let unchanged = materials.get(&material_handle.0).is_some_and(|material| {
+        let unchanged = materials.get(&draw.material).is_some_and(|material| {
             material.uv_rect == uv_rect
                 && material.control == control
                 && material.tint == tint
                 && material.color_texture == source_sprite.image
         });
         if !unchanged {
-            if let Some(mut material) = materials.get_mut(&material_handle.0) {
+            if let Some(mut material) = materials.get_mut(&draw.material) {
                 material.uv_rect = uv_rect;
                 material.control = control;
                 material.color_texture = source_sprite.image.clone();

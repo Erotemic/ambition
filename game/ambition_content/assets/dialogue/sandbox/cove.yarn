@@ -1,57 +1,57 @@
 title: pirate_admiral
 ---
+Admiral: Ahoy, landstrider! Admiral R. Badely, at your service. If you're buying, see the quartermaster. If you're collecting a debt, I'm not here.
 <<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
-    Admiral: Landstrider returns! There's our chest. Put it by the bar before Bess fires a salute through the roof. Drinks are on us tonight.
-    -> About the chest…
-        <<jump pirate_admiral_after_treasure__1>>
-    -> Anything else?
-        <<jump pirate_admiral_after_treasure__2>>
-    -> What happened to the ninja deal?
-        <<jump pirate_admiral_after_treasure__ninja>>
-    -> Carry on, Admiral.
-<<elseif boss_cleared_verdict("cove.mockingbird") == "not_satisfied">>
-    Admiral: Ahoy, landstrider. Ye caught us at low tide and lower tempers. Mockingbird took the iron chest straight off the bar and flew away with it. Aye, I know how that sounds.
-    -> What happened to the treasure?
-        <<jump pirate_admiral__1>>
-    -> Where can I find this Mockingbird?
-        <<jump pirate_admiral__2>>
-    -> Why don't your raiders handle it?
-        <<jump pirate_admiral__3>>
-    -> What's your deal with the ninjas?
-        <<jump pirate_admiral__ninja>>
-    -> I'll bring it down.
-<<else>>
-    <<stop>>
+    Admiral: I hear you've been busy up in the sky. Come have a drink when you're done flying.
 <<endif>>
+-> What are you up to?
+    <<jump pirate_admiral__1>>
+-> What's your deal with the ninjas?
+    <<jump pirate_admiral__ninja>>
+-> Tell me about yourself.
+    <<jump pirate_admiral__personal>>
+-> What's above the cove?
+    <<jump pirate_admiral__2>>
+-> About that fight… <<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
+    <<jump pirate_admiral_after_treasure__1>>
+-> Carry on, Admiral.
 ===
 
 title: pirate_admiral__1
 ---
-Admiral: Mockingbird. Big as a mainsail and twice as mean. Took the chest, tore two boards loose, then apologized in my own voice. Nearly got shot for the apology.
+Admiral: There's a shipment come through the gate, and the Authority's hired Zorlack to see it safely on its way.
+Admiral: I'm considering a few ways in which it might arrive at a different destination.
+-> Are you planning to raid it?
+    <<jump pirate_admiral__3>>
 -> Ask another question.
     <<jump pirate_admiral>>
--> I'll bring it down.
+-> Carry on, Admiral.
 ===
 
 title: pirate_admiral__2
 ---
-Admiral: Back door, then up. You'll hear it before you see it. Bring me the chest. If the bird comes down too, better.
+Admiral: Back door, then up to the lookout. There's a good view of the sea from the riggin'. Mind the sharks if ye go beyond it.
+Admiral: Don't assume a shark on fire is in need of rescuing. That'll end badly for both of ye.
 -> Ask another question.
     <<jump pirate_admiral>>
--> I'll bring it down.
+-> Carry on, Admiral.
 ===
 
 title: pirate_admiral__3
 ---
-Admiral: Have you SEEN my raider? Cutlass in hand, bird twenty feet up. He spent an hour swearin' at it. Bird swore back.
+Admiral: Aye. I'll tell ye how when we're back and the cargo's unloaded. Wouldn't want word getting to Zorlack before we sail.
 -> Ask another question.
     <<jump pirate_admiral>>
--> I'll bring it down.
+-> Carry on, Admiral.
 ===
 
 title: pirate_admiral_after_treasure__1
 ---
-Admiral: Three locks, and that bird picked every one with its beak. Keep what ye found inside. I'm not putting it back in the chest.
+Admiral: Well flown, landstrider. Bess tells me you made it back in one piece. There's a reward for ye.
+-> What's next for the fleet?
+    <<jump pirate_admiral_after_treasure__2>>
+-> Has anything changed with the ninjas?
+    <<jump pirate_admiral_after_treasure__ninja>>
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -59,10 +59,84 @@ Admiral: Three locks, and that bird picked every one with its beak. Keep what ye
 
 title: pirate_admiral_after_treasure__2
 ---
-Admiral: Stay sharp, landstrider. Another feathered bastard steals our songs, I'm sending for ye before Bess loads the cannons.
+Admiral: We've still got a fleet to run. The Authority keeps bringing freight through that ring. I intend to keep a portion of it in circulation.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
+===
+
+title: pirate_admiral__personal
+---
+Admiral: Aye? Pull up a chair.
+-> What do you do for a living?
+    <<jump pirate_admiral__business>>
+-> Have you always been a pirate?
+    <<jump pirate_admiral__authority>>
+-> What are those marks?
+    <<jump pirate_admiral__crossing>>
+-> Would you come through a gate with me?
+    <<jump pirate_admiral__travel>>
+-> Is Badely your family name?
+    Admiral: Title, landstrider. Came with the hat. Ye can keep the hat when I'm dead if the crew agrees.
+    <<jump pirate_admiral__personal>>
+-> Back to business.
+    <<jump pirate_admiral>>
+-> I'll leave you to it.
+===
+
+title: pirate_admiral__business
+---
+Admiral: Sail, drink, plunder. Lately it's Gate Authority freight. They bring it here through the ring, load it onto a ship, and off we go.
+-> Do you have anything against the Authority?
+    Admiral: I've plenty against some of 'em. There's people in there I'd be glad to have a drink with, too.
+    Admiral: Doesn't mean I'm giving their cargo back.
+    <<jump pirate_admiral__personal>>
+-> Do you raid the gate itself?
+    Admiral: No. I wait till it's on a ship. I know what it's like to be the poor bastard lying on the other side of that ring.
+    <<jump pirate_admiral__personal>>
+-> Something else.
+    <<jump pirate_admiral__personal>>
+-> I'll leave you to it.
+===
+
+title: pirate_admiral__authority
+---
+Admiral: No. I was a Gate Authority recruit, back when they were still finding out what a crossing did to a person.
+Admiral: Signed up to see the worlds. Got as far as this one.
+Admiral: I took to the sea here. Never figured I'd have a fleet of my own. Now I've three captains swearing the same broken mast was somebody else's fault.
+-> What happened at the gate?
+    <<jump pirate_admiral__crossing>>
+-> Something else.
+    <<jump pirate_admiral__personal>>
+-> I'll leave you to it.
+===
+
+title: pirate_admiral__crossing
+---
+Admiral: Gate sickness. You've seen the stuff that clings to folk when they come through. Everyone told me it would wear off. I was still covered in it months later.
+Admiral: Most folk are on their feet the next day. Took me near a year. These marks never went away.
+-> Would you ever go through again?
+    <<jump pirate_admiral__travel>>
+-> Something else.
+    <<jump pirate_admiral__personal>>
+-> I'll leave you to it.
+===
+
+title: pirate_admiral__travel
+---
+Admiral: No.
+Admiral: ...I'd like to. I've stood in front of that ring, address in hand. Never got much further than that.
+-> Don't you want to go home?
+    Admiral: Aye. I do.
+    Admiral: Not today, landstrider.
+    <<jump pirate_admiral__personal>>
+-> Are there other places you'd like to visit?
+    Admiral: Ever heard of the Noodle Dimension? They've a volcano that erupts soda. A whole mountain of it!
+    Admiral: I'd like to see that with my own eyes. Reckon I could ride a barrel down the side of it.
+    <<jump pirate_admiral__personal>>
+-> Something else.
+    <<jump pirate_admiral__personal>>
+-> I'll leave you to it.
 ===
 
 title: pirate_heavy_broadside_bess
@@ -77,7 +151,7 @@ Broadside Bess: YARRRGH — wee skipper! Mind the cleaver, mind the cleaver! Bes
 
 title: pirate_heavy_broadside_bess__1
 ---
-Broadside Bess: A BROADSIDE, ye landlubber? Every gun on one side, all at once — BOOM, boom-boom-boom! Twelve of 'em when the deckhands remember powder. First time I fired one, the Mockingbird copied the noise for a week. Badly.
+Broadside Bess: A BROADSIDE, ye landlubber? Every gun on one side, all at once — BOOM, boom-boom-boom! Twelve of 'em when the deckhands remember powder. If ye want to try it, ask me which side to stand on FIRST.
 -> Aye, another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
@@ -96,7 +170,7 @@ title: pirate_heavy_iron_mary
 Iron Mary: Hmmph. Iron Mary. Don't shake me hand, ye'll lose a finger. Admiral keeps me 'round when somethin' needs hittin'. Wee skipper, what brings ye to a cove full o' shouters?
 -> Why 'Iron'?
     <<jump pirate_heavy_iron_mary__1>>
--> Any tip for the bird?
+-> How do you fight a ninja?
     <<jump pirate_heavy_iron_mary__2>>
 -> Carry on.
 ===
@@ -111,7 +185,7 @@ Iron Mary: This plate came off a navy cutter we sank. Good metal, so I dragged i
 
 title: pirate_heavy_iron_mary__2
 ---
-Iron Mary: Get close. That bird hates close. Bring somethin' heavy, and if it starts talkin' in yer voice, keep swingin'.
+Iron Mary: Get close. They like room to move, so don't give 'em any. One got behind me once. I went backwards through the door with him still there.
 -> Another, then.
     <<jump pirate_heavy_iron_mary>>
 -> Carry on.
@@ -129,7 +203,7 @@ Salt Annet: Yarrrr. Salt in me eyes again. In me coffee too. Sit a spell, wee sk
 
 title: pirate_heavy_salt_annet__1
 ---
-Salt Annet: Signed on when the Admiral still fetched coffee. Three ships have rotted at this dock since. This bird won't get three ships out of me.
+Salt Annet: Signed on under the last Badely. This one wasn't a captain when he came to us. Three ships have rotted at this dock since. I'm outlastin' the fourth, too.
 -> One more, ye old salt.
     <<jump pirate_heavy_salt_annet>>
 -> Carry on.
@@ -137,7 +211,7 @@ Salt Annet: Signed on when the Admiral still fetched coffee. Three ships have ro
 
 title: pirate_heavy_salt_annet__2
 ---
-Salt Annet: (coughs, clears throat, sings) 'Yo-ho an' a barrel o' salt — yo-ho an' the captain's at fault — yo-ho an' the bird stole the chest — yo-ho an' we'll be GETTIN' it back — yarrgh.' Aye, I made the last verse up just now. Ye get what ye pay for in shanties, an' ye paid in a HALLO.
+Salt Annet: (coughs, clears throat, sings) 'Yo-ho, an' a barrel o' tar / we'll follow the freight by the light of a star / up with the anchor an' out with the oar / whoever comes last can be scrubbin' the floor.' Aye, I made the last verse up just now. Ye get what ye pay for in shanties, an' ye paid in a HELLO.
 -> One more, ye old salt.
     <<jump pirate_heavy_salt_annet>>
 -> Carry on.
@@ -155,7 +229,7 @@ Lookout: Hist. Shark trouble brewin' aloft — riders been comin' about since fi
 
 title: pirate_lookout__1
 ---
-Lookout: Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up yonder — riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.
+Lookout: Sky an' clouds, lubber. Riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.
 -> Aught else, sentry?
     <<jump pirate_lookout>>
 -> ‹climb past›
@@ -189,7 +263,7 @@ Navigator: Three roles aloft, picked at sail-out an' kept 'til death. HOVER hold
 
 title: pirate_navigator__2
 ---
-Navigator: Easy now — they don't fire on the navigator, see. Mockingbird made off with the chest, the shanties went short, the crew turned mean, and I drew the chart that says the cartographer eats first. Sit a spell if ye like; the sharks won't.
+Navigator: Easy now — they don't fire on the navigator, see. They'd never find their way home if they did. I've been tryin' to chart a route past the freighter's escort, but I can't keep the ink in the pot with those sharks aloft.
 -> One more question, cap'n cartographer.
     <<jump pirate_navigator>>
 -> ‹ready your blade›
@@ -209,7 +283,7 @@ Quartermaster: Aye-aye, landstrider. I keep the manifest 'cause I'm the only bas
 
 title: pirate_quartermaster__1
 ---
-Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bird took the song chest, so now every bastard in the cove is claimin' credit for verses he half remembers. I got IOUs for RHYMES, landstrider.
+Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bess requisitioned twice the usual powder for the next raid. I sent her half. We've got enough to be going on with if she doesn't fire at every cloud.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
 -> ‹step aside›
@@ -225,30 +299,26 @@ Quartermaster: Up the riggin', through the hatch in the overhead — that's wher
 
 title: pirate_raider
 ---
+Raider: Oi. If the quartermaster sent you about the missing pork, I haven't seen it.
 <<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
-    Raider: There they are. The bird-killer. I owe you a drink and the Admiral owes you a fortune. I'll let you collect from the one that pays better.
-    -> What's the cove drinking to tonight?
-        <<jump pirate_raider_after_treasure__1>>
-    -> Sing me a shanty.
-        <<jump pirate_raider_after_treasure__2>>
-    -> Carry on.
-<<elseif boss_cleared_verdict("cove.mockingbird") == "not_satisfied">>
-    Raider: Oi. Bird's got a beak twice my size and I'm still on the same pay. We had a chest this morning. Now we don't.
-    -> What was in the chest?
-        <<jump pirate_raider__1>>
-    -> Got any tips for the bird?
-        <<jump pirate_raider__2>>
-    -> What happened at the port?
-        <<jump pirate_raider__port>>
-    -> Carry on.
-<<else>>
-    <<stop>>
+    Raider: Heard you had a fight up there. Buy you a drink sometime.
 <<endif>>
+-> What are you getting ready for?
+    <<jump pirate_raider__1>>
+-> Got any tips for riding a shark?
+    <<jump pirate_raider__2>>
+-> What happened at the port?
+    <<jump pirate_raider__port>>
+-> What are you drinking to? <<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
+    <<jump pirate_raider_after_treasure__1>>
+-> Sing me a shanty.
+    <<jump pirate_raider_after_treasure__2>>
+-> Carry on.
 ===
 
 title: pirate_raider__1
 ---
-Raider: Songs. That's what was in it. Ours. The Admiral calls them records because he thinks that sounds expensive. Don't tell him I told you.
+Raider: Next raid. The Authority's got a shipment and the ninjas are guarding it. The Admiral's got an idea how to get round 'em. Haven't heard which end of the ship he wants us on yet.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.
@@ -256,7 +326,7 @@ Raider: Songs. That's what was in it. Ours. The Admiral calls them records becau
 
 title: pirate_raider__2
 ---
-Raider: Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. Ask the navigator. I just hit things.
+Raider: Hold on when it banks. Don't let your good coat hang down past the saddle. Burnt the back out of mine on my first flight.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.
@@ -264,7 +334,7 @@ Raider: Mind the swoops. It hovers, it lulls you, then it dives. If it spits som
 
 title: pirate_raider_after_treasure__1
 ---
-Raider: We're drinking to you and to the bird being somewhere else. The chest gets a cup too. Don't argue with tradition.
+Raider: To you, to the Admiral, and to me getting my wages before the tavern closes.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.
@@ -272,7 +342,7 @@ Raider: We're drinking to you and to the bird being somewhere else. The chest ge
 
 title: pirate_raider_after_treasure__2
 ---
-Raider: Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the chest is RETURNED / ...ah, hell. I forgot the next bit.
+Raider: Yo-ho, a sail in the sky / yo-ho, a ship passing by / yo-ho, we're going aboard / ...ah, hell. I forgot the next bit.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.
@@ -316,17 +386,16 @@ Parrot: "The treasure was the priors we updated along the way." ...I don't know 
 
 title: pirate_admiral__ninja
 ---
-Admiral: Shadow Oni wants the bird dead. Fine by me. Ninjas take the east thermals; we take the decks.
-Admiral: Bess has orders to keep her cannon pointed west. She's complained about it all morning.
+Admiral: Pirates and ninjas went to war long before my time. That's over. Zorlack's guarding a shipment for the Authority, and I'm interested in the shipment.
+Admiral: He tells me he's put in for jobs in the Business Dimension. If one of 'em takes him, I'll buy him a drink. Might actually get some work done around here.
 -> Ask another question.
     <<jump pirate_admiral>>
--> I'll bring it down.
+-> Carry on, Admiral.
 ===
 
 title: pirate_admiral_after_treasure__ninja
 ---
-Admiral: Sent Shadow Oni a letter. Told him the bird was down, and he could have his rooftops back.
-Admiral: His messenger brought me a note that just said "Good." Bess hung it above the bar.
+Admiral: Zorlack's still got his contract, and I've still got a ship. We haven't settled our business yet.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.

@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
-use super::label_layout::{WorldLabel, WorldLabelFamily, WorldLabelOutline};
+use super::label_layout::{with_opacity, WorldLabel, WorldLabelFamily, WorldLabelStyle};
 use super::primitives::RoomVisual;
 
 /// Presentation policy for world nameplates.
@@ -304,6 +304,7 @@ pub fn sync_actor_nameplates(
     // This system publishes each plate's wanted anchor and opacity. The shared
     // placement pass (`label_layout`) owns transform, visibility, and colour,
     // because plates are ranked against signage and door plates too (AC12).
+    let style = WorldLabelStyle::outlined(settings.text_color, settings.outline_color, settings.outline_offset_px);
     let mut existing_visible: HashSet<(Entity, &str)> = HashSet::new();
     for (entity, plate, key, stamp, mut label) in &mut plates {
         let Some(view) = wanted.get(&key.0).filter(|view| view.room == stamp.0) else {
@@ -312,7 +313,6 @@ pub fn sync_actor_nameplates(
         };
         if let Some(candidate) = view.wanted.get(plate.owner_id.as_str()) {
             if plate.label != candidate.label {
-                // Rebuild the text and its outline together.
                 commands.entity(entity).try_despawn();
                 continue;
             }
@@ -321,14 +321,12 @@ pub fn sync_actor_nameplates(
             if label.family != candidate.family
                 || label.anchor != anchor
                 || label.owner_opacity != candidate.opacity
-                || label.text_color != settings.text_color
-                || label.outline_color != Some(settings.outline_color)
+                || label.style != style
             {
                 label.family = candidate.family;
                 label.anchor = anchor;
                 label.owner_opacity = candidate.opacity;
-                label.text_color = settings.text_color;
-                label.outline_color = Some(settings.outline_color);
+                label.style = style;
             }
         } else if source_ids.contains(&(Some(stamp.0), plate.owner_id.as_str())) {
             if label.owner_opacity != 0.0 {
@@ -494,9 +492,8 @@ fn spawn_actor_nameplate(
     view: Entity,
 ) {
     let text = candidate.label.to_string();
-    let outline_offsets = outline_offsets(settings.outline_offset_px);
-    let text_color = color_with_opacity(settings.text_color, candidate.opacity);
-    let outline_color = color_with_opacity(settings.outline_color, candidate.opacity);
+    let style = WorldLabelStyle::outlined(settings.text_color, settings.outline_color, settings.outline_offset_px);
+    let text_color = with_opacity(settings.text_color, candidate.opacity);
     let anchor = world_to_bevy(world, candidate.anchor_world, settings.z);
     commands
         .spawn_session_scoped(
@@ -518,45 +515,14 @@ fn spawn_actor_nameplate(
                 {
                     let mut label =
                         WorldLabel::new(candidate.owner_id.to_string(), candidate.family, anchor)
-                            .with_colors(settings.text_color, Some(settings.outline_color));
+                            .with_style(style);
                     label.owner_opacity = candidate.opacity;
                     label
                 },
                 RoomVisual,
                 ambition_sim_view::PresentedForView(view),
             ),
-        )
-        .with_children(|parent| {
-            for offset in outline_offsets {
-                parent.spawn((
-                    Text2d::new(text.clone()),
-                    font.clone(),
-                    TextColor(outline_color),
-                    Transform::from_xyz(offset.x, offset.y, -0.1),
-                    WorldLabelOutline,
-                ));
-            }
-        });
-}
-
-fn color_with_opacity(color: Color, opacity: f32) -> Color {
-    let srgba = color.to_srgba();
-    Color::srgba(
-        srgba.red,
-        srgba.green,
-        srgba.blue,
-        srgba.alpha * opacity.clamp(0.0, 1.0),
-    )
-}
-
-fn outline_offsets(offset_px: f32) -> [Vec2; 4] {
-    let offset = offset_px.max(0.0);
-    [
-        Vec2::new(-offset, 0.0),
-        Vec2::new(offset, 0.0),
-        Vec2::new(0.0, -offset),
-        Vec2::new(0.0, offset),
-    ]
+        );
 }
 
 #[cfg(test)]

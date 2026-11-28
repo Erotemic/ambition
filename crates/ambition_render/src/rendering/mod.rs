@@ -224,6 +224,7 @@ pub use label_layout::{
     WorldLabelLayoutSet,
     WorldLabelLayoutSettings,
     WorldLabelOutline,
+    WorldLabelStyle,
 };
 pub use nameplates::{
     sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,

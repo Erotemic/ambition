@@ -1048,7 +1048,7 @@ pub fn spawn_speech_bubble(
     let Some(session_scope) = session_scope else {
         return;
     };
-    use crate::rendering::label_layout::{WorldLabel, WorldLabelFamily, WorldLabelOutline};
+    use crate::rendering::label_layout::{WorldLabel, WorldLabelFamily, WorldLabelStyle};
 
     let visual = SpeechBubbleVisual::new(pos, SPEECH_BUBBLE_DURATION);
     let text_color = Color::srgba(1.0, 1.0, 1.0, SPEECH_BUBBLE_TEXT_ALPHA);
@@ -1056,7 +1056,7 @@ pub fn spawn_speech_bubble(
     let mut bubble = commands.spawn_session_scoped(
         session_scope,
         (
-            Text2d::new(bubble_text.clone()),
+            Text2d::new(bubble_text),
             TextFont {
                 font_size: FontSize::Px(18.0),
                 ..font.clone()
@@ -1078,44 +1078,14 @@ pub fn spawn_speech_bubble(
     // entity is unique.
     let owner_id = format!("speech:{}", bubble.id().index());
     let mut label = WorldLabel::new(owner_id, WorldLabelFamily::Speech, Vec3::ZERO)
-        .with_colors(text_color, Some(outline_color));
+        .with_style(WorldLabelStyle::outlined(text_color, outline_color, 1.25));
     publish_speech_bubble_label(world, &visual, &mut label);
-    bubble
-        .insert((
-            Transform::from_translation(label.anchor),
-            Visibility::Visible,
-            label,
-            visual,
-        ))
-        .with_children(|parent| {
-            for offset in [
-                BVec2::new(-1.25, 0.0),
-                BVec2::new(1.25, 0.0),
-                BVec2::new(0.0, -1.25),
-                BVec2::new(0.0, 1.25),
-            ] {
-                parent.spawn((
-                    Text2d::new(bubble_text.clone()),
-                    TextFont {
-                        font_size: FontSize::Px(18.0),
-                        ..font.clone()
-                    },
-                    // The shadow must wrap exactly like the line; a different bound
-                    // gives four misaligned copies.
-                    TextBounds {
-                        width: Some(SPEECH_BUBBLE_MAX_WIDTH),
-                        height: None,
-                    },
-                    TextLayout::justify(Justify::Center),
-                    // The placement pass paints this every frame with the line; this
-                    // is only the first frame's value.
-                    TextColor(outline_color),
-                    Transform::from_xyz(offset.x, offset.y, -0.1),
-                    WorldLabelOutline,
-                    Name::new("Speech bubble outline"),
-                ));
-            }
-        });
+    bubble.insert((
+        Transform::from_translation(label.anchor),
+        Visibility::Visible,
+        label,
+        visual,
+    ));
 }
 
 pub fn spawn_impact(

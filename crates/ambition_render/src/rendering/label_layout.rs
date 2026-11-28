@@ -23,6 +23,7 @@
 use ambition_platformer2d_core as ae;
 use ambition_sim_view::ControlledBodiesView;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 use bevy::text::{TextBounds, TextLayoutInfo};
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
@@ -54,6 +55,35 @@ pub enum WorldLabelFamily {
     Speech,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WorldLabelStroke {
+    pub color: Color,
+    pub offset: f32,
+    corners: bool,
+}
+
+/// The colors and stroke of a label. Insert this component to override the
+/// base style of one projection.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct WorldLabelStyle {
+    pub text: Color,
+    pub stroke: Option<WorldLabelStroke>,
+}
+
+impl WorldLabelStyle {
+    pub const fn plain(text: Color) -> Self {
+        Self { text, stroke: None }
+    }
+
+    pub const fn outlined(text: Color, color: Color, offset: f32) -> Self {
+        Self { text, stroke: Some(WorldLabelStroke { color, offset, corners: false }) }
+    }
+
+    pub const fn outlined_with_corners(text: Color, color: Color, offset: f32) -> Self {
+        Self { text, stroke: Some(WorldLabelStroke { color, offset, corners: true }) }
+    }
+}
+
 /// Marks a `Text2d` entity as a world-space label and carries everything the
 /// placement pass needs.
 ///
@@ -77,11 +107,7 @@ pub struct WorldLabel {
     /// The opacity the owner asked for (a nameplate's rank fade; 1.0 for
     /// static signage). The pass may only reduce it.
     pub owner_opacity: f32,
-    /// The label's colour at full opacity.
-    pub text_color: Color,
-    /// The colour for outline/shadow children, at full opacity. `None` for
-    /// labels drawn without an outline pass.
-    pub outline_color: Option<Color>,
+    pub style: WorldLabelStyle,
     /// The opacity drawn last frame, eased toward the resolved target.
     ///
     /// Owned by the pass, never by an owner. Without it the subject fade is a
@@ -97,16 +123,14 @@ impl WorldLabel {
             anchor,
             bounds: None,
             owner_opacity: 1.0,
-            text_color: Color::WHITE,
-            outline_color: None,
+            style: WorldLabelStyle::plain(Color::WHITE),
             // Starts at zero so a label eases in when its room loads.
             rendered_opacity: 0.0,
         }
     }
 
-    pub fn with_colors(mut self, text_color: Color, outline_color: Option<Color>) -> Self {
-        self.text_color = text_color;
-        self.outline_color = outline_color;
+    pub fn with_style(mut self, style: WorldLabelStyle) -> Self {
+        self.style = style;
         self
     }
 }
@@ -157,11 +181,12 @@ pub fn mirror_static_world_labels_per_view(
             Entity,
             &Text2d,
             &TextFont,
-            &TextColor,
+            &TextBounds,
+            &TextLayout,
+            &Anchor,
             &WorldLabel,
             Option<&ambition_sim_view::PresentedForView>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-            Option<&Children>,
         ),
         (With<StaticWorldLabel>, Without<MirroredWorldLabel>),
     >,
@@ -173,7 +198,6 @@ pub fn mirror_static_world_labels_per_view(
         ),
         With<StaticWorldLabel>,
     >,
-    outlines: Query<(&Text2d, &TextFont, &TextColor, &Transform, &TextBounds, &TextLayout), With<WorldLabelOutline>>,
 ) {
     use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt as _;
 
@@ -210,7 +234,7 @@ pub fn mirror_static_world_labels_per_view(
         mirrored.insert((copy.root, key.0));
     }
 
-    for (root, text, font, color, label, key, room, children) in &roots {
+    for (root, text, font, bounds, layout, anchor, label, key, room) in &roots {
         if key.map(|key| key.0) != Some(root_view) {
             commands
                 .entity(root)
@@ -229,7 +253,10 @@ pub fn mirror_static_world_labels_per_view(
                 (
                     text.clone(),
                     font.clone(),
-                    TextColor(color.0),
+                    *bounds,
+                    *layout,
+                    *anchor,
+                    TextColor(label.style.text),
                     // From the anchor, not the root's transform, which is already
                     // displaced by its own view's placement.
                     Transform::from_translation(label.anchor),
@@ -241,14 +268,7 @@ pub fn mirror_static_world_labels_per_view(
                     // No `Name`: `entity.name` is registered for rollback, so it
                     // would enlist a whole view's presentation set in the sim sweep.
                 ),
-            ).with_children(|copy| {
-                for (text, font, color, place, bounds, layout) in children.into_iter()
-                    .flat_map(|children| children.iter())
-                    .filter_map(|child| outlines.get(child).ok())
-                {
-                    copy.spawn((text.clone(), font.clone(), *color, *place, *bounds, *layout, WorldLabelOutline));
-                }
-            });
+            );
         }
     }
 }
@@ -563,10 +583,9 @@ pub fn a_label_font_may_be_off(
 /// `Mut` deref marks it changed.
 pub fn apply_world_label_fonts(
     ui_fonts: Option<Res<UiFonts>>,
-    mut labels: Query<(&WorldLabel, &mut TextFont, Option<&Children>), Without<WorldLabelOutline>>,
-    mut outlines: Query<&mut TextFont, (With<WorldLabelOutline>, Without<WorldLabel>)>,
+    mut labels: Query<(&WorldLabel, &mut TextFont)>,
 ) {
-    for (label, mut font, children) in &mut labels {
+    for (label, mut font) in &mut labels {
         // Family and weight are one request. Assigning only the family draws
         // every plate at Regular. Guarded by
         // `a_label_spawned_before_its_font_still_ends_up_on_it`.
@@ -575,11 +594,6 @@ pub fn apply_world_label_fonts(
             if font.font != wanted.font || font.weight != wanted.weight {
                 font.font = wanted.font;
                 font.weight = wanted.weight;
-            }
-        }
-        for child in children.into_iter().flat_map(|children| children.iter()) {
-            if let Ok(mut outline) = outlines.get_mut(child) {
-                outline.set_if_neq(font.clone());
             }
         }
     }
@@ -620,14 +634,13 @@ pub fn layout_world_labels(
         &mut Transform,
         &mut Visibility,
         &mut TextColor,
-        Option<&Children>,
+        Option<&WorldLabelStyle>,
         Option<&ambition_sim_view::PresentedForView>,
     )>,
-    mut outline_colors: Query<&mut TextColor, (With<WorldLabelOutline>, Without<WorldLabel>)>,
 ) {
     let ease = ease_fraction(settings.opacity_ease_secs, time.delta_secs());
     if !settings.enabled {
-        for (mut label, text, font, layout, mut transform, mut visibility, mut text_color, children, _) in
+        for (mut label, text, font, layout, mut transform, mut visibility, mut text_color, style, _) in
             &mut labels
         {
             let mut translation = label.anchor;
@@ -641,8 +654,7 @@ pub fn layout_world_labels(
             let opacity = label.owner_opacity;
             label.rendered_opacity = opacity;
             visibility.set_if_neq(visibility_for(opacity));
-            text_color.set_if_neq(TextColor(with_opacity(label.text_color, opacity)));
-            paint_outlines(&mut outline_colors, children, &label, opacity);
+            text_color.set_if_neq(TextColor(with_opacity(style.unwrap_or(&label.style).text, opacity)));
         }
         return;
     }
@@ -718,7 +730,6 @@ pub fn layout_world_labels(
             &resolved,
             ease,
             &mut labels,
-            &mut outline_colors,
         );
     }
 }
@@ -740,12 +751,11 @@ fn apply_view_layout(
         &mut Transform,
         &mut Visibility,
         &mut TextColor,
-        Option<&Children>,
+        Option<&WorldLabelStyle>,
         Option<&ambition_sim_view::PresentedForView>,
     )>,
-    outline_colors: &mut Query<&mut TextColor, (With<WorldLabelOutline>, Without<WorldLabel>)>,
 ) {
-    for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children, key) in
+    for (mut label, _, _, _, mut transform, mut visibility, mut text_color, style, key) in
         labels.iter_mut()
     {
         if on_hand.drawn_for(key.copied()) != Some(view_entity) {
@@ -758,8 +768,7 @@ fn apply_view_layout(
             // Unplaceable. Hide it at once; the ease is only for the subject fade.
             label.rendered_opacity = 0.0;
             visibility.set_if_neq(Visibility::Hidden);
-            text_color.set_if_neq(TextColor(with_opacity(label.text_color, 0.0)));
-            paint_outlines(outline_colors, children, &label, 0.0);
+            text_color.set_if_neq(TextColor(with_opacity(style.unwrap_or(&label.style).text, 0.0)));
             continue;
         };
         let translation = placed.extend(label.anchor.z);
@@ -776,8 +785,7 @@ fn apply_view_layout(
         };
         label.rendered_opacity = opacity;
         visibility.set_if_neq(visibility_for(opacity));
-        text_color.set_if_neq(TextColor(with_opacity(label.text_color, opacity)));
-        paint_outlines(outline_colors, children, &label, opacity);
+        text_color.set_if_neq(TextColor(with_opacity(style.unwrap_or(&label.style).text, opacity)));
     }
 }
 
@@ -800,18 +808,66 @@ fn visibility_for(opacity: f32) -> Visibility {
     }
 }
 
-fn paint_outlines(
-    outline_colors: &mut Query<&mut TextColor, (With<WorldLabelOutline>, Without<WorldLabel>)>,
-    children: Option<&Children>,
-    label: &WorldLabel,
-    opacity: f32,
+/// Keep the text samples of each label's stroke.
+fn sync_world_label_outlines(
+    mut commands: Commands,
+    labels: Query<(
+        Entity, &WorldLabel, Option<&WorldLabelStyle>, &Text2d, &TextFont,
+        &TextBounds, &TextLayout, &Anchor, Option<&Children>,
+    ), Without<WorldLabelOutline>>,
+    mut outlines: Query<(
+        &mut Text2d, &mut TextFont, &mut TextBounds, &mut TextLayout,
+        &mut Anchor, &mut TextColor, &mut Transform,
+    ), With<WorldLabelOutline>>,
 ) {
-    let (Some(children), Some(outline)) = (children, label.outline_color) else {
-        return;
-    };
-    for child in children.iter() {
-        if let Ok(mut color) = outline_colors.get_mut(child) {
-            color.set_if_neq(TextColor(with_opacity(outline, opacity)));
+    const DIRECTIONS: [Vec2; 8] = [
+        Vec2::NEG_X, Vec2::X, Vec2::NEG_Y, Vec2::Y,
+        Vec2::new(-0.7, -0.7), Vec2::new(0.7, -0.7),
+        Vec2::new(-0.7, 0.7), Vec2::new(0.7, 0.7),
+    ];
+    for (entity, label, style, text, font, bounds, layout, anchor, children) in &labels {
+        let mut existing = children.into_iter().flat_map(|children| children.iter())
+            .filter(|child| outlines.contains(*child));
+        let Some(stroke) = style.unwrap_or(&label.style).stroke else {
+            for child in existing {
+                commands.entity(child).try_despawn();
+            }
+            continue;
+        };
+        let color = TextColor(with_opacity(stroke.color, label.rendered_opacity));
+        let count = if stroke.corners { 8 } else { 4 };
+        let mut samples = [None; 8];
+        for sample in &mut samples[..count] {
+            *sample = existing.next();
+        }
+        for child in existing {
+            commands.entity(child).try_despawn();
+        }
+        for (sample, direction) in samples.into_iter().zip(DIRECTIONS).take(count) {
+            let offset = direction * stroke.offset.max(0.0);
+            let place = Transform::from_translation(offset.extend(-0.1));
+            if let Some((mut words, mut face, mut size, mut flow, mut pivot, mut tint, mut at)) =
+                sample.and_then(|sample| outlines.get_mut(sample).ok())
+            {
+                if words.0 != text.0 {
+                    words.0.clone_from(&text.0);
+                }
+                face.set_if_neq(font.clone());
+                if (size.width, size.height) != (bounds.width, bounds.height) {
+                    *size = *bounds;
+                }
+                if (flow.justify, flow.linebreak) != (layout.justify, layout.linebreak) {
+                    *flow = *layout;
+                }
+                pivot.set_if_neq(*anchor);
+                tint.set_if_neq(color);
+                at.set_if_neq(place);
+            } else {
+                commands.spawn((
+                    text.clone(), font.clone(), *bounds, *layout, *anchor, color, place,
+                    WorldLabelOutline, ChildOf(entity),
+                ));
+            }
         }
     }
 }
@@ -862,6 +918,7 @@ impl Plugin for WorldLabelLayoutPlugin {
                 // frame it appears; before placement, which measures the text.
                 super::control_legend::write_control_legends,
                 layout_world_labels,
+                sync_world_label_outlines,
                 // After the pass writes the sign's colour (its fade).
                 super::control_legend::place_legend_glyphs,
             )
@@ -926,21 +983,23 @@ mod tests {
         use bevy::prelude::*;
 
         let mut app = App::new();
-        app.add_systems(Update, apply_world_label_fonts);
+        app.add_systems(Update, (apply_world_label_fonts, sync_world_label_outlines).chain());
 
         // A plate, spawned while nothing has loaded.
         let plate = app
             .world_mut()
             .spawn((
-                WorldLabel::new("sign", WorldLabelFamily::Fixture, Vec3::ZERO),
+                Text2d::new("name"),
+                WorldLabel::new("sign", WorldLabelFamily::Fixture, Vec3::ZERO)
+                    .with_style(WorldLabelStyle::outlined(Color::WHITE, Color::BLACK, 1.0)),
                 TextFont {
                     font_size: FontSize::Px(12.0),
                     ..default()
                 },
             ))
             .id();
-        let outline = app.world_mut().spawn((Text2d::new("name"), WorldLabelOutline, ChildOf(plate))).id();
         app.update();
+        let outline = app.world().get::<Children>(plate).unwrap()[0];
         assert_eq!(
             app.world().get::<TextFont>(plate).unwrap().font,
             FontSource::default(),
@@ -1492,14 +1551,16 @@ mod tests {
                     TextColor(Color::WHITE),
                     Transform::from_translation(ANCHOR_A),
                     Visibility::Visible,
-                    WorldLabel::new("signage:0", WorldLabelFamily::Signage, ANCHOR_A),
+                    WorldLabel::new("signage:0", WorldLabelFamily::Signage, ANCHOR_A)
+                        .with_style(WorldLabelStyle::outlined(Color::WHITE, Color::BLACK, 1.0)),
                     StaticWorldLabel,
                 ))
                 .id();
             let room = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION;
-            world.entity_mut(root).insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
-            let edge = world.spawn((Text2d::new("abcdefghij"), WorldLabelOutline, ChildOf(root))).id();
-
+            world.entity_mut(root).insert((
+                ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room),
+                WorldLabelStyle::outlined_with_corners(Color::BLACK, Color::WHITE, 1.2),
+            ));
             fn projections(world: &mut World) -> Vec<Entity> {
                 let mut query = world.query_filtered::<Entity, With<StaticWorldLabel>>();
                 let mut found: Vec<Entity> = query.iter(world).collect();
@@ -1510,6 +1571,8 @@ mod tests {
             world
                 .run_system_once(mirror_static_world_labels_per_view)
                 .expect("the mirror runs");
+            world.run_system_once(sync_world_label_outlines).unwrap();
+            let edge = world.get::<Children>(root).unwrap()[0];
             assert_eq!(
                 projections(&mut world).len(),
                 2,
@@ -1520,8 +1583,16 @@ mod tests {
             let copy = world.query_filtered::<Entity, With<MirroredWorldLabel>>().single(&world).unwrap();
             assert_eq!(world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(copy).unwrap().0, room);
             let copied_edge = world.get::<Children>(copy).unwrap()[0];
+            assert_eq!(world.get::<Children>(root).unwrap().len(), 8);
+            assert_eq!(world.get::<Children>(copy).unwrap().len(), 4);
+            assert!(world.get::<WorldLabelStyle>(copy).is_none());
             assert!(world.get::<WorldLabelOutline>(copied_edge).is_some());
             assert!(world.get::<crate::rendering::WorldText>(copied_edge).is_some());
+
+            world.entity_mut(root).remove::<WorldLabelStyle>();
+            world.run_system_once(sync_world_label_outlines).unwrap();
+            assert_eq!(world.get::<Children>(root).unwrap().len(), 4);
+            assert_eq!(world.get::<Children>(root).unwrap()[0], edge);
 
             world.despawn(second);
             world

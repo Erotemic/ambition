@@ -24,14 +24,9 @@ use ambition_platformer2d::platformer::lifecycle::{
 };
 use ambition_platformer2d::render::rendering::{
     RoomVisual, StaticWorldLabel, WorldLabel, WorldLabelFamily, WorldLabelLayoutSettings,
-    WorldLabelOutline,
+    WorldLabelStyle,
 };
 use ambition_platformer2d::world::rooms::LiveRoomSpecs;
-
-/// Where the copies of the edge are, in parts of `pipe_signs.edge_px` (her
-/// rules file): the four sides and the four corners.
-const EDGE_AT: [(f32, f32); 8] =
-    [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0), (-0.7, -0.7), (0.7, -0.7), (-0.7, 0.7), (0.7, 0.7)];
 
 /// One per live room that has its signs.
 #[derive(Component)]
@@ -88,7 +83,8 @@ fn present_pipe_signs(
     // How the signs look is `pipe_signs` in her rules file.
     let look = rules.pipe_signs.clone();
     let rgb = |[r, g, b]: [f32; 3]| Color::srgb(r, g, b);
-    let (ink, edge) = (rgb(look.ink), rgb(look.edge));
+    let ink = rgb(look.ink);
+    let style = WorldLabelStyle::outlined_with_corners(ink, rgb(look.edge), look.edge_px);
     for (room, definition) in rooms.live_rooms() {
         if presented.iter().any(|stamp| stamp.0 == room) {
             continue;
@@ -119,27 +115,16 @@ fn present_pipe_signs(
                 .spawn_session_scoped(
                     scope,
                     (
-                        Text2d::new(words.clone()),
-                        font.clone(),
+                        Text2d::new(words),
+                        font,
                         TextColor(ink),
                         Transform::from_translation(anchor),
                         RoomVisual,
                         WorldLabel::new(format!("mary_o_pipe_sign:{}", warp.mouth.name), WorldLabelFamily::Fixture, anchor)
-                            .with_colors(ink, Some(edge)),
+                            .with_style(style),
                         StaticWorldLabel,
                     ),
-                )
-                .with_children(|sign| {
-                    for (dx, dy) in EDGE_AT {
-                        sign.spawn((
-                            Text2d::new(words.clone()),
-                            font.clone(),
-                            TextColor(edge),
-                            Transform::from_xyz(dx * look.edge_px, dy * look.edge_px, -0.1),
-                            WorldLabelOutline,
-                        ));
-                    }
-                });
+                );
         }
         commands.spawn_session_scoped(scope, (PresentedPipeSigns, RoomVisual));
     }

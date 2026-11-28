@@ -759,9 +759,12 @@ shared value preparation are sufficient until source proves otherwise.
    comparison mode. Switching the output kept one workshop session
    active and kept it paused while the cube was open.
    Text cards use each span's color. Control signs show the input glyph
-   when its image is ready. Nameplates, speech bubbles, and Mary-O pipe
-   signs share one outline path. The outline uses the label's font and
-   opacity. A copy of a static sign keeps its outline and live room.
+   when its image is ready. Nameplates, speech bubbles, Mary-O pipe signs,
+   and clean-side signs use the same outline pass. The outline uses the
+   label's font, alignment, bounds, and opacity. Each static sign
+   projection uses its own style override and keeps the base style.
+   Medium Central Hub captures show the light outline of the ring-power
+   sign over the lit gate in 2D, side-on 2.5D, and oblique 2.5D.
    Medium captures of GNU-ton at tick 350 show the same wrapped speech
    and outline in 2D and side-on 2.5D. Medium captures of the Mary-O Warp
    Zone show all eight pipe signs in 2D, side-on, and oblique views. The

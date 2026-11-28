@@ -2,7 +2,6 @@ use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_sim_view::{LocalView, LocalViewId, PresentsView, ViewsOnHand};
 use bevy::camera::{visibility::RenderLayers, CameraProjection, RenderTarget};
 use bevy::ecs::system::SystemParam;
-#[cfg(feature = "portal_render")]
 use bevy::prelude::Mat2;
 use bevy::prelude::{
     Camera, Camera2d, Component, Entity, GlobalTransform, Has, OrthographicProjection, Projection,
@@ -50,10 +49,18 @@ impl PlayPlane {
             max: a.max(b).max(c).max(d),
         }
     }
+
+    fn pixels_per_world(&self, size: Vec2) -> Option<Mat2> {
+        let [base, _, top, east] = self.0;
+        let world_per_pixel = Mat2::from_cols((east - base) / size.x, (top - base) / size.y);
+        let determinant = world_per_pixel.determinant();
+        (determinant != 0.0 && determinant.is_finite()).then(|| world_per_pixel.inverse())
+    }
 }
 
 pub(in crate::rendering) struct OutputFootprint {
     plane: PlayPlane,
+    pub logical_size: Vec2,
     #[cfg(feature = "portal_render")]
     pixels: UVec2,
 }
@@ -63,17 +70,26 @@ impl OutputFootprint {
         self.plane.bounds(right)
     }
 
+    /// Get the projected center in logical pixels if the bounds are outside
+    /// the view. The origin is the center of the viewport, with Y up.
+    pub fn offscreen_center(&self, bounds: Rect) -> Option<Vec2> {
+        let [base, opposite, ..] = self.plane.0;
+        let matrix = self.plane.pixels_per_world(self.logical_size)?;
+        let at = matrix * (bounds.center() - (base + opposite) * 0.5);
+        let half = bounds.size() * 0.5;
+        let span = matrix.x_axis.abs() * half.x + matrix.y_axis.abs() * half.y;
+        let outside_screen = (at.abs() - span).cmpgt(self.logical_size * 0.5).any();
+        // Check the axes of both rectangles. A tilted view can miss the
+        // bounds at a corner even if their screen rectangles overlap.
+        let visible = self.plane.bounds(Vec2::X);
+        let outside_plane = bounds.min.cmpgt(visible.max).any() || bounds.max.cmplt(visible.min).any();
+        (at.is_finite() && (outside_screen || outside_plane)).then_some(at)
+    }
+
     /// Get the pixel density along two axes in the play plane.
     #[cfg(feature = "portal_render")]
     pub fn texels_per_world(&self, right: Vec2) -> Option<Vec2> {
-        let [base, _, top, east] = self.plane.0;
-        let pixels = self.pixels.as_vec2();
-        let world_per_pixel = Mat2::from_cols((east - base) / pixels.x, (top - base) / pixels.y);
-        let area = world_per_pixel.determinant();
-        if area == 0.0 || !area.is_finite() {
-            return None;
-        }
-        let pixels_per_world = world_per_pixel.inverse();
+        let pixels_per_world = self.plane.pixels_per_world(self.pixels.as_vec2())?;
         let density = Vec2::new(
             (pixels_per_world * right).length(),
             (pixels_per_world * right.perp()).length(),
@@ -194,6 +210,7 @@ fn footprint(
     let plane = PlayPlane::intersect(&GlobalTransform::from(place), projection.area)?;
     Some(OutputFootprint {
         plane,
+        logical_size: viewport,
         #[cfg(feature = "portal_render")]
         pixels,
     })
@@ -222,7 +239,20 @@ fn card_footprint(
 mod tests {
     use super::{card_footprint, footprint, CardViewMode, CardViewSettings, PresentedViewFrame};
     use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
-    use bevy::prelude::{OrthographicProjection, Transform, UVec2, Vec2};
+    use bevy::prelude::{OrthographicProjection, Quat, Rect, Transform, UVec2, Vec2};
+
+    #[test]
+    fn a_body_can_miss_the_corner_of_a_rolled_view() {
+        let view = footprint(
+            OrthographicProjection::default_2d(),
+            UVec2::splat(100),
+            1.0,
+            Transform::from_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_4)),
+        ).unwrap();
+        let body = |x| Rect::from_center_size(Vec2::X * x, Vec2::splat(10.0));
+        assert!(view.offscreen_center(body(76.0)).is_some());
+        assert!(view.offscreen_center(body(75.0)).is_none());
+    }
 
     #[test]
     fn zoom_and_tilt_change_the_inset_pixel_density_independently_of_its_bounds() {

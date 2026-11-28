@@ -20,11 +20,15 @@ use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
+use ambition_platformer2d_core::{config::world_to_bevy, RoomGeometry};
 use ambition_platformer2d_shared_tangle::camera_layers::{
     FrontHudCamera, MainCamera, FRONT_HUD_LAYER, PARALLAX_BACKGROUND_LAYER,
 };
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRoomOf};
 use ambition_platformer2d_shared_tangle::markers::{CastFramingTuning, FramedCast};
-use ambition_sim_view::{BodyPoseView, CameraViewState};
+use ambition_sim_view::{presented_pose::draw_pos, BodyPoseView, PresentedPose};
+
+use super::camera::coverage::{GameplayOutputs, OutputFootprint};
 
 /// The texels across a bubble's texture. Twice a typical diameter, so the
 /// bubble stays sharp on a high-density display.
@@ -70,22 +74,12 @@ pub fn bubbles_are_asked_for_or_drawn(
         || bubbles.is_some_and(|bubbles| !bubbles.slots.is_empty())
 }
 
-/// Where the bubble for a member sits, relative to the view's centre, in
-/// logical pixels (+y up). `None` while any part of the member is in the view.
-///
-/// `half_view` is half the view's size, `at` is the member's centre and
-/// `half_body` half its size, all in logical pixels from the view's centre.
-/// The bubble sits on the line from the centre to the member, held inside the
-/// view by its radius and a small gap.
-pub fn bubble_centre(half_view: Vec2, at: Vec2, half_body: Vec2, radius: f32) -> Option<Vec2> {
-    let outside = at.x.abs() - half_body.x > half_view.x || at.y.abs() - half_body.y > half_view.y;
-    if !outside {
-        return None;
-    }
+/// Place the bubble along the line from the viewport center to the fighter.
+fn bubble_on_edge(half_view: Vec2, at: Vec2, radius: f32) -> Vec2 {
     let room = (half_view - Vec2::splat(radius + EDGE_GAP_PX)).max(Vec2::ZERO);
     let reach = |room: f32, along: f32| if along.abs() > f32::EPSILON { room / along.abs() } else { f32::INFINITY };
     let t = reach(room.x, at.x).min(reach(room.y, at.y));
-    Some(at * t)
+    at * t
 }
 
 /// Show each cast member that is wholly outside the view in its bubble.
@@ -98,18 +92,10 @@ pub fn present_cast_bubbles(
     mut bubbles: ResMut<CastBubbles>,
     tuning: Res<CastFramingTuning>,
     framed: Option<Res<FramedCast>>,
-    poses: Query<&BodyPoseView>,
-    views: Query<&CameraViewState>,
-    main: Query<
-        (
-            &Camera,
-            &Transform,
-            &Projection,
-            Option<&RenderLayers>,
-            Option<&ambition_sim_view::PresentsView>,
-        ),
-        (With<MainCamera>, Without<CastBubbleCamera>),
-    >,
+    poses: Query<(&BodyPoseView, Option<&PresentedPose>)>,
+    outputs: GameplayOutputs,
+    rooms: LiveRoomOf<RoomGeometry>,
+    main: Query<(&Camera, &Transform), (With<MainCamera>, Without<CastBubbleCamera>)>,
     hud: Query<&Camera, (With<FrontHudCamera>, Without<MainCamera>, Without<CastBubbleCamera>)>,
     mut cameras: Query<
         (&mut Camera, &mut Transform, &mut RenderLayers, &mut Projection),
@@ -123,27 +109,26 @@ pub fn present_cast_bubbles(
     let shown = tuning
         .bubble
         .zip(framed.as_deref().filter(|framed| !framed.0.is_empty()))
-        .zip(placement(&main, &hud, &views));
+        .zip(placement(&outputs, &main, &hud).and_then(|frame| {
+            let room = rooms.in_room(frame.room)?;
+            Some((frame, &room.0))
+        }));
     let mut used = vec![false; bubbles.slots.len()];
-    if let Some(((bubble, framed), frame)) = shown {
+    if let Some(((bubble, framed), (frame, world))) = shown {
         let radius = bubble.diameter_px * 0.5;
         for (index, member) in framed.0.iter().enumerate() {
-            let Ok(pose) = poses.get(*member) else {
+            let Ok((pose, presented)) = poses.get(*member) else {
                 continue;
             };
-            if pose.out_of_the_world {
+            if pose.out_of_the_world || rooms.room_of(*member) != Some(frame.room) {
                 continue;
             }
-            // World +y is down; the view's +y is up.
-            let offset = (pose.pos - frame.center_world) * Vec2::new(1.0, -1.0);
-            let Some(centre) = bubble_centre(
-                frame.half_view_px,
-                offset * frame.px_per_unit,
-                pose.size * 0.5 * frame.px_per_unit,
-                radius,
-            ) else {
+            let at = world_to_bevy(world, draw_pos(pose, presented), frame.capture_z);
+            let bounds = Rect::from_center_size(at.truncate(), pose.size);
+            let Some(offscreen) = frame.output.offscreen_center(bounds) else {
                 continue;
             };
+            let centre = bubble_on_edge(frame.output.logical_size * 0.5, offscreen, radius);
             while bubbles.slots.len() <= index {
                 let slot = spawn_slot(&mut commands, &mut images, &mut meshes, &mut materials, bubbles.slots.len());
                 bubbles.slots.push(slot);
@@ -159,8 +144,8 @@ pub fn present_cast_bubbles(
                     bubble.backdrop[2],
                     bubble.backdrop[3],
                 ));
-                transform.translation = frame.camera_at + offset.extend(0.0);
-                transform.rotation = frame.camera_rotation;
+                transform.translation = at;
+                transform.rotation = frame.capture_rotation;
                 let wanted = frame.layers.clone();
                 if *layers != wanted {
                     *layers = wanted;
@@ -205,18 +190,14 @@ pub fn present_cast_bubbles(
 
 /// What a bubble needs from the presented view this frame.
 struct ViewPlacement {
-    /// The world point at the view's centre.
-    center_world: Vec2,
-    /// The main camera's render-space position and rotation.
-    camera_at: Vec3,
-    camera_rotation: Quat,
+    room: LiveRoomInstance,
+    output: OutputFootprint,
+    /// The close-up looks along the plane camera's axis.
+    capture_z: f32,
+    capture_rotation: Quat,
     /// The layers the main camera draws, less the parallax (a parallax
     /// layer is placed for the main camera and would be wrong in a bubble).
     layers: RenderLayers,
-    /// Half the view's size on screen, in logical pixels.
-    half_view_px: Vec2,
-    /// Logical pixels per world unit in the view.
-    px_per_unit: f32,
     /// The view's centre in the front HUD camera's space (+y up).
     view_centre_hud: Vec2,
 }
@@ -224,41 +205,30 @@ struct ViewPlacement {
 /// The single presented view, or `None` when there is no one view to place a
 /// bubble in (no camera, or a split screen).
 fn placement(
-    main: &Query<
-        (
-            &Camera,
-            &Transform,
-            &Projection,
-            Option<&RenderLayers>,
-            Option<&ambition_sim_view::PresentsView>,
-        ),
-        (With<MainCamera>, Without<CastBubbleCamera>),
-    >,
+    outputs: &GameplayOutputs,
+    main: &Query<(&Camera, &Transform), (With<MainCamera>, Without<CastBubbleCamera>)>,
     hud: &Query<&Camera, (With<FrontHudCamera>, Without<MainCamera>, Without<CastBubbleCamera>)>,
-    views: &Query<&CameraViewState>,
 ) -> Option<ViewPlacement> {
-    let (camera, transform, projection, layers, presents) = main.single().ok()?;
-    let Projection::Orthographic(orthographic) = projection else {
-        return None;
-    };
-    let view = views.get(presents?.0).ok()?;
-    let viewport = camera.logical_viewport_rect()?;
-    let target = hud.single().ok()?.logical_target_size()?;
-    let area = orthographic.area.size();
-    if area.x <= 0.0 || viewport.width() <= 0.0 {
+    let mut outputs = outputs.coverage();
+    let primary = outputs.next()?;
+    if outputs.next().is_some() {
         return None;
     }
+    // The comparison inset shares the HUD of its primary output.
+    let output = primary.plane.or(primary.cards)?;
+    let (camera, transform) = main.get(primary.source).ok()?;
+    let viewport = camera.logical_viewport_rect()?;
+    let target = hud.single().ok()?.logical_target_size()?;
     let centre_screen = viewport.center();
     Some(ViewPlacement {
-        center_world: view.center_world,
-        camera_at: transform.translation,
-        camera_rotation: transform.rotation,
-        layers: layers
+        room: primary.frame.room,
+        output,
+        capture_z: transform.translation.z,
+        capture_rotation: transform.rotation,
+        layers: primary.layers
             .cloned()
             .unwrap_or_default()
             .without(PARALLAX_BACKGROUND_LAYER),
-        half_view_px: viewport.size() * 0.5,
-        px_per_unit: viewport.width() / area.x,
         view_centre_hud: Vec2::new(centre_screen.x - target.x * 0.5, target.y * 0.5 - centre_screen.y),
     })
 }
@@ -329,24 +299,93 @@ mod tests {
     use super::*;
 
     const HALF_VIEW: Vec2 = Vec2::new(400.0, 225.0);
-    const HALF_BODY: Vec2 = Vec2::new(12.0, 24.0);
-
-    #[test]
-    fn a_member_with_any_part_in_view_has_no_bubble() {
-        assert_eq!(bubble_centre(HALF_VIEW, Vec2::new(410.0, 0.0), HALF_BODY, 40.0), None);
-        assert_eq!(bubble_centre(HALF_VIEW, Vec2::new(0.0, -240.0), HALF_BODY, 40.0), None);
-    }
 
     #[test]
     fn a_member_past_the_side_is_shown_at_that_side_on_its_line() {
-        let centre = bubble_centre(HALF_VIEW, Vec2::new(800.0, 100.0), HALF_BODY, 40.0).expect("off the view");
+        let centre = bubble_on_edge(HALF_VIEW, Vec2::new(800.0, 100.0), 40.0);
         assert!((centre.x - (400.0 - 40.0 - EDGE_GAP_PX)).abs() < 1e-3, "{centre:?}");
         assert!((centre.y / centre.x - 100.0 / 800.0).abs() < 1e-5, "on the line to the member: {centre:?}");
     }
 
     #[test]
     fn a_member_past_a_corner_is_held_inside_both_edges() {
-        let centre = bubble_centre(HALF_VIEW, Vec2::new(900.0, 900.0), HALF_BODY, 40.0).expect("off the view");
+        let centre = bubble_on_edge(HALF_VIEW, Vec2::new(900.0, 900.0), 40.0);
         assert!(centre.x <= 400.0 - 40.0 && centre.y <= 225.0 - 40.0, "{centre:?}");
+    }
+
+    #[cfg(feature = "card_view")]
+    #[test]
+    fn renderer_switch_uses_the_primary_output_to_place_the_bubble() {
+        use ambition_platformer2d_core::{self as ae, RoomGeometry};
+        use ambition_platformer2d_shared_tangle::lifecycle::{insert_live_room_component, LiveRoomInstance};
+        use ambition_platformer2d_shared_tangle::markers::CastBubble;
+        use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
+        use bevy::camera::{CameraProjection, RenderTargetInfo};
+        use bevy::ecs::system::RunSystemOnce as _;
+
+        use crate::rendering::camera::{PresentedViewFrame, PresentedViewFrames};
+        use crate::rendering::card_view::{CardViewMode, CardViewSettings};
+
+        let mut world = World::new();
+        world.init_resource::<Assets<Image>>();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<ColorMaterial>>();
+        world.init_resource::<CastBubbles>();
+        let bubble = CastBubble { diameter_px: 96.0, span: 100.0, rings: [[1.0; 4]; 4], backdrop: [0.1; 4] };
+        world.insert_resource(CastFramingTuning { bubble: Some(bubble), ..Default::default() });
+        let size = Vec2::new(1200.0, 800.0);
+        let center = size * 0.5;
+        insert_live_room_component(&mut world, RoomGeometry(ae::World::new("stage", size, center, Vec::new())));
+        let observer = world.spawn((LocalView, LocalViewId::FIRST)).id();
+        world.insert_resource(PresentedViewFrames::of_views(vec![(observer, PresentedViewFrame {
+            room: LiveRoomInstance::ACTIVATION,
+            plane_center: Vec2::ZERO,
+            roll_radians: 0.0,
+            orthographic_scale: 1.0,
+        })]));
+        let mut camera = Camera::default();
+        camera.computed.target_info = Some(RenderTargetInfo { physical_size: (size * 2.0).as_uvec2(), scale_factor: 2.0 });
+        let mut projection = OrthographicProjection::default_2d();
+        projection.update(size.x, size.y);
+        world.spawn((camera.clone(), Camera2d, MainCamera, PresentsView(observer),
+            Transform::from_xyz(0.0, 0.0, 1000.0), Projection::Orthographic(projection)));
+        world.spawn((camera, Camera2d, FrontHudCamera));
+        let fighter = world.spawn(BodyPoseView {
+            pos: center + Vec2::X * 635.0,
+            size: Vec2::splat(24.0),
+            ..Default::default()
+        }).id();
+        world.insert_resource(FramedCast(vec![fighter]));
+        let discs = |world: &mut World| {
+            world.query_filtered::<(&Visibility, &Transform), With<CastBubbleDisc>>()
+                .iter(world)
+                .filter(|(visibility, _)| **visibility == Visibility::Visible)
+                .map(|(_, transform)| transform.translation.truncate())
+                .collect::<Vec<_>>()
+        };
+
+        world.insert_resource(CardViewSettings::gameplay());
+        world.run_system_once(present_cast_bubbles).unwrap();
+        world.run_system_once(present_cast_bubbles).unwrap();
+        assert!(discs(&mut world).is_empty(), "the tilted output still shows part of the fighter");
+
+        for mode in [CardViewMode::Plane, CardViewMode::SideOn, CardViewMode::Inset] {
+            world.insert_resource(CardViewSettings::for_game(mode));
+            world.run_system_once(present_cast_bubbles).unwrap();
+            world.run_system_once(present_cast_bubbles).unwrap();
+            let [at] = discs(&mut world)[..] else { panic!("one bubble in {mode:?}") };
+            assert!(at.abs_diff_eq(Vec2::new(546.0, 0.0), 0.01), "{mode:?}: {at:?}");
+        }
+
+        world.insert_resource(CardViewSettings::gameplay());
+        world.get_mut::<BodyPoseView>(fighter).unwrap().pos.x += 100.0;
+        world.run_system_once(present_cast_bubbles).unwrap();
+        assert_eq!(discs(&mut world).len(), 1);
+
+        world.get_mut::<BodyPoseView>(fighter).unwrap().pos.x -= 100.0;
+        world.run_system_once(present_cast_bubbles).unwrap();
+        assert!(discs(&mut world).is_empty());
+        let mut cameras = world.query_filtered::<&Camera, With<CastBubbleCamera>>();
+        assert!(cameras.iter(&world).all(|camera| !camera.is_active));
     }
 }

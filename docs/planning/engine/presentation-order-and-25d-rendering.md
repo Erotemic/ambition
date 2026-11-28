@@ -921,6 +921,10 @@ shared value preparation are sufficient until source proves otherwise.
    A view replaces its plates when it frames a different room. The tests
    check actors and doors with the same ID in two live rooms.
 
+   The Smash fighter bubble uses the primary output's projection and the
+   fighter's presented position. A test switches between 2D, side-on,
+   oblique, and inset views at the same fighter position.
+
    Ground shadows use the shared presented body position. Each shadow uses
    the floor and art of its live room. A test checks the sprite and card
    positions for two actors with the same ID in different live rooms.

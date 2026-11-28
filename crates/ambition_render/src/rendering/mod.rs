@@ -524,6 +524,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 bevy::prelude::Update,
                 cast_bubble::present_cast_bubbles
                     .run_if(cast_bubble::bubbles_are_asked_for_or_drawn)
+                    .after(ambition_sim_view::PresentedPoseSet)
                     .after(camera::ViewCameraSet),
             );
         }

@@ -205,6 +205,7 @@ pub fn sync_flames(
     time: ambition_time::PresentationTime,
     mut elapsed: Local<f32>,
     layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
     birds: Query<(&FeatureId, &BossConfig, &BodyRecords, Option<&BodyHealth>)>,
     sources: Query<
         (&FeatureVisual, &Transform, &Sprite, Option<&Anchor>, &FlameSource, Option<&Visibility>),
@@ -231,8 +232,9 @@ pub fn sync_flames(
         flames.height = ease(flames.height, height, FLAME_EASE * dt);
         flames.cold = ease(flames.cold, cold, COLD_EASE * dt);
         let hidden = matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
-        let (Some(render_size), Some(uv_rect), false, true) =
-            (sprite.custom_size, ambition_sprite_fx::sprite_uv_rect(sprite, &layouts), hidden, flames.height > 0.01)
+        let basis = ambition_sprite_fx::sprite_frame_basis(sprite, &layouts, &images);
+        let (Some(render_size), Some(ambition_sprite_fx::SpriteFrameBasis { uv_rect, .. }), false, true) =
+            (sprite.custom_size, basis, hidden, flames.height > 0.01)
         else {
             *overlay_visibility = Visibility::Hidden;
             continue;

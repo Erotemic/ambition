@@ -736,8 +736,12 @@ impl TextureQuad {
     fn vertices(self) -> ([[f32; 3]; 4], [[f32; 2]; 4]) {
         let [x0, y0] = ((-Vec2::splat(0.5) - self.anchor) * self.size).to_array();
         let [x1, y1] = ((Vec2::splat(0.5) - self.anchor) * self.size).to_array();
-        let [mut u0, mut v0] = (self.rect.min / self.page).to_array();
-        let [mut u1, mut v1] = (self.rect.max / self.page).to_array();
+        let [mut u0, mut v0, mut u1, mut v1] = ambition_sprite_fx::TextureRegion {
+            rect: self.rect,
+            page_size: self.page,
+        }
+        .uv_rect()
+        .to_array();
         if self.flip[0] {
             std::mem::swap(&mut u0, &mut u1);
         }
@@ -1524,23 +1528,16 @@ fn sprite_frame(
     } else {
         images.get(&sprite.image)?.size().as_vec2()
     };
-    let frame_rect = if let Some(cell) = &sprite.texture_atlas {
-        layouts?.get(&cell.layout)?.textures.get(cell.index)?.as_rect()
-    } else {
-        Rect::from_corners(Vec2::ZERO, page_size)
-    };
-    let rect = sprite.rect.map_or(frame_rect, |crop| {
-        Rect::from_corners(frame_rect.min + crop.min, frame_rect.min + crop.max)
-    });
+    let region = ambition_sprite_fx::sprite_texture_region(sprite, layouts, Some(page_size))?;
     let frame = BakedFrame {
         image: sprite.image.clone(),
-        rect,
-        size: sprite.custom_size.unwrap_or_else(|| rect.size()),
+        rect: region.rect,
+        size: sprite.custom_size.unwrap_or_else(|| region.rect.size()),
         anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
         flip_x: sprite.flip_x,
         flip_y: sprite.flip_y,
     };
-    Some((frame, page_size))
+    Some((frame, region.page_size))
 }
 
 /// A sprite's card quad and material, made once per cell and per colour.

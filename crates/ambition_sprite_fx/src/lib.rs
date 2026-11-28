@@ -561,23 +561,42 @@ pub struct SpriteFrameBasis {
     pub size: Vec2,
 }
 
-/// The normalized UV rectangle of the selected frame, or the whole image.
-pub fn sprite_uv_rect(sprite: &Sprite, layouts: &Assets<TextureAtlasLayout>) -> Option<Vec4> {
-    match sprite.texture_atlas.as_ref() {
-        Some(atlas) => Some(atlas_frame_basis(layouts.get(&atlas.layout)?, atlas.index)?.uv_rect),
-        None => Some(Vec4::new(0.0, 0.0, 1.0, 1.0)),
+/// A rectangle in image pixels, with its origin at the top left of the page.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextureRegion {
+    pub rect: Rect,
+    pub page_size: Vec2,
+}
+
+impl TextureRegion {
+    /// Convert the pixel rectangle to UV coordinates.
+    pub fn uv_rect(self) -> Vec4 {
+        let min = self.rect.min / self.page_size;
+        let max = self.rect.max / self.page_size;
+        Vec4::new(min.x, min.y, max.x, max.y)
     }
 }
 
-fn atlas_frame_basis(layout: &TextureAtlasLayout, index: usize) -> Option<SpriteFrameBasis> {
-    let rect = layout.textures.get(index)?;
-    let tex = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
-    let min = rect.min.as_vec2();
-    let max = rect.max.as_vec2();
-    Some(SpriteFrameBasis {
-        uv_rect: Vec4::new(min.x / tex.x, min.y / tex.y, max.x / tex.x, max.y / tex.y),
-        size: max - min,
-    })
+/// Resolve the atlas cell and crop of a sprite. A crop uses coordinates
+/// relative to the cell. Use the atlas page size when the image is absent.
+pub fn sprite_texture_region(
+    sprite: &Sprite,
+    layouts: Option<&Assets<TextureAtlasLayout>>,
+    image_size: Option<Vec2>,
+) -> Option<TextureRegion> {
+    let (cell, page_size) = if let Some(atlas) = &sprite.texture_atlas {
+        let layout = layouts?.get(&atlas.layout)?;
+        let cell = layout.textures.get(atlas.index)?.as_rect();
+        (cell, image_size.unwrap_or_else(|| layout.size.as_vec2()))
+    } else {
+        let page_size = image_size?;
+        (Rect::from_corners(Vec2::ZERO, page_size), page_size)
+    };
+    let rect = sprite.rect.map_or(cell, |crop| Rect {
+        min: cell.min + crop.min,
+        max: cell.min + crop.max,
+    });
+    Some(TextureRegion { rect, page_size: page_size.max(Vec2::ONE) })
 }
 
 /// Resolve the [`SpriteFrameBasis`] for `sprite` (atlas frame or whole image),
@@ -587,30 +606,15 @@ pub fn sprite_frame_basis(
     layouts: &Assets<TextureAtlasLayout>,
     images: &Assets<Image>,
 ) -> Option<SpriteFrameBasis> {
-    // Atlased sprites derive dimensions from the atlas layout so they do not
-    // require main-world image access. Whole-image sprites still need the image.
-    let (uv_rect, frame_px) = if let Some(atlas) = sprite.texture_atlas.as_ref() {
-        let layout = layouts.get(&atlas.layout)?;
-        let frame = atlas_frame_basis(layout, atlas.index)?;
-        (frame.uv_rect, frame.size)
-    } else if let Some(size) = sprite.custom_size {
-        // A whole-image sprite drawn at a stated size samples the whole
-        // texture, so its basis needs no main-world image: an image kept for
-        // the render world only (a prop's art) has none, and its sprite was
-        // not cut at a portal's seam but drawn whole and copied whole.
+    // The complete image at a specified draw size needs no pixel dimensions.
+    if let (None, None, Some(size)) = (&sprite.texture_atlas, sprite.rect, sprite.custom_size) {
         return Some(SpriteFrameBasis { uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0), size });
-    } else {
-        let image = images.get(&sprite.image)?;
-        let texture_size = image.texture_descriptor.size;
-        let tex = Vec2::new(
-            texture_size.width.max(1) as f32,
-            texture_size.height.max(1) as f32,
-        );
-        (Vec4::new(0.0, 0.0, 1.0, 1.0), tex)
-    };
+    }
+    let image_size = images.get(&sprite.image).map(|image| image.size().as_vec2());
+    let region = sprite_texture_region(sprite, Some(layouts), image_size)?;
     Some(SpriteFrameBasis {
-        uv_rect,
-        size: sprite.custom_size.unwrap_or(frame_px),
+        uv_rect: region.uv_rect(),
+        size: sprite.custom_size.unwrap_or_else(|| region.rect.size()),
     })
 }
 

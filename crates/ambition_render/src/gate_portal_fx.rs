@@ -149,6 +149,7 @@ fn sync_gate_portal_fx(
     quality: Option<Res<ResolvedVisualQuality>>,
     passages: Option<Res<ambition_sim_view::PassageViews>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
     mut materials: ResMut<Assets<GatePortalFxMaterial>>,
     membranes: Query<(Entity, &PropVisual, &Sprite, Option<&Anchor>, Option<&HasGatePortalFx>), With<PortalSprite>>,
     mut layers: Query<(&mut Transform, &MeshMaterial2d<GatePortalFxMaterial>, &mut Visibility), With<GatePortalFxLayer>>,
@@ -191,7 +192,8 @@ fn sync_gate_portal_fx(
                 continue;
             };
             let strength = if showcase { phase_strength(phase) } else { 0.0 };
-            let (Some(size), Some(uv_rect)) = (sprite.custom_size, ambition_sprite_fx::sprite_uv_rect(sprite, &layouts)) else {
+            let basis = ambition_sprite_fx::sprite_frame_basis(sprite, &layouts, &images);
+            let (Some(size), Some(ambition_sprite_fx::SpriteFrameBasis { uv_rect, .. })) = (sprite.custom_size, basis) else {
                 visibility.set_if_neq(Visibility::Hidden);
                 continue;
             };

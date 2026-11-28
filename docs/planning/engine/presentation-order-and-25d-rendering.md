@@ -879,6 +879,10 @@ shared value preparation are sufficient until source proves otherwise.
    Their paint order follows their source depth between the bodies of the
    same room. A light can overlap another body without moving to its plane.
 
+   Cards and sprite effects use the same texture region. A crop uses
+   coordinates relative to the atlas cell. An Ultra capture checks both
+   atlas and whole-image crops with an offset anchor and two-axis flips.
+
    Card caches keep meshes and materials that a draw used recently.
    Hidden sprite cards release their handles. The last view releases the card
    products when it closes. The cache uses the same rounded color for

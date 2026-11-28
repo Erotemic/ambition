@@ -247,6 +247,7 @@ pub fn attach_hit_flash_overlays(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
     candidates: Query<
         (
             Entity,
@@ -272,7 +273,9 @@ pub fn attach_hit_flash_overlays(
             // `custom_size` next tick; try again then.
             continue;
         };
-        let Some(uv_rect) = ambition_sprite_fx::sprite_uv_rect(sprite, &texture_layouts) else {
+        let Some(ambition_sprite_fx::SpriteFrameBasis { uv_rect, .. }) =
+            ambition_sprite_fx::sprite_frame_basis(sprite, &texture_layouts, &images)
+        else {
             // Texture / atlas not loaded yet; try again next frame.
             continue;
         };
@@ -354,6 +357,7 @@ pub fn sync_hit_flash_overlays() {}
 pub fn sync_hit_flash_overlays(
     mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
     // The blink's phase. Sim-derived: see `BLINK_PERIOD_TICKS`.
     tick: Res<ambition_time::SimTick>,
     defense_policy: Res<
@@ -434,7 +438,9 @@ pub fn sync_hit_flash_overlays(
         let Some(render_size) = source_sprite.custom_size else {
             continue;
         };
-        let Some(uv_rect) = ambition_sprite_fx::sprite_uv_rect(source_sprite, &texture_layouts) else {
+        let Some(ambition_sprite_fx::SpriteFrameBasis { uv_rect, .. }) =
+            ambition_sprite_fx::sprite_frame_basis(source_sprite, &texture_layouts, &images)
+        else {
             continue;
         };
         let flip = flip_flag(source_sprite);

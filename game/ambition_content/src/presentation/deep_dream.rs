@@ -221,6 +221,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
     asset_server: Res<AssetServer>,
     candidates: Query<
@@ -245,10 +246,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
         let Some(actor_seed) = puppy_slug_seed(&visual.id, &actor_render) else {
             continue;
         };
-        let Some(render_size) = sprite.custom_size else {
-            continue;
-        };
-        let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts) else {
+        let Some((uv_rect, render_size)) = dream_frame(sprite, &texture_layouts, &images) else {
             continue;
         };
 
@@ -307,6 +305,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     mut elapsed: Local<f32>,
     settings: Res<PuppySlugDreamSettings>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
     sources: Query<
         (
             Entity,
@@ -335,10 +334,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     for (source_entity, source_transform, source_sprite, anchor, frame, source, source_visibility) in
         &sources
     {
-        let Some(render_size) = source_sprite.custom_size else {
-            continue;
-        };
-        let Some(uv_rect) = current_sprite_uv_rect(&source_sprite, &texture_layouts) else {
+        let Some((uv_rect, render_size)) = dream_frame(source_sprite, &texture_layouts, &images) else {
             continue;
         };
         let flip = flip_flag(&source_sprite);
@@ -438,32 +434,15 @@ fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex)
     }
 }
 
-/// NO `Assets<Image>`. The image was fetched for one value —
-/// `texture_descriptor.size` — and `TextureAtlasLayout::size` already carries
-/// it. Every main-world reader of a loaded sheet is one more thing standing
-/// between the game and dropping `MAIN_WORLD` from the image loader, which is
-/// what keeps 1803 MB of decoded RGBA resident entering Hall of Characters.
-///
-/// this is the second of three copies of this computation — see
-/// `ambition_render::rendering::hit_flash::current_sprite_uv_rect` (byte-identical
-/// intent) and `ambition_portal2d_presentation::clip_material::sprite_frame_basis`
-/// (a superset that also returns the quad size). All three agree; converging them
-/// wants a crate both `ambition_render` and `ambition_portal2d_presentation` can
-/// reach, and the dependency runs render → portal, so it is neither of them.
-fn current_sprite_uv_rect(
+fn dream_frame(
     sprite: &Sprite,
-    texture_layouts: &Assets<TextureAtlasLayout>,
-) -> Option<Vec4> {
-    let atlas = sprite.texture_atlas.as_ref()?;
-    let layout = texture_layouts.get(&atlas.layout)?;
-    let rect = layout.textures.get(atlas.index)?;
-    let size = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
-    Some(Vec4::new(
-        rect.min.x as f32 / size.x,
-        rect.min.y as f32 / size.y,
-        rect.max.x as f32 / size.x,
-        rect.max.y as f32 / size.y,
-    ))
+    layouts: &Assets<TextureAtlasLayout>,
+    images: &Assets<Image>,
+) -> Option<(Vec4, Vec2)> {
+    sprite.texture_atlas.as_ref()?;
+    let size = sprite.custom_size?;
+    let frame = ambition_sprite_fx::sprite_frame_basis(sprite, layouts, images)?;
+    Some((frame.uv_rect, size))
 }
 
 fn overlay_transform_from_source(

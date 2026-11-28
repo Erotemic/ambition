@@ -96,6 +96,34 @@ post-fight dialogue describe only the interim encounter. The old
 `pirate_treasure` quest key and `after_treasure` Yarn node IDs are retained for
 compatibility, not as evidence of a stolen chest story.
 
+## Expanded PVN and Authority pass — 2026-11-27
+
+The Iron Bastion is planned for the Gate Authority dimension, with the annex
+retained as its adjacent military facility. See [gate-network](gate-network.md#the-military-gate).
+The dialogue anticipates the move without specifying the new entrance. The
+General and Faction of Steel retain their established names. Their exact legal
+relationship to the civilian Authority and the wartime chain of command are
+open. Lines about cooperation between the garrison, Concourse and Manifest
+Office are provisional characterization, not new clearance rules. The actual
+map move remains a separate task.
+
+The dialogue pass extends the shipment thread into Pirate Port and Zorlack's
+Business College conversations. Roo remains in PVN; Zorlack can travel and
+continue the existing contract while applying elsewhere. The local Ninja
+Village has its own rank examination; its relationship to Zorlack's clan is
+left open. Ordinary NPCs have local routines rather than universal knowledge
+of the shipment. The contents, destination, raid result, job outcome,
+and replacement cove boss remain undecided.
+
+The existing `business_zorlack_met` branch provides another opportunity to
+ask about the contract. No new facts or save flags track Zorlack's travels;
+his existing appearances are retained. Reconcile placement and scheduling
+when travel becomes an actual simulated event.
+
+The Hall entries for these characters are updated for continuity. Existing
+quest commands, node IDs, gate-known flags, and clearance conditions remain.
+New anecdotes and local relationships are editable dialogue proposals.
+
 ## Validation / future work
 
 - Run the existing all-sources Yarn compiler test after editing:
@@ -119,3 +147,71 @@ Related story sources: `docs/storylines/cannon.md`,
 `docs/brainstorms/the_fia_arc.md`,
 `docs/brainstorms/good_llm_ideas/gates_morality_and_the_nazi_embassy.md`,
 `docs/planning/game/gate-network.md`, and `docs/planning/game/bosses.md`.
+
+## World dialogue pass (2026-11-27)
+
+This pass follows the PVN and Authority dialogue changes. It keeps the
+current encounter and quest logic. It does not move rooms or add quests.
+
+- Fantasy: the Barrow King now uses imported junk. Residents report the
+  change in the ghosts' behavior. The king's earlier character and the
+  method he uses to animate the objects remain open. Sir Cumference came
+  from Math Town. The local wizard uses imported goods as well as spells.
+- Science: Nicholas and Coulomba Tezla replace the old display names. Keep
+  actor IDs, Yarn node IDs and asset paths. The mine and town have a
+  repair-work connection. Farah gives a hypothesis about the crusher;
+  her explanation is not a confirmed cause.
+- Noodle: Ramen Nujan came from the Math Dimension and follows the
+  Noodle faith. His scarf is made of noodles. His visit to Brothlehem
+  and his notebooks are dialogue proposals.
+- Frontier: Gallus was a lawman and is now an outlaw. Residents still
+  have to deal with his men and his toll. No change to the corral fight.
+- Castle Godwin: the castle is a local command under the Supreme Leader.
+  The capital is elsewhere. Staff, prisoners and townspeople have their
+  own concerns. Do not assume the castle staff all oppose the regime.
+- Art: keep disagreements about authorship and give residents other
+  subjects to discuss, such as painting, music, work and visitors.
+- Automaton, Math, Neural and Magic: correct misleading explanations
+  and remove repeated rhetorical formulas. Keep the current puzzles,
+  routes and character jokes. Erdish starts his conversations with
+  "My mind is open."
+- Primeval, Orbital and Unfinished: revise routine work and travel
+  dialogue. Preserve the existing quests and local routes.
+
+New personal anecdotes, dates, minor trade relationships and occupations
+are proposals in playable dialogue. No canon file is changed. The Hall
+historical gallery and History Dimension are not a complete fact audit.
+The old Mockingbird encounter and military tower placement remain work
+for later passes.
+
+Full Stack plays bass, and the bossofthegame stands on his shoulders.
+Hylbert is working to increase the spectral gap in the haunted hotel.
+These lines do not change the band animations, the climbable instrument,
+or the hotel encounter.
+
+## Follow-up: Hall conversations and cartography
+
+The Hall's ordinary residents should talk about their work, interests, and
+relationships, not give interchangeable complaints about their exhibits.
+Keep its explicitly meta characters, transformation demonstrations, and
+debug interactions. Hall dialogue is not a canonical timeline of completed
+quests; avoid declaring quest outcomes or new geography there.
+
+Capital restricts cartography and the distribution of directions; sharing
+a map without permission can lead to arrest. The dialogue describes that
+restriction without implementing enforcement or the later Alice/Bob story.
+
+The new anecdotes are provisional; the pirate shipment's contents and the
+Mockingbird replacement remain undecided.
+
+## Follow-up: encounter-independent dialogue and technical precision
+
+Hall conversations should not assume that a visitor is Scout, has already
+fought a character, or has completed a quest. Keep intentional game and
+gallery meta jokes, but give other characters specific questions about their
+work and surroundings. Match Hall and field dialogue where characters recur.
+Technical concepts may be personified; avoid making the personification a
+false explanation of the actual concept (for example, soft attention is not
+necessarily exclusive to one item, and a runtime Busy Beaver maximizes steps
+rather than output). This pass changes speech only; the new small anecdotes
+are provisional and no mechanics or locations are changed.

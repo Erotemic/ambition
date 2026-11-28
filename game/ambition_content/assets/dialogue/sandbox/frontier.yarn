@@ -5,15 +5,15 @@ title: frontier_clerk
     Dolores: You again. Name, origin, cargo.
     -> The Marshal is beaten.
         Dolores: I heard. The whole street heard. He was crowing at the coyotes from the mesa all afternoon, but hoarse.
-        Dolores: The toll box is still in his office. I'm not the one who's going to go in and ask for it.
+        Dolores: The toll box is still in his office. I don't know who he left in charge.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "frontier_clerk_met") == "satisfied">>
     Dolores: Still logged. Still here. Pad Three, arrivals.
     -> Who gets the toll?
-        Dolores: The Marshal. Twelve credits a head, through the gate or off a ship.
-        Dolores: It's meant for the town. It goes in a box in his office and the box has never once come out.
+        Dolores: Gallus. Twelve credits a head, through the gate or off a ship.
+        Dolores: He used to have authority to collect it. Nobody here has seen his new warrant. The box still goes to his office.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_clerk_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_clerk_met" true>>
@@ -21,7 +21,7 @@ title: frontier_clerk
     Dolores: Name, origin, cargo.
     -> I came through the gate.
         Dolores: Origin: gate. Cargo: none. Fine.
-        Dolores: The Marshal will want his toll. He'll find you. He finds everybody.
+        Dolores: Gallus will want his toll. He's got men watching the arrivals.
     -> ‹say nothing›
         Dolores: Origin: unknown. That's allowed. I've logged worse.
 <<else>>
@@ -59,7 +59,7 @@ title: frontier_barkeep
 <<elseif verdict("world.flag_set", "frontier_barkeep_met") == "satisfied">>
     Mae: Water's two. Coffee's three.
     -> Tell me about the Marshal.
-        Mae: He drinks here at noon. Coffee, black, and he tips in somebody else's money.
+        Mae: He drinks here at noon. Coffee, black. He sometimes comes in with a coyote. That one pays his own tab. Gallus tells me to put it down to the Marshal's office.
         Mae: When he's mad he goes to the corral and shoots at cans. When he's very mad he whistles.
         Mae: Don't be in the yard when he whistles.
     -> ‹go›
@@ -82,7 +82,7 @@ title: frontier_prospector
     Elias: Still here? Sit down, sit down.
     -> Where's the lead?
         Elias: In the creek, if you believe me, and nobody does. Lead in the gravel, grey as a bad tooth.
-        Elias: The refinery pays by the pound. The Marshal takes a cut by the pound. You can see the problem.
+        Elias: The refinery pays by the pound. Gallus takes his cut before I get to the weigh station.
     -> What happened to the Marshal?
         Elias: Accident at the cracking tower, back when he was a plain rooster on a plain farm. So they say.
         Elias: Then the company built him back up out of the parts they had. I'd have asked for fewer guns.
@@ -92,7 +92,7 @@ title: frontier_prospector
     Elias: You're new. Good. Everybody else has heard all of it.
     Elias: Forty years in this pass. Panned every creek from here to the far pads. Found lead.
     -> Lead?
-        Elias: Lead! It's worth something to somebody. Mostly the Marshal.
+        Elias: Lead! I used to sell a bag or two a week. Now they want to know where I found it.
     -> ‹say nothing›
         Elias: That's fine. I'll talk for both of us.
 <<else>>
@@ -104,7 +104,7 @@ title: frontier_foreman
 <<present_speaker "npc_frontier_foreman">>
 <<if verdict("encounter.cleared", "frontier.marshal_gallus") == "satisfied">>
     Ruth: No whistle this morning. I let the shift sleep and nobody blew anything up.
-    Ruth: We'll pick our own hours now. Seven, maybe. Seven sounds civilised.
+    Ruth: I've called the morning crew in at seven. Let's see who turns up.
     -> ‹go›
 <<elseif verdict("encounter.cleared", "frontier.marshal_gallus") == "unanswerable">>
     <<stop>>
@@ -112,7 +112,7 @@ title: frontier_foreman
     Ruth: Hat on, or off the terrace.
     -> What does the Marshal want?
         Ruth: Ore in the carts. Nobody on the road after the whistle. His toll, his cut, his rules on a board.
-        Ruth: He blows the shift whistle at four in the morning because he can, and we start.
+        Ruth: He still acts like he runs the place. Four in the morning, even when the carts are backed up and there's nowhere to put the ore.
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_foreman_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_foreman_met" true>>
@@ -172,10 +172,9 @@ title: frontier_inn_alice
     Alice: This isn't where we meant to come out. The dialer back home only had the one line working after the bear.
     Alice: We need an hour flat on our backs, and then we'll find the way to the city from here.
     -> What should I do?
-        Alice: Whatever you like. You don't need us to tell you.
-        Alice: If you want something useful: that bear knocked you about. There's a mechanic over the trestle, on Sprocket Row. Get yourself looked at.
+        Alice: That bear knocked you about. There's a mechanic over the trestle, on Sprocket Row, if you want somebody to check your joints.
     -> I'll wait with you.
-        Alice: That's kind. It's also an hour of watching Bob hold a bucket. Go and look round.
+        Alice: Thanks. Could you put that bucket a little nearer Bob? Go and look round if you like.
 <<else>>
     <<stop>>
 <<endif>>
@@ -216,7 +215,7 @@ title: frontier_brakeman
 ---
 <<present_speaker "npc_frontier_brakeman">>
 Hollis: Where did you come from? Never mind. That isn't our engine up front.
-Hollis: Something coupled on at the head of the train in the night, and the crew got off at the water stop, and it didn't.
+Hollis: Something coupled on at the head of the train in the night. The engine crew jumped off at the water stop. The train just kept going.
 Hollis: Keep off the couplings. If you fall between the cars, you're under the train.
 -> ‹go›
 ===
@@ -245,7 +244,7 @@ title: frontier_crane_driver
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_crane_driver_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_crane_driver_met" true>>
-    Magda: I tip the slag pots from up there. Forty a shift.
+    Magda: I tip the slag pots from up there. Forty a shift, if the crane doesn't stick. It sticks worse in the cold.
     Magda: You're standing where the ladle swings, by the way.
     -> ‹go›
 <<else>>
@@ -260,7 +259,7 @@ title: frontier_laundress
     -> ‹go›
 <<elseif verdict("world.flag_set", "frontier_laundress_met") == "not_satisfied">>
     <<command "world.set_flag" "frontier_laundress_met" true>>
-    Ida: Mind the lines. That's the whole night shift's shirts.
+    Ida: Mind the lines. That's the whole night shift's shirts. The bundles with a red thread are for the smelter crew.
     -> Why live under the works?
         Ida: The wind can't get in, the rent's low, and the soot's free.
     -> ‹go›

@@ -546,7 +546,21 @@ fn a_following_effect_tracks_the_sprites_frame_and_gives_it_back() {
         Update,
         (restore_sprites_without_following_effects, draw_following_sprite_effects).chain(),
     );
-    let sprite = a_32x16_sprite(&mut app);
+    let mut sprite = a_32x16_sprite(&mut app);
+    let mut layout = TextureAtlasLayout::new_empty(UVec2::new(128, 64));
+    let index = layout.add_texture(URect::new(32, 16, 96, 48));
+    sprite.texture_atlas = Some(TextureAtlas {
+        layout: app.world_mut().resource_mut::<Assets<TextureAtlasLayout>>().add(layout),
+        index,
+    });
+    sprite.rect = Some(Rect::new(8.0, 4.0, 40.0, 20.0));
+    sprite.custom_size = None;
+    {
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        let mut image = images.get_mut(&sprite.image).unwrap();
+        image.texture_descriptor.size.width = 128;
+        image.texture_descriptor.size.height = 64;
+    }
     let colour = Color::srgba(1.0, 0.5, 0.25, 0.8);
     let entity = app
         .world_mut()
@@ -564,6 +578,9 @@ fn a_following_effect_tracks_the_sprites_frame_and_gives_it_back() {
     assert_eq!(source.original_color, colour);
     let quad = *app.world().get::<Transform>(source.quad).unwrap();
     assert_eq!(quad.scale.truncate(), Vec2::new(32.0, 16.0));
+    let material = app.world().get::<MeshMaterial2d<SpriteFxMaterial>>(source.quad).unwrap();
+    let material = app.world().resource::<Assets<SpriteFxMaterial>>().get(&material.0).unwrap();
+    assert_eq!(material.uv_rect, Vec4::new(0.3125, 0.3125, 0.5625, 0.5625));
     // A feet anchor puts the frame's centre half its height above the entity.
     assert_eq!(quad.translation.truncate(), Vec2::new(0.0, 8.0));
     assert_eq!(app.world().get::<ChildOf>(source.quad).map(|c| c.parent()), Some(entity));
@@ -652,17 +669,20 @@ fn a_rebound_sprite_stays_hidden_under_its_following_quad() {
 
 #[test]
 fn frame_uvs_preserve_atlas_edges_and_refuse_missing_frames() {
+    let images = Assets::<Image>::default();
     let mut layouts = Assets::<TextureAtlasLayout>::default();
     let layout = layouts.add(TextureAtlasLayout {
         size: UVec2::new(100, 50),
         textures: vec![URect::from_corners(UVec2::new(20, 10), UVec2::new(100, 50))],
     });
     let mut sprite = Sprite {texture_atlas: Some(TextureAtlas {layout, index: 0}), ..default()};
-    assert_eq!(sprite_uv_rect(&sprite, &layouts), Some(Vec4::new(0.2, 0.2, 1.0, 1.0)));
+    let uvs = |sprite: &Sprite| sprite_frame_basis(sprite, &layouts, &images).map(|frame| frame.uv_rect);
+    assert_eq!(uvs(&sprite), Some(Vec4::new(0.2, 0.2, 1.0, 1.0)));
     sprite.texture_atlas.as_mut().unwrap().index = 1;
-    assert_eq!(sprite_uv_rect(&sprite, &layouts), None);
+    assert_eq!(uvs(&sprite), None);
     sprite.texture_atlas.as_mut().unwrap().layout = Handle::default();
-    assert_eq!(sprite_uv_rect(&sprite, &layouts), None);
+    assert_eq!(uvs(&sprite), None);
     sprite.texture_atlas = None;
-    assert_eq!(sprite_uv_rect(&sprite, &layouts), Some(Vec4::new(0.0, 0.0, 1.0, 1.0)));
+    sprite.custom_size = Some(Vec2::splat(10.0));
+    assert_eq!(uvs(&sprite), Some(Vec4::new(0.0, 0.0, 1.0, 1.0)));
 }

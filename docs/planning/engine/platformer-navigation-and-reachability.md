@@ -57,6 +57,28 @@ only, not physical reachability. It has no production reader yet. So:
   `ambition_encounter_features/src/lock_walls.rs`) until something reads the
   first.
 
+## Ordinary slope navigation (ECP5, proposed 2026-11-27)
+
+The Hobford companion report is a concrete route-planning customer. Native
+walking already supports ramps, but `StandSurface` describes constant-height
+spans, and `chain_walks` reduces the non-flat runs to endpoint pairs.
+`GroundMap::slope_exit` is an endpoint escape, not a general standing domain.
+[ECP](environmental-collision-profiles.md#navigation-support-locations-not-flat-platforms-alone)
+owns the continuous support extension. It extends E4's arrival anchors and
+standing experiments; it does not replace them.
+
+Use native source places and body-dependent legal standing/travel intervals.
+Attach arbitrary valid starts and goals to the admitted interval; compute
+intra-support travel on demand and retain sparse traversal anchors. Charge
+the actual movement policy's cost. Preserve branch, clearance and one-way
+semantics, native rollout/follower admission, stable arrival state and finite
+work coverage. An unsupported interval is not proof of no route. Retain
+static/phase and estimated/native limits explicitly. Key the experiment by
+the selected environmental profile, not just its bounding size. Remove
+`slope_exit` after the replacement covers its consumers. Moving/planetary
+navigation remains separate. A rectangular static slice can precede the
+new body profiles.
+
 ## Tentative spatial gravity: the field is part of the experiment
 
 [Curved surfaces and local gravity](curved-surfaces-and-local-gravity.md#navigation-and-room-rules-need-the-field-along-the-route)

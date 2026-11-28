@@ -71,10 +71,14 @@ table):
 | Who | Plays |
 | --- | --- |
 | The bossofthegame | Vocals and the keytar (his keyboard on its strap). The microphone is his alone: the agents are instrumentalists (Jon, 2026-11-13). |
-| Full Stack | Lead guitar (its electric guitar; its knobs go to eleven). |
-| Geppetto | Rhythm guitar, under Full Stack's lead (Jon, 2026-11-17). |
+| Full Stack | Bass (its knobs go to eleven). |
+| Geppetto | Rhythm guitar (Jon, 2026-11-17). |
 | Clause | Drums: the methodical one keeps time. |
 | Wren | Triangle: the smallest instrument, for the model Jon gives the smallest jobs (Jon, 2026-11-17: a joke on Qwen). |
+
+The bass assignment is the current design (2026-11-27). The instrument
+art and animation still need a separate review. Keep the existing path
+up the neck to Full Stack's shoulders.
 
 Every agent can play every instrument: the guitar, the bass, the keytar, the
 drumsticks and the triangle are parts of each agent's rig, hidden until a row

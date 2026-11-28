@@ -1,91 +1,54 @@
-use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
+use std::any::TypeId;
+
+use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, CARD_VIEW_LAYER};
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use bevy::asset::{AssetId, RenderAssetUsages};
 use bevy::camera::primitives::Aabb;
-use bevy::camera::visibility::RenderLayers;
-use bevy::camera::RenderTarget;
+use bevy::camera::visibility::{RenderLayers, VisibleEntities};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::{
-    Assets, Camera, ChildOf, Color, ColorToPacked, Commands, Component, DetectChanges, DetectChangesMut, Entity,
-    GlobalTransform, Image, InheritedVisibility, Local, Mesh, Mesh3d, MeshMaterial3d, Name,
-    Projection, Query, Ref, Res, ResMut, StandardMaterial, TextColor, Transform, Vec2, Vec3,
-    Visibility, With, Without,
+    Assets, Camera, ChildOf, Color, ColorToPacked, Commands, Component, DetectChanges, DetectChangesMut,
+    Entity, GlobalTransform, Image, InheritedVisibility, Local, Mesh, Mesh3d, MeshMaterial3d, Query,
+    Ref, Res, ResMut, Sprite, StandardMaterial, Text2d, TextColor, Transform, Vec2, Vec3, Visibility,
+    With, Without,
 };
 use bevy::sprite::Anchor;
 use bevy::text::{ComputedTextBlock, PositionedGlyph, TextBounds, TextLayoutInfo};
 
-use super::gameplay::{same_viewport, PlaneCameraForCard};
+use super::gameplay::PlaneCameraForCard;
 use super::paint_order::CardPaintDepth;
 use super::{source_room, CardMeshes, CardRootDepths, CardScope, CardViewCamera, RetainedEntities, TextureQuad};
 use crate::rendering::primitives::WorldText;
 
-#[derive(Component)]
-pub(super) struct LabelLayoutCamera;
-
-/// Supply Bevy's text layout with the card view's projection and target scale.
-/// Use the source mask to find the text. This camera has no render graph.
+/// Request text layout from the plane camera that supplies the card output's
+/// target scale and render mask.
 pub(super) fn prepare_label_layout(
-    mut commands: Commands,
-    outputs: Query<
-        (Entity, &Camera, &Transform, Ref<Projection>, Ref<RenderTarget>, &PlaneCameraForCard),
-        (With<CardViewCamera>, Without<LabelLayoutCamera>),
-    >,
-    sources: Query<&RenderLayers, Without<LabelLayoutCamera>>,
-    mut preparation: Query<
-        (
-            &mut Camera,
-            &mut Transform,
-            &mut Projection,
-            &mut RenderTarget,
-            &mut RenderLayers,
-        ),
-        With<LabelLayoutCamera>,
-    >,
-    mut retained: Local<RetainedEntities<Entity>>,
+    outputs: Query<(&Camera, &PlaneCameraForCard), With<CardViewCamera>>,
+    mut planes: Query<(&Camera, Option<&RenderLayers>, &mut VisibleEntities), With<MainCamera>>,
+    labels: Query<(Entity, Option<&RenderLayers>, &Visibility), (With<Text2d>, LabelSource)>,
 ) {
-    retained.reconcile(&mut commands, |source| {
-        outputs.get(*source).is_ok_and(|(_, output, ..)| output.is_active)
-    });
-    for (source, output, place, projection, destination, plane) in &outputs {
+    let sprite = TypeId::of::<Sprite>();
+    for (output, plane) in &outputs {
         if !output.is_active {
             continue;
         }
-        let layers = sources.get(plane.0).unwrap_or_default();
-        if let Some((mut camera, mut transform, mut lens, mut target, mut mask)) = retained
-            .get(&source)
-            .and_then(|camera| preparation.get_mut(*camera).ok())
-        {
-            if !same_viewport(&camera.viewport, &output.viewport) {
-                camera.viewport.clone_from(&output.viewport);
-            }
-            if camera.sub_camera_view != output.sub_camera_view {
-                camera.sub_camera_view = output.sub_camera_view;
-            }
-            if destination.is_changed() {
-                target.clone_from(&destination);
-            }
-            if destination.is_changed() || projection.is_changed() {
-                lens.clone_from(&projection);
-            }
-            transform.set_if_neq(*place);
-            mask.set_if_neq(layers.clone());
-        } else {
-            let camera = commands
-                .spawn((
-                    LabelLayoutCamera,
-                    Camera {
-                        viewport: output.viewport.clone(),
-                        sub_camera_view: output.sub_camera_view,
-                        ..Default::default()
-                    },
-                    *place,
-                    (*projection).clone(),
-                    (*destination).clone(),
-                    layers.clone(),
-                    Name::new("World label layout view"),
-                ))
-                .id();
-            retained.insert(source, camera);
+        let Ok((camera, layers, mut visible)) = planes.get_mut(plane.0) else {
+            continue;
+        };
+        if camera.is_active && !visible.is_empty(sprite) {
+            continue;
+        }
+        // Bevy uses the scale when the camera has a sprite or text entry.
+        // Its visibility pass replaces this entry if the plane draws.
+        let mask = layers.unwrap_or_default();
+        let demand = labels.iter().find_map(|(entity, layers, visibility)| {
+            (*visibility != Visibility::Hidden && mask.intersects(layers.unwrap_or_default()))
+                .then_some(entity)
+        });
+        if visible.get(sprite) != demand.as_slice() {
+            let entries = visible.get_mut(sprite);
+            entries.clear();
+            entries.extend(demand);
         }
     }
 }
@@ -277,19 +240,21 @@ fn label_mesh(
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
-
     use ambition_asset_manager::content_library::{ContentLibraries, ContentLibrary};
+    use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
     use bevy::asset::AssetPlugin;
-    use bevy::camera::{visibility::VisibleEntities, RenderTargetInfo};
+    use bevy::camera::{visibility::RenderLayers, RenderTargetInfo};
     use bevy::prelude::{
         App, Assets, Camera, Color, ColorToPacked, Entity, Font, FontSize, Image, IntoScheduleConfigs, Mesh,
-        MeshMaterial3d, MinimalPlugins, PostUpdate, Sprite, StandardMaterial, Text2d, TextColor,
+        MeshMaterial3d, MinimalPlugins, PostUpdate, StandardMaterial, Text2d, TextColor,
         TextFont, TextSpan, UVec2, Visibility, World,
     };
     use bevy::text::{detect_text_needs_rerender, TextLayoutInfo, TextPlugin};
 
-    use super::{realize_card_labels, CardLabel, CardMeshes, CardRootDepths, WorldText};
+    use super::{
+        prepare_label_layout, realize_card_labels, CardLabel, CardMeshes, CardRootDepths,
+        CardViewCamera, PlaneCameraForCard, WorldText,
+    };
 
     #[test]
     fn span_color_changes_without_replacing_its_card() {
@@ -302,7 +267,7 @@ mod tests {
             .init_resource::<CardRootDepths>()
             .add_systems(
                 PostUpdate,
-                (bevy::sprite::update_text2d_layout, realize_card_labels)
+                (prepare_label_layout, bevy::sprite::update_text2d_layout, realize_card_labels)
                     .chain()
                     .after(detect_text_needs_rerender),
             );
@@ -316,21 +281,25 @@ mod tests {
         let world = app.world_mut();
         let font = world.resource_mut::<Assets<Font>>().add(Font::from_bytes(font));
         let font = TextFont { font: font.into(), font_size: FontSize::Px(36.0), ..Default::default() };
-        let mut camera = Camera::default();
+        let mut camera = Camera { is_active: false, ..Default::default() };
         camera.computed.target_info = Some(RenderTargetInfo {
             physical_size: UVec2::splat(600),
-            ..Default::default()
+            scale_factor: 2.0,
         });
-        let mut visible = VisibleEntities::default();
-        visible.push(Entity::PLACEHOLDER, TypeId::of::<Sprite>());
-        world.spawn((camera, visible));
+        let layers = RenderLayers::layer(7);
+        let plane = world.spawn((camera, MainCamera, layers.clone())).id();
+        world.spawn((Camera::default(), CardViewCamera, PlaneCameraForCard(plane)));
         let red = Color::srgb_u8(210, 70, 70);
-        let root = world.spawn((Text2d::new("Press "), font.clone(), WorldText, Visibility::Visible)).id();
+        let root = world.spawn((Text2d::new("Press "), font.clone(), WorldText, Visibility::Visible, layers)).id();
+        let away = world.spawn((Text2d::new("Elsewhere"), font.clone(), WorldText, RenderLayers::layer(8))).id();
         let span = world.spawn((TextSpan::new("B"), font, TextColor(red), bevy::prelude::ChildOf(root))).id();
         for _ in 0..3 {
             app.update();
         }
-        assert!(!app.world().get::<TextLayoutInfo>(root).unwrap().glyphs.is_empty());
+        let layout = app.world().get::<TextLayoutInfo>(root).unwrap();
+        assert_eq!(layout.scale_factor, 2.0);
+        assert!(!layout.glyphs.is_empty());
+        assert!(app.world().get::<TextLayoutInfo>(away).unwrap().glyphs.is_empty());
 
         let card_with = |world: &mut World, color| {
             let mut cards = world.query_filtered::<(Entity, &MeshMaterial3d<StandardMaterial>), bevy::prelude::With<CardLabel>>();

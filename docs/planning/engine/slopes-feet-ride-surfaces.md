@@ -27,15 +27,22 @@ already has curve-to-chain preparation. It does not yet establish ordinary
 walking under continuously turning gravity. None of CV1–CV5 is selected
 in the queue by that investigation; SUP1 retains its current selection.
 
+**Profile and ramp continuation (2026-11-27):**
+[Environmental collision profiles and ground support (ECP)](environmental-collision-profiles.md)
+owns the Hobford diagnosis, connected static terrain, selectable rectangular,
+ECB and paired-support bodies, continuous support navigation and common
+mechanical pose. The existing full-span rectangle remains a first-class
+profile. ECP does not replace SUP1 or the optional continuous-gravity plan.
+
 ## The defaults this work takes (2026-10-15; feel is Jon's, each is a knob)
 
-- The foot span is the width of the box (the proposal's default, below).
-  The intended picture placement is onto the surface under its middle.
-  Static review at `00bf92c22142` finds no selected-support input in the
-  current body pose/quad placement road. [CV1](curved-surfaces-and-local-gravity.md#cv1--ground-the-picture-from-accepted-support)
-  states the missing handoff, its bounded visual offset, and the separate
-  choice of root tilt or terrain feet. This sentence is a goal, not a
-  completed visual acceptance receipt.
+- The default rectangular profile uses the full width of the box. New
+  profiles may have different contact features, with compatible material
+  occupancy and native clearance checks. [CV1](curved-surfaces-and-local-gravity.md#cv1--ground-the-picture-from-accepted-support)
+  and [ECP](environmental-collision-profiles.md) require the accepted
+  mechanical pose to supply gameplay geometry and its corresponding art.
+  Translating the whole picture onto the slope below its physical body is
+  not the general solution. No new grounding result is claimed here.
 - A walker's speed on a slope is its speed ACROSS the floor: up or down a
   ramp it covers the same ground per second as on the flat.
 - A segment steeper than a walker's limit (default 50 degrees) is not ground
@@ -564,12 +571,13 @@ two faults in that, and both are right:
     slope, and a flat box top is the same rule (a body with any part over
     it stands on it, as today). But the middle of the body is over the
     slope by up to `w / 2 * tan(θ)`: 10 for the player (28 wide) on the
-    giant's back (36 degrees). The picture can be put down onto the
-    surface under its middle; the body can not.
-  - With a narrow span the feet look planted, and the uphill corner of the
-    box is under the line of the slope by the difference.
-  - So the span is a property of a body, and its default is the width of
-    the box.
+    giant's back (36 degrees). Lowering this physical box would penetrate
+    the slope. ECP considers a different compatible profile instead of
+    shifting the complete picture away from the mechanical body.
+  - A narrower span alone puts the uphill corner of the same box under
+    the line. A different span needs a compatible contact/occupancy profile.
+  - The support configuration is a property of a body; full width remains
+    the rectangular default. See ECP for other supported configurations.
   Its `location` is where the middle of its span is across the floor, not
   an arc length: a surface a walker can stand on has one height at each
   place. A segment steeper than its limit is not ground for it; if the
@@ -596,7 +604,8 @@ two faults in that, and both are right:
 | No jump of the picture's turn | A bounded rate of turn |
 
 A walker needs the first, a grounded state that does not break, and a true
-sweep. The turn of its picture is apart from that.
+sweep. Gameplay-significant body turn must also be admitted; cosmetic
+interpolation of accepted poses is separate.
 
 ## The order of the work
 

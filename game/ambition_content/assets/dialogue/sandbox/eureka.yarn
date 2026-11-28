@@ -23,25 +23,24 @@ title: eureka_teodora
 Teodora: Step onto the car and it goes up. Hold the rail, and do not lean on the door.
 -> How far up does it go?
     Teodora: All the way to the station's tether hub. Thirty-six thousand kilometres of cable, and I have walked none of it.
-    Teodora: The car does the climbing. I keep the log. Both of us stay busy.
+    Teodora: There are two operators on each shift. I work the ground end.
 -> What is up there?
     Teodora: Customs, a docking bay, people who eat out of tubes. Further along the spoke, Gnu-ton's gravity works.
     Teodora: The empty car comes back lighter some days. Nobody can tell me why. I log it anyway.
 -> How do I get back to Eureka?
-    Teodora: Take the station gate. The ring is quicker. It also leaves you sick on a bench for an hour. My car gives you a view.
+    Teodora: Take the station gate. The ring is quicker if you don't get sick. I take the car both ways. I've had quite enough of the recovery benches.
 -> Have a good shift.
 ===
 
 title: eureka_priya
 ---
-Priya: Is it day or night? Do not tell me. The run cannot know either.
+Priya: Sorry, I thought you were the next shift. Do you know where Mina is?
 -> How long have you been awake?
-    Priya: Since the experiment started. It has been running four days. So have I.
-    Priya: If I sleep, something drifts. If something drifts, I start again.
+    Priya: Four days since I had a night off. I slept in the lab last night and woke up when the temperature alarm went off.
 -> What are you measuring?
     Priya: Whether a clock at the top of the elevator runs fast. It does. The question is by how much, and whether my supervisor believes me.
 -> You should rest.
-    Priya: Mina said that. Then she sold me another coffee. I think she has a conflict of interest.
+    Priya: Mina keeps telling me. She offered to ring my supervisor for me. I'd rather she didn't.
 -> Good luck with it.
 ===
 
@@ -53,93 +52,95 @@ Dmitri: Do not touch that. And do not touch that. You can touch that, it is alre
 -> What breaks most?
     Dmitri: The coil lab. Third fuse this week. They say the coils are fine. The fuses disagree.
 -> What is the lever by the bench?
-    Dmitri: The director's anti-gravity prototype. It works. That is the problem.
+    Dmitri: The director's anti-gravity prototype. Last time we ran it, all the pipes came away from the wall.
     Dmitri: If you press it, there is another one on the ceiling. I put it there after the first time.
 -> Do you ever go up the elevator?
-    Dmitri: Once a month, to fix the car's brakes. Up there I fix the coffee machine too. They pay me in thanks and dried soup.
+    Dmitri: Once a month, to fix the car's brakes. Up there I fix the coffee machine too. I take my lunch up with me now.
+-> Do you ever work at the mine?
+    Dmitri: I used to service the cage. Inez sent a message about the deeper workings. She wants the crusher inspected before the next shift.
 -> I will leave you to it.
 ===
 
 title: eureka_nikobolt
 ---
-Nikobolt Tesseract: Please keep the blueprints off the floor. I have counted them twice, and I would rather not count them a third time.
+Nicholas Tezla: Please keep the blueprints off the floor. I have counted them twice, and I would rather not count them a third time.
 <<command "conversation.join" "npc_science_coulomba">>
 <<present_speaker "npc_science_coulomba">>
-Coulomba Tesseract: You counted them three times. The third time you counted the napkins too.
+Coulomba Tezla: You counted them three times. The third time you counted the napkins too.
 -> What are you building?
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: A way to light the whole town without stretching a wire from house to house. The small lamp works. The large coil is less polite.
+    Nicholas Tezla: A way to light the whole town without stretching a wire from house to house. The small lamp works at three metres. I can get a good deal more than that out of the large coil.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: The small lamp works because I made him put it in a glass case. Before that, it lit the curtains as well.
+    Coulomba Tezla: The small lamp works because I made him put it in a glass case. Before that, it lit the curtains as well.
 -> Is that the gravity lever?
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: A prototype. It changes which way the room thinks is down. The physics is sound.
+    Nicholas Tezla: A prototype. It changes which way the room thinks is down. Try it if you like, but leave the drawings here.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: Dmitri installed the second switch on the ceiling. The plumbing was less sound.
+    Coulomba Tezla: Dmitri installed the second switch on the ceiling. We still have a bucket under the sink.
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: That is why we test things.
+    Nicholas Tezla: I told Dmitri I would pay for the pipe.
 -> Why do you guard your drawings?
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: Someone borrowed a design for bringing light into a house. Now there is lightning over a castle beyond the gate.
-    Nikobolt Tesseract: I wanted windows to glow at night. I did not want anyone to be afraid of the sky.
+    Nicholas Tezla: A visitor took a copy of my coil drawings. I've since heard about a lightning machine at Castle Godwin.
+    Nicholas Tezla: I'd like to know how much of my design they've used. I have no intention of going there to ask.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: We keep copies now. And I have started writing down who comes through the door.
+    Coulomba Tezla: We keep copies now. And I have started writing down who comes through the door.
 -> Are you two always here together?
-    Coulomba Tesseract: No. Sometimes he is on the roof counting pigeons, and I am here explaining why they are not my cousins.
+    Coulomba Tezla: No. Sometimes he is on the roof counting pigeons, and I am here explaining why they are not my cousins.
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: I never said they were.
+    Nicholas Tezla: I never said they were.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: You made a family tree.
+    Coulomba Tezla: You made a family tree.
 -> I'll leave you to your work.
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: Thank you. The fourth count can wait.
+    Nicholas Tezla: Thank you. Coulomba, where did you put the town plan?
 ===
 
 title: eureka_coulomba
 ---
-Coulomba Tesseract: Come in. The crackling is normal. If you smell smoke, please tell Dmitri before you tell Nikobolt.
+Coulomba Tezla: Come in. The crackling is normal. If you smell smoke, please tell Dmitri before you tell Nicholas.
 <<command "conversation.join" "npc_science_nikobolt">>
 <<present_speaker "npc_science_nikobolt">>
-Nikobolt Tesseract: I can smell smoke.
+Nicholas Tezla: I can smell smoke.
 <<present_speaker "npc_science_coulomba">>
-Coulomba Tesseract: You call it "evidence of progress."
+Coulomba Tezla: Then turn that one off, please.
 -> Does he ever leave the laboratory?
-    Coulomba Tesseract: We walk through the quad every evening. He stops to examine the lamps. I stop to see the people beneath them.
+    Coulomba Tezla: We walk through the quad in the evenings. We've been trying to get Wilbur to let us replace the lamp by his shed.
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: One of those lamps has a loose contact.
+    Nicholas Tezla: One of those lamps has a loose contact.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: Yes, dear. We have enjoyed that walk for six weeks.
+    Coulomba Tezla: Yes, I know. He says if you dig up his flowers he'll throw the lamp into the duck pond.
 -> How did you meet?
-    Coulomba Tesseract: He was demonstrating a lamp that needed no wire. Everyone watched the light. I asked what happened when the power went out.
+    Coulomba Tezla: He was demonstrating a lamp that needed no wire. He'd left out the switch. I asked how we were supposed to turn the thing off.
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: She was the only person who asked about the switch.
+    Nicholas Tezla: She was the only person who asked about the switch.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: He went home and built one. We have been arguing about switches ever since.
+    Coulomba Tezla: He came round the next day with a working switch and a drawing of an even bigger lamp.
 -> Are the pigeons outside your family?
-    Coulomba Tesseract: I am a pigeon. That does not make every pigeon in town my relation.
+    Coulomba Tezla: I am a pigeon. That does not make every pigeon in town my relation.
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: We have no proof either way.
+    Nicholas Tezla: We have no proof either way.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: We also have no reason to collect feathers for your proposed test.
+    Coulomba Tezla: We also have no reason to collect feathers for your proposed test.
 -> Can I touch the coils?
-    Coulomba Tesseract: I would not. We have a perfectly good conversation that does not require you to become part of the circuit.
+    Coulomba Tezla: Wait until I've turned the power off.
     <<present_speaker "npc_science_nikobolt">>
-    Nikobolt Tesseract: The coils are insulated.
+    Nicholas Tezla: The coils are insulated.
     <<present_speaker "npc_science_coulomba">>
-    Coulomba Tesseract: Since Tuesday.
+    Coulomba Tezla: Since Tuesday.
 -> Good to meet you both.
-    Coulomba Tesseract: Come by again. Perhaps we will have finished the lamp for the street.
+    Coulomba Tezla: Come by again. Perhaps we will have finished the lamp for the street.
 ===
 
 title: eureka_wilbur
 ---
 Wilbur: Mind the grass. I keep it. It does not keep itself, whatever the physicists tell you.
 -> Have you worked here long?
-    Wilbur: Forty years on this quad. Three deans, two fires, one theory of everything. The grass outlasted all of them.
+    Wilbur: Forty years on this quad. Three deans, two fires, one theory of everything. The second dean was the one who let them put a cable under my lawn.
 -> Do the other pigeons bother you?
     Wilbur: Do not start. They are not my relatives. They are not anyone's relatives. They eat crumbs off the lecture steps and look at me like I owe them.
 -> What do you think of the elevator?
-    Wilbur: A long rope to the sky. Lovely. Somebody has to sweep under it.
+    Wilbur: They promised me a little cart when they built it. I've asked every year.
 -> I will mind the grass.
 ===
 
@@ -163,9 +164,9 @@ Mina: Coffee, soup, or a chair. The chair is free if you buy something.
     Mina: Everybody on campus. Students in the morning, professors at noon, the lab crew when something has caught fire.
     Mina: Physics owes me eleven coffees. Chemistry pays in cash. Biology brings its own cups, which I respect.
 -> What is the soup?
-    Mina: Whatever came down on the elevator. Today it is lentils from the station. They sent it frozen and it arrived annoyed.
+    Mina: Whatever came down on the elevator. Today it is lentils from the station. There was supposed to be spinach, but they needed the cold box for a lab shipment.
 -> Do people from the station come down?
-    Mina: On weekends. They sit by the window and stare at the sky like it might fall on them. It is lovely, honestly.
+    Mina: On weekends. They ask for the table by the window. I keep it free until the elevator comes down.
 -> Just looking.
 ===
 

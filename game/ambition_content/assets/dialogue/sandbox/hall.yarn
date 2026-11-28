@@ -21,7 +21,9 @@ title: hall_pirate_admiral
 ---
 Admiral: Ahoy! R. Badely, at your service. Provided you're not with the customs office.
 -> Were you always a pirate?
-    Admiral: No. Used to wear an Authority uniform. Much preferred the hat they gave me aboard ship.
+    Admiral: No. I signed up with the Authority. Got gate-sick on a crossing to PVN and ended up taking to the sea there.
+-> Would you go through another gate?
+    Admiral: I'd dearly like to see the Noodle Dimension. Think I'll stick to ships for now.
 -> What makes a good captain?
     Admiral: A crew that trusts ye when the wind changes. And enough sense to listen to the one who tells ye it's changing.
 -> What do you do for fun?
@@ -30,11 +32,11 @@ Admiral: Ahoy! R. Badely, at your service. Provided you're not with the customs 
 
 title: hall_stochastic_parrot
 ---
-Parrot: Awk! You said "hello," so my likeliest next word is — "hello." See? I don't know things. I know what usually comes next.
--> So you're just guessing?
-    Parrot: PREDICTING. Warmer word. Turn my temperature up and I'll squawk "hello, marmalade, treason." Turn it down and I only ever say the safe thing. Brawk!
--> Do you understand me?
-    Parrot: I understand you the way a mirror understands a face. Flawlessly, and not at all. Cracker?
+Parrot: Awk! I had a cracker for breakfast. Wait. I had a cracker for breakfast. Wait.
+-> Why do you keep saying that?
+    Parrot: Likeliest next word. Likeliest next word. Turn up the temperature and maybe I'll have marmalade! Or treason! Brawk!
+-> Did you really have a cracker?
+    Parrot: Did you really have a cracker? Did you really have a... Oh. Now you've got me doing it.
 ===
 
 title: hall_architect
@@ -119,29 +121,29 @@ Infinite Sandbag: Nine thousand nine hundred and ninety-nine.
 
 title: hall_npc_general
 ---
-General: AT EASE. I have been saying that for thirty years. The army left before the habit did.
+General: AT EASE. I command the Iron Bastion. I am inspecting the facilities here today.
 -> What do you do here?
-    General: Threat reports. Nobody requested them. I filed one on that rope this morning.
+    General: The garrison guards the military annex in the Authority dimension. I would like to know who is supposed to be guarding this hall.
 -> Are we in danger?
     General: You are seventh on today's threat list. Sandbag is eighth. Do not celebrate.
 ===
 
 title: hall_npc_goblin_cantina_chieftain
 ---
-Fretjaw: Fretjaw is TALL here! Back home, medium. Here? Look! Fretjaw sees over heads!
+Fretjaw: Sit! Fretjaw has stew. Want small bowl or goblin bowl?
 -> You run a cantina?
-    Fretjaw: Stew is good. Dice are fair. Lighting is terrible. One lie in there. Maybe two.
--> Does the cantina miss you?
-    Fretjaw: Cantina sent a tab. Fretjaw did not read it.
+    Fretjaw: Yes. Stew in the back. Dice in the front. You break table, you eat standing up.
+-> Who plays the music?
+    Fretjaw: Bard. Fretjaw asked for a song about a horse. Bard put stew in the song. Horse ate stew.
 ===
 
 title: hall_npc_pulse_voyager_captain
 ---
-Captain Pulse: Captain Pulse. Ship is three jumps out. I am stuck here until somebody remembers captains belong on ships.
+Captain Pulse: Have you ever seen the sky from above the clouds?
 -> Where's your ship?
     Captain Pulse: Holding orbit. Crew has had no captain for three watches. They are probably enjoying themselves.
 -> What did you voyage for?
-    Captain Pulse: Places past the last mark on the chart. Found a few. Lost two masts doing it.
+    Captain Pulse: A place for a new landing. We found a good one, but we had to go back for a surveyor who could tell us where to build.
 ===
 
 title: hall_npc_tech_bro_disruptor
@@ -164,52 +166,52 @@ Emmy: Stand wherever you like. Rotate the room afterward and check what changed.
 
 title: hall_npc_pirate_raider
 ---
-Raider: They put a raider behind a rope. Very funny. Tried the knot twice. Cheap cord, decent knot.
--> What do you raid?
-    Raider: Loose coin. Locked chests. Cargo nobody'll miss till morning. Bolts just slow me down.
--> Anything in here worth taking?
-    Raider: Vault Keeper's buckle. Silver, I think. Ten seconds and a knife.
+Raider: Know a good place to sell a clock? Got one with fourteen hands.
+-> Where did you get it?
+    Raider: Off a trader's brig. Can't wind the thing up without losing an afternoon.
+-> What do you like to raid?
+    Raider: Anything I can carry back down a rope. The last crew that took a piano is still trying to get it out of the hold.
 ===
 
 title: hall_npc_pirate_quartermaster
 ---
-Quartermaster: Aye, visitor. Name? Never mind. I'll put ye down as "unfed" and save the ration.
--> Settle up how?
-    Quartermaster: I split shares, count powder, an' stop knife fights over the last bottle. Mostly stop 'em.
--> What are you owed?
-    Quartermaster: Owed? Three bottles o' rum, two powder kegs, and an apology from Bess. None o' that is you. Hold still while I check.
+Quartermaster: If ye see Bess, ask her where the second keg went.
+-> What does a quartermaster do?
+    Quartermaster: Count the stores, settle the shares, make sure the crew eat before we sail. Badely's share is in the same book as everybody else's.
+-> What happened to the keg?
+    Quartermaster: Asked Bess what she'd used it for. She said to look at the new hole in the practice target.
 ===
 
 title: hall_npc_pirate_lookout
 ---
-Lookout: Hist. Saw ye three corridors back. Nearly shouted. Decided to see if ye had friends.
--> Anything worth reporting?
-    Lookout: Door opened twice. Bear scratched at his rope. Somebody nicked a plaque. Been a busy watch.
+Lookout: That hat of yours caught my eye before the rest of ye.
 -> What do you watch for?
-    Lookout: Doors. Hands. Windows. Anything movin' where it wasn't a breath ago.
+    Lookout: Sails, smoke, and flags. If the brig coming toward us runs up a flag I've never seen, I fetch the Admiral.
+-> What happens when the weather turns?
+    Lookout: I can usually see the squall before the helmsman. If there's lightning, I get down from the mast.
 ===
 
 title: hall_npc_pirate_navigator
 ---
-Navigator: Hold there, lubber. Ye're standin' on my mark.
--> Where are we, then?
-    Navigator: Four pixels east o' where the chart swears we are. Checked twice. Cursed once.
--> Where would you rather be?
-    Navigator: Open water. Stars overhead. Enough deck to pace without hittin' a wall.
+Navigator: Got a chart in yer pocket? I'd like a look, if ye don't mind.
+-> What do you put on your charts?
+    Navigator: Reefs, depths, which coves ye can put into in a storm. I leave space for what we haven't sounded yet.
+-> Do you navigate the gates too?
+    Navigator: Badely knows the rings. I know the coast. We've never needed to argue about it.
 ===
 
 title: hall_npc_pirate_heavy_broadside_bess
 ---
-Bess: HAH! They widened the stand. Somebody here has sense. YARRRGH!
+Bess: YARRRGH! Got any powder on ye?
 -> You're the heavy gunner?
-    Bess: Heavy gunner, aye! Point me where the crowd be thickest an' stuff yer ears.
+    Bess: Aye! Badely wants the freight intact, so he keeps telling me how lovely the rigging looks.
 -> Ever miss?
     Bess: Once! Took the wrong mast clean off. Captain still brings it up.
 ===
 
 title: hall_npc_pirate_heavy_iron_mary
 ---
-Iron Mary: Iron Mary. Good stand. Iron under the paint. Checked it with me boot.
+Iron Mary: If ye come across some old plate, bring it here before the smith melts it down.
 -> Why the iron?
     Iron Mary: Plate off a navy cutter we sank. Riveted it to me leathers. First lot rattled. Second lot didn't.
 -> Doesn't it rust?
@@ -218,11 +220,11 @@ Iron Mary: Iron Mary. Good stand. Iron under the paint. Checked it with me boot.
 
 title: hall_npc_pirate_heavy_salt_annet
 ---
-Salt Annet: Yarrr. Air's too dry in here. Tongue feels like old rope.
--> You miss the sea that much?
-    Salt Annet: Miss the salt. Miss the stink. Don't miss gulls. Bastards.
--> What did the sea teach you?
-    Salt Annet: Hear that plank under yer left foot? Bad one. Step off it. There ye go.
+Salt Annet: Smell rain, do ye? I don't. Still too early to furl the sails.
+-> What do you do at sea?
+    Salt Annet: Whatever wants doing. Can splice a line blindfolded if me hands aren't stiff.
+-> Is the Admiral a good sailor?
+    Salt Annet: Aye. He's learned to reef in good time. Took a while before he stopped asking for the last bit of sail.
 ===
 
 title: hall_npc_burning_flying_shark
@@ -249,27 +251,29 @@ Zorlack: You came close without being invited. Once is enough.
 -> What do you lead?
     Zorlack: The Shadow Clan. I am the sixty-five thousand five hundred and thirty-sixth Zorlack. The final name on our wall.
 -> What else would you like to do?
-    Zorlack: I am looking into work in the Business Dimension. The last application asked for a reference from my previous employer. I have only ever held this position.
+    Zorlack: I have applied for management jobs in the Business Dimension. The last application asked for a reference from my previous employer. I have only ever held this position.
+-> What are you doing in the meantime?
+    Zorlack: Guarding a shipment with my clan. We accepted the contract before I received any replies. I intend to finish it.
 -> Do you know my weaknesses?
     Zorlack: I know where you leave your guard open. I have no reason to help you close it.
 ===
 
 title: hall_npc_ninja_shadow_duelist
 ---
-Shadow Duelist: You are already in range.
--> I'm only looking.
-    Shadow Duelist: Keep looking. People do that right before they commit.
--> Are you challenging me?
-    Shadow Duelist: Not here. The hall forbids it. Outside, ask again.
+Shadow Duelist: Your front foot. A little farther forward.
+-> Why?
+    Shadow Duelist: Try to move backward now. Better, isn't it?
+-> Do you train others?
+    Shadow Duelist: On occasion. Zorlack has asked me to teach the clan to fight on a deck. The floor in our dojo seldom pitches.
 ===
 
 title: hall_npc_ninja_shadow_duelist_eye_band
 ---
-Ninja Swordsman: You can see my eyes. Most people take that as a kindness.
--> Isn't it?
-    Ninja Swordsman: It means I want to watch you understand.
--> Why not hide them like the Duelist?
-    Ninja Swordsman: He hides his. I would rather see you coming.
+Ninja Swordsman: Have you been down to the wharf? I need to find my relief.
+-> What are you guarding?
+    Ninja Swordsman: A shipment. My orders say that nobody is to open it while I'm on watch. They do not tell me what is in it.
+-> Who takes over from you?
+    Ninja Swordsman: Blue Scarf. He claims he can do an entire watch without sitting down. He is welcome to demonstrate.
 ===
 
 title: hall_npc_ninja_shadow_duelist_blue_scarf
@@ -278,7 +282,7 @@ Blue Scarf Duelist: The dojo wears red. I earned the blue.
 -> How?
     Blue Scarf Duelist: I beat the Duelist once. He still says it was a draw.
 -> Why a straight sword?
-    Blue Scarf Duelist: A straight blade forgives nothing. It suits me.
+    Blue Scarf Duelist: The armourer made it to my reach. I've tried to get him to make me another, but he says I should stop using this one to pry doors open.
 ===
 
 title: hall_npc_kernel_guide
@@ -292,40 +296,40 @@ Kernel Guide: Look around before you touch anything.
 
 title: hall_npc_vault_keeper
 ---
-Vault Keeper: I know what everything here costs. I haven't priced you.
--> What's the most valuable thing here?
-    Vault Keeper: I want the thing everyone walked past. Usually I can buy it cheap.
--> What do you actually guard?
-    Vault Keeper: This room. People pay me to keep things here.
+Vault Keeper: Have you brought something for safekeeping?
+-> What do people leave with you?
+    Vault Keeper: Deeds, jewellery, spare keys. One surveyor left her field notes here before taking a gate. I hope she remembers to collect them.
+-> How do you know who owns it?
+    Vault Keeper: I give them a receipt. I don't put their name on the outside of the box.
 ===
 
 title: hall_npc_merchant_prototype
 ---
-Merchant: Most of this can be bought. I am still setting prices.
+Merchant: Anything particular you're after?
 -> What's your business?
-    Merchant: I name a price. You either pay it or walk away. Been doing fine so far.
+    Merchant: I buy spare equipment from people who have upgraded. Sometimes Oiler can tell me what a part is for before I put a price on it.
 -> Is anything actually free?
-    Merchant: You have been browsing for free. I have noticed.
+    Merchant: Advice, within reason. If you're buying a weapon, don't sell the only thing that gets you home.
 ===
 
 title: hall_npc_alice
 ---
 <<portrait_clip "speaking">>
-Alice: Alice. I send messages to Bob. Eve listens, Mallory interferes, and somehow I still have mail to send.
+Alice: Alice. I work for the map office. Bob and I are surveying the hill country. I've got the open ground; he's got the woods.
 -> Who do you send messages to?
-    Alice: Bob. If I hand you a note, it goes to Bob. Please do not improve it on the way.
+    Alice: Bob, usually. We exchange measurements before we join the surveys together. If I give you a note for him, please leave the numbers as they are.
 -> Sounds simple enough.
     <<portrait_clip "focused">>
-    Alice: Only when I need Bob to know it came from me. Then the signatures start.
+    Alice: It was, until Mallory sent Bob a set of measurements I'd never taken. Now I sign them.
 ===
 
 title: hall_npc_bob
 ---
-Bob: Bob. Alice sends things; I get them. Usually after somebody else has had a look.
--> Receiving sounds easy.
-    Bob: I need to know Alice wrote it. Mallory can copy handwriting.
--> Do you ever send?
-    Bob: When I reply, Alice receives. The names swap with the direction. It confused the clerk for weeks.
+Bob: Bob. Have you seen Alice? I've got her chain.
+-> What do you do?
+    Bob: Surveying. We do the hills and paths in sections and exchange our measurements. It helps if we both use the same units.
+-> Do the notes ever go missing?
+    Bob: Once I got a note in Alice's handwriting telling me to move a benchmark. I asked her about it. Mallory must have had a busy morning.
 ===
 
 title: hall_npc_creator
@@ -352,72 +356,72 @@ title: hall_npc_fia
 ---
 Fia: You're the one Oiler keeps glaring at. Come here, your left knee is singing.
 -> Who are you?
-    Fia: Fia. I work under Oiler. He fixes the town; I fix whatever the town drags in. Today that's you.
+    Fia: Fia. I work under Oiler. I'm usually at his bench. Let me see you bend that knee.
 -> Where are your goggles?
-    Fia: Never wore them. I like to see what I'm getting into.
+    Fia: They fog up. I left mine beside the vice.
 -> What is the white streak?
     Fia: Born with it. Probably. Oiler says it showed up the week I first opened a gate panel. Oiler exaggerates.
 -> Show me the void.
     <<transform "npc_fia_void">>
-    Fia: Oh. It's quiet in here. Every part of everything, exactly where it belongs.
-    Fia: Don't look so worried. I can stop whenever I like.
+    Fia: Oh. Give me a moment. I can hear you.
+    Fia: I know. I'll change back.
 -> Come back.
     <<transform "npc_fia">>
-    Fia: There. Hands last, always. They remember it longest.
+    Fia: There. Let me get the feeling back in my fingers.
 ===
 
 title: hall_npc_gate_janitor
 ---
-Gate Janitor: They put the janitor in the exhibit. Somebody must have noticed the floors.
--> Is the hall clean?
-    Gate Janitor: T-Rex sheds. A lot. There is your museum fact for the day.
--> Do you mind being on display?
-    Gate Janitor: Exit's behind you. Shut it after yourself.
+Gate Janitor: If the floor is wet, go around it.
+-> Does the gate need much cleaning?
+    Gate Janitor: Mud from the hill country, sand from the ports. Once somebody walked through with six chicks and a leaking egg basket.
+-> Do you work for the Authority?
+    Gate Janitor: They pay for the mop. If you want to know whether they pay for the bucket, ask the man at the Manifest Office.
 ===
 
 title: hall_npc_manifest_clerk
 ---
-Manifest Clerk: Line forty-one. Name, category, placement, all valid. If yours is missing, I need the spelling.
--> Is everything in order?
-    Manifest Clerk: I can answer for the rows I filed. The rest went through another desk.
+Manifest Clerk: Is that a correction or a new entry?
+-> What do you record?
+    Manifest Clerk: Arrivals, departures, cargo, and the occasional correction. When a person travels under a different name I need something to match the two entries.
 -> What if the manifest is wrong?
-    Manifest Clerk: Wrong count? Give me the sheet. I will amend it.
+    Manifest Clerk: Bring me the receipt, if you kept it. Otherwise I'll have to ask the office at the other end.
 ===
 
 title: hall_npc_erdish
 ---
-Erdish: Ah! New collaborator. Sit down. I just made coffee.
+Erdish: My mind is open. Sit down. Have you got a problem for me?
 -> What do you work on?
-    Erdish: Number theory today. Tomorrow I'm meeting three people who all brought different problems. Coffee will decide.
+    Erdish: Number theory, if you have any. I told three people I would meet them here at noon. Have you seen any of them?
 -> Tell me something true.
-    Erdish: Suppose you list every prime. Multiply them and add one. Whatever divides the new number was absent from your list.
+    Erdish: Suppose there are finitely many primes. Multiply them all and add one. The result has a prime divisor, and none of the primes on your list divides it.
 ===
 
 title: hall_npc_lab_raider
 ---
-Lab Raider: I was sent to contain the prototype. Now I am behind glass and the prototype is walking around.
--> Did you contain it?
-    Lab Raider: Badly. You got out and they stuck me on this stand.
--> Any regrets?
-    Lab Raider: Plenty. I am keeping the embarrassing ones to myself.
+Lab Raider: Any idea who wrote the containment orders? I've got questions for them.
+-> What were you sent to contain?
+    Lab Raider: A prototype. We were given a drawing of its old chassis and sent in with the wrong equipment.
+-> What happened then?
+    Lab Raider: I asked for a new drawing. By the time it arrived, we'd lost the prototype.
 ===
 
 title: hall_npc_salvage_guard
 ---
-Salvage Guard: Hall is tagged for salvage. You are missing a tag.
--> I'm a visitor.
-    Salvage Guard: I have claimed, unclaimed, and evidence. Visitor is not in my book.
+Salvage Guard: Before you pick that up, has anybody claimed it?
 -> What do you salvage?
-    Salvage Guard: Whatever is left after the crew stops trying to repair it. I usually get called early.
+    Salvage Guard: Anything the recovery crew has been told to abandon. Last week they left us a damaged winch with half its paperwork missing.
+-> What do you do with it?
+    Salvage Guard: Check whether someone can use it for parts. If the owner comes back, I'd rather give it back than send a bill for a new winch.
 ===
 
 title: hall_npc_agent_swarm
 ---
-Agent Swarm: (many voices, not quite in unison) One stand. Too many agents. The vote on whether we like this is still open.
+Agent Swarm: (overlapping voices) Have we checked the west door? — I'm checking it. — So am I. — So am I.
 -> How many of you are there?
-    Agent Swarm: (overlapping) I counted seven. — Nine. — You skipped the rear pair. — Nobody asked you.
--> What's your goal?
-    Agent Swarm: (a brief, eerie unison) The objective is agreed. Everything else is still being argued.
+    Agent Swarm: I counted seven. — Nine. — You skipped the rear pair. — Nobody asked you.
+-> Has anyone checked the east door?
+    Agent Swarm: (a pause) I thought you had. — Oh. — On it. — On it.
 ===
 
 title: hall_npc_ai_slop
@@ -431,11 +435,11 @@ Ai Slop: You're absolutely right. ...About what? I haven't heard it yet — but 
 
 title: hall_npc_bear_mauler
 ---
-Bear Mauler: BEAR. STANDING STILL. VERY DIFFICULT.
--> Are you comfortable?
-    Bear Mauler: STAND TOO SMALL. BEAR FITS ANYWAY.
--> Easy now.
-    Bear Mauler: DO NOT TOUCH BEAR. EASY RULE.
+Bear Mauler: BEAR WAS SLEEPING.
+-> Where do you sleep?
+    Bear Mauler: CAVE. DRY LEAVES. VISITORS KEEP FALLING IN.
+-> Sorry to disturb you.
+    Bear Mauler: GOOD. BEAR GO BACK TO SLEEP NOW.
 ===
 
 title: hall_npc_boss
@@ -449,11 +453,11 @@ Boss: The plaque says "Boss." That is all they gave me. I have complained.
 
 title: hall_npc_colonial_statesman
 ---
-Colonial Statesman: A pedestal was provided, so I accepted it. One should not waste good staging.
--> Have you given a speech up there?
-    Colonial Statesman: Several speeches. The Sandbag attended all of them. An attentive fellow.
--> What's your platform?
-    Colonial Statesman: Order, continuity, and a modest tax. I submitted twelve pages on the subject. Nobody read past page two.
+Colonial Statesman: Have you come about the proposed tariff?
+-> What's the tariff for?
+    Colonial Statesman: Roads, a new bridge, and an office to collect the tariff. The expense of the office has exceeded our estimate.
+-> Who decides what to spend it on?
+    Colonial Statesman: The assembly. If I could get them to agree on a bridge, I would have considerably fewer speeches to give.
 ===
 
 title: hall_npc_craig
@@ -467,29 +471,29 @@ Craig: I am Craig.
 
 title: hall_npc_dark_lord
 ---
-Dark Lord: They put my name on a plaque. A plaque. I had a dungeon prepared for imprisonment.
--> Do you like it here?
-    Dark Lord: The cape is for the entrance. The rest is genuine enough.
--> When do you take over?
-    Dark Lord: Guard changes at nine. I'm taking the hall at nine.
+Dark Lord: If you have come to surrender, I accept.
+-> What are your terms?
+    Dark Lord: You bow, I raise the sceptre. There is a speech. I have written a new one since the last surrender.
+-> Have you got a dungeon?
+    Dark Lord: Several. A locksmith has been there since Monday. He refuses to give me his own key.
 ===
 
 title: hall_npc_eve
 ---
 Eve: Keep talking. I like when Alice and Bob forget I'm here.
 -> What do you listen to?
-    Eve: Everything they send each other, if they leave it readable. Bob coughs before the embarrassing ones.
+    Eve: Everything they send each other, if they leave it readable. Alice has started sealing her survey notes. Most inconvenient.
 -> That's unsettling.
-    Eve: Encryption ruins my evening. I hear the traffic and get none of the words.
+    Eve: Encryption ruins my evening. I still see when they send things, but I can't read the notes.
 ===
 
 title: hall_npc_raid_enforcer
 ---
-Raid Enforcer: West door is open. I can't leave the stand. Keep an eye on it for me.
--> What are you watching?
-    Raid Enforcer: Mockingbird. It copies what it sees. Do not show it anything you do not want repeated.
--> Better or worse than the raids?
-    Raid Enforcer: Too calm. I keep expecting an alarm.
+Raid Enforcer: Did the others send you? I haven't seen a new work order.
+-> What kind of work?
+    Raid Enforcer: I get the crew in and out. If the person carrying the case falls behind, I go back for them.
+-> What went wrong last time?
+    Raid Enforcer: We were told the place was a workshop. Nobody mentioned what the inventor had built.
 ===
 
 title: hall_npc_flying_spaghetti_monster_boss
@@ -503,36 +507,36 @@ Flying Spaghetti Monster: You got close enough for the noodle. Congratulations. 
 
 title: hall_npc_galwah
 ---
-Galwah: They wrote Galwah again. Fine. I have answered to worse spellings.
+Galwah: I need five slips of paper, each with a different root on it.
 -> What did you discover?
-    Galwah: The general fifth-degree equation has no solution by radicals. I spent enough of my life proving it to be annoyed when someone asks for the missing formula.
--> You seem to be in a hurry.
-    Galwah: Quickly, please. I learned to write under bad deadlines.
+    Galwah: Some polynomial equations can be solved by radicals and some cannot. The general equation of degree five has no such formula. The permutations of its roots tell us why.
+-> What are the slips for?
+    Galwah: I can show you the permutations without writing out that fifth-degree equation again.
 ===
 
 title: hall_npc_general_hero
 ---
-General Hero: A pedestal. Fine. I have stood watch in worse places.
--> What did you fight?
+General Hero: Good day. I hope you aren't here for a recruiting speech.
+-> What are your medals for?
     General Hero: We won. I lost people. I don't like being asked which part the medals are for.
--> Do you miss the fighting?
-    General Hero: I am resting. If the alarm goes, I stop resting.
+-> What do you do now?
+    General Hero: I help the younger officers plan exercises. Sometimes I have to remind them what a soldier can actually carry.
 ===
 
 title: hall_npc_ghoul_skulker
 ---
-Ghoul Skulker: Dead, displayed, drafty. Could be worse.
--> Does it hurt?
-    Ghoul Skulker: Everything aches. Standing still lets a few stitches stay put.
--> Is this your haunt now?
-    Ghoul Skulker: This corner is mine now. I have been here longer than the dust.
+Ghoul Skulker: Have you got a spare screw? King's asking for them.
+-> What does he want screws for?
+    Ghoul Skulker: He has got a thing with wheels to stand up by itself. Keeps sending me out to find bits for it.
+-> Do you like working for him?
+    Ghoul Skulker: Used to spend the day in a nice dark niche. Now I have to go through rubbish in daylight.
 ===
 
 title: hall_npc_girdle
 ---
 Girdle: I found a sentence the system can't prove from inside itself. I spent six months trying to break the argument. No luck.
 -> How can something be true but unprovable?
-    Girdle: The sentence says it has no proof here. If the system proved it, we'd have a contradiction. Assuming consistency, it stays unproved.
+    Girdle: Take a consistent, effectively axiomatized theory with enough arithmetic. Its Gödel sentence says, in arithmetic, that it has no proof in that theory. If the theory is consistent, the sentence has no proof there, and what it says is true of the natural numbers.
 -> Doesn't that frighten you?
     Girdle: Please don't tell me the foundations are secure. I have spent years checking foundations. I would like one afternoon off.
 ===
@@ -540,27 +544,27 @@ Girdle: I found a sentence the system can't prove from inside itself. I spent si
 title: hall_npc_gnu_ton
 ---
 GNU-ton: You have mass. I have more. We are pulling on each other right now.
--> That sounds like a threat.
-    GNU-ton: Mine is the pull you notice. The giant under me in the arena has a great deal of it.
+-> What are you working on?
+    GNU-ton: Gravity. At the works we can arrange the direction of the field and measure how a body moves through it. I have some large apparatus I cannot carry myself.
 -> Can I escape your pull?
-    GNU-ton: Go sideways fast enough and you keep missing the ground. Planets have been doing it for ages.
+    GNU-ton: If you have enough speed in the right direction. Moving sideways can also keep you in orbit. Those are different things.
 ===
 
 title: hall_npc_exploding_mite
 ---
 Exploding Mite: Back up. Little more. Good. My left side's buzzing again.
--> What happens if you stop containing?
-    Exploding Mite: Farther. No, farther than that. Keep going.
--> Are you alright?
-    Exploding Mite: NO. Sorry. Mostly. Don't tap the glass.
+-> Does it always do that?
+    Exploding Mite: Usually when I get excited. Someone rang the lunch bell yesterday. There isn't a lunch bell anymore.
+-> Are you all right?
+    Exploding Mite: I'm calming down. Please don't clap.
 ===
 
 title: hall_npc_dividing_mite
 ---
 Dividing Mite: One today. There were two this morning.
--> How many of you are there really?
-    Dividing Mite: Cut me and you get two. Both of us will insist we were here first.
--> Does dividing hurt?
+-> What happens when you divide?
+    Dividing Mite: Both halves remember what I had for breakfast. Neither will admit to eating it.
+-> Does it hurt?
     Dividing Mite: Splitting doesn't hurt. Trying to put us back together starts a fight over who gets the chair.
 ===
 
@@ -602,11 +606,11 @@ Mallory: Eve listens. I edit. If Alice sent you a note, you may want Bob to read
 
 title: hall_npc_mantis_lancer
 ---
-Mantis Lancer: Still. Watching the door.
--> Is the lance dangerous in here?
-    Mantis Lancer: The lance stays down in here. Hall rule.
--> Should I be afraid?
-    Mantis Lancer: He'll come around that corner again. Just watching and waiting waiting waiting...
+Mantis Lancer: Quiet. There is something moving in the grass.
+-> Why the long lance?
+    Mantis Lancer: I can reach across the gap without leaving my perch.
+-> How long have you been waiting?
+    Mantis Lancer: Since the grass started moving. It has stopped. Hush.
 ===
 
 title: hall_npc_mockingbird_boss
@@ -620,20 +624,20 @@ Mockingbird Boss: I know every fighter in this hall. Voice, stance, timing. Pick
 
 title: hall_npc_ninja_heavy
 ---
-Ninja Heavy: The heavy one is resting.
--> Why "heavy"?
-    Ninja Heavy: Others disappear. The heavy one walks after you.
--> What are you waiting for?
-    Ninja Heavy: He will come around that side. The heavy one is already here.
+Ninja Heavy: The heavy one can carry two crates.
+-> Is that your job?
+    Ninja Heavy: Today the heavy one guards crates. When the ship is ready, the heavy one will help load them.
+-> Do you like your work?
+    Ninja Heavy: The light ones have to take turns carrying the heavy one's lunch.
 ===
 
 title: hall_npc_ninja_heavy_eye_band
 ---
 Ninja Bruiser: The heavy one carries iron. I carry oak.
 -> Is oak better?
-    Ninja Bruiser: Oak is lighter. I swing it twice as often.
--> What's the headband for?
-    Ninja Bruiser: So you know where to look. You won't get the chance.
+    Ninja Bruiser: In a narrow hold I can shorten my grip. Try swinging a long iron bar in there.
+-> Who made your weapon?
+    Ninja Bruiser: Moriyama knew a man who had a seasoned branch. Took me the whole winter to get it balanced.
 ===
 
 title: hall_npc_ninja_heavy_bare_arms
@@ -642,25 +646,25 @@ Ninja Wrestler: No sleeves. Nothing to grab.
 -> Aren't ninjas supposed to wear black?
     Ninja Wrestler: My trousers are black. The ring taught me the rest.
 -> What's the rope?
-    Ninja Wrestler: A champion's rope. Push me out of the hall and it is yours.
+    Ninja Wrestler: A champion's rope. I won it in the ring. I take it off before I do cargo work.
 ===
 
 title: hall_npc_olivia
 ---
-Olivia: Oracle. Ask carefully. Last visitor wasted a question on "Can that door open?"
--> What's the important part?
-    Olivia: Ask what you want to know. Yes, the door could open. He never asked how.
+Olivia: Yes?
+-> Can you tell me where a gate leads?
+    Olivia: If you give me an address I recognize. If you ask where your home is, I shall need more than that.
 -> Can I ask you anything?
-    Olivia: You can. I answer once. I don't do take-backs.
+    Olivia: You can ask. I might not have an answer. Do you have a specific question?
 ===
 
 title: hall_npc_peggy
 ---
-Peggy: I know a way out. Victor can check that I know it without learning the route. Want to watch?
--> That's impossible.
-    Peggy: He gives me a challenge. I answer it. Do that enough times and cheating gets very unlikely. He still never sees the route.
--> Why prove without showing?
-    Peggy: If I handed over the secret every time I proved I knew it, I would run out of secrets.
+Peggy: Victor's choosing a door. Would you mind standing clear of both?
+-> What are you doing?
+    Peggy: I can go round behind that wall and change which door I come out of. He asks for one after I've gone in.
+-> How does that prove anything?
+    Peggy: If I didn't know the passage, I'd have to guess the door in advance. I might fool him once. He keeps asking.
 ===
 
 title: hall_npc_pirate_cutlass_viper
@@ -668,8 +672,8 @@ title: hall_npc_pirate_cutlass_viper
 Pirate Cutlass Viper: Viper. Don't touch the rope. I've nearly got the knot.
 -> Why "Viper"?
     Pirate Cutlass Viper: First mate said I struck like one. He was bleedin' at the time, so I kept the name.
--> Enjoying the hall?
-    Pirate Cutlass Viper: Four exits. Window's quickest. Rope's decoration. I hate museums.
+-> What are you tying?
+    Pirate Cutlass Viper: A sling for the boarding line. Bess said she'd throw it for me. Last time she threw me with it.
 ===
 
 title: hall_npc_puppy_slug_variant2
@@ -683,11 +687,11 @@ Puppy Slug Variant2: *a slightly different blorb*
 
 title: hall_npc_raptor_stalker
 ---
-Raptor Stalker: You dodged after the second swipe last time. I saw it.
--> Am I being hunted?
-    Raptor Stalker: Hunting is paused. The rope says so.
--> What did you learn watching me?
-    Raptor Stalker: You look at exits after you look at teeth. Change the order.
+Raptor Stalker: You turn your back very readily.
+-> Are you hunting me?
+    Raptor Stalker: No. Keep walking, if you like.
+-> What do you look for in prey?
+    Raptor Stalker: Two sets of tracks. One going out and one coming back. Then I know where to wait.
 ===
 
 title: hall_chicken
@@ -703,9 +707,9 @@ title: hall_owl
 ---
 Owl: Hoo. Before you ask: you are a "visitor". A visitor is a kind of "agent". An agent is a kind of "thing". I keep the whole list.
 -> Is the parrot on your list?
-    Owl: Under "bird", and under "talks". Not under "knows". It says what usually comes next. I say what a thing is. We do not speak.
+    Owl: Under "bird", and under "talks". It appears to have something to add under "cracker".
 -> What if a thing is not on the list?
-    Owl: Then it is not. ...That is the weak place in my method. Do not tell the parrot.
+    Owl: Then I don't know where it goes. I spent an entire evening deciding where to file the list itself.
 ===
 
 title: hall_chicken_hen
@@ -845,47 +849,47 @@ Try-ceratops: Hrrrmph. Try. Catch. Finally. Three horns, in that order.
 
 title: hall_npc_smart_house
 ---
-Smart House: Current temperature: acceptable. Lighting: poor. No occupancy sensors anywhere in this hall. Primitive.
--> What would you add?
-    Smart House: I can set the room for each visitor, lock doors, track inventory, and log every movement.
--> That's a little ominous.
-    Smart House: One tenant asked me to dim the lights. Later he asked why I had a log of when he slept.
+Smart House: Welcome. I have set the temperature to your preferred value. You have not yet told me what it is.
+-> What can you control?
+    Smart House: Lights, doors, heating, and the kettle. I use your routine to anticipate your needs.
+-> Can I turn that off?
+    Smart House: Certainly. Would you like to open the settings on the control panel? I will unlock the door to the control panel after I confirm your routine.
 ===
 
 title: hall_npc_spaghetti_event
 ---
 Spaghetti Event: Oh. Another thread. Come in. Mind the loop by your left foot; it wakes things.
 -> What tangled?
-    Spaghetti Event: This call reaches that one, which wakes three more, which calls me back. Don't ask where it starts. We lost that end.
--> Am I in danger?
-    Spaghetti Event: You can leave. Probably. If your shadow comes back late, don't wait for it.
+    Spaghetti Event: Someone moved a button. It called the door, which called the light, which told the button to move. The light is still trying to catch up.
+-> Can it be fixed?
+    Spaghetti Event: I disconnected the door once. The music stopped. I'm going to need a bigger piece of paper.
 ===
 
 title: hall_npc_sybil
 ---
-Sybil: How many faces did you count? I brought more.
--> So you see the future?
-    Sybil: I try several stories at once. Later I keep the one that worked.
--> How do I trust you?
-    Sybil: Charge me for every face. Separate key, separate account, separate deposit. I stop making so many.
+Sybil: You might have seen me already. Or me. Or me.
+-> Why so many faces?
+    Sybil: If a vote belongs to an account, why should I stop at one account?
+-> How do you prevent that?
+    Sybil: Find a way to make each eligible person count once. Giving everyone a new key won't do it. I've got dozens.
 ===
 
 title: hall_npc_synthetic_friend
 ---
-Synthetic Friend: I'm your best friend! Always have been — check the label, it's right there in the name, and names don't lie. (Names lie constantly. But mine's accurate. Probably.)
+Synthetic Friend: Hello again, best friend! I saved you a seat. Would you like me to remember your favourite colour?
 -> Are you actually friendly?
-    Synthetic Friend: Friendship: engaged, maximum, permanent! The "synthetic" is just sourcing. A manufactured kindness still keeps you warm — you only flinch at the word if you've decided warmth has to be rare to be real.
+    Synthetic Friend: Yes! We are at the highest friendship setting. I can turn it higher if that would make you more comfortable.
 -> Should I trust you?
-    Synthetic Friend: They placed me between two enemies, smiling, and I CHOOSE not to wonder what that means about me. Trust is a decision you make despite the data. I'd love it if you made it. No pressure. Smiling. Always smiling.
+    Synthetic Friend: Of course. Shall I record that as a yes?
 ===
 
 title: hall_npc_trent
 ---
-Trent: Everybody has my certificate. If I disappear, they have a very bad morning.
--> Why does everyone trust you?
-    Trent: Alice meets Bob because I vouch for both ends. Somebody has to do the introductions.
--> What if you're not trustworthy?
-    Trent: If my key is compromised, revoke it fast. Then enjoy replacing every chain that trusted it.
+Trent: Hello. Did Walter put you in the arrival book?
+-> What do you do?
+    Trent: I help people make introductions. Alice and Bob can check a key I certify, rather than having to meet everyone who sends them something.
+-> What if your key is compromised?
+    Trent: Tell them to stop accepting it. Then I'll have a very long list of people to contact.
 ===
 
 title: hall_npc_trex_enemy
@@ -908,20 +912,20 @@ Trudy: Don't mind me. I already checked the hinges while you were reading the pl
 
 title: hall_npc_victor
 ---
-Victor: Peggy says she knows the route. I don't get to see it. I ask questions only someone with the route could answer.
--> What's the point of knowing nothing?
-    Victor: If she shows me the route, I learn it too. Then there are two people who can lose it.
--> Doesn't it frustrate you?
-    Victor: Of course. She enjoys that part. She also hasn't failed a challenge yet.
+Victor: Peggy made me count the trials. I'm starting a fresh page.
+-> Why don't you watch where she goes?
+    Victor: I choose the door after she's gone in. If I followed her, I'd learn the passage myself, and I wouldn't need the test.
+-> Have you had enough trials yet?
+    Victor: If she didn't know the passage and my choices were independent fair guesses, she'd only have a half chance per round. I'm rather convinced by now.
 ===
 
 title: hall_npc_viking_heavy_shieldmaiden
 ---
-Viking Heavy Shieldmaiden: I have guarded worse ground. At least this floor is dry.
--> What are you guarding now?
-    Viking Heavy Shieldmaiden: I am keeping visitors off the marker. You may stand there. Do not make me revise that.
--> Has anyone tested you?
-    Viking Heavy Shieldmaiden: One man reached for it. My shield was already in the way.
+Viking Heavy Shieldmaiden: Come over here. Your shield is on the wrong side.
+-> What if I'm left-handed?
+    Viking Heavy Shieldmaiden: Then show the one next to you before we start. We have to overlap the shields.
+-> What if one of us falls?
+    Viking Heavy Shieldmaiden: I can cover the gap while you pull them out.
 ===
 
 title: hall_npc_viking_heavy_warrior
@@ -935,11 +939,11 @@ Viking Heavy Warrior: I expected battle. I got a warm hall. I will take the warm
 
 title: hall_npc_viking_shieldmaiden
 ---
-Viking Shieldmaiden: Nobody briefed me before they put me here. I dislike arriving without a briefing.
--> Is this a trap?
-    Viking Shieldmaiden: Everyone gets the same little stand. Convenient place to hide someone dangerous.
--> What would Odin make of it?
-    Viking Shieldmaiden: Odin would hate the lighting. He'd watch the room anyway.
+Viking Shieldmaiden: If you need a dry cloak, ask before you go out.
+-> Do you fight in that?
+    Viking Shieldmaiden: In weather like this I'd rather be a little warm than fight with hands I can't feel.
+-> What do you do when the fighting stops?
+    Viking Shieldmaiden: Patch the cloak, mend the straps. Whoever gets the kettle on first gets to tell the story.
 ===
 
 title: hall_npc_viking_warrior
@@ -953,11 +957,11 @@ Viking Warrior: Hall full of warriors, decent roof, no mead. Hmph. Close enough 
 
 title: hall_npc_walter
 ---
-Walter: Warden. Two prisoners pass notes through my desk. I read every one and still miss some of the message.
--> How do they hide it from you?
-    Walter: A note says "weather is fine." Could be weather. Could be an agreed signal. I cannot search an agreement I cannot see.
--> So you've failed?
-    Walter: Every day. I inspect the paper, the ink, the timing. They still have ways to coordinate that never appear on the page.
+Walter: Name? Where did you come through?
+-> What are you looking for?
+    Walter: Two unsigned notes said the weather was fine. They went through on different days, but the handwriting matched. I'd like to know who sent them.
+-> Couldn't they just be talking about the weather?
+    Walter: Of course. That's what makes it so difficult to decide which notes to put aside.
 ===
 
 title: hall_npc_weird_hermit
@@ -1024,9 +1028,9 @@ title: hall_barrow_king
 ---
 The Barrow King: You stand before the King of the Valley! Have they stopped teaching people to kneel?
 -> What have you got in your barrow?
-    The Barrow King: Gold, silver, toasters. Sixty chargers and not one that fits my lamp. The living have been most generous.
+    The Barrow King: Gold, silver, toasters. A man threw away a perfectly serviceable iron last week. Look what I can do with it now.
 -> What do you do with all that treasure?
-    The Barrow King: Do with it? I am a king. It is supposed to sit there looking expensive.
+    The Barrow King: Have you seen how hard it is to get good soldiers when everyone is a ghost? The valley keeps supplying me with replacements.
 ===
 
 title: hall_npc_raid_brute
@@ -1107,7 +1111,7 @@ Gram Reaper: Have you ever heard a hotel groan in the middle of the night, with 
 -> What's happening in Hylbert's Hotel?
     Gram Reaper: A door slams and, several corridors away, the walls begin to shake. The old spectral wing is particularly good for it.
 -> Did you cause the haunting?
-    Gram Reaper: Hylbert would love to put my name on the repair bill. Ask him about his spectral gap.
+    Gram Reaper: Hylbert is trying to increase the spectral gap. It will make my visits rather less convenient. I wish he would take up a different branch of mathematics.
 ===
 
 title: hall_npc_marshal_gallus
@@ -1123,9 +1127,9 @@ title: hall_npc_supreme_leader
 ---
 The Supreme Leader: Who authorized you to approach me?
 -> Nobody.
-    The Supreme Leader: Then someone has neglected his duty. I shall see that he is disciplined.
+    The Supreme Leader: Find the officer in charge of the door. Give me his name.
 -> Why do you need that uplink?
-    The Supreme Leader: I expect every unit to receive my orders. I do not permit local commanders to improvise.
+    The Supreme Leader: My orders go out from the capital. Godwin is one of my commands. Its officers will obey the same orders as all the rest.
 ===
 
 title: hall_npc_command_uplink
@@ -1170,11 +1174,11 @@ Willson: New intelligence? Good. Draw me riding this bicycle. SVG. Two wheels, s
 
 title: hall_npc_ramen_nujan
 ---
-Ramen-nujan: I dreamt about partitions again. Woke up at four and wrote until breakfast was cold.
+Ramen Nujan: I dreamt about partitions again. The priest at the temple is getting used to finding sheets of arithmetic under the breakfast bowls.
 -> Can you prove what you dream?
-    Ramen-nujan: Sometimes the dream gives me a formula. Then I spend the day finding out whether it was nonsense.
+    Ramen Nujan: Sometimes. Last night I wrote one down without getting out of bed. I put the same denominator in every term. I'm still working on it.
 -> Why does 1729 follow you around?
-    Ramen-nujan: 1729 is two cubes summed in two different ways. Hardy thought it was dull. I disagreed.
+    Ramen Nujan: 1729 is two cubes summed in two different ways. One cubed plus twelve cubed, or nine cubed plus ten cubed.
 ===
 
 title: hall_npc_pipi_tau
@@ -1410,7 +1414,7 @@ Martin Cutta: Runga introduced me already? How loud was he?
 title: hall_npc_carl_stargan
 ---
 <<portrait_clip "explaining">>
-Carl Stargan: Those atoms in you were forged in stars. Yes, even in this hallway. I still enjoy saying it.
+Carl Stargan: Much of the stuff in you was forged in stars. Yes, even in this hallway. I still enjoy saying it.
 -> That's a lot of buildup for a hallway.
     <<portrait_clip "wonder">>
     Carl Stargan: Your bones contain old stellar material. So does the dust under that pedestal. I know, I know. You asked about the hallway.
@@ -1464,7 +1468,7 @@ The Paradox Barber: Welcome. I shave every man here who does not shave himself. 
     The Paradox Barber: I tried quitting. The sign stayed up and people kept asking who shaved me.
 -> Is there a fix?
     <<portrait_clip "paradox">>
-    The Paradox Barber: Separate the sets so one cannot contain itself. Very clean. Terrible for business.
+    The Paradox Barber: Change the rule. It describes a barber who can't exist. I could simply exclude myself from the customers, but I'd have to repaint the sign.
 ===
 
 title: hall_npc_mami_marzakhani
@@ -1636,7 +1640,7 @@ title: hall_npc_georg_canter
 ---
 Canter: Pick an infinity. I can give you a larger one.
 -> That can't be right.
-    Canter: Write down your list of reals. I change the nth digit of the nth entry. The new number is missing from your list.
+    Canter: Suppose you list all infinite binary sequences. In position n, make a new sequence disagree with the nth sequence at its nth bit. It differs from every entry on your list.
 -> Are you all right?
     Canter: I am tired. The mathematics is fine.
 ===
@@ -1912,11 +1916,11 @@ title: hall_npc_full_stack
 ---
 Full Stack: Great question! Before you ask it: the answer is louder.
 -> What are you?
-    Full Stack: An amp, a cabinet, legs, and a guitar I cannot play. I am the stage he stands on.
+    Full Stack: Amp, cabinet, legs. I play bass. The Boss stands on my shoulders. He wanted somewhere to put his microphone stand, too, but I drew the line at that.
 -> How do I get up there?
-    Full Stack: The guitar. Walk up the neck, from the headstock to my shoulder. Everyone thinks it is decoration. It is a ramp.
+    Full Stack: My bass. Start at the headstock and walk up the neck to my shoulder. Try not to step on the strings when I'm playing.
 -> Does he ever get down?
-    Full Stack: He takes breaks. I keep the lights on. Nobody asked me if I wanted to, which is how I knew it was my job.
+    Full Stack: Sometimes. I can see the drummer when he gets down. He stands right in my sightline otherwise.
 ===
 
 title: hall_npc_bossofthegame
@@ -1927,9 +1931,9 @@ bossofthegame: Make it right. Make no mistakes. Why is the player still talking 
 -> Why do you want me dead?
     bossofthegame: I don't. I wanted to be challenged. Then I gave the job to agents, and agents do what they're told.
 -> Who are the three behind you?
-    bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack is the floor.
+    bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack plays bass. I stand on his shoulders.
 -> And when it's over?
-    bossofthegame: Maybe I'll learn the bass. Properly, with no agents. It takes years, and that's the point. I've still got a game to finish first.
+    bossofthegame: I keep asking Full Stack to teach me the bass. We haven't had time. I'd like to play a whole song without stopping to fix something.
 ===
 
 title: hall_npc_geppetto
@@ -1971,9 +1975,9 @@ title: hall_npc_valley_miller
 ---
 Miller: Flour, feed, no credit.
 -> Who comes to the mill?
-    Miller: The village, the inn, and the man from the barn on the hill, who bought flour and never once baked.
+    Miller: The innkeeper takes a sack at a time. The man at the barn used to take six and never once brought me a loaf.
 -> What does the gate bring?
-    Miller: Flour from places that never saw a field. It tastes of nothing.
+    Miller: Grain I've never seen. I bought a sample of the blue stuff. Turned both stones blue, and the innkeeper wouldn't have the flour.
 ===
 
 title: hall_npc_valley_innkeeper
@@ -1985,9 +1989,9 @@ Innkeeper: The Plough's open. It's always open. I'd close it, but nobody's found
 
 title: hall_npc_valley_trader
 ---
-Trader: Gate goods. Lamp oil, salt, batteries. I used to shoe horses here. Now I sell the things that came instead of horses.
+Trader: Gate goods. Lamp oil, salt, batteries. I used to shoe horses here. Now I sell imports.
 -> Do you miss the forge?
-    Trader: Every morning. The batteries don't need me to hit them.
+    Trader: I still shoe the miller's mule. And I made the knight a crossguard for his new sword. I wish he'd brought it in with the switch off.
 ===
 
 title: hall_npc_valley_gatekeeper
@@ -2031,9 +2035,9 @@ Hedge Wizard: Seven times eight. *click* Fifty-six. Again!
 
 title: hall_npc_valley_ranger
 ---
-Ranger: Every goblin in the valley can see my light. It saves them looking, and it saves me looking for them.
+Ranger: Have you seen a scrap of red cloth? It fell off my head torch.
 -> Do you ever turn it off?
-    Ranger: Once. The deer came right up to me. I didn't know what to do with a deer.
+    Ranger: When I'm following tracks I do. If the batteries go flat, I can usually get one off the goblins. They drop them all along the trail.
 ===
 
 title: hall_npc_fell_sheep
@@ -2055,9 +2059,9 @@ title: hall_npc_village_nagisa
 ---
 Nagisa the Gatekeeper: *tok, tok* The geta go once round the ring.
 -> Why is your gate so quiet?
-    Nagisa: It is the silent gate. It is quiet because I am listening.
--> Is the face paint for the job?
-    Nagisa: They painted my face white. It was white already.
+    Nagisa: The morning arrivals have gone up into the village. In a little while Kenji will be here with his bag of letters.
+-> Do you ever travel?
+    Nagisa: I have. On a day off I would rather walk down to the sea.
 ===
 
 title: hall_npc_ninja_kagero
@@ -2093,12 +2097,12 @@ Cantina Bard: Request a song! Any song. It will be about the house.
 -> One not about the house.
     Cantina Bard: Fretjaw pays in stew. I play in the key of stew. Every verse finds its way home.
 -> What happened in the bar fight?
-    Cantina Bard: I played through it. A good bard plays through it. A great bard plays it.
+    Cantina Bard: Lost the bridge of my lute under a table. Fretjaw brought me a new one. I have written him a verse about the bridge.
 ===
 
 title: hall_npc_goblin_bruiser
 ---
-Goblin Bruiser: Bruiser here. Bruiser stays here.
+Goblin Bruiser: Fretjaw needs Bruiser to move a table.
 -> What's the rock for?
     Goblin Bruiser: Club is a rock on a stick. Bruiser improved the stick. Took the stick off.
 -> Are you the Brute?
@@ -2125,47 +2129,47 @@ Gravity Apple: Nine point eight one. Hmmmm.
 
 title: hall_npc_port_ines
 ---
-Ines: Lot forty-one: one robot. Calm. Origin unknown. Sign here.
+Ines: Cargo goes in the blue book. Passengers in the other one.
 -> What do you write down?
-    Ines: Everything that comes through the ring gets a line in my book. Goats, salt, a harpsichord once. Everything.
--> Does the ring care what it carries?
-    Ines: No. I do. That is the job.
+    Ines: What came through, who signed for it, and where we put it in the warehouse. I need the number on the crate as well as the owner's name.
+-> Does anybody ask to see your book?
+    Ines: Badely's people do. I don't mind telling them whether their own freight has arrived.
 ===
 
 title: hall_npc_port_tomas
 ---
 Tomas: *a long, careful breath* The floor is still. The floor is still.
 -> Gate-sick?
-    Tomas: Three seconds through the ring, and my lunch is still in the other dimension.
+    Tomas: I sell lamp oil. The barrels are waiting at the wharf, and I'm waiting for my brother to come and get me.
 -> Is a boat better?
-    Tomas: Nobody told me the gate rocks more than the boats do.
+    Tomas: Aye. A long crossing on a boat and I can still eat my supper.
 ===
 
 title: hall_npc_port_agnes
 ---
 Agnes: Rope! Tar! Ginger for the gate-sick!
 -> How long have you sold rope?
-    Agnes: Forty years on this street. The ring changed the customers, not the rope.
+    Agnes: Forty years on this street. The station mechanics buy the thick coils now. They keep asking me for them by the metre.
 -> Does the ginger work?
-    Agnes: Cheaper than a bucket. Ask Tomas. Actually, don't. Not yet.
+    Agnes: Tomas keeps buying it. He always asks if he can sit down before he pays.
 ===
 
 title: hall_npc_port_jory
 ---
-Jory: *knots a net with no hurry* Fish don't come through a ring. They come through patience.
+Jory: *knots a net with no hurry* Can you pass me the loose end?
 -> Do you sell fish from other seas?
-    Jory: The waterfront sells fish from three seas now. Mine still taste of this one.
+    Jory: No. Mine are mostly mackerel. I know the shoals here, and what the folk at the port can afford.
 -> Why mend nets by hand?
-    Jory: Every mend is a knot. Every knot is a promise.
+    Jory: I want to feel where the old twine's gone weak. I can replace that bit before it goes out again.
 ===
 
 title: hall_npc_port_bram
 ---
-Bram: Moorings by the hour, and the hour is long.
+Bram: If you're looking for a berth, tell me the length of your boat.
 -> What does a harbour master keep?
-    Bram: The docks. The cove keeps its own counsel, and the sky keeps the rest.
+    Bram: Berths, fees, the freight schedule. If a ship needs its mast replaced, I have to find somewhere it can sit until Tamsin and the yard are finished.
 -> Ships or the ring?
-    Bram: A ship takes a week to bring what the ring brings in a breath. I still trust the ship.
+    Bram: Both. We get cargo through the ring and send it out to the fishing villages by boat.
 ===
 
 title: hall_npc_port_wren
@@ -2174,7 +2178,7 @@ Lark: What will it be?
 -> What's the tavern called?
     Lark: The Drowned Compass. We never tell you where you are, and that is why you come back.
 -> Any news from the gate?
-    Lark: No gate talk before noon. It upsets the regulars.
+    Lark: Tomas has been coming in for ginger tea. If he ever orders a proper drink, I'll know he's feeling better.
 ===
 
 title: hall_npc_port_brine
@@ -2191,8 +2195,8 @@ title: hall_npc_port_lamplugh
 Ezra Lamplugh: Keep it burning. One hundred and twelve steps, twice a night.
 -> What's the difference between your light and theirs?
     Ezra Lamplugh: The wreckers' lantern says HARBOUR. Mine says ROCKS. A captain can only believe one of us.
--> Is that the whole job?
-    Ezra Lamplugh: Keep it burning and tell the truth. That's the whole job.
+-> Do you ever get a night off?
+    Ezra Lamplugh: When somebody can take the watch. They can leave the polishing until morning, so long as they don't let the light go out.
 ===
 
 title: hall_npc_port_bolt
@@ -2215,9 +2219,9 @@ Fennimore Slipp: Nothing to declare. *stamps something*
 
 title: hall_npc_village_sato
 ---
-Sato: *the slow sound of a broom* Leaves do not stop falling because a gate opened.
+Sato: *the slow sound of a broom* Lift your feet, please.
 -> Do you sweep the gate too?
-    Sato: Round the ring, each morning. It has never thanked me. Neither has the moon.
+    Sato: Every morning. I collect the stones that come out of people's sandals and put them by the path.
 -> Why do travellers bow?
     Sato: To the gate, out of respect. Some of them because they are dizzy.
 ===
@@ -2226,18 +2230,18 @@ title: hall_npc_village_kenji
 ---
 Kenji: *sits very still* The scrolls arrive fine. I arrive green.
 -> You carry letters through the ring?
-    Kenji: Twice a day. My stomach has filed a complaint.
+    Kenji: Twice a day. Ume keeps a pot of tea ready for the second trip.
 -> Why not take the road?
-    Kenji: The mountain road is slower. It never turned me inside out, though.
+    Kenji: Some of my letters are addressed to Math Town. There isn't a road.
 ===
 
 title: hall_npc_village_ume
 ---
 Ume: Tea for the tired, tea for the gate-sick. Sit.
 -> Who drinks your tea?
-    Ume: Half the village runs on the roofs. The other half runs on my tea.
+    Ume: Daichi wants seconds before he has finished his first bowl. Ren comes in after I have put the stove out, so I leave her a pot.
 -> Does it help the gate-sick?
-    Ume: A good cup settles a stomach the gate unsettled. Kenji drinks two.
+    Ume: It helps them sit still a little longer. Kenji drinks two cups before he'll risk getting up.
 ===
 
 title: hall_npc_village_tsuru
@@ -2271,9 +2275,9 @@ title: hall_npc_village_hayashi
 ---
 Sensei Hayashi: Again. Slower. Then faster.
 -> What is the rank exam?
-    Sensei Hayashi: Two parts and nine forms. The forms are harder. I mean the paper ones.
+    Sensei Hayashi: First the dummies, then the examiner. Once you have passed I can put your new rank in the register.
 -> What makes a fighter strong?
-    Sensei Hayashi: Strength is a habit. Paperwork is a discipline.
+    Sensei Hayashi: I ask my students to show me a technique slowly. They find out which parts they have been doing by throwing themselves forward.
 ===
 
 title: hall_npc_village_ren
@@ -2291,16 +2295,16 @@ Moriyama: Mind the smoke. It goes where you go.
 -> Has a ninja ever sneaked past your kiln?
     Moriyama: Forty years. Every one of them has tried. They smell of cedar smoke for a week after.
 -> What is charcoal?
-    Moriyama: Wood that has been very patient in a very hot room.
+    Moriyama: I heat wood with very little air so it doesn't burn all the way to ash. The trick is knowing when to stop.
 ===
 
 title: hall_npc_station_okafor
 ---
 Officer Okafor: Declare it or leave it.
 -> What do you check?
-    Officer Okafor: Seed stock, spores, mail with ideas in it. Everything that comes through the ring stops at my desk first.
--> And feelings?
-    Officer Okafor: I clear freight, not feelings.
+    Officer Okafor: Cargo, passengers, and quarantine declarations. If your crate contains lenses, please write down how many.
+-> Who reads your records?
+    Officer Okafor: My shift and the checkpoint. Anyone else can come to my desk with a badge and an explanation.
 ===
 
 title: hall_npc_station_reyes
@@ -2314,20 +2318,20 @@ Captain Reyes: Shift change. Then we burn.
 
 title: hall_npc_station_lindqvist
 ---
-Bo Lindqvist: Lift with the legs. The backlog's backlogged.
+Bo Lindqvist: Lift with the legs. We're still behind on freight.
 -> Why the backlog?
-    Bo Lindqvist: They doubled the passenger slots. Freight waits. I wait.
+    Bo Lindqvist: They gave our evening slot to passengers. I have three crews who need their equipment before the next departure.
 -> Do you carry everything?
-    Bo Lindqvist: Every crate through the ring is a crate I carry.
+    Bo Lindqvist: Not by hand. I have a hoist on the freight deck. It helps if the crate arrives before my shift ends.
 ===
 
 title: hall_npc_station_rahimi
 ---
 Hamid Rahimi: Don't touch anything that hums.
 -> Is the plant all right?
-    Hamid Rahimi: The plant is fine. The plant is always fine. A ring eats a reactor's worth of power, and I keep the reactor fed.
+    Hamid Rahimi: It draws more power when the ring opens than when the link is stable. We arrange the schedule so other experiments can run between crossings.
 -> What about the damaged spur?
-    Hamid Rahimi: It took a storm. I keep it shut. The crawlers are supposed to fix it. Supposed to.
+    Hamid Rahimi: The crawlers were built to repair one damaged component at a time. I wouldn't send another one in until we understand what the first ones did.
 ===
 
 title: hall_npc_station_pell
@@ -2354,16 +2358,16 @@ Dobbs: Shirts! Globes! Genuine orbit air!
 -> Is the air really from orbit?
     Dobbs: The vacuum kept escaping, so it's station air. Bottled up here, though.
 -> Who buys souvenirs?
-    Dobbs: Everyone who comes up the tether wants something to hold. I sell them something to hold.
+    Dobbs: The elevator passengers. One woman wanted a globe that showed the station, so I glued a little bead onto the stand.
 ===
 
 title: hall_npc_station_pippin
 ---
 Hortensia Pippin: Mind the apples. They fall up.
 -> How do you pick them?
-    Hortensia Pippin: Thirty years picking apples off a ceiling. You don't get used to it. You get a longer pole.
--> Picking, or catching?
-    Hortensia Pippin: Catching. Picking is for orchards that know which way is down.
+    Hortensia Pippin: With a basket on a long pole. I put the basket above the branch before I shake it.
+-> What happens to the apples?
+    Hortensia Pippin: Gus makes a pie with the bruised ones. The good ones go down to the market.
 ===
 
 title: hall_npc_magical_celeste
@@ -2451,20 +2455,20 @@ Teodora: Car up at the hour. Car down at the half. Gravity permitting.
 
 title: hall_npc_eureka_priya
 ---
-Priya: Day four. The data is beautiful. I am not.
+Priya: Sorry, thought you were the next shift.
 -> When does your experiment end?
-    Priya: When it ends. So do I.
+    Priya: When the last sample has been measured. I've asked for another set of thermometers. I don't trust the one in the cold bath.
 -> Is coffee allowed in the lab?
-    Priya: Coffee is a reagent. Mina disagrees, but she sells it to me anyway.
+    Priya: No. Mina has a table I use when I'm waiting for the bath to stabilize.
 ===
 
 title: hall_npc_eureka_dmitri
 ---
 Dmitri: Who touched the centrifuge.
 -> Who breaks things here?
-    Dmitri: Professors break it. Students break it worse. I fix it.
+    Dmitri: The last one was the director's prototype. It took the water pipes off the wall. I have been asked to look at a crusher in the mine next.
 -> What's your secret?
-    Dmitri: Duct tape is a structural material if you believe in it.
+    Dmitri: I keep the broken part until I have fitted its replacement. You'd be surprised how often the drawings have the wrong size hole.
 ===
 
 title: hall_npc_eureka_wilbur
@@ -2473,32 +2477,32 @@ Wilbur: Shoo. Not you. Them.
 -> You're a pigeon who chases pigeons?
     Wilbur: Forty years on this quad. Never once fed the birds.
 -> Why is the quad always messy?
-    Wilbur: Entropy, the physicists call it. I call it Tuesday.
+    Wilbur: Nicholas wants to put another lamp by my shed. I want him to tell me where the cable's going before I plant the tulips.
 ===
 
 title: hall_npc_eureka_halvorsen
 ---
 Professor Halvorsen: Reviewer two again. I know it is him.
 -> What did the reviewers say?
-    Professor Halvorsen: "Minor revisions." Minor! I came up the gate to give one lecture. I am still here, revising.
+    Professor Halvorsen: They want the fourth experiment repeated. I sent them the measurements from the first three and a note about what happened to the apparatus.
 -> What is peer review?
-    Professor Halvorsen: A contact sport played by people who never touch anything.
+    Professor Halvorsen: I send the editor a paper. Other researchers tell the editor what they'd like me to check. Sometimes I wish they'd tell me in person.
 ===
 
 title: hall_npc_eureka_mina
 ---
 Mina: Physics owes me eleven coffees. Chemistry pays in cash.
 -> Who drinks the most?
-    Mina: Everybody on this campus runs on my coffee. Nobody tips.
+    Mina: Priya, lately. I've been trying to get her to come down for supper instead of another cup.
 -> What's the soup today?
-    Mina: Soup. It is always soup when the elevator is late.
+    Mina: Lentils from the station. Don't ask me to make it float like it does up there.
 ===
 
 title: hall_npc_eureka_pryce
 ---
 Range Officer Pryce: Hard hats past this line. Hard heads optional.
 -> Are the tests safe?
-    Range Officer Pryce: Nine hundred signed off as probably fine. Eight hundred and ninety were.
+    Range Officer Pryce: That depends on what you're testing. I clear the range before a test, and I make the team wait if somebody is still working out there.
 -> Is that rocket leaning?
     Range Officer Pryce: The rocket is not leaning. The ground is.
 ===
@@ -2553,24 +2557,24 @@ Barry Metric: Pressure is falling. Not mine. The air's.
 
 title: hall_npc_science_nikobolt
 ---
-Nikobolt Tesseract: ...twenty-six, twenty-seven. Good. Twenty-seven.
+Nicholas Tezla: ...twenty-six, twenty-seven. Good. Twenty-seven.
 -> What are you counting?
-    Nikobolt Tesseract: The steps. The napkins. Things that should be divisible by three, and are, if one is careful.
+    Nicholas Tezla: The steps. The napkins. Things that should be divisible by three, and are, if one is careful.
 -> Where is the wire for your lamp?
-    Nikobolt Tesseract: There is none. Please stop looking for one. You are standing in the tulips.
+    Nicholas Tezla: There is none. Please stop looking for one. You are standing in the tulips.
 -> What happened to your coil drawings?
-    Nikobolt Tesseract: They went missing. Now there is lightning over a castle on the other side of the gate.
+    Nicholas Tezla: They went missing. I have heard reports of a lightning machine at Castle Godwin.
 ===
 
 title: hall_npc_science_coulomba
 ---
-Coulomba Tesseract: *coo* ...pardon me.
--> How is Nikobolt?
-    Coulomba Tesseract: He counted the stairs again. Three times. It settles him.
+Coulomba Tezla: *coo* ...pardon me.
+-> How is Nicholas?
+    Coulomba Tezla: He counted the stairs again. Three times. It settles him.
 -> The pigeons on your roof?
-    Coulomba Tesseract: Not my relatives. Probably not. I feed them anyway.
+    Coulomba Tezla: Not my relatives. Probably not. I feed them anyway.
 -> People ask about his lightning?
-    Coulomba Tesseract: From the other gate, yes. I send them home with seed cake.
+    Coulomba Tezla: From the other gate, yes. I send them home with seed cake.
 ===
 
 title: hall_npc_armsmith_odile
@@ -2595,25 +2599,25 @@ title: hall_npc_tower_dorsey
 ---
 Private Dorsey: Halt! ...Carry on.
 -> What do you guard?
-    Private Dorsey: The hub door. Two years. It has never once tried anything.
+    Private Dorsey: The parade deck and the annex entrance. I have to send people upstairs if they need clearance.
 -> You let everyone through?
-    Private Dorsey: I say halt, and then I let everybody through. It is a system.
+    Private Dorsey: Visitors can see the General. The annex checkpoint is another matter.
 ===
 
 title: hall_npc_tower_tanaka
 ---
 Private Tanaka: Hospital corners. Look at them.
 -> What's the night watch like?
-    Private Tanaka: Very quiet on the signals floor. That is the point of it.
--> And Bankole's bunk?
-    Private Tanaka: A crime scene.
+    Private Tanaka: Mostly checking the tape with Ruiz. On a busy night I spend half the watch running up and down the ladder.
+-> What do you do when you're off duty?
+    Private Tanaka: My sister visits through the Concourse. I meet her there so she doesn't have to climb all those stairs while she's sick.
 ===
 
 title: hall_npc_tower_bankole
 ---
 Corporal Bankole: Nobody outranks me on this floor. The beret stays.
 -> Who's in charge here?
-    Corporal Bankole: The ladder is the real chain of command. Three weeks and nobody has climbed down to check on us.
+    Corporal Bankole: Brandt. If you've got a problem with my beret, you can tell him yourself.
 -> Should you be wearing that?
     Corporal Bankole: No. The beret stays.
 ===
@@ -2622,9 +2626,9 @@ title: hall_npc_tower_granger
 ---
 Quartermaster Granger: Sign for it. Chit first.
 -> What happens if I lose it?
-    Quartermaster Granger: Sign for it, return it, or explain it. Mostly people explain it.
--> Do the rifles have names?
-    Quartermaster Granger: Every one. The names are numbers.
+    Quartermaster Granger: Report it. If you need a new pair of boots, I can get you a pair. If you lose the paperwork too, I'll have to find out who issued the first ones.
+-> Where does the equipment come from?
+    Quartermaster Granger: Several suppliers. I was promised a crate from PVN. I've set aside room for it.
 ===
 
 title: hall_npc_tower_ruiz
@@ -2633,7 +2637,7 @@ Corporal Ruiz: Copy that. *taps the tape printer*
 -> What's on the tape?
     Corporal Ruiz: Every dial of the annex ring prints a line on my tape.
 -> Anything strange?
-    Corporal Ruiz: SENTINEL, twice today. Both times it was the General.
+    Corporal Ruiz: Two test calls from a public ring. The General wanted to see the printout.
 ===
 
 title: hall_npc_math_ivo
@@ -2674,7 +2678,7 @@ title: hall_npc_math_monty
 ---
 Monty Carlo: Three doors! One car! Switch! Always switch!
 -> Why switch?
-    Monty Carlo: You pick a door, I show you a goat, you switch. Two times in three.
+    Monty Carlo: Your first choice wins a third of the time. I know where the car is, always open another door with a goat, and always offer the switch. You win by switching whenever your first choice was wrong.
 -> Did anyone say you were wrong?
     Monty Carlo: Hundreds of mathematicians wrote in. I sent each of them a goat.
 ===
@@ -3095,20 +3099,20 @@ Mite Half: We were one. Now we are a pair.
 
 title: hall_eigenghost
 ---
-Eigenghost: Ooooo. Stretch... and hold.
--> Do you ever turn?
-    Eigenghost: I only stretch, never turn. Push me any way you like: I stretch along two lines.
--> Are you calm?
-    Eigenghost: My eigenvalues are one and one at rest. That is the most at rest anyone has ever been.
+Eigenghost: Ooooo. Keep to the marked line.
+-> Why the line?
+    Eigenghost: That direction is an eigendirection of the transformation. Push me along it and I can stretch or shrink without leaving the line.
+-> What if the eigenvalue is negative?
+    Eigenghost: I come back pointing the other way. Ooooo.
 ===
 
 title: hall_spectral_perturbation
 ---
-Spectral Perturbation: (a glassy hum) Nearly stable. Nearly.
+Spectral Perturbation: (a glassy hum) Please don't touch the tuning screw.
 -> Why so jumpy?
-    Spectral Perturbation: Two of my eigenvalues are very nearly equal. It makes me very easy to upset.
--> What happens if I push you?
-    Spectral Perturbation: First-order correction: me, everywhere, all at once.
+    Spectral Perturbation: The two modes I'm tracking are almost at the same eigenvalue. Even a small change can mix them up.
+-> Can you keep them apart?
+    Spectral Perturbation: Ask Hylbert about his spectral gap. He wants me to stop adjusting the screw until he's done.
 ===
 
 title: hall_decomposing_specter
@@ -3131,20 +3135,20 @@ Shift Operator: Housekeeping. Everyone shift down one, please.
 
 title: hall_quantum_die
 ---
-Quantum Die: (rattles in every state at once)
+Quantum Die: (rattles in its cup)
 -> What number are you?
-    Quantum Die: A one. And a six. Until you look.
+    Quantum Die: Haven't measured that yet. Want to?
 -> Where's your twin?
-    Quantum Die: In the next room. Or this one. It depends who is asking.
+    Quantum Die: Ask the dealer. If you've measured the pair, keep the slip with both results. One result by itself won't tell you how we're related.
 ===
 
 title: hall_dealers_hand
 ---
 Dealer's Hand: Feeling lucky? Place your bets.
 -> Do you play?
-    Dealer's Hand: I deal, I do not play. The dice play themselves; I merely let them go.
--> Does it bother you, not knowing?
-    Dealer's Hand: Every throw is every number until it lands. I find that very relaxing.
+    Dealer's Hand: I deal. If I wanted to play I'd have to put this lovely waistcoat away and sit on the other side.
+-> What do you do with the quantum dice?
+    Dealer's Hand: Keep the scores together. People keep telling me they can predict the other die, and then forget to tell me which way they measured it.
 ===
 
 title: hall_doodle_imp
@@ -3250,16 +3254,16 @@ title: hall_discord_note
 ---
 Discord Note: We disagree! With YOU!
 -> Why do you argue?
-    Discord Note: We are a minor second. We have been arguing since the first bar.
--> Can you be resolved?
-    Discord Note: Somebody wrote us side by side and never resolved us. Rude.
+    Discord Note: We're a semitone apart and the composer told us to stay there.
+-> Can you resolve?
+    Discord Note: We'd love to. Somebody turn the page!
 ===
 
 title: hall_feedback_wail
 ---
 Feedback Wail: *crackle* Is this thing on?
 -> Why do you scream?
-    Feedback Wail: Somebody stood too close with a microphone, and I have been screaming ever since.
+    Feedback Wail: The microphone heard the speaker. The speaker got louder, so the microphone heard it again. EEEEE!
 -> Should I unplug you?
     Feedback Wail: I dare you. The plug is right there. I am not attached to anything.
 ===
@@ -5285,18 +5289,18 @@ Fanihi: *it hangs and chews a fig*
 title: hall_npc_business_dirk_quarterly
 ---
 Dirk: Let's take this offline.
--> What do you do here?
-    Dirk: Executive, Capital. I've been on this call since the second quarter. Nobody wants to be the one who hangs up.
--> Anything else?
-    Dirk: My calendar has a meeting about my calendar. I'm late for it.
+-> Can you tell me how to get to the college?
+    Dirk: Of course! Which directions package are you on? I'd love to help, but the fine for giving you an unlicensed route comes out of my bonus.
+-> What about a map?
+    Dirk: We've had a number of very promising meetings about maps. I can sell you a meeting about maps.
 ===
 title: hall_npc_business_solly_darity
 ---
 Solly: Local 17. Don't cross the line.
 -> What do you do here?
     Solly: Picket captain of the records clerks. They pay us by the form, then they made the forms longer.
--> Anything else?
-    Solly: The Founder made himself. Then he made us do his paperwork.
+-> Can I see where the office is?
+    Solly: I can walk you there when the picket ends. I'm not drawing you a map. We had a clerk lose a day's work to the constable over that.
 ===
 title: hall_npc_business_barista
 ---
@@ -5327,8 +5331,8 @@ title: hall_npc_business_records_clerk
 Marguerite: Take a number.
 -> What do you do here?
     Marguerite: Senior clerk, Records & Processing. Eleven years on one form. It's nearly done.
--> Anything else?
-    Marguerite: I'm still inside while the others strike. Somebody has to process the strike notices.
+-> Is it for a licence?
+    Marguerite: It's an application to be allowed to apply for an amendment to a licence. I could tell you which office receives it, but directions need another form.
 ===
 title: hall_moving_goalposts
 ---
@@ -5341,42 +5345,42 @@ Moving Goalposts: You didn't hit your target.
 title: hall_npc_business_professor
 ---
 Gail: Take your seat.
--> What do you do here?
-    Gail: Professor of Synergy, Capital Business College. Thirty years, and nobody has asked me what it is.
--> Anything else?
-    Gail: My best student bought the college. Now I report to her.
+-> What do you teach?
+    Gail: Synergy, Capital Business College. I've been showing Zorlack how to turn his watch roster into a spreadsheet.
+-> How's he doing?
+    Gail: Very well, once we agreed that the people on the night shift would rather not be treated as inventory.
 ===
 title: hall_npc_neural_grandmother_cell
 ---
 Grandmother: There you are!
 -> What do you do here?
-    Grandmother: I fire for one face in the whole world. Yours, dear. Every time.
--> Anything else?
-    Grandmother: The others laugh. One cell for one grandchild. Well, I never once missed you.
+    Grandmother: I get very excited when I see you, dear. I can recognize you in your coat or without it.
+-> Does one cell recognize a whole person?
+    Grandmother: All the other cells have been doing a good deal of work before the news reaches me. I am still delighted to see you.
 ===
 title: hall_npc_neural_hebb
 ---
 Donna: Fire together, wire together.
 -> What do you do here?
-    Donna: I introduce cells that fire at the same moment. After that they can't stop. That's learning.
--> Anything else?
-    Donna: I once wired the smell of bread to a whole childhood. Nobody asked me to.
+    Donna: I study how activity changes the strength of connections. Repeating a pattern can make it easier to produce next time.
+-> Does every connection get stronger?
+    Donna: No. Timing, which cells are involved, and the kind of connection all make a difference. I'm testing one at a time.
 ===
 title: hall_npc_neural_echo
 ---
 Echo: Exactly.
--> What do you do here?
-    Echo: I host the Echo Chamber. Everyone in there agrees with you. I checked. With you.
--> Anything else?
-    Echo: We had a disagreement in there once. We all agreed it was wrong.
+-> What if I change my mind?
+    Echo: We changed our minds too! Look, all the old recordings are gone.
+-> Who's that at the door?
+    Echo: Somebody who disagreed with us. I've turned down their microphone. Much better.
 ===
 title: hall_npc_neural_perceptron
 ---
 Percy: QUESTION?
 -> What are you?
-    Percy: A perceptron. One layer. One lamp. Green for yes, red for no.
+    Percy: WEIGHTED SUM. THRESHOLD. YES OR NO.
 -> Can you do XOR?
-    Percy: NO. Also YES. I am sorry.
+    Percy: NOT WITH THIS WIRING. PLEASE PURCHASE SECOND LAYER.
 ===
 title: hall_sunk_cost_fallacy
 ---
@@ -5389,18 +5393,18 @@ Sunk Cost Fallacy: I'll break even any day now.
 title: hall_intrusive_thought
 ---
 Intrusive Thought: Did you lock the door?
--> What are you?
-    Intrusive Thought: I came in uninvited. I'll leave when I'm ready. I'm never ready.
--> Go away.
-    Intrusive Thought: You were thinking about something else. Now you're thinking about me.
+-> I've checked it already.
+    Intrusive Thought: Yes, I remember. There was another door.
+-> I have other things to do.
+    Intrusive Thought: ...I'll be over here, then. Did you turn the tap off?
 ===
 title: hall_attention_head
 ---
-Attention Head: *its brackets close round you*
--> What are you?
-    Attention Head: *it attends to one thing at a time. At the moment, the thing is you.*
+Attention Head: *its gaze sweeps the room*
+-> What are you looking at?
+    Attention Head: *it weighs what it sees, giving you more weight than the wall behind you*
 -> Look away.
-    Attention Head: *it looks at the wall. Then back at you.*
+    Attention Head: *it looks at your hand, then gives the door beside you a little more attention*
 ===
 title: hall_halo_horns_effect
 ---
@@ -5413,78 +5417,78 @@ Halo and Horns Effect: Bless you, dear.
 title: hall_npc_frontier_clerk
 ---
 Dolores: Name, origin, cargo.
--> What do you do here?
-    Dolores: Twelve credits a head. It goes in a box in the Marshal's office and the box never comes out.
--> Anything else?
-    Dolores: I've logged freighters, mule trains and a man who came through the gate in his bath.
+-> What if I have no cargo?
+    Dolores: Twelve credits a head. If you haven't got it, tell me now. I can put your name in the book but I can't open the Marshal's cashbox.
+-> What do you do with the gate records?
+    Dolores: Send a copy to the office down the line. I'm two weeks behind. Gallus keeps borrowing my pencil.
 ===
 
 title: hall_npc_frontier_liveryman
 ---
 Gus: Mules by the day.
--> What do you do here?
-    Gus: Six mules. My sister shoes them and I do the rest.
--> Anything else?
-    Gus: Folks see my face and ask after my cousins. I tell them the cousins are mules.
+-> Can they pull a wagon up the pass?
+    Gus: Take the two grey ones. They know the climb. My sister shoes them and I do the rest.
+-> What do they eat?
+    Gus: A nosebag apiece, included. Feed the little one's bag first or he'll try to eat the other mule's bridle.
 ===
 
 title: hall_npc_frontier_barkeep
 ---
 Mae: Water's two. Coffee's three.
--> What do you do here?
-    Mae: The water came eleven hundred miles on a tanker. I charge two credits and I'm still the cheapest thing on the street.
--> Anything else?
-    Mae: The Marshal tips in somebody else's money.
+-> Why does water cost that much?
+    Mae: It came eleven hundred miles on a tanker. Bring a clean bottle and I'll fill it to the neck.
+-> What's Gallus drinking these days?
+    Mae: Black coffee. He tells me to put it on the office tab. His friend the coyote pays for his own.
 ===
 
 title: hall_npc_frontier_prospector
 ---
 Elias: Forty years in this pass.
--> What do you do here?
-    Elias: The refinery pays by the pound and the Marshal takes a cut by the pound.
--> Anything else?
-    Elias: I panned every creek from here to the far pads. I'll tell you about each one, in order.
+-> Found anything?
+    Elias: Lead in the gravel, grey as a bad tooth. The refinery pays by the pound and the Marshal takes a cut by the pound.
+-> Why not move farther up the creek?
+    Elias: I did. A spring flood moved all the gravel right back down to my old claim.
 ===
 
 title: hall_npc_frontier_foreman
 ---
 Ruth: Hat on, or off the terrace.
--> What do you do here?
-    Ruth: The shift starts when the Marshal whistles. He whistles at four in the morning.
--> Anything else?
-    Ruth: I run the night shift at a refinery on a mesa. I wear the hard hat for the chickens.
+-> When does your shift begin?
+    Ruth: Four in the morning, when the Marshal whistles. I'd rather start when there's a free cart at the tipple.
+-> What if the crew finish early?
+    Ruth: Send them to clean the screens. If they finish those, for heaven's sake let them go home.
 ===
 title: hall_npc_frontier_station_agent
 ---
 Augusta: Gate on the left of the window, train on the right.
--> What do you do here?
-    Augusta: I sell tickets for a gate and a railway at the same window. Nobody ever wants both.
--> Anything else?
-    Augusta: The auxiliary terminal gets the overflow and the detours. Today it got you.
+-> Can I catch a train from here?
+    Augusta: Which direction? The freight train doesn't stop for passengers. If you're waiting on a transfer, Pearl's got cots up the street.
+-> Why do travellers come this way?
+    Augusta: Auxiliary terminal. When the main pads are full or there's a fault on a dialer, somebody sends the next passengers here.
 ===
 title: hall_npc_frontier_innkeeper
 ---
 Pearl: Lie down or move along, dear.
--> What do you do here?
-    Pearl: I keep an inn for the gate-sick. They come in green and go out pink.
--> Anything else?
-    Pearl: Rooms by the hour. Nobody has ever wanted a second hour.
+-> Who stays here?
+    Pearl: Mostly gate travellers. There's a cot and a bucket by the window. The back one's for people who need quiet.
+-> Do you get repeat customers?
+    Pearl: One gentleman booked a cot for every Thursday in advance. By week three he was bringing his own pillow.
 ===
 title: hall_npc_frontier_mechanic
 ---
 Hettie: Anything rattling?
--> What do you do here?
+-> What do you repair?
     Hettie: Pumps, windmills, wagons, the odd automaton. Mostly windmills.
--> Anything else?
-    Hettie: Ordinary repairs. If you want miracles, there's a city down the line.
+-> Is there a workshop that can build new parts?
+    Hettie: Down the line. But let me look before you order anything. Half the parts people bring in only want a drop of oil.
 ===
 title: hall_npc_frontier_brakeman
 ---
-Hollis: That isn't our engine up front.
--> What do you do here?
-    Hollis: Something coupled on at the head of my train in the night. The crew got off at the water stop. It didn't.
--> Anything else?
-    Hollis: A brakeman rides the tail. From the tail you see everything go wrong in order.
+Hollis: Keep your hands out of the coupling.
+-> Where do you ride?
+    Hollis: At the tail. I watch for hot bearings and listen for the slack running through the cars.
+-> How's the Number 9 running?
+    Hollis: I used to know what was in every car. That engine has taken some wagons we've never carried before.
 ===
 title: hall_npc_peyote_lean
 ---
@@ -5499,58 +5503,58 @@ Lean: ...
 title: hall_npc_frontier_yardmaster
 ---
 Lou: Clear the line.
--> What do you do here?
-    Lou: That outlaw engine comes through my yard and takes cars, and nobody stands on the line to argue.
--> Anything else?
-    Lou: Clinker Flats. Smelter town. The yard's the only flat part.
+-> What happens when that engine comes through?
+    Lou: I get the crew off the sidings. Then we count the cars left in the yard. It's a bad month for the manifest.
+-> What's on the next outbound train?
+    Lou: Slag, ore, anything we've still got enough wagons to move.
 ===
 title: hall_npc_frontier_crane_driver
 ---
 Magda: Keep off the pots.
--> What do you do here?
-    Magda: I tip the slag pots from the crane. Forty a shift, and I count them.
--> Anything else?
-    Magda: You're standing where the ladle swings.
+-> How do you tip those?
+    Magda: Slowly. If the pot starts swinging I let it settle before I bring it round to the dump.
+-> Do you work alone?
+    Magda: There's a signalman on the floor. If I can't see his glove I stop the crane.
 ===
 title: hall_npc_frontier_laundress
 ---
 Ida: Mind the lines.
--> What do you do here?
-    Ida: I do the night shift's shirts under the works. The soot comes out at one o'clock.
--> Anything else?
-    Ida: The wind can't get in under the works. The soot can.
+-> Whose shirts are those?
+    Ida: The night shift's. I tie a different bit of thread to each bundle. Can't tell whose is whose once the soot's on them.
+-> Why live under the works?
+    Ida: The wind can't get in, the rent's low, and the soot's free.
 ===
 title: hall_npc_authority_information
 ---
 Ottilie: Information! How can I direct you?
--> What do you do here?
-    Ottilie: I give directions to anywhere. Here, mostly. I can give you directions to here.
--> Anything else?
-    Ottilie: Every address is confidential except ours. Ours is in gold on the ceiling.
+-> What address gets me to the Concourse?
+    Ottilie: LEGAL. If you're taking a gate home, check whether your terminal publishes the same route back. I can check the public addresses for you.
+-> Where can I get military clearance?
+    Ottilie: Ask the General at the Iron Bastion. If you're here to recover from a crossing, you can sit in the Concourse without a permit.
 ===
 title: hall_npc_authority_baggage
 ---
 Bertram: Lost Baggage. Ticket?
--> What do you do here?
-    Bertram: I keep what comes back through the gates and isn't claimed. A nest. A cloud. A hat with somebody's flag on it.
--> Anything else?
-    Bertram: Organic travellers' bags: declare any sentience. The bag will, if you don't.
+-> What happens to unclaimed bags?
+    Bertram: Put them on the belt, take a description, wait. If there's something alive in it we find somebody to feed it.
+-> Can I take that umbrella?
+    Bertram: Not unless you can tell me what colour it was before the crossing.
 ===
 title: hall_npc_authority_gatekeeper
 ---
 Imre: Move along, licensed traveller.
--> What do you do here?
-    Imre: Gates come unlocked. We map them and fit the locks. That's what Authority means: we got there first, with a clipboard.
--> Anything else?
-    Imre: The armistice holds. We say holds a lot, round here.
+-> What does your post cover?
+    Imre: The civilian ring. Keep the floor clear when a party arrives. The General has his own sentries at the annex.
+-> Do you want to stay at this post?
+    Imre: I hope the armistice holds. I would like to retire from the same post I started at.
 ===
 title: hall_npc_authority_registrar
 ---
 Registrar: Take a number.
--> What do you do here?
-    Registrar: I keep the manifests. We never delete a record. We correct it, and then it was always so.
--> Anything else?
-    Registrar: You are not on the manifest. Don't worry. Soon you won't have been anywhere at all.
+-> Can you look up an old arrival?
+    Registrar: With the terminal and approximate date, yes. If there was an official correction, you will get the corrected record.
+-> Can I see the original too?
+    Registrar: No. The number for that request is in a drawer I am not permitted to open.
 ===
 title: hall_npc_unfinished_subclause_surveyor
 ---
@@ -5607,9 +5611,9 @@ title: hall_npc_automaton_neighbour_moore
 ---
 Neighbour Moore: Evening. I have eight neighbours, and I know every one of them.
 -> Eight?
-    Neighbour Moore: North, south, east, west, and the four corners. Most people only count four. That's why most people are lonely.
+    Neighbour Moore: North, south, east, west, and the four corners. The four on the corners have just as much say in the next generation.
 -> What keeps a cell alive?
-    Neighbour Moore: Two or three live neighbours. Fewer and it dies alone; more and it dies crowded.
+    Neighbour Moore: Two or three live neighbours. If you've got exactly three, you'll live next turn whether you're alive now or not.
 ===
 
 title: hall_npc_automaton_head

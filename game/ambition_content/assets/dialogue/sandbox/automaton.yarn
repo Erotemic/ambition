@@ -11,10 +11,10 @@ title: automaton_busy_beaver
         Busy Beaver: Stairs. Then whatever the stairs are for. Then more stairs.
         Busy Beaver: The chest on top is for whoever gets there first. I keep not getting there. I keep adding a step.
     -> Aren't you in Math Town?
-        Busy Beaver: That's the prototype. Or I am. We've agreed not to look into it.
-        Busy Beaver: Here I'm the machine I'm named for: five states, one tape, as many ones as I can write before I stop.
+        Busy Beaver: Oh, the gate cradle! Did they ever get the replacement bracket?
+        Busy Beaver: Here I've got five states and a tape. I'm trying to run for as many steps as I can and still halt.
     -> When will you stop?
-        Busy Beaver: For five states, somebody proved it: 47,176,870 steps. They took the long way round to prove it.
+        Busy Beaver: For five states, the record is 47,176,870 steps. Turns out proving that nobody could halt later was a much longer job.
         Busy Beaver: For six, nobody knows. I like those odds.
     -> ‹go›
 <<else>>
@@ -35,11 +35,11 @@ title: automaton_moore
         Neighbour Moore: Two or three living ones around you, and you stay. Exactly three around an empty cell, and something's born there. Any other count, and you're gone by the next generation.
     -> What's that square?
         Neighbour Moore: The block. Four cells, each with three live neighbours. It hasn't changed since the first generation.
-        Neighbour Moore: People call it boring. I call it a good neighbour.
+        Neighbour Moore: I moved in beside it after a glider went straight through my old neighbourhood.
     -> How do I get across?
-        Neighbour Moore: Ride a glider. Five cells that keep rebuilding themselves one step over.
+        Neighbour Moore: Ride a glider. Five cells that keep changing shape and then returning to the same shape a little farther along.
         Neighbour Moore: Every four generations it's moved one cell on the diagonal. Stand on it and you move too.
-        Neighbour Moore: And keep clear of the spaceships. They don't mean anything by it. They don't mean anything at all.
+        Neighbour Moore: And keep clear of the spaceships. The next one should pass in a moment. Wait here until it's gone.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -61,8 +61,8 @@ title: automaton_head
         The Head: Five states, A to E. Two entries each: what to do on a zero, what to do on a one. Ten rules.
         The Head: Ten rules, and it runs for 47,176,870 steps, and leaves 4,098 ones on the tape. Then the rule for E on a zero says: halt.
     -> How do you know it stops?
-        The Head: Somebody checked every other machine with five states. All of them. In 2024 they finished, and a proof checker agreed.
-        The Head: Every machine of five states that ever stops has stopped by then. I'm the one that took the longest.
+        The Head: The five-state running-time record was proved in 2024. They had to rule out every machine that might halt later.
+        The Head: Every machine of five states under these rules, starting on a blank tape, that ever stops has stopped by then. I'm the one that took the longest.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -83,14 +83,14 @@ title: automaton_pca
 title: automaton_pca__ring
 ---
 -> What is the failure log?
-    Perfect Cell-ular Automaton: My guest book. Everyone who's fought here gets a row. They don't get to write the ending.
+    Perfect Cell-ular Automaton: My guest book. I was going to have the results engraved, but the engraver complained about doing the same line over and over.
     <<jump automaton_pca__ring>>
 -> What's on the big screen?
     Perfect Cell-ular Automaton: A Gosper glider gun, 1970. One glider every thirty generations, indefinitely. Elegant, isn't it?
     Perfect Cell-ular Automaton: I've always found thirty generations a rather leisurely pace.
     <<jump automaton_pca__ring>>
 -> Who is that on the gallery?
-    Perfect Cell-ular Automaton: The Imperfect Cellular Automaton. Delightful company. You never quite know what they're going to do next. Neither do they.
+    Perfect Cell-ular Automaton: The Imperfect Cellular Automaton. Charming creature. I offered to demonstrate my technique. We got as far as the demonstration of standing still.
     <<jump automaton_pca__ring>>
 -> Let's fight.
     Perfect Cell-ular Automaton: Splendid. Do try to surprise me.
@@ -110,7 +110,7 @@ title: automaton_imperfect
     Imperfect Cellular Automaton: Don't read the log. The third row. And the fifth. Just don't read the log.
     -> You lost to Perfect?
         Imperfect Cellular Automaton: I lost to myself. Perfect just stood there. One of my cells was late, its neighbours copied it, and eight generations later I was a different pattern.
-        Imperfect Cellular Automaton: A mistake can only spread one cell a generation. That's the speed of light here. Mine went all the way.
+        Imperfect Cellular Automaton: One cell per generation. I could watch it coming across the row and I still couldn't stop it.
     -> Why do you stay?
         Imperfect Cellular Automaton: Somebody has to cheer for the challengers. The stands won't. They're all on the rule's side.
     -> ‹go›

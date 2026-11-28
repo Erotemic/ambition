@@ -27,21 +27,18 @@ Ollie Lumen: Evening. Or it will be. I light the star lamps, you see, and they d
 
 title: magical_mary_o
 ---
-Mary-O: Robot. Good. You came through the gate. You can be a witness. I'm at a truce.
+Mary-O: Robot. Good. You came through the gate. You can be a witness. The lizard and I have an agreement.
 -> Where's the void?
     Mary-O: East. Down the dune road, through the castle, over the lizard's bridge, and keep going until the colour stops.
-    Mary-O: Bring your own colour. It doesn't lend.
+    Mary-O: If you see any of Wanda's lamps still burning, leave them alone.
 -> A truce? With the void?
-    Mary-O: With the lizard. Not the void. The void doesn't do truces. It does more void.
-    Mary-O: The lizard's different. I dropped him in the lava six times. He came back six times. At some point you have to ask who's the problem.
+    Mary-O: With the lizard. He let me cross the bridge yesterday without a fight. We're both tired of getting it rebuilt.
 -> Isn't the lizard your enemy?
-    Mary-O: Was. In my castles he's on a bridge, I'm on the switch, it's a whole thing. Here he's just a guy who lives on a bridge.
-    Mary-O: He makes tea. It's bad tea. I drink it. That's diplomacy.
+    Mary-O: I used to come here to rescue the robot. The robot knows the lizard better than I do now. They drink tea together.
 -> What's the plan?
-    Mary-O: Step one: don't stomp anyone. Step two: find out what the void wants. Step three: three jumps.
-    Mary-O: It's always three jumps.
+    Mary-O: I'm going back down to the old stars. Ollie says fewer of them have been coming up the well.
 -> What about the void stars?
-    Mary-O: Stars that went out and didn't like it. Don't stomp them either. They're rude, not dangerous. Mostly. Don't hit one and find out.
+    Mary-O: They went out. Some of them will talk to you. Give them a chance before you jump.
 -> Carry on.
     Mary-O: Always. If anyone lands on that switch, it wasn't me.
 ===
@@ -56,7 +53,7 @@ Wanda: Hold still. Oh. You're not a wand.
 -> Have you seen Mary-O?
     Wanda: At the keep. I told her to stop hitting things with the delicate end. She says there's no delicate end on a boot.
 -> What are you doing here?
-    Wanda: Checking the lamps on the road. I can fix those. The dark's a different job.
+    Wanda: Ollie asked me to check the lamps on the road. I can repair the fittings, but I need him to tell me where all the stars went.
 ===
 
 title: magical_void_lizard
@@ -72,7 +69,7 @@ Void Lizard: Hhhh. A robot. On my bridge. Wipe your feet. The void gets everywhe
     Void Lizard: It's the void. I'm made of it. I didn't ask for it either. It came in and said "you're a lizard now, made of nothing, guard this," and I said "guard it from what," and it said "her."
     Void Lizard: She brings biscuits now. It's very confusing.
 -> Is that tea?
-    Void Lizard: Void tea. Steep a little nothing in hot water. It tastes like a room you just left.
+    Void Lizard: Void tea. There's a tin on the ledge. I'd offer you some, but Mary-O drank it all.
 -> I'll go.
     Void Lizard: Mind the switch. Mind the stars. Mind your step. Hhhh. Mind everything.
 ===
@@ -90,9 +87,9 @@ Void Star: What are you looking at. Don't look at me. I went out. You look at st
 
 title: magical_void_star_b
 ---
-Void Star: Hey. Robot. You're not lit up either. We could be friends. We won't, but we could.
+Void Star: Hey. Robot. You're not lit up either. Come over here. The others keep telling me to move away from the path.
 -> Are you dangerous?
-    Void Star: Hit me and see. Don't hit me and don't see. Your choice. Both choices are fine with me. One is finer.
+    Void Star: ...Would you mind not trying to find out?
 -> What does the void want?
     Void Star: Quiet. Dark. Nobody wishing. It's restful. You'd like it. Your batteries would last for ever.
 -> Bye.
@@ -134,7 +131,7 @@ Void Star: Shh! You'll wake them. How did you get in? Nobody breaks a wall in th
 -> Will they stay out?
     Void Star: Most do. Some get wished on, while they sleep, by somebody up in the town who doesn't know. Then they wake up lit, and float off, and never write.
 -> What's in the chest?
-    Void Star: A night light. Nobody here has ever used it. Take it. Light something up there, where it's wanted.
+    Void Star: A night light. Nobody here has ever used it. Take it, please. The new ones keep rolling into it.
 -> Goodnight.
     Void Star: ...Say it again. Quieter. They like that.
 ===
@@ -160,20 +157,20 @@ Snake Plant: Hssss. ...Sorry. Reflex. You came up out of the ground very suddenl
 -> Why a snake plant?
     Snake Plant: Sansevieria. Mother-in-law's tongue. You can't kill one. People have tried. People have jumped on me. People have thrown fire at me. I'm still here. I'm in a pot now. That's retirement.
 -> What do you think of the void?
-    Snake Plant: It doesn't water anything. It doesn't even look at things. A plant needs to be looked at, a little. Celeste looks at me every morning. Sometimes she says "nice leaves". I'd die for her. I can't die. But I'd try.
+    Snake Plant: Celeste has been bringing me in at night. I was on the windowsill yesterday and by morning one of my leaves was missing.
 -> Bye.
     Snake Plant: Hssss. That one was on purpose. Goodbye.
 ===
 
 title: magical_rescued_robot
 ---
-Rescued Robot: Oh! A robot! Are you here to rescue me? Mary-O usually does it. She lands on the switch, the bridge falls, the gate opens, I say "Thank you, Mary-O!", and then I'm in the next castle. I don't know how. I just am.
+Rescued Robot: Oh! Are you here to rescue me? Mary-O usually does it. She lands on the switch, the bridge falls, the gate opens, I say "Thank you, Mary-O!", and then I'm in the next castle. I don't know how. I just am.
 -> Do you want rescuing?
     Rescued Robot: I don't know. I've never not been rescued. It's the only thing I'm good at. If you rescue me, what will Mary-O do?
 -> How many castles?
     Rescued Robot: Eight, so far. All the same castle, I think. Same bridge. Same lizard. He brings me tea now, between rescues. We talk about the switch.
 -> Thank you, robot?
-    Rescued Robot: ...Nobody's ever thanked ME. Thank you for thanking me. Now I've thanked you. Is this a rescue? It feels like one.
+    Rescued Robot: ...You're welcome! Is that what you're supposed to say? I've only ever had to remember the other line.
 ===
 
 title: magical_laden_swallow
@@ -184,7 +181,7 @@ Laden Swallow: Coconut! Coconut! Mind your head! ...Sorry. I'm carrying a coconu
 -> Where are you taking it?
     Laden Swallow: The castle. Mary-O drops coconuts on things that annoy her, and I bring her the coconuts. Then she drops them. Then I go and get them back. It's a whole economy.
 -> Put it down?
-    Laden Swallow: If I put it down I'm just a swallow. Nobody stops to talk to just a swallow.
+    Laden Swallow: Last time I put one down, it rolled all the way to the well. Took three of us to get it out.
 ===
 
 title: magical_paper_plane_snakes

@@ -9,11 +9,11 @@ title: neural_grandmother
     Grandmother: There you are! Come here, let me look at you.
     Grandmother: You've grown. You've grown antennae. No matter. It's you.
     -> I think you have me confused with someone.
-        Grandmother: Nonsense. I'm a grandmother cell. I fire for one face in the whole world, and I'm firing.
+        Grandmother: Nonsense. I've seen you in profile and from the front. The cells I listen to keep telling me it's you, however you turn.
         Grandmother: Look at me. All lit up.
     -> Where am I?
         Grandmother: The Callosum, dear. The bridge between the two halves. The living half is west, where I grew.
-        Grandmother: The east half was built. They're nice enough over there. They learn from examples. I learned from you.
+        Grandmother: The east half was built. They're nice enough over there. One of them asked me for a photograph of you. I told him you were much nicer in person.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -28,13 +28,12 @@ title: neural_hebb
 <<elseif verdict("world.flag_set", "neural_hebb_met") == "not_satisfied">>
     <<command "world.set_flag" "neural_hebb_met" true>>
     Donna: Hold still. You and that bulb just lit up at the same moment.
-    Donna: There. Wired. Now one of you comes along whenever the other one fires.
+    Donna: There. I think the connection is a little stronger. Walk past again and let's see whether that bulb lights.
     -> What do you do here?
-        Donna: I introduce cells that fire at the same time. After that, when one fires, the other comes along.
-        Donna: That's all a memory is. A good introduction.
+        Donna: I study how activity changes connections. When those two cells fire together over and over, this connection gets stronger.
+        Donna: I need to try it a few more times with that lamp. I'm going to write down how much the response changes.
     -> What are the purple clouds?
-        Donna: Intrusive thoughts. Nobody wired them in. They hook themselves onto whatever you're doing.
-        Donna: Don't argue with one. Arguing is attention, and attention is what they eat.
+        Donna: Intrusive thoughts. They keep turning up when I'm trying to work. I was halfway through testing a new connection when one of them knocked the bulb off the stand.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -48,8 +47,9 @@ Percy: QUESTION?
     Percy: YES.
 -> Is exactly one of these true: the lamp is on, or the door is open?
     Percy: ...
-    Percy: There is no straight line between those answers. I cannot draw it.
-    Percy: NO. Also YES. I am sorry. I am one layer.
+    Percy: LAMP ON, DOOR CLOSED: YES. LAMP OFF, DOOR OPEN: YES.
+    Percy: ...
+    Percy: I cannot separate the YES cases from the NO cases with one straight line. Please submit a different question.
 -> Who made you?
     Percy: A man with a camera and a board of wires, in nineteen fifty-eight. The papers said I would walk and talk one day.
     Percy: I do not walk.

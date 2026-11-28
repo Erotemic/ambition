@@ -217,6 +217,9 @@ Davy Hylbert: Sorry, we're full tonight.
 -> How does the infinite hotel work?
     Davy Hylbert: Move everyone from room one to two, two to three, and so on. First room's free.
     Davy Hylbert: Don't ask me to do that here. People have unpacked.
+-> What's wrong with the spectral wing?
+    Davy Hylbert: A guest in room one slammed his door and a lamp fell off the wall in room thirty. The ghosts started coming through the ceiling soon after that.
+    Davy Hylbert: I've been working on increasing the spectral gap. Gram Reaper has been very little help.
 -> Why's the observatory still lit?
     Davy Hylbert: Hypatia's up there. Something moving near the station, she says.
     Davy Hylbert: I brought her dinner yesterday. She'd forgotten to eat.
@@ -387,9 +390,9 @@ The Paradox Barber: Hylbert gave me a room for the shop. Room n plus two. Then a
     The Paradox Barber: Every guest who does not shave himself. There are infinitely many of them. I am behind.
     The Paradox Barber: Hylbert says I can move each customer one chair down and the first chair is always free. The first chair is never free.
 -> Who shaves you?
-    The Paradox Barber: The hotel has a policy on that question. The policy is a set that does not contain itself.
+    The Paradox Barber: That question is how I ended up renting the shop instead of working for the hotel. Hylbert won't put it in my contract.
 -> I will let you get on.
-    The Paradox Barber: Mind the foam. It is countable.
+    The Paradox Barber: If you see Hylbert, tell him I want my old room back.
 ===
 
 title: hotel_joseph_furrier
@@ -397,11 +400,11 @@ title: hotel_joseph_furrier
 Furrier: The corridor goes on for ever and the heating does not. Shut the door behind you.
 -> Which room are you in?
     Furrier: Every few minutes, the next one. Hylbert keeps making room. My luggage is a sum of infinitely many moves.
-    Furrier: I can tell you my room's frequency, or its number. Never both. Heisenberg is down the corridor; he is not sure where.
+    Furrier: I sent Heisenberg my room number in the morning. By the time he got here I'd been moved again.
 -> Why are you staying here?
-    Furrier: A conference on heat. In a corridor with no end, it never reaches the far wall. Ideal conditions.
+    Furrier: A conference on heat. I have been trying to persuade Hylbert to let me take temperature readings in the spectral wing.
 -> Stay warm.
-    Furrier: I intend to. Converge, if you can.
+    Furrier: Shut the door, please.
 ===
 
 title: hotel_python_goras
@@ -412,7 +415,7 @@ Python Goras: Room service sent beans. I sent them back. Room service moved me t
 -> Do you like the hotel?
     Python Goras: Every room is square. I measured the diagonal of mine. The number would not stop. I have asked them not to mention it to the others.
 -> Enjoy your stay.
-    Python Goras: The stay enjoys itself. I merely remain in it, in a new room every so often.
+    Python Goras: Thank you. If you find the waiter, could you send him back? Without the beans.
 ===
 
 title: zeno_halfway
@@ -420,14 +423,14 @@ title: zeno_halfway
 Zeno Halfway: Good morning! Or afternoon. I set out for the reservoir at dawn. Some years ago. I'm making excellent progress.
 -> How far have you got?
     Zeno Halfway: Halfway. Before that I was halfway to here. Tomorrow I'll be halfway from here. Every day, half of what's left.
-    Zeno Halfway: You'd think I'd be there by now. You'd be thinking like a person who has never done the sum.
+    Zeno Halfway: I bought a sandwich at the start. I've had half of what was left every day.
 -> Why not just walk the rest?
     Zeno Halfway: To walk the rest I'd first have to walk half the rest. And before that, half of that. I've got a list. It is very long.
 -> Will you ever arrive?
     Zeno Halfway: In the limit, yes! The sign at the dam says so. I've read it from here. Through a telescope.
     Zeno Halfway: An arrow I fired at the reservoir in my youth is still in the air somewhere. We keep each other company.
 -> Good luck.
-    Zeno Halfway: Thank you. I'll be halfway to grateful by tomorrow.
+    Zeno Halfway: Thank you. If you reach the reservoir, tell them I'm on my way.
 ===
 
 title: mine_kleinbottle
@@ -453,9 +456,9 @@ Brother Lucas: Welcome to the Tower. Mind the disks; they're gold and they're co
 -> How many moves so far?
     Brother Lucas: Five hundred and fifty-five thousand and thirty-nine. It's on the wall. Every stroke is a move. The wall is very full.
 -> Can I move one?
-    Brother Lucas: You can stand on them. Moving them is my job, and I'm in no hurry. Nobody who understands the puzzle is ever in a hurry.
+    Brother Lucas: You can stand on them. Moving them is my job, and I'm in no hurry. I've written down the next three moves. I'd rather not have to start over.
 -> I'll leave you to it.
-    Brother Lucas: Thank you. I'll get back to it presently. Presently is a very long word here.
+    Brother Lucas: Thank you. Now, where was I?
 ===
 
 title: meadow_fibbs
@@ -509,11 +512,11 @@ Johannes Kepplar: Mind the telescope. It's pointed at Mars. It is always pointed
     Johannes Kepplar: The orbit. Everyone said circle. Perfect heavens, perfect circles. Mars would not go round in a circle. Eight minutes of arc out. Eight minutes!
     Johannes Kepplar: So I let it go round in an ellipse. It was so relieved.
 -> Equal areas in equal times?
-    Johannes Kepplar: A planet sweeps out the same area every week. Fast near the sun, slow far away, and the slices come out equal. The heavens keep accounts. Better than I do.
+    Johannes Kepplar: A planet sweeps out the same area every week. Fast near the sun, slow far away, and the slices come out equal. I have the figures somewhere. Give me a minute.
 -> Whose numbers are those?
     Johannes Kepplar: Tycho's. Twenty years of the best measurements anyone ever made, by a man with a brass nose and a tame elk. He left me the numbers. The elk went elsewhere.
 -> Goodnight.
-    Johannes Kepplar: It is always night up here. That's rather the point.
+    Johannes Kepplar: Goodnight. Close the dome door behind you.
 ===
 
 title: hall_cartesian_snakes

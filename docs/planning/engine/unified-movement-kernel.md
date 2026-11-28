@@ -32,6 +32,19 @@ frame or an already mapped carried vector. Navigation consumes the same
 standing physical experiment. Preserve identity fast paths, canonical
 parameters, dimensionless phase rules and the P2/P3 time/contact owners.
 
+## Selectable environmental profiles (proposed 2026-11-27)
+
+[ECP](environmental-collision-profiles.md) owns the ramp and body-profile
+roadmap. Keep `MotionModel` as the locomotion owner and `BodyMaterial` as the
+canonical material mapping. Select environment contacts, occupancy and
+support configuration separately from player/AI authority. Preserve the
+rectangular fast path; admit fixed ECB and paired-support pilots in the
+native gateway. Extract shared geometry operations, not another whole-tick
+mover. Publish accepted pose and support facts to navigation, combat and
+rendering. Initial profiles do not require continuous gravity. Revalidate
+selected portal and scale-relative work before migration; ECP is not a
+queue selection.
+
 ## Continuous local gravity: a tentative capability gate
 
 Static review at `00bf92c22142` finds a distinction between the frame

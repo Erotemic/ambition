@@ -58,7 +58,7 @@ title: station_reyes
 <<if verdict("world.flag_set", "orbital_consignment_cleared") == "satisfied">>
     Captain Reyes: 0447 is aboard. We burn for the survey moon at shift change. Thanks for fetching a number.
     -> Why does the moon need lenses?
-        Captain Reyes: To map it. Then someone will want a ring there, and I will be out of work. Good.
+        Captain Reyes: To map it. We need to find a place to land the next survey crew. If there is room for a permanent settlement, I'll probably be taking them out there for years.
     -> Have you flown near the gravity works?
         Captain Reyes: Once. Survey instruments gave me two horizons. I steered by the stars and stayed well clear.
     -> ‹step away›
@@ -67,7 +67,7 @@ title: station_reyes
     -> What do you haul?
         Captain Reyes: Whatever the ring brings that has to go where no ring is. Moons, mines, the slow places.
     -> Why not put a ring on the moon?
-        Captain Reyes: A ring eats a reactor and a crew. A hauler eats patience. Patience is cheaper.
+        Captain Reyes: It would need its own power plant and a crew to keep the gate running. We've only got a few people on that moon. I'm cheaper.
     -> What's the work out beyond the rings?
         Captain Reyes: Two weeks out, two back. We bring batteries, food, water. They send us rocks in labeled bags.
         Captain Reyes: It's a decent job, when customs lets us do it.
@@ -81,14 +81,14 @@ title: station_lindqvist
 ---
 Bo Lindqvist: Ring throughput is down a third since they doubled the passenger slots. Freight waits. I wait.
 -> Why passengers first?
-    Bo Lindqvist: They complain louder than crates. Also they get sick in the ring, so they want it over fast.
+    Bo Lindqvist: The Authority added the evening passenger service. I've asked them to give me back the freight slot on Thursdays.
 -> Need a hand?
     Bo Lindqvist: Not unless you can lift a container. ...You can? Huh. Union says no.
 -> Can freight go another way?
     Bo Lindqvist: Send it by ship. I've priced it. Three weeks for a box that used to take a morning.
     Bo Lindqvist: Captain Reyes is already booked solid.
--> What happens to the extra power?
-    Bo Lindqvist: They sell the passenger slots. My loaders still have to move the freight when the ring finally clears.
+-> Who decides the schedule?
+    Bo Lindqvist: The Authority's timetable office. I can send them a report on how long the freight waits. I can't make them read it.
 -> ‹step away›
 ===
 
@@ -140,9 +140,9 @@ title: station_wen
 ---
 Wen Liang: I tuned this station's first stable ring. The first link held three seconds. Now people commute.
 -> What changed?
-    Wen Liang: Power got cheap. Everybody wants a gate now. Not everybody wants to pay for one.
+    Wen Liang: We can hold the link for a lot less power than the old design took. The hard part now is finding a crew to look after it.
 -> Do you miss the work?
-    Wen Liang: I miss the quiet. Look down instead. That never gets old.
+    Wen Liang: Sometimes. Hamid lets me watch when they do the calibration. I can usually tell if the gate is out of tune by ear.
 -> Ever worked with Gnu-ton?
     Wen Liang: He sent me a plan for a gravity test. I asked where the shutoff was. He sent me a longer plan.
     Wen Liang: I've still got it on my desk.
@@ -176,18 +176,18 @@ Dobbs: Welcome to orbit! First time up the ribbon? You look like a first time. S
 -> What is in the snow globes?
     Dobbs: The planet. Shake it and there's weather. It's educational.
 -> Do people really buy this?
-    Dobbs: Everyone who comes up that ribbon has just spent an hour looking at the whole world through a window. They want something to hold. I sell them something to hold.
+    Dobbs: Mostly visitors. Last week one of the pilots bought a globe for her daughter. She wanted me to mark her orbit on it.
 -> Just looking.
-    Dobbs: So is everyone up here. That's the whole station. Come back when you want a shirt.
+    Dobbs: Go ahead. The big window is past the kiosk.
 ===
 
 title: works_pippin
 ---
 Hortensia Pippin: Mind the apples. They fall up here. I've been picking this orchard thirty years and I still look the wrong way first.
 -> How do you pick an apple that falls up?
-    Hortensia Pippin: Long pole and a lot of patience. You don't pick them, you catch them. They come off the branch and go straight for the ceiling, and you have to be faster than gravity. Which way gravity is that day.
+    Hortensia Pippin: Long pole and a lot of patience. I put a net over the tree and loosen the fruit with the pole. If you move the net, I'll spend all afternoon on the ceiling.
 -> Why is that tree upside down?
-    Hortensia Pippin: It isn't. It's the only one that's right way up. It grows towards the light, and the light's down there, on the planet. The others are the confused ones. I don't tell them.
+    Hortensia Pippin: That one grew toward the light from the planet. The rest grew toward the lamps. I keep asking the engineers to leave the lamps in one place.
 -> Do you know GNU-ton?
     Hortensia Pippin: He planted the first tree. Sat under it, waiting for an apple to fall on his head. Took him a week to think of looking up. Now he won't stop lecturing about it.
 -> I'll let you work.

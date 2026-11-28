@@ -406,8 +406,11 @@ title: valley_trader
 <<present_speaker "npc_valley_trader">>
 Trader: Lamp oil, salt, batteries. Everything here came through the gate this week.
 -> You were a smith.
-    Trader: Twenty years. Then the gate opened, and every horse in the valley got sold to buy a ticket through it.
-    Trader: I light the forge on Sundays, so it remembers what it's for.
+    Trader: Twenty years. Now I sell imports. I still shoe the miller's mule, but there isn't enough work to keep a second smith.
+    Trader: The knight brought me a sword with a battery in it. Took me a morning to fit the crossguard.
+-> Have you sold anything to the Barrow King?
+    Trader: Sold? He hasn't paid for anything. We used to leave broken tools by the old quarry. I've started putting them under lock and key.
+    Trader: Last week I saw one of my old kettles marching across the moor.
 -> Did the goblins come in here?
     Trader: Stood in the door and looked at the batteries for a long time. Bought nothing. The big one had a hammer I would have been proud of.
 -> ‹go›
@@ -417,7 +420,7 @@ title: valley_gatekeeper
 ---
 <<present_speaker "npc_valley_gatekeeper">>
 <<if verdict("world.flag_set", "valley_gatekeeper_met") == "satisfied">>
-    Gatekeeper: The freight window is tomorrow, at noon. It is always tomorrow, at noon.
+    Gatekeeper: Freight at noon tomorrow. If you have a delivery, leave the receipt with me.
     -> ‹go›
 <<elseif verdict("world.flag_set", "valley_gatekeeper_met") == "not_satisfied">>
     <<command "world.set_flag" "valley_gatekeeper_met" true>>
@@ -442,7 +445,7 @@ Knight-Errant: Stand back, it's on. It's always on. I can't find where it goes o
     Knight-Errant: I had the smith put a proper crossguard on it. It was only a handle. You can't swear an oath on a handle.
 -> What do you use it for?
     Knight-Errant: Rats, mostly. The cellar rats of this valley have never been so frightened, or so well done.
-    Knight-Errant: When it's charged I'm going up to the barrow on the moor, past the fell. Nobody has come out of it with anything. I'll be the first with a light.
+    Knight-Errant: When it's charged I'm going up to the barrow on the moor, past the fell. There are ghosts taking rubbish up there in broad daylight now. The innkeeper asked me to find out what they're doing.
 -> There are goblins at the siding. <<if verdict("encounter.cleared", "intro_freight_yard_fight") == "not_satisfied">>
     Knight-Errant: I know. I'm waiting for it to charge. It charges in the Plough's window, when there's sun.
 -> You could have helped with the goblins. <<if verdict("encounter.cleared", "intro_freight_yard_fight") == "satisfied">>
@@ -459,7 +462,9 @@ Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
     Hedge Wizard: The Book of Sums. Ask it anything with a number in. Seven times eight. *he presses it* Fifty-six. Every time. Every single time.
     Hedge Wizard: Forty years I had three charms: one for warts, one for lost keys, one for a fair wind on a Tuesday. Now I have every sum there is.
 -> Is it magic?
-    Hedge Wizard: It came through the gate in a crate of forty, so no. Magic is rare. This is common. That's what frightens me about it.
+    Hedge Wizard: I bought it from the trader. There were forty in the crate. I've tried it on the Tuesday spell and it keeps asking me for a date.
+-> What about the ghosts at the barrow?
+    Hedge Wizard: There have been ghosts up there since my grandfather's time. You could generally walk right past them. I don't know what the King's got hold of lately, but I've been taking the long way home.
 -> Do you know any real spells?
     Hedge Wizard: Three. I've just told you all of them.
     Hedge Wizard: The Tuesday one is quite good.
@@ -476,10 +481,9 @@ Ranger: Quiet. You're standing on the trail.
     Ranger: Goblins. They go through batteries like bread. *she holds one up* Still warm. They went up the hill path an hour ago.
     Ranger: My grandmother tracked by bent grass. I'd like to see her try it on goblins.
 -> What's that on your head?
-    Ranger: A head torch. It came through the gate. It lights the way, scares the deer, and tells every goblin in the woods exactly where I am.
-    Ranger: I'm still deciding if that's good.
+    Ranger: A head torch. It came through the gate. I've covered the white lens with red cloth. It keeps slipping off. If you see a bit of red cloth on the trail, it's mine.
 -> The goblins at the siding are beaten. <<if condition("encounter.cleared", "intro_freight_yard_fight")>>
-    Ranger: I saw the batteries stop. Thank you. Now I've nothing to follow but deer, and the deer can see me coming.
+    Ranger: I went up to look. Thank you. I'll take the long way back and see if any of them are still in the woods.
 -> ‹go›
 ===
 

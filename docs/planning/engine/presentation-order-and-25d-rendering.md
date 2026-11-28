@@ -855,10 +855,11 @@ shared value preparation are sufficient until source proves otherwise.
    use the same draw depth. An Ultra fixture shows a split helmet and held
    items with independent cuts in all three views.
 
-   Both views use the same additive material for folded lights on devices
-   that support it. Blended folded meshes, such as electric shock, use the
-   color-mesh path. An Ultra fixture checks light strength, vertex colors,
-   and the world sprite that shows a body's countdown.
+   Both views read the same prepared planar mesh for lightning, shock,
+   and attack marks. 2D binds it when an active camera uses its layers,
+   including an offscreen capture. Switching the binding keeps the mesh.
+   An Ultra fixture checks additive light and blended colors in 2D,
+   side-on 2.5D, and oblique 2.5D.
 
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
@@ -878,6 +879,13 @@ shared value preparation are sufficient until source proves otherwise.
    The fire glow and cosmic aura keep their subject's position in depth.
    Their paint order follows their source depth between the bodies of the
    same room. A light can overlap another body without moving to its plane.
+
+   Cards and sprite effects use the same texture region. A crop uses
+   coordinates relative to the atlas cell. An Ultra capture checks both
+   atlas and whole-image crops with an offset anchor and two-axis flips.
+   Card meshes use the sprite's fit or fill mode. An Ultra fixture checks
+   all six modes with wide and tall bounds, a crop, a flip, and an offset
+   anchor. The 2D and side-on images agree within one color value per channel.
 
    Card caches keep meshes and materials that a draw used recently.
    Hidden sprite cards release their handles. The last view releases the card
@@ -946,11 +954,11 @@ shared value preparation are sufficient until source proves otherwise.
    The card renderer uses the shared portal material and mesh. The
    window, rim, and exit pieces keep their paint order.
 
-   Text cards use Bevy's layout for the current frame. The layout uses
-   the card output's projection and display scale. It covers labels at
-   the edge of a tilted view and uses the target pixel density. The
-   brief portal input-direction cue appears in both views and clears
-   on release.
+   Text cards use Bevy's layout for the current frame. The plane camera
+   supplies the target scale and room mask, including when a card output
+   replaces it. The card camera draws the text at the edge of its tilted
+   view. Text layout needs no extra visibility pass. The portal input cue
+   appears in both views and clears on release.
 
    Rigged bodies use the same output coverage as portal windows. A tilted
    view samples a body at its own screen edge. A body keeps sprite slots

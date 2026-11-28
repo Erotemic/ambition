@@ -102,7 +102,7 @@ use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::sprite::{SpriteImageMode, TextureSlice};
+use bevy::sprite::{SpriteImageMode, SpriteScalingMode, TextureSlice};
 
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
@@ -490,7 +490,9 @@ impl Plugin for CardViewPlugin {
             labels::prepare_label_layout
                 .after(gameplay::route_card_outputs)
                 .after(super::view_isolation::isolate_live_rooms)
-                .before(bevy::camera::CameraUpdateSystems),
+                .after(bevy::camera::CameraUpdateSystems)
+                .before(bevy::sprite::update_text2d_layout)
+                .run_if(card_outputs_enabled),
         );
         app.add_systems(
             PostUpdate,
@@ -736,8 +738,12 @@ impl TextureQuad {
     fn vertices(self) -> ([[f32; 3]; 4], [[f32; 2]; 4]) {
         let [x0, y0] = ((-Vec2::splat(0.5) - self.anchor) * self.size).to_array();
         let [x1, y1] = ((Vec2::splat(0.5) - self.anchor) * self.size).to_array();
-        let [mut u0, mut v0] = (self.rect.min / self.page).to_array();
-        let [mut u1, mut v1] = (self.rect.max / self.page).to_array();
+        let [mut u0, mut v0, mut u1, mut v1] = ambition_sprite_fx::TextureRegion {
+            rect: self.rect,
+            page_size: self.page,
+        }
+        .uv_rect()
+        .to_array();
         if self.flip[0] {
             std::mem::swap(&mut u0, &mut u1);
         }
@@ -754,6 +760,47 @@ impl TextureQuad {
         mesh_for_quads([(self, Vec2::ZERO)])
     }
 
+    fn scaled(mut self, mode: SpriteScalingMode) -> Self {
+        use SpriteScalingMode::{FillCenter, FillEnd, FillStart, FitCenter, FitEnd, FitStart};
+        let pixels = self.rect.size();
+        if !pixels.cmpgt(Vec2::ZERO).all() || !self.size.cmpgt(Vec2::ZERO).all() {
+            return self;
+        }
+        let scale = self.size / pixels;
+        match mode {
+            FillStart | FillCenter | FillEnd => {
+                let crop = self.size / scale.max_element();
+                let alignment = match mode {
+                    FillStart => 0.0,
+                    FillEnd => 1.0,
+                    _ => 0.5,
+                };
+                // The fill crops the image after the flip.
+                let alignment = Vec2::from_array(self.flip.map(|flip| if flip {
+                    1.0 - alignment
+                } else {
+                    alignment
+                }));
+                let start = self.rect.min + (pixels - crop) * alignment;
+                self.rect = Rect { min: start, max: start + crop };
+            }
+            FitStart | FitCenter | FitEnd => {
+                let fitted = pixels * scale.min_element();
+                let remaining = self.size - fitted;
+                let align = match mode {
+                    FitStart => Vec2::new(1.0, -1.0),
+                    FitEnd => Vec2::new(-1.0, 1.0),
+                    _ => Vec2::ZERO,
+                };
+                // Apply the 2D sprite position before storing the quad anchor.
+                let offset = (-Vec2::splat(0.5) - self.anchor) * remaining * align;
+                self.anchor -= offset / fitted;
+                self.size = fitted;
+            }
+        }
+        self
+    }
+
     fn subdivided_mesh(self, mode: &SpriteImageMode) -> Mesh {
         let slices = match mode {
             SpriteImageMode::Sliced(slicer) => slicer.compute_slices(self.rect, Some(self.size)),
@@ -763,7 +810,7 @@ impl TextureQuad {
                 offset: Vec2::ZERO,
             }
             .tiled(*stretch_value, (*tile_x, *tile_y)),
-            SpriteImageMode::Auto | SpriteImageMode::Scale(_) => return self.mesh(),
+            SpriteImageMode::Auto | SpriteImageMode::Scale(_) => unreachable!("mode has one quad"),
         };
         let flip = Vec2::from_array(self.flip.map(|flip| if flip { -1.0 } else { 1.0 }));
         mesh_for_quads(
@@ -869,6 +916,40 @@ fn a_sliced_column_keeps_its_caps_and_repeats_its_middle() {
     ]);
 }
 
+#[cfg(test)]
+#[test]
+fn changing_sprite_scale_mode_changes_the_card_crop_or_bounds() {
+    use bevy::mesh::VertexAttributeValues::{Float32x2, Float32x3};
+
+    let page = Vec2::new(64.0, 32.0);
+    let quad = TextureQuad {
+        rect: Rect::from_corners(Vec2::ZERO, page),
+        page,
+        size: Vec2::new(16.0, 32.0),
+        anchor: Vec2::ZERO,
+        flip: [true, false],
+    };
+    let mut meshes = Assets::<Mesh>::default();
+    let mut cache = CardMeshes::default();
+    let fill = SpriteImageMode::Scale(SpriteScalingMode::FillStart);
+    let fit = SpriteImageMode::Scale(SpriteScalingMode::FitStart);
+    let filled = cache.sprite_mesh(quad, &fill, &mut meshes);
+    let fitted = cache.sprite_mesh(quad, &fit, &mut meshes);
+    assert_eq!(cache.sprite_mesh(quad, &fill, &mut meshes), filled);
+    assert_ne!(fitted, filled);
+
+    let filled = meshes.get(&filled).unwrap();
+    let fitted = meshes.get(&fitted).unwrap();
+    assert_eq!(
+        filled.attribute(Mesh::ATTRIBUTE_UV_0),
+        Some(&Float32x2(vec![[1.0, 1.0], [0.75, 1.0], [0.75, 0.0], [1.0, 0.0]])),
+    );
+    assert_eq!(
+        fitted.attribute(Mesh::ATTRIBUTE_POSITION),
+        Some(&Float32x3(vec![[-8.0, 8.0, 0.0], [8.0, 8.0, 0.0], [8.0, 16.0, 0.0], [-8.0, 16.0, 0.0]])),
+    );
+}
+
 impl CardMeshes {
     fn is_empty(&self) -> bool {
         self.meshes.is_empty() && self.subdivided.is_empty() && self.materials.is_empty() && self.flashes.is_empty()
@@ -884,6 +965,10 @@ impl CardMeshes {
         mode: &SpriteImageMode,
         meshes: &mut Assets<Mesh>,
     ) -> Handle<Mesh> {
+        if let Some(mode) = mode.scale() {
+            // The image region and the fitted anchor are part of the quad key.
+            return self.quad(quad.scaled(mode), meshes);
+        }
         if !mode.uses_slices() {
             return self.quad(quad, meshes);
         }
@@ -1524,23 +1609,16 @@ fn sprite_frame(
     } else {
         images.get(&sprite.image)?.size().as_vec2()
     };
-    let frame_rect = if let Some(cell) = &sprite.texture_atlas {
-        layouts?.get(&cell.layout)?.textures.get(cell.index)?.as_rect()
-    } else {
-        Rect::from_corners(Vec2::ZERO, page_size)
-    };
-    let rect = sprite.rect.map_or(frame_rect, |crop| {
-        Rect::from_corners(frame_rect.min + crop.min, frame_rect.min + crop.max)
-    });
+    let region = ambition_sprite_fx::sprite_texture_region(sprite, layouts, Some(page_size))?;
     let frame = BakedFrame {
         image: sprite.image.clone(),
-        rect,
-        size: sprite.custom_size.unwrap_or_else(|| rect.size()),
+        rect: region.rect,
+        size: sprite.custom_size.unwrap_or_else(|| region.rect.size()),
         anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
         flip_x: sprite.flip_x,
         flip_y: sprite.flip_y,
     };
-    Some((frame, page_size))
+    Some((frame, region.page_size))
 }
 
 /// A sprite's card quad and material, made once per cell and per colour.

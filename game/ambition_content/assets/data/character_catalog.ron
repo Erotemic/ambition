@@ -17667,7 +17667,7 @@
         ),
         "npc_mine_lode_core": (
             display_name: "The Listening Seam",
-            manifest: "sprites/mine_lode_echo_spritesheet.ron",
+            manifest: "sprites/mine_listening_core_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
             standing_height: Some(100.0),

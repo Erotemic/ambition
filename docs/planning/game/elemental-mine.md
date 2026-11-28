@@ -15,6 +15,8 @@ The yard still sends ore to Eureka. Inez suspended the lower shift after the cru
 
 Watch the lifted arm for the close hammer, jump the floor fracture, and move off the marked spots before the crystals fall. The cavern shelves give a way over the fracture. The fight opens the seam beyond the arena and leaves 65 coins in loose ore. Mother Lode can speak after her shell breaks.
 
+Mother Lode's shell has layers of bedrock and a crown of stepped bismuth. Amber seams light up during the hammer strike. Jade seams light up before the floor fracture, and violet seams light up before the crystal fall. The amber core in the debris is the same core that speaks in the chamber beyond the arena.
+
 Inez can recognize the encounter result. The exact boundary of future work, the fate of the offending crusher, and the relationship of the mine to the wider Science story stay open. A dungeon visit needs no new traversal ability. The yard, optional locker, and loose ore give the visit a local purpose and result.
 
 ## Sources

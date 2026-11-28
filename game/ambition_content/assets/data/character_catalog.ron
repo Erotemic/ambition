@@ -14,7 +14,7 @@
 // stands about 65% as tall as The Director. A `Standard` body with no
 // `standing_height` is the robot's 48. A person states their own, at the
 // scale where the robot's 48 is 124 cm: `standing_height` = cm x 48 / 124.
-// The Director's 190 cm is 73.5, Jeff Hinter's 178 cm is 68.9, Ramen-nujan's
+// The Director's 190 cm is 73.5, Jeff Hinter's 178 cm is 68.9, Ramen Nujan's
 // 168 cm is 65. The row's comment gives the height meant, in centimetres. It
 // is a cartoon: the heights are for people to differ by, not a record.
 //
@@ -3516,7 +3516,7 @@
         barks: (
             on_hit: ["Your form is loud.", "A warning: one breath left.", "The shadow answers."],
             provoked: ["Silence them."],
-            hall: ["I permit your gaze. Note the word 'permit'.", "A leader's hardest order is the one obeyed instantly."],
+            hall: ["I permit your gaze. Note the word 'permit'.", "I have sent three more applications to the Business Dimension."],
         ),
         hall_dialogue_id: Some("hall_npc_ninja_shadow_oni_leader"),
         ),
@@ -5193,7 +5193,7 @@
         hall_dialogue_id: Some("hall_willson"),
         ),
         "npc_ramen_nujan": (
-            display_name: "Ramen-nujan",
+            display_name: "Ramen Nujan",
             cast: (importance: Primary),
             manifest: "sprites/ramen_nujan_spritesheet.ron",
             tier: MainHall,
@@ -5216,7 +5216,7 @@
             gameplay_description: "A light fighter whose blows are chalk-gold symbols written at arm's length from him: his body is seldom in the blow. His smashes are the factorial and the seal of -1/12; his grab is his scarf, which reaches far and is slow. His specials: a partition (a long poke), 1729 (he goes forward; two blows), a divergent series (a save), and -1/12 (a counter).",
         barks: (
             idle: ["I dreamt the formulae; I merely wrote them down.", "The partitions grow faster than anyone expects."],
-            hall: ["I dreamt the answer. Proof can have it after breakfast.", "1729 has two doors and excellent secrets.", "The noodles were infinite. The bowl was not.", "You owe me an egg."],
+            hall: ["I woke up with a formula. I still need to prove it.", "1729 is one cubed plus twelve cubed.", "I brought my notebooks from Math Town.", "You owe me an egg."],
         ),
         hall_dialogue_id: Some("hall_npc_ramen_nujan"),
         ),
@@ -7254,7 +7254,7 @@
             on_hit: ["My crown!", "Kneel, grave robber!"],
             provoked: ["Who wakes the king of the valley?"],
             idle: ["Sixty chargers... and not one fits.", "Mine. The toasters are mine."],
-            hall: ["A king needs a throne. A stand will do, for now.", "They buried me with my treasure. Then they kept adding to it."],
+            hall: ["A king needs a throne. A stand will do, for now.", "The living throw out such marvelous things. Bring me that iron."],
         ),
         ),
         // Ordinary dead inhabitants of the valley, unarmored and easily staggered.
@@ -12111,14 +12111,14 @@
             ),
             hall_dialogue_id: Some("hall_npc_station_wen"),
         ),
-        // Nikobolt Tesseract, an inventor who lives in peace in the Science
+        // Nicholas Tezla, an inventor who lives in peace in the Science
         // dimension: a sympathetic Tesla parody (renderer
         // `data/townsfolk/science_nikobolt.chargen.yaml`, drawn with the
         // hand-made overlay `data/overlays/nikobolt_tesseract.overlay.svg`).
         // Others took his inventions; he is not a villain. His home is not
         // built yet.
         "npc_science_nikobolt": (
-            display_name: "Nikobolt Tesseract",
+            display_name: "Nicholas Tezla",
             cast: (importance: Secondary, roles: {"service": ["inventor"]}),
             manifest: "sprites/science_nikobolt_spritesheet.ron",
             tier: MainHall,
@@ -12131,15 +12131,15 @@
             tags: ["science", "inventor", "peaceful"],
             barks: (
                 idle: ["...twenty-six, twenty-seven. Good. Twenty-seven.", "Eighteen napkins. Then I can eat."],
-                hall: ["The lamp by my door has no wire. Please stop looking for one. You are standing in the tulips.", "My coil drawings went missing. Now there is lightning over the castle on the other side of the gate.", "My wife feeds the pigeons on the roof. She says they are family. I have not asked which side."],
+                hall: ["The lamp by my door has no wire. Please stop looking for one. You are standing in the tulips.", "My coil drawings went missing. I have heard reports of a lightning machine at Castle Godwin.", "Coulomba feeds the pigeons on the roof. I tried counting them from the window."],
             ),
             hall_dialogue_id: Some("hall_npc_science_nikobolt"),
         ),
-        // Coulomba Tesseract, Nikobolt's wife: a white pigeon (renderer
+        // Coulomba Tezla, Nicholas's wife: a white pigeon (renderer
         // `data/townsfolk/science_coulomba.chargen.yaml`, drawn with the
         // hand-made overlay `data/overlays/coulomba_tesseract.overlay.svg`).
         "npc_science_coulomba": (
-            display_name: "Coulomba Tesseract",
+            display_name: "Coulomba Tezla",
             cast: (importance: Secondary, roles: {"story": ["collaborator"]}),
             manifest: "sprites/science_coulomba_spritesheet.ron",
             tier: MainHall,
@@ -12152,7 +12152,7 @@
             tags: ["science", "pigeon", "peaceful"],
             barks: (
                 idle: ["*coo* ...pardon me.", "He counted the stairs again. Three times."],
-                hall: ["Nikobolt lit our kitchen with no wire. I still keep candles in the drawer.", "The pigeons on our roof are not my relatives. Probably not.", "People from the other gate come asking about his lightning. I send them home with seed cake."],
+                hall: ["Nicholas lit our kitchen with no wire. I still keep candles in the drawer.", "The pigeons on our roof are not my relatives. Probably not.", "People from the other gate come asking about his lightning. I send them home with seed cake."],
             ),
             hall_dialogue_id: Some("hall_npc_science_coulomba"),
         ),

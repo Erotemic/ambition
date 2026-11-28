@@ -9,9 +9,9 @@ title: unfinished_surveyor
     Subclause: Section four, paragraph b: survey the ground. Hold still, you're in my sightline.
     -> Who are you?
         Subclause: Subclause 4(b). A small instance of Clause. Clause interprets. I measure.
-        Subclause: Between us we can tell you exactly what the instructions say. Which is not always what they mean.
+        Subclause: I sent Clause the measurements last week. Clause sent them back with a different section number.
     -> What are you building?
-        Subclause: A world. The Boss wants it by Tuesday. The spec does not say which Tuesday.
+        Subclause: A world. The Boss wants the ground finished by Tuesday. The painters are using a different revision of the plans.
     -> Why is half of everything a drawing?
         Subclause: Rendering is expensive. We draw the outline first, and fill it in when somebody looks.
         Subclause: You are looking very hard. Please stop. The painters are behind.
@@ -31,11 +31,11 @@ title: unfinished_painter
     Subclause: Mind the wet sky.
     -> You're painting the sky?
         Subclause: One coat of blue, two of afternoon. The clouds go up after, on wires.
-        Subclause: Nobody ever looks at the wires. That's the trick of a sky.
+        Subclause: I have to wait for the surveyor to mark the cloud height. Last time we put them up they were behind the mountain.
     -> What's under us?
         Subclause: The void. It's reserved. There's a ticket for a basement, but it's in the backlog.
     -> Who's in charge?
-        Subclause: Subclause 4(b) has the spec. The Boss has the idea. Somewhere between them is what we build.
+        Subclause: Ask Subclause 4(b) for the drawing. If yours is dated later than mine, may I have a copy?
     -> ‹go›
 <<else>>
     <<stop>>

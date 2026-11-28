@@ -356,18 +356,18 @@ title: hall_npc_fia
 ---
 Fia: You're the one Oiler keeps glaring at. Come here, your left knee is singing.
 -> Who are you?
-    Fia: Fia. I work under Oiler. He fixes the town; I fix whatever the town drags in. Today that's you.
+    Fia: Fia. I work under Oiler. I'm usually at his bench. Let me see you bend that knee.
 -> Where are your goggles?
-    Fia: Never wore them. I like to see what I'm getting into.
+    Fia: They fog up. I left mine beside the vice.
 -> What is the white streak?
     Fia: Born with it. Probably. Oiler says it showed up the week I first opened a gate panel. Oiler exaggerates.
 -> Show me the void.
     <<transform "npc_fia_void">>
-    Fia: Oh. It's quiet in here. Every part of everything, exactly where it belongs.
-    Fia: Don't look so worried. I can stop whenever I like.
+    Fia: Oh. Give me a moment. I can hear you.
+    Fia: I know. I'll change back.
 -> Come back.
     <<transform "npc_fia">>
-    Fia: There. Hands last, always. They remember it longest.
+    Fia: There. Let me get the feeling back in my fingers.
 ===
 
 title: hall_npc_gate_janitor
@@ -390,9 +390,9 @@ Manifest Clerk: Line forty-one. Name, category, placement, all valid. If yours i
 
 title: hall_npc_erdish
 ---
-Erdish: Ah! New collaborator. Sit down. I just made coffee.
+Erdish: My mind is open. Sit down. Have you got a problem for me?
 -> What do you work on?
-    Erdish: Number theory today. Tomorrow I'm meeting three people who all brought different problems. Coffee will decide.
+    Erdish: Number theory, if you have any. I told three people I would meet them here at noon. Have you seen any of them?
 -> Tell me something true.
     Erdish: Suppose you list every prime. Multiply them and add one. Whatever divides the new number was absent from your list.
 ===
@@ -1028,9 +1028,9 @@ title: hall_barrow_king
 ---
 The Barrow King: You stand before the King of the Valley! Have they stopped teaching people to kneel?
 -> What have you got in your barrow?
-    The Barrow King: Gold, silver, toasters. Sixty chargers and not one that fits my lamp. The living have been most generous.
+    The Barrow King: Gold, silver, toasters. A man threw away a perfectly serviceable iron last week. Look what I can do with it now.
 -> What do you do with all that treasure?
-    The Barrow King: Do with it? I am a king. It is supposed to sit there looking expensive.
+    The Barrow King: Have you seen how hard it is to get good soldiers when everyone is a ghost? The valley keeps supplying me with replacements.
 ===
 
 title: hall_npc_raid_brute
@@ -1111,7 +1111,7 @@ Gram Reaper: Have you ever heard a hotel groan in the middle of the night, with 
 -> What's happening in Hylbert's Hotel?
     Gram Reaper: A door slams and, several corridors away, the walls begin to shake. The old spectral wing is particularly good for it.
 -> Did you cause the haunting?
-    Gram Reaper: Hylbert would love to put my name on the repair bill. Ask him about his spectral gap.
+    Gram Reaper: Hylbert is trying to increase the spectral gap. It will make my visits rather less convenient. I wish he would take up a different branch of mathematics.
 ===
 
 title: hall_npc_marshal_gallus
@@ -1127,9 +1127,9 @@ title: hall_npc_supreme_leader
 ---
 The Supreme Leader: Who authorized you to approach me?
 -> Nobody.
-    The Supreme Leader: Then someone has neglected his duty. I shall see that he is disciplined.
+    The Supreme Leader: Find the officer in charge of the door. Give me his name.
 -> Why do you need that uplink?
-    The Supreme Leader: I expect every unit to receive my orders. I do not permit local commanders to improvise.
+    The Supreme Leader: My orders go out from the capital. Godwin is one of my commands. Its officers will obey the same orders as all the rest.
 ===
 
 title: hall_npc_command_uplink
@@ -1174,11 +1174,11 @@ Willson: New intelligence? Good. Draw me riding this bicycle. SVG. Two wheels, s
 
 title: hall_npc_ramen_nujan
 ---
-Ramen-nujan: I dreamt about partitions again. Woke up at four and wrote until breakfast was cold.
+Ramen Nujan: I dreamt about partitions again. The priest at the temple is getting used to finding sheets of arithmetic under the breakfast bowls.
 -> Can you prove what you dream?
-    Ramen-nujan: Sometimes the dream gives me a formula. Then I spend the day finding out whether it was nonsense.
+    Ramen Nujan: Sometimes. Last night I wrote one down without getting out of bed. I put the same denominator in every term. I'm still working on it.
 -> Why does 1729 follow you around?
-    Ramen-nujan: 1729 is two cubes summed in two different ways. Hardy thought it was dull. I disagreed.
+    Ramen Nujan: 1729 is two cubes summed in two different ways. One cubed plus twelve cubed, or nine cubed plus ten cubed.
 ===
 
 title: hall_npc_pipi_tau
@@ -1916,11 +1916,11 @@ title: hall_npc_full_stack
 ---
 Full Stack: Great question! Before you ask it: the answer is louder.
 -> What are you?
-    Full Stack: An amp, a cabinet, legs, and a guitar I cannot play. I am the stage he stands on.
+    Full Stack: Amp, cabinet, legs. I play bass. The Boss stands on my shoulders. He wanted somewhere to put his microphone stand, too, but I drew the line at that.
 -> How do I get up there?
-    Full Stack: The guitar. Walk up the neck, from the headstock to my shoulder. Everyone thinks it is decoration. It is a ramp.
+    Full Stack: My bass. Start at the headstock and walk up the neck to my shoulder. Try not to step on the strings when I'm playing.
 -> Does he ever get down?
-    Full Stack: He takes breaks. I keep the lights on. Nobody asked me if I wanted to, which is how I knew it was my job.
+    Full Stack: Sometimes. I can see the drummer when he gets down. He stands right in my sightline otherwise.
 ===
 
 title: hall_npc_bossofthegame
@@ -1931,9 +1931,9 @@ bossofthegame: Make it right. Make no mistakes. Why is the player still talking 
 -> Why do you want me dead?
     bossofthegame: I don't. I wanted to be challenged. Then I gave the job to agents, and agents do what they're told.
 -> Who are the three behind you?
-    bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack is the floor.
+    bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack plays bass. I stand on his shoulders.
 -> And when it's over?
-    bossofthegame: Maybe I'll learn the bass. Properly, with no agents. It takes years, and that's the point. I've still got a game to finish first.
+    bossofthegame: I keep asking Full Stack to teach me the bass. We haven't had time. I'd like to play a whole song without stopping to fix something.
 ===
 
 title: hall_npc_geppetto
@@ -2557,24 +2557,24 @@ Barry Metric: Pressure is falling. Not mine. The air's.
 
 title: hall_npc_science_nikobolt
 ---
-Nikobolt Tesseract: ...twenty-six, twenty-seven. Good. Twenty-seven.
+Nicholas Tezla: ...twenty-six, twenty-seven. Good. Twenty-seven.
 -> What are you counting?
-    Nikobolt Tesseract: The steps. The napkins. Things that should be divisible by three, and are, if one is careful.
+    Nicholas Tezla: The steps. The napkins. Things that should be divisible by three, and are, if one is careful.
 -> Where is the wire for your lamp?
-    Nikobolt Tesseract: There is none. Please stop looking for one. You are standing in the tulips.
+    Nicholas Tezla: There is none. Please stop looking for one. You are standing in the tulips.
 -> What happened to your coil drawings?
-    Nikobolt Tesseract: They went missing. Now there is lightning over a castle on the other side of the gate.
+    Nicholas Tezla: They went missing. I have heard reports of a lightning machine at Castle Godwin.
 ===
 
 title: hall_npc_science_coulomba
 ---
-Coulomba Tesseract: *coo* ...pardon me.
--> How is Nikobolt?
-    Coulomba Tesseract: He counted the stairs again. Three times. It settles him.
+Coulomba Tezla: *coo* ...pardon me.
+-> How is Nicholas?
+    Coulomba Tezla: He counted the stairs again. Three times. It settles him.
 -> The pigeons on your roof?
-    Coulomba Tesseract: Not my relatives. Probably not. I feed them anyway.
+    Coulomba Tezla: Not my relatives. Probably not. I feed them anyway.
 -> People ask about his lightning?
-    Coulomba Tesseract: From the other gate, yes. I send them home with seed cake.
+    Coulomba Tezla: From the other gate, yes. I send them home with seed cake.
 ===
 
 title: hall_npc_armsmith_odile

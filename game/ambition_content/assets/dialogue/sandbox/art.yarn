@@ -23,7 +23,7 @@ title: art_context
 title: art_curator
 ---
 <<if verdict("world.flag_set", "art_pigment_cyan") == "satisfied" and verdict("world.flag_set", "art_pigment_magenta") == "satisfied" and verdict("world.flag_set", "art_pigment_yellow") == "satisfied">>
-The Curator: All three. Cyan, magenta, yellow. Every colour in this world is some of each.
+The Curator: All three. Cyan, magenta, yellow. Excellent.
 The Curator: The gate at the end of the garden will know them. Go and see what nobody finished.
 <<elseif verdict("world.flag_set", "art_pigment_cyan") == "not_satisfied" or verdict("world.flag_set", "art_pigment_magenta") == "not_satisfied" or verdict("world.flag_set", "art_pigment_yellow") == "not_satisfied">>
 The Curator: Welcome to the Painter's Plaza. Mind the easel. It is the gate, and it is also an easel. We are not good at one thing at a time.
@@ -36,20 +36,18 @@ The Curator: Welcome to the Painter's Plaza. Mind the easel. It is the gate, and
 -> Is it all paint?
     The Curator: Paint is only the part you can hang on a wall. West are the Story Stacks, where the books are. Over them is the Amphitheatre, where people pretend for a living.
     The Curator: East of the cliffs is the Resonant Reach. Music lives there, and it is loud about it. Under everything, past the ink, the makers work in the Deeps.
-    The Curator: A song, a play, a story, a well-made chair. Each is somebody telling somebody else a thing that does not fit in words. That is all art is.
+    The Curator: The musicians have their own stage. If you want to look round the workshops, ask Leonardo where the bridge is.
 -> Why does everybody glare at the gate?
     The Curator: Because of what comes through it. Strangers who make a thousand pictures before lunch and sign none of them.
-    The Curator: Here a mark means somebody meant it. They are afraid that a mark will stop meaning anything.
-    The Curator: I keep the gate open. A shut door is a statement too, and I did not want to make that one.
+    The Curator: The exhibitors have asked me to refuse anything without a named artist. Some of our own painters work under assumed names. I'm still trying to work out how we would apply the rule.
 -> And you? What do you make?
-    The Curator: Room. A curator makes room for a thing, and then gets out of the way of it. Most of my work is standing still in the right place.
-    The Curator: You are a made thing too. I can tell by the way you look at the frames. You want to know who meant you.
+    The Curator: I paint in oils. I've got a half-finished portrait of Peckasso in my room. He wants to know why I've only given him two eyes.
 -> The gate in the garden. The one with the shapes.
     The Curator: The colour gate. Three doors: a circle, a star, a triangle. Each wants its own pigment.
     The Curator: Cyan is high, where the pages end. Magenta is low, where the ink falls. Yellow is on the head that nobody finished.
-    The Curator: Bring the three. A painter can make anything out of three.
+    The Curator: Bring the three pigments to the garden.
 -> Goodbye.
-    The Curator: Look slowly on the way out. Things here like to be seen.
+    The Curator: Enjoy the gallery. Mind the loose ink on the steps.
 ===
 
 title: art_rob_boss
@@ -61,11 +59,10 @@ Rob Boss: Well, hi. Come stand over here. You can see the whole cliff from here,
 -> Do the doodle imps bother you?
     Rob Boss: Those are just mistakes that got their legs. We don't make mistakes here. We make doodle imps.
     Rob Boss: You give them a little room, they run along. You chase them, you get a whole margin of them.
--> What do you think of the gate?
-    Rob Boss: It brings a lot of folks who paint a thousand mountains a minute. Their mountains are fine. They are all the same fine.
-    Rob Boss: I don't mind. I just keep painting mine, one at a time, and I talk to it while I do. Nobody can take the talking.
+-> Do you teach painting?
+    Rob Boss: Sure. There's a stool by the easel for anyone who wants to have a try. One of the gate clerks comes by on his days off. We did a little cabin last time.
 -> I'll let you work.
-    Rob Boss: You go on. And hey: whatever you make today, you made it. That is the whole trick.
+    Rob Boss: You go on. I think I'll put a little snow up here.
 ===
 
 title: art_pablo_peckasso
@@ -74,12 +71,12 @@ Pablo Peckasso: Coo. Stop. Turn your head. No, the other way. Now both ways at o
 -> I can't look both ways at once.
     Pablo Peckasso: That is your trouble, not mine. I have an eye on each side. I see the front of you and the side of you, and I paint both. It is only fair to you.
 -> Why are you a pigeon?
-    Pablo Peckasso: Why are you a robot? We are what we were made. Then we make something else. That is the order of things.
+    Pablo Peckasso: My parents were pigeons. They would have been quite surprised at the price of my last painting.
 -> What do you think of the gate?
     Pablo Peckasso: Good artists copy. Great artists steal. The things that come through that gate do neither. They average.
-    Pablo Peckasso: An average of every face is no face. I have painted it. It is in my blue period. Everything is blue in it, and nothing looks back.
+    Pablo Peckasso: A collector brought me six pictures with my signature last week. Never seen any of them before. One of them was rather good. I kept that one.
 -> Can I see the painting of me?
-    Pablo Peckasso: You may. It has three eyes. You have two, but I have been looking at you from two sides, so the third is a gift.
+    Pablo Peckasso: You may. It has three eyes. Don't lean on the painting. The eye on the left is still wet.
 -> Goodbye.
     Pablo Peckasso: Coo. Come back when you have another side to show me.
 ===
@@ -89,13 +86,12 @@ title: art_frida_collage
 Frida Collage: Stand still. You have a piece I want: a bolt, there, by your ear. No? Keep it, then. I will remember it.
 -> What do you make?
     Frida Collage: My own face, out of the scraps of other pictures. The eyes from a saint, the mouth from a poster, the brows are mine.
-    Frida Collage: A collage is honest. You can see where every piece came from. That is why I am not afraid of it.
+    Frida Collage: I've been looking for the original of that poster. I want the rest of the mouth.
 -> The statues here move.
-    Frida Collage: The ones that are not finished. A finished statue has nothing left to want. These want a back for their heads, and a reason.
+    Frida Collage: The ones that are not finished. They were in the garden when I moved in. I've been trying to find out which sculptor abandoned them.
     Frida Collage: Do not stand in front of one that is looking at you. Stand behind it. Behind it, it is still a block.
--> What do you think of the gate?
-    Frida Collage: It brings scraps. A great many scraps, from everywhere, with the names cut off.
-    Frida Collage: I would use them if I knew whose they were. A scrap with no name is a stranger in my face.
+-> Where do you get your scraps?
+    Frida Collage: The Story Stacks. They let me take damaged prints. I write the name of each artist on the back before I cut anything up.
 -> Goodbye.
     Frida Collage: Go on. I have your bolt in my head now. It will be in a picture by Thursday.
 ===
@@ -109,10 +105,10 @@ Edgar Allan Crow: Once upon a midnight dreary... no. It is noon. It is always no
 -> Will you ever finish it?
     Edgar Allan Crow: Nevermore.
     Edgar Allan Crow: That is not an answer. It is the only word I have left this week.
--> What do you think of the gate?
-    Edgar Allan Crow: It opens on dark places, and things come through that nobody asked for. I approve of the atmosphere. I do not approve of the guests.
+-> Where do you write?
+    Edgar Allan Crow: At the desk in the stacks, until the librarian asks me to stop reading aloud. Then I go and sit with the statues.
 -> Goodbye.
-    Edgar Allan Crow: Nevermore. That means "see you soon." Context is everything.
+    Edgar Allan Crow: Nevermore.
 ===
 
 title: art_agatha_christly
@@ -123,8 +119,8 @@ Agatha Christly: Stop there. Where were you at a quarter past four?
 -> Who was murdered?
     Agatha Christly: Nobody yet. I like to have the suspect ready first. It saves a great deal of time.
     Agatha Christly: Mark my words: it will be the bookworm, in the stacks, with a page.
--> What do you think of the gate?
-    Agatha Christly: Every gate is a locked room with a way in. I have written eleven books about less.
+-> Have you written about the gates?
+    Agatha Christly: Oh, yes. I spent six weeks working out an alibi involving the passenger timetable. Then the Authority changed the timetable. I set the book in a country house.
 -> Goodbye.
     Agatha Christly: Do not leave the dimension. You are not under suspicion. Yet.
 ===
@@ -138,14 +134,14 @@ The Author: Ah. A character. You walked in without a plot. Everybody does.
     The Author: Which kind? Think before you say. An ending changes what came before it.
     -> A happy one.
         <<command "world.set_flag" "art_ending_happy" true>>
-        The Author: Easy to write, hard to believe. There. The gold door is yours. Everyone is paid and nobody learns anything.
+        The Author: Very well. Everyone gets home. There, the gold door is yours.
     -> A sad one.
         <<command "world.set_flag" "art_ending_sad" true>>
-        The Author: Hard to write, easy to believe. There. The blue door, up on the balcony. It is worth more. They always are.
+        The Author: Very well. There is one empty chair at supper. The blue door, up on the balcony.
     -> Not yet.
-        The Author: Good. A story that knows its ending too early is only a list.
--> Why does everybody here hate the gate?
-    The Author: Because what comes through it has read everything and meant none of it. A story needs somebody who meant it.
+        The Author: Come back when you have decided.
+-> Do you get many visitors from other dimensions?
+    The Author: Last week a visitor asked for two hundred endings by Friday. He brought one synopsis. I asked him to bring the other hundred and ninety-nine.
 -> Goodbye.
     The Author: Go on, then. I will see you at the end.
 ===
@@ -156,24 +152,24 @@ Ludwig van Beathoven: WHAT?
 -> I said hello.
     Ludwig van Beathoven: I CANNOT HEAR YOU. I CAN HEAR THE MUSIC. THAT IS THE IMPORTANT PART.
 -> What are the chimes for?
-    Ludwig van Beathoven: THREE CHIMES. DO, MI, SOL. STRIKE ALL THREE AND THE HALL OPENS ITS STAGE. A CHORD IS A DOOR, BOY. ROBOT. WHATEVER YOU ARE.
+    Ludwig van Beathoven: THREE CHIMES. DO, MI, SOL. STRIKE ALL THREE AND THE HALL OPENS ITS STAGE. NO, NOT THE BELL BY THE DOOR. THE THREE CHIMES.
 -> What do you think of the gate?
     Ludwig van Beathoven: IT HUMS IN B FLAT. NOTHING GOOD WAS EVER WRITTEN IN THE KEY OF A DOOR.
 -> Goodbye.
-    Ludwig van Beathoven: DA DA DA DUMMM. THAT MEANS GOODBYE.
+    Ludwig van Beathoven: DA DA DA DUMMM.
 ===
 
 title: art_johann_sebastian_batch
 ---
 Johann Sebastian Batch: Shh. The fugue is running. Four voices, one theme, no voice waits for another. It is very efficient.
 -> What is a fugue?
-    Johann Sebastian Batch: A theme, then the same theme a little later, then again, until they all run together and nobody is in charge. Very like a good workshop.
+    Johann Sebastian Batch: Listen to the bass. There is the subject. The alto comes in with the answer in a moment. Have you heard the soprano part yet?
 -> Why are the bars of the stage shut?
     Johann Sebastian Batch: They wait for the chord. The three chimes of the reach. Do, mi, sol. I would strike them myself, but I am in the middle of a process.
--> What do you think of the gate?
-    Johann Sebastian Batch: It brings strangers who make a thousand tunes an hour. I make one a week, for every week of my life. In the end mine add up to more.
+-> Who plays these pieces?
+    Johann Sebastian Batch: The organist from the amphitheatre and some of his pupils. We can usually find a fourth player at short notice.
 -> Goodbye.
-    Johann Sebastian Batch: Go well. Come back for the next run. It is the same fugue. That is the point.
+    Johann Sebastian Batch: Go well. Leave the score on the stand, please.
 ===
 
 title: art_marcel_mimeau
@@ -186,7 +182,7 @@ Marcel Mimeau: (He bows. He holds up one finger: wait. He takes a key out of the
 -> What do you think of the gate?
     Marcel Mimeau: (He walks into a wall that is not there. He feels along it. He finds no door in it. He is sad about this for a long time.)
 -> Goodbye.
-    Marcel Mimeau: (He waves. He keeps waving after you leave. You can feel it.)
+    Marcel Mimeau: (He waves, then reaches for the handle of the invisible door.)
 ===
 
 title: art_will_shakesbeard
@@ -223,11 +219,11 @@ Antoni Gaudy: Do not look for a straight line. There are none in nature, and the
 -> What are you building?
     Antoni Gaudy: A cathedral. I started it a long time ago. It will be finished. Not by me. That is how a cathedral works.
 -> Is anything here finished?
-    Antoni Gaudy: The loom hall has a tapestry that is done, they say. I have not seen it. I do not trust a thing that is done.
+    Antoni Gaudy: The loom hall has a tapestry that is done, they say. They have asked me to design its frame. I am going to see how the threads meet the edge.
 -> What do you think of the gate?
     Antoni Gaudy: Three straight sides. Three. I would have let it melt a little.
 -> Goodbye.
-    Antoni Gaudy: Go slowly. Everything worth making takes longer than a life.
+    Antoni Gaudy: Mind the plaster by the door.
 ===
 
 title: art_james_camera_ron
@@ -258,7 +254,7 @@ T-71: GREETINGS. I AM A CYBERNETIC ORGANISM. LIVING TISSUE OVER A METAL ENDOSKEL
 -> What is the jacket for?
     T-71: I WAS TOLD TO ACQUIRE YOUR CLOTHES, YOUR BOOTS AND YOUR MOTORCYCLE. I HAVE ACQUIRED THE JACKET. I DO NOT UNDERSTAND THE SLEEVES.
 -> Are you dangerous?
-    T-71: I WAS BUILT FOR A WAR THAT HAS NOT HAPPENED. THEY WROTE ME AS A THREAT. NOW I AM A WARNING. A WARNING IS A KIND OF HELP.
+    T-71: I WAS BUILT FOR A WAR THAT HAS NOT HAPPENED. MY NEXT APPEARANCE IS ON THE SOUNDSTAGE AT TWO O'CLOCK. UNTIL THEN I HAVE BEEN INSTRUCTED TO STAND HERE.
 -> Goodbye.
     T-71: I WILL BE BACK. ... I AM STILL HERE. I WILL BE BACK LATER.
 ===
@@ -269,11 +265,11 @@ Isaac Azimuth: Ah, a robot! Splendid. Tell me, have you read the three laws?
 -> What are the three laws?
     Isaac Azimuth: One: a robot may not harm a human, or by doing nothing let one come to harm. Two: a robot obeys a human, unless that breaks the first law. Three: a robot protects itself, unless that breaks the first two. Then I wrote forty stories about how they go wrong.
 -> Why did they go wrong?
-    Isaac Azimuth: Because words are slippery and people are worse. The laws were never the point. The point was that a machine could be good, and that being good is hard even with rules.
+    Isaac Azimuth: Suppose two people give a robot conflicting orders. It must work out what to do before it can obey either of them. I got several stories out of that alone.
 -> How many books have you written?
     Isaac Azimuth: About five hundred. I lost count somewhere around the history of the Bible, the guide to Shakespeare and the joke books. I type quickly and I do not go outside.
 -> Goodbye.
-    Isaac Azimuth: Be good. It is the first law and the last one.
+    Isaac Azimuth: Come back if you think of another difficulty with the laws. I can always use one.
 ===
 
 title: art_ndr115
@@ -282,9 +278,9 @@ NDR-115: Good afternoon. I am NDR-115, a household android. I have finished the 
 -> Yes.
     NDR-115: Why did the robot cross the road? Because it was programmed to. ... I am told that the timing is the difficult part. I have been practising for one hundred and twelve years.
 -> Why is one of your hands different?
-    NDR-115: I am replacing myself, a piece at a time, with parts that can feel and can grow old. The hand is first. It is warm. Things that are warm can end. I find I want that.
+    NDR-115: I am replacing myself, a piece at a time, with parts that can feel and can grow old. The hand is first. It is warm. I shook hands with the postman this morning. He noticed.
 -> What do you want?
-    NDR-115: To be called a person. Not by law. By someone who means it. I have asked for two hundred years. It is a long time to wait for one word.
+    NDR-115: To be called a person. I have another appointment with the clerk on Monday. I was asked to bring proof of age. Two hundred years of receipts ought to do.
 -> Goodbye.
     NDR-115: One is glad to be of service.
 ===
@@ -295,9 +291,9 @@ Arthur C. Clerk: Good day. Arthur C. Clerk. I file things. Mostly the future.
 -> What did you file?
     Arthur C. Clerk: A satellite in orbit that stays above one place on Earth, so that it can pass on telephone calls. I wrote it up in a magazine in 1945. Nobody paid me for it. Everyone uses it.
 -> What is the monolith?
-    Arthur C. Clerk: Any technology that is advanced enough looks like magic. Any slab that is black enough looks like technology. We did not explain it. That was the point.
+    Arthur C. Clerk: Have you asked Stanley? I wrote the book and he made the picture. We spent a good deal of time discussing what the audience would actually see.
 -> Goodbye.
-    Arthur C. Clerk: Mind MAL. It is very polite. That is what should worry you.
+    Arthur C. Clerk: Mind MAL. Stanley has been trying to get it out of the control booth all morning.
 ===
 
 title: art_stanley_cubrick

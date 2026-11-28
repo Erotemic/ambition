@@ -5,7 +5,7 @@ title: noodle_context
 // Fizzuvius, the soda volcano. One node per resident, named
 // `noodle_<place>_<resident>`. The rooms are written by
 // `game/ambition_map_assets/ambition_content/generators/noodle_village/make_specs.py`.
-// Ramen-nujan, in the temple's narthex, is in `kernel.yarn`.
+// Ramen Nujan, in the temple's narthex, is in `kernel.yarn`.
 //
 // Never played. No placement names this node; it declares the zone.
 ===
@@ -15,10 +15,10 @@ title: noodle_village_duckling
 Duckling: Ah. A new arrival. Stand still, I am counting you.
 -> What are you counting?
     Duckling: Pilgrims. Two hundred came through the ring this week. Each one copied the pilgrim before him: the colander hat, the bow, the word "Ramen" at the end of every sentence.
-    Duckling: Nobody taught them. They caught it. That is what a meme is. I named the thing, you know.
+    Duckling: I asked the hat seller where people had learned to wear them. He said his customers were teaching each other. Have you seen anyone put one on before they came through the gate?
 -> Do you believe in Him?
-    Duckling: I believe that people believe in Him. It is the most successful replicator I have ever seen, and it is made of pasta.
-    Duckling: I came to study it. Three weeks later I own a colander. Draw your own conclusions.
+    Duckling: I came to study the spread of religious practices. I did buy a colander, but I have it in my room with the rest of my samples.
+    Duckling: I wore it to supper once. I wanted to see what people would say.
 -> Where do the roads go?
     Duckling: West is the Pilgrims' Way: through the wheat, up the stair, to the temple's door. Everyone goes west.
     Duckling: East is the market, then the springs, then Mount Fizzuvius. Nobody goes east twice. The soda stings.
@@ -29,13 +29,13 @@ title: noodle_village_curry
 ---
 Marie Curry: Sit. The udon is ready. The curry is nearly ready. Do not touch the pot that glows.
 -> What is the soda on the mountain?
-    Marie Curry: Carbonic acid: water with carbon dioxide forced into it. The mountain makes the gas, and the springs carry it up.
-    Marie Curry: It is a weak acid. Weak is not the same as nothing. It will sting you and throw you out, and you will not float in it.
+    Marie Curry: Carbonated water. The gas dissolves in the water and some of it forms carbonic acid. The mountain makes the gas, and the springs carry it up.
+    Marie Curry: The springs will sting you and throw you out. Don't try to swim across the crater.
 -> Why does it erupt?
     Marie Curry: A nucleation event. The gas waits for a rough surface to form bubbles on. A mint is very rough, at a small scale.
     Marie Curry: A thousand years ago someone dropped a mint in the vent. Someone else took it out. The mountain has been calm since. I have checked.
 -> Why curry, in a temple town?
-    Marie Curry: The pilgrims eat noodles three times a day. I add a variable. Precision matters in both science and cooking.
+    Marie Curry: My first winter here I couldn't get the spices. A merchant at the market was willing to order some for me. Now half the temple comes down on Thursdays.
 -> Thank you.
 ===
 

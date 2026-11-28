@@ -31,10 +31,9 @@ title: neural_hebb
     Donna: There. Wired. Now one of you comes along whenever the other one fires.
     -> What do you do here?
         Donna: I introduce cells that fire at the same time. After that, when one fires, the other comes along.
-        Donna: That's all a memory is. A good introduction.
+        Donna: I need to try it a few more times with that lamp. I'm going to write down how much the response changes.
     -> What are the purple clouds?
-        Donna: Intrusive thoughts. Nobody wired them in. They hook themselves onto whatever you're doing.
-        Donna: Don't argue with one. Arguing is attention, and attention is what they eat.
+        Donna: Intrusive thoughts. They keep turning up when I'm trying to work. I was halfway through testing a new connection when one of them knocked the bulb off the stand.
     -> ‹go›
 <<else>>
     <<stop>>
@@ -48,8 +47,9 @@ Percy: QUESTION?
     Percy: YES.
 -> Is exactly one of these true: the lamp is on, or the door is open?
     Percy: ...
-    Percy: There is no straight line between those answers. I cannot draw it.
-    Percy: NO. Also YES. I am sorry. I am one layer.
+    Percy: LAMP ON, DOOR CLOSED: YES. LAMP OFF, DOOR OPEN: YES.
+    Percy: ...
+    Percy: I cannot classify all four cases with one straight line. Please submit a different question.
 -> Who made you?
     Percy: A man with a camera and a board of wires, in nineteen fifty-eight. The papers said I would walk and talk one day.
     Percy: I do not walk.

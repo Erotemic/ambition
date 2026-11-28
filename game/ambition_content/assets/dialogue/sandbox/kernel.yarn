@@ -368,7 +368,7 @@ The Rope Appreciator: How are you going to spend the rest of your day?
 
 title: noodly_ramen_nujan
 ---
-Ramen-nujan: I dreamt of this place before I found it. Every door in it was a term of a series, and the series converged on Him.
+Ramen Nujan: Good day. Ramen. Have you come to pray, or are you looking for the sanctum?
 -> How do I reach Him?
     <<jump noodly_ramen_nujan__1>>
 -> What do the doors want?
@@ -380,7 +380,7 @@ Ramen-nujan: I dreamt of this place before I found it. Every door in it was a te
 
 title: noodly_ramen_nujan__1
 ---
-Ramen-nujan: He is in the sanctum, past the nave, behind the door with the holes in it. That door takes the Colander Key, and the Colander Key is in the reliquary. You will need every sauce in the house before you get that far. I checked the count twice.
+Ramen Nujan: He is in the sanctum, past the nave, behind the door with the holes in it. That door takes the Colander Key, and the Colander Key is in the reliquary. You will need every sauce in the house before you get that far. I checked the count twice.
 -> Something else.
     <<jump noodly_ramen_nujan>>
 -> ‹step aside›
@@ -388,7 +388,7 @@ Ramen-nujan: He is in the sanctum, past the nave, behind the door with the holes
 
 title: noodly_ramen_nujan__2
 ---
-Ramen-nujan: Each door has a colour, and each colour has one key. Red is marinara: the cooks in the scullery hold it, and they do not share. Green is pesto: it is down in the cistern, where a wheel that opens one gate shuts another. Gold is parmesan: up the belfry, behind three bells. A key you have taken stays taken.
+Ramen Nujan: Each door has a colour, and each colour has one key. Red is marinara: the cooks in the scullery hold it, and they do not share. Green is pesto: it is down in the cistern, where a wheel that opens one gate shuts another. Gold is parmesan: up the belfry, behind three bells. A key you have taken stays taken.
 -> Something else.
     <<jump noodly_ramen_nujan>>
 -> ‹step aside›
@@ -396,7 +396,10 @@ Ramen-nujan: Each door has a colour, and each colour has one key. Red is marinar
 
 title: noodly_ramen_nujan__3
 ---
-Ramen-nujan: The noodles were infinite. The bowl was not. I came to see who made the bowl.
+Ramen Nujan: I grew up in the Math Dimension. I used to do my sums at Emmy's cafe. I met some pilgrims there and took the gate to Brothlehem for a festival.
+Ramen Nujan: I went home for my notebooks. I've lived here ever since.
+-> Is your scarf made of noodles?
+    Ramen Nujan: Yes. I made it myself. The first one came apart in the rain. This one has held up quite well.
 -> Something else.
     <<jump noodly_ramen_nujan>>
 -> ‹step aside›

@@ -147,3 +147,44 @@ Related story sources: `docs/storylines/cannon.md`,
 `docs/brainstorms/the_fia_arc.md`,
 `docs/brainstorms/good_llm_ideas/gates_morality_and_the_nazi_embassy.md`,
 `docs/planning/game/gate-network.md`, and `docs/planning/game/bosses.md`.
+
+## World dialogue pass (2026-11-27)
+
+This pass follows the PVN and Authority dialogue changes. It keeps the
+current encounter and quest logic. It does not move rooms or add quests.
+
+- Fantasy: the Barrow King now uses imported junk. Residents report the
+  change in the ghosts' behavior. The king's earlier character and the
+  method he uses to animate the objects remain open. Sir Cumference came
+  from Math Town. The local wizard uses imported goods as well as spells.
+- Science: Nicholas and Coulomba Tezla replace the old display names. Keep
+  actor IDs, Yarn node IDs and asset paths. The mine and town have a
+  repair-work connection. Farah gives a hypothesis about the crusher;
+  her explanation is not a confirmed cause.
+- Noodle: Ramen Nujan came from the Math Dimension and follows the
+  Noodle faith. His scarf is made of noodles. His visit to Brothlehem
+  and his notebooks are dialogue proposals.
+- Frontier: Gallus was a lawman and is now an outlaw. Residents still
+  have to deal with his men and his toll. No change to the corral fight.
+- Castle Godwin: the castle is a local command under the Supreme Leader.
+  The capital is elsewhere. Staff, prisoners and townspeople have their
+  own concerns. Do not assume the castle staff all oppose the regime.
+- Art: keep disagreements about authorship and give residents other
+  subjects to discuss, such as painting, music, work and visitors.
+- Automaton, Math, Neural and Magic: correct misleading explanations
+  and remove repeated rhetorical formulas. Keep the current puzzles,
+  routes and character jokes. Erdish starts his conversations with
+  "My mind is open."
+- Primeval, Orbital and Unfinished: revise routine work and travel
+  dialogue. Preserve the existing quests and local routes.
+
+New personal anecdotes, dates, minor trade relationships and occupations
+are proposals in playable dialogue. No canon file is changed. The Hall
+historical gallery and History Dimension are not a complete fact audit.
+The old Mockingbird encounter and military tower placement remain work
+for later passes.
+
+Full Stack plays bass, and the bossofthegame stands on his shoulders.
+Hylbert is working to increase the spectral gap in the haunted hotel.
+These lines do not change the band animations, the climbable instrument,
+or the hotel encounter.

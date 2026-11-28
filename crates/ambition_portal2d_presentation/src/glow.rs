@@ -121,6 +121,7 @@ pub(crate) fn add_portal_glow_material_plugin(app: &mut App) {
     if app.is_plugin_added::<Material2dPlugin<PortalGlowMaterial>>() {
         return;
     }
+    ambition_sprite_fx::install_mesh_fragment_shader(app);
     embedded_asset!(app, "shaders/portal_glow.wgsl");
     app.add_plugins(Material2dPlugin::<PortalGlowMaterial>::default());
 }

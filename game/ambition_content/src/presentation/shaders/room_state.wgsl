@@ -8,13 +8,7 @@
 // All work is in engine world coordinates (y down). Colours are written as
 // display values and converted once, at the end.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::globals
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals}
 #import ambition_content::room_look::{rand_cell, look_field, look_claim_in, look_is_corrupt_in, look_is_settled, look_plane, LookClaim}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
@@ -147,7 +141,7 @@ fn overlay(p: vec2<f32>) -> vec4<f32> {
 
 // ------------------------------------------------------------------ main --
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let w = mesh.world_position.xy;
     let p = vec2<f32>(w.x + room.x * 0.5, room.y * 0.5 - w.y);
     let role = room.z;
@@ -166,7 +160,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 // (`CompositingSpace::Srgb`) the shaded colour is written sRGB-encoded, as
 // Bevy's own sprite and mesh shaders write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

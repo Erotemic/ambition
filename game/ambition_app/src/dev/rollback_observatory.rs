@@ -27,6 +27,9 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
+use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, LiveRooms, RoomInstanceRoot};
+use ambition_platformer2d::render::rendering::debug_viz::{draw_aabb, w2};
+use ambition_platformer2d::render::rendering::retained_drawings::{DrawingScope, RetainedDrawings};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d::rollback::{
     self, ActiveRollbackAuthority, AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession,
@@ -92,6 +95,7 @@ impl OwnedSessionMode {
 #[derive(Clone, Debug)]
 struct RollbackGhost {
     sim_id: String,
+    room: Option<LiveRoomInstance>,
     loaded_pos: ae::Vec2,
     size: ae::Vec2,
     entity_recreated: bool,
@@ -119,7 +123,7 @@ pub(crate) struct RollbackProofState {
     last_recreated_entities: usize,
     max_recreated_entities: usize,
     mismatch_frames: Vec<i32>,
-    pre_entities: BTreeMap<String, Entity>,
+    pre_entities: BTreeMap<(Option<LiveRoomInstance>, String), Entity>,
     ghosts: Vec<RollbackGhost>,
     ghost_seconds_left: f32,
     hud_seconds_left: f32,
@@ -246,7 +250,9 @@ impl Plugin for RollbackObservatoryPlugin {
                 Update,
                 (
                     update_rollback_proof_hud.run_if(the_hud_shows_or_is_up),
-                    draw_rollback_ghosts.run_if(rollback_proof_visible),
+                    draw_rollback_ghosts
+                        .run_if(resource_exists::<Assets<bevy::gizmos::GizmoAsset>>)
+                        .run_if(rollback_ghosts_are_visible_or_drawn),
                 )
                     .in_set(RollbackProofUpdateSet::Present),
             );
@@ -348,6 +354,7 @@ fn record_pre_ggrs_state(
     session: Option<Res<AmbitionGgrsSession>>,
     frame: Option<Res<RollbackFrameCount>>,
     entities: Query<(Entity, &ambition_platformer2d::platformer::sim_id::SimId), With<Rollback>>,
+    rooms: LiveRooms,
     mut state: ResMut<RollbackProofState>,
 ) {
     if state.session_mode != Some(OwnedSessionMode::Proof) || session.is_none() {
@@ -359,7 +366,7 @@ fn record_pre_ggrs_state(
     state.pre_entities.extend(
         entities
             .iter()
-            .map(|(entity, sim_id)| (sim_id.as_str().to_owned(), entity)),
+            .map(|(entity, sim_id)| ((rooms.of(entity), sim_id.as_str().to_owned()), entity)),
     );
 }
 
@@ -383,6 +390,7 @@ fn capture_loaded_world(
         ),
         With<Rollback>,
     >,
+    rooms: LiveRooms,
     mut state: ResMut<RollbackProofState>,
 ) {
     if state.session_mode != Some(OwnedSessionMode::Proof) {
@@ -399,19 +407,22 @@ fn capture_loaded_world(
     let mut recreated = 0_usize;
     let mut ghosts = Vec::new();
     for (entity, sim_id, body) in &bodies {
+        let room = rooms.of(entity);
+        let key = (room, sim_id.as_str().to_owned());
         let entity_recreated = state
             .pre_entities
-            .get(sim_id.as_str())
+            .get(&key)
             .is_some_and(|before| *before != entity);
         recreated += usize::from(entity_recreated);
         ghosts.push(RollbackGhost {
-            sim_id: sim_id.as_str().to_owned(),
+            sim_id: key.1,
+            room,
             loaded_pos: body.pos,
             size: body.size(),
             entity_recreated,
         });
     }
-    ghosts.sort_by(|left, right| left.sim_id.cmp(&right.sim_id));
+    ghosts.sort_by(|left, right| (left.room, &left.sim_id).cmp(&(right.room, &right.sim_id)));
     state.last_recreated_entities = recreated;
     state.max_recreated_entities = state.max_recreated_entities.max(recreated);
     state.ghosts = ghosts;
@@ -622,87 +633,105 @@ fn the_hud_shows_or_is_up(
     the_observatory_shows(state) || hud.iter().any(|visibility| *visibility != Visibility::Hidden)
 }
 
-fn rollback_proof_visible(state: Res<RollbackProofState>) -> bool {
-    state.ghost_seconds_left > 0.0
+#[derive(Component, Default)]
+struct RollbackGhostDrawing;
+
+fn rollback_ghosts_are_visible_or_drawn(
+    state: Res<RollbackProofState>,
+    drawings: Query<(), With<RollbackGhostDrawing>>,
+) -> bool {
+    state.ghost_seconds_left > 0.0 || !drawings.is_empty()
 }
 
 fn draw_rollback_ghosts(
     state: Res<RollbackProofState>,
-    world_q: Query<
-        &ae::RoomGeometry,
-        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
-    >,
+    world_q: Query<(&LiveRoomInstance, &ae::RoomGeometry), With<RoomInstanceRoot>>,
     current_bodies: Query<
         (
+            Entity,
             &ambition_platformer2d::platformer::sim_id::SimId,
             &ae::BodyKinematics,
         ),
         With<Rollback>,
     >,
-    mut gizmos: Gizmos,
+    rooms: LiveRooms,
+    mut drawings: RetainedDrawings<RollbackGhostDrawing>,
 ) {
     if state.ghost_seconds_left <= 0.0 {
+        drawings.finish();
         return;
     }
-    let Ok(world) = world_q.single() else {
-        return;
-    };
-
-    let current: BTreeMap<&str, ae::Vec2> = current_bodies
+    let current: BTreeMap<_, _> = current_bodies
         .iter()
-        .map(|(sim_id, body)| (sim_id.as_str(), body.pos))
+        .map(|(entity, sim_id, body)| ((rooms.of(entity), sim_id.as_str()), body.pos))
         .collect();
     let fade = (state.ghost_seconds_left / GHOST_SECONDS).clamp(0.15, 1.0);
 
-    for ghost in &state.ghosts {
-        let color = if ghost.entity_recreated {
-            Color::srgba(1.0, 0.42, 0.88, 0.90 * fade)
-        } else {
-            Color::srgba(0.28, 0.92, 1.0, 0.72 * fade)
-        };
-        draw_world_aabb(
-            &mut gizmos,
-            &world.0,
-            ghost.loaded_pos,
-            ghost.size * 0.5,
-            color,
-        );
-        if let Some(&live_pos) = current.get(ghost.sim_id.as_str()) {
-            let loaded = world_to_gizmo(&world.0, ghost.loaded_pos);
-            let live = world_to_gizmo(&world.0, live_pos);
-            if loaded.distance_squared(live) > 1.0 {
-                gizmos.line_2d(loaded, live, color);
-            }
+    for (&room, world) in &world_q {
+        let mut ghosts = state.ghosts.iter().filter(|ghost| ghost.room == Some(room)).peekable();
+        if ghosts.peek().is_none() {
+            continue;
         }
+        drawings.draw(DrawingScope::Room(room), |gizmos| {
+            for ghost in ghosts {
+                let color = if ghost.entity_recreated {
+                    Color::srgba(1.0, 0.42, 0.88, 0.90 * fade)
+                } else {
+                    Color::srgba(0.28, 0.92, 1.0, 0.72 * fade)
+                };
+                let half = ghost.size * 0.5;
+                let bounds = ae::Aabb { min: ghost.loaded_pos - half, max: ghost.loaded_pos + half };
+                draw_aabb(gizmos, &world.0, bounds, color);
+                if let Some(&live_pos) = current.get(&(Some(room), ghost.sim_id.as_str())) {
+                    let loaded = w2(&world.0, ghost.loaded_pos);
+                    let live = w2(&world.0, live_pos);
+                    if loaded.distance_squared(live) > 1.0 {
+                        gizmos.line_2d(loaded, live, color);
+                    }
+                }
+            }
+        });
     }
-}
-
-fn world_to_gizmo(world: &ae::World, point: ae::Vec2) -> Vec2 {
-    ae::config::world_to_bevy(world, point, 0.0).truncate()
-}
-
-fn draw_world_aabb(
-    gizmos: &mut Gizmos,
-    world: &ae::World,
-    center: ae::Vec2,
-    half: ae::Vec2,
-    color: Color,
-) {
-    let min = center - half;
-    let max = center + half;
-    let top_left = world_to_gizmo(world, ae::Vec2::new(min.x, min.y));
-    let top_right = world_to_gizmo(world, ae::Vec2::new(max.x, min.y));
-    let bottom_right = world_to_gizmo(world, ae::Vec2::new(max.x, max.y));
-    let bottom_left = world_to_gizmo(world, ae::Vec2::new(min.x, max.y));
-    gizmos.line_2d(top_left, top_right, color);
-    gizmos.line_2d(top_right, bottom_right, color);
-    gizmos.line_2d(bottom_right, bottom_left, color);
-    gizmos.line_2d(bottom_left, top_left, color);
+    drawings.finish();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_rollback_ghost_stays_in_its_loaded_room() {
+        use bevy::ecs::system::RunSystemOnce as _;
+
+        let mut world = World::new();
+        world.init_resource::<Assets<bevy::gizmos::GizmoAsset>>();
+        let origin = LiveRoomInstance::ACTIVATION;
+        let [source, _] = [origin, origin.next()].map(|room| {
+            world.spawn((
+                RoomInstanceRoot,
+                room,
+                ae::RoomGeometry(ae::World::new("proof room", Vec2::splat(800.0), Vec2::ZERO, Vec::new())),
+            )).id()
+        });
+        world.insert_resource(RollbackProofState {
+            ghosts: vec![RollbackGhost {
+                sim_id: "slot:0".into(),
+                room: Some(origin),
+                loaded_pos: Vec2::splat(96.0),
+                size: Vec2::splat(32.0),
+                entity_recreated: false,
+            }],
+            ghost_seconds_left: GHOST_SECONDS,
+            ..default()
+        });
+        world.run_system_once(draw_rollback_ghosts).unwrap();
+        let mut drawings = world.query_filtered::<&DrawingScope, With<RollbackGhostDrawing>>();
+        assert_eq!(drawings.single(&world).unwrap(), &DrawingScope::Room(origin));
+
+        world.despawn(source);
+        world.run_system_once(draw_rollback_ghosts).unwrap();
+        assert_eq!(drawings.iter(&world).count(), 0);
+    }
 
     /// The HUD is written only while something of the observatory shows, and
     /// hides itself the frame after: idle, it wrote its visibility each frame.

@@ -264,6 +264,7 @@ impl Material2d for ActorGlowMaterial {
 pub fn add_actor_glow_material_plugin(app: &mut App) {
     #[cfg(not(target_os = "android"))]
     {
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         bevy::asset::embedded_asset!(app, "actor_glow.wgsl");
         app.add_plugins(bevy::sprite_render::Material2dPlugin::<ActorGlowMaterial>::default());
     }

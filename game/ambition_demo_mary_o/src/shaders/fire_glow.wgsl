@@ -6,13 +6,7 @@
 // submodule) breaks into tongues that go up. The picture is read in world
 // space, so two fires side by side do not flicker as one.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::globals
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -27,7 +21,7 @@
 // The size of one flame picture, in world px.
 const TILE: f32 = 72.0;
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let t = globals.time;
     let w = mesh.world_position.xy;
     // 0 at the middle of the quad, 1 at its edge.
@@ -43,7 +37,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 }
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

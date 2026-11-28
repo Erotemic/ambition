@@ -45,6 +45,7 @@ impl FaultEpisodes {
 
 /// One letter group drifting off a refusing mouth.
 #[derive(Component)]
+#[require(crate::rendering::WorldText)]
 pub struct PortalFaultGlyphVisual {
     pos: ae::Vec2,
     vel: ae::Vec2,

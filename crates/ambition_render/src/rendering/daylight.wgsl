@@ -6,11 +6,7 @@
 // the lamps' colour instead, as much as they light there, and never darker
 // than the hour.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #import ambition_render::lamps::{Lamps, MAX_LAMPS, light_of}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
@@ -21,7 +17,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var reach: texture_2d<f32>;
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let p = mesh.world_position.xy;
     var dark = 1.0;
     var lit = 0.0;

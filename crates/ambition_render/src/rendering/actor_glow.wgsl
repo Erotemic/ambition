@@ -14,11 +14,7 @@
 //   look.x >= 0.5 light: added to what is behind (`rgb * i`, alpha 0), with
 //                 the falloff of a lamp: a bright core and a long soft tail.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -57,7 +53,7 @@ fn dithered(amount: f32, noise: f32) -> f32 {
 }
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let p = mesh.uv * 2.0 - 1.0;
     let d2 = dot(p, p);
     if d2 >= 1.0 {

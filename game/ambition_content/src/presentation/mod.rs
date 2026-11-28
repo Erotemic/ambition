@@ -49,6 +49,7 @@ pub struct AmbitionPresentationPlugin;
 
 impl Plugin for AmbitionPresentationPlugin {
     fn build(&self, app: &mut App) {
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         app.add_plugins(dialog::AmbitionDialogUiPlugin);
         app.add_plugins(vanity_card_made_this_meme::MadeThisMemeCardPlugin);
         deep_dream::install(app);

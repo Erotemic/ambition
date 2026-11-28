@@ -8,13 +8,7 @@
 // of the triangle door), so it opens, closes and turns with the authored
 // sheet; the door's lines, its lip and its halo stay the art's.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::globals
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::globals
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -45,7 +39,7 @@ fn tunnel(uv: vec2<f32>, dx: vec2<f32>, dy: vec2<f32>) -> vec3<f32> {
     return textureSampleGrad(tunnel_texture, tunnel_sampler, uv, dx, dy).rgb;
 }
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let strength = clamp(control.x, 0.0, 1.0);
     var local_uv = mesh.uv;
     if control.y > 0.5 {
@@ -97,7 +91,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 // The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
 // the shaded colour is written sRGB-encoded, as Bevy's own shaders write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

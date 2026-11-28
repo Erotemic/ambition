@@ -8,14 +8,7 @@
 // the air of the room is corrupted, each at the place the parallax system
 // puts the same layer of the clean one, so a tower of one state is on the
 // same tower of the other. Then it adds the fog between the sky and the play.
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::{view, globals}
-#import ambition_render::card_view::camera_on_play_plane
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::{view, globals}
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, view, globals, camera_on_play_plane}
 #import ambition_content::room_look::{value_noise, look_air_state}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
@@ -32,14 +25,6 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(6) var near_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(7) var atmosphere_texture: texture_2d<f32>;
 
-fn view_center() -> vec2<f32> {
-#ifdef AMBITION_CARD_MESH
-    return camera_on_play_plane(view.world_position, view.world_from_view[2].xyz);
-#else
-    return view.world_position.xy;
-#endif
-}
-
 /// Where the world point `w` (render coordinates) is on the panel of a layer
 /// that follows `factor` of the camera and is `scale` views wide. The rule of
 /// `sync_parallax_transform_to_camera` and `ParallaxLayerVisual::panel_size`
@@ -51,7 +36,7 @@ fn panel_uv(w: vec2<f32>, factor: f32, scale: f32) -> vec2<f32> {
     let visible = vec2<f32>(2.0 / view.clip_from_view[0][0], 2.0 / abs(view.clip_from_view[1][1]));
     let panel = max(visible.x, visible.y) * scale;
     let travel = max((vec2<f32>(panel) - visible) * 0.5, vec2<f32>(0.0));
-    let camera = view_center();
+    let camera = camera_on_play_plane();
     let across = clamp(camera / max(room.xy, vec2<f32>(1.0)) + vec2<f32>(0.5), vec2<f32>(0.0), vec2<f32>(1.0)) * 2.0
         - vec2<f32>(1.0);
     let centre = camera - across * travel * factor;
@@ -71,7 +56,7 @@ fn corrupt_sky(w: vec2<f32>) -> vec3<f32> {
 }
 
 fn camera_engine() -> vec2<f32> {
-    let c = view_center();
+    let c = camera_on_play_plane();
     return vec2<f32>(c.x + room.x * 0.5, room.y * 0.5 - c.y);
 }
 
@@ -91,7 +76,7 @@ fn fog_amount(p: vec2<f32>) -> f32 {
     return clamp(depth.x * patches * low, 0.0, 0.92);
 }
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let w = mesh.world_position.xy;
     let p = vec2<f32>(w.x + room.x * 0.5, room.y * 0.5 - w.y);
     // How far the air here is into the corrupted state. Air changes as haze,
@@ -122,7 +107,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 // (`CompositingSpace::Srgb`) the shaded colour is written sRGB-encoded, as
 // Bevy's own sprite and mesh shaders write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

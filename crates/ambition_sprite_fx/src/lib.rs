@@ -486,6 +486,23 @@ impl Material2d for SpriteFxMaterial {
     }
 }
 
+/// Load the fragment inputs that the 2D and card mesh materials share.
+pub fn install_mesh_fragment_shader(app: &mut App) {
+    if app.get_sub_app(bevy::render::RenderApp).is_some()
+        && !app.is_plugin_added::<MeshFragmentShader>()
+    {
+        app.add_plugins(MeshFragmentShader);
+    }
+}
+
+struct MeshFragmentShader;
+
+impl Plugin for MeshFragmentShader {
+    fn build(&self, app: &mut App) {
+        bevy::shader::load_shader_library!(app, "shaders/mesh_fragment.wgsl");
+    }
+}
+
 /// The sprite-effect concept: the free-path system plus, where the host has a
 /// real asset/render stack, the material pipeline the shader effects draw with.
 ///
@@ -510,6 +527,7 @@ impl Plugin for SpriteFxPlugin {
         {
             return;
         }
+        install_mesh_fragment_shader(app);
         embedded_asset!(app, "shaders/sprite_fx.wgsl");
         app.add_plugins(Material2dPlugin::<SpriteFxMaterial>::default());
         app.add_systems(

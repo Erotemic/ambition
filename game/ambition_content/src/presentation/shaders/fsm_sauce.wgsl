@@ -4,11 +4,7 @@
 // `1 - threshold`, so a texel shows once the god's damage fraction reaches its
 // threshold, and a texel with alpha 0 never shows. RGB is the sauce's own
 // shading. The god starts the fight clean and ends it dressed.
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#endif
+#import ambition_sprite_fx::mesh_fragment::MeshFragment
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -19,7 +15,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var sauce_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var sauce_sampler: sampler;
 
-fn shade(in: VertexOutput) -> vec4<f32> {
+fn shade(in: MeshFragment) -> vec4<f32> {
     var u = in.uv.x;
     if (control.y > 0.5) {
         u = 1.0 - u;
@@ -39,7 +35,7 @@ fn shade(in: VertexOutput) -> vec4<f32> {
 // shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh shaders
 // write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

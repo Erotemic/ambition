@@ -91,6 +91,7 @@ impl Plugin for GatePortalFxPlugin {
         if app.get_sub_app(bevy::render::RenderApp).is_none() {
             return;
         }
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         embedded_asset!(app, "shaders/gate_portal_fx.wgsl");
         app.add_plugins(Material2dPlugin::<GatePortalFxMaterial>::default());
         app.add_systems(Startup, load_gate_portal_fx_art);

@@ -752,15 +752,23 @@ shared value preparation are sufficient until source proves otherwise.
    gameplay camera supplies the room and view mask for the card output.
    A gameplay camera without a mask draws layer zero.
 
-   World labels use the glyph atlas and layout from Bevy. A private
-   visibility camera keeps that layout available when the plane output
-   is inactive. The workshop window capture shows signs, nameplates,
+   World labels use the glyph atlas and layout from Bevy. The plane
+   camera supplies the target scale when a card output replaces it.
+   The workshop window capture shows signs, nameplates,
    Scout, Dennis, and the pause cube. It shows both renderers in the
    comparison mode. Switching the output kept one workshop session
    active and kept it paused while the cube was open.
    Text cards use each span's color. Control signs show the input glyph
-   when its image is ready. Nameplate outlines draw behind the text in
-   the same room and view.
+   when its image is ready. Nameplates, speech bubbles, and Mary-O pipe
+   signs share one outline path. The outline uses the label's font and
+   opacity. A copy of a static sign keeps its outline and live room.
+   Medium captures of GNU-ton at tick 350 show the same wrapped speech
+   and outline in 2D and side-on 2.5D. Medium captures of the Mary-O Warp
+   Zone show all eight pipe signs in 2D, side-on, and oblique views. The
+   capture enters through the provider's room setting. Portal fault glyphs
+   use the body identity and live room for their drift. Medium captures of
+   Portal Scale Lab at tick 152 show the glyphs in 2D, side-on, and oblique
+   views.
 
    A card uses the existing portal capture mesh and texture for the far-side
    window. It stays at the seam and uses the source pane order and opaque
@@ -921,6 +929,17 @@ shared value preparation are sufficient until source proves otherwise.
    A view replaces its plates when it frames a different room. The tests
    check actors and doors with the same ID in two live rooms.
 
+   The Smash fighter bubble uses the primary output's projection and the
+   fighter's presented position. A test switches between 2D, side-on,
+   oblique, and inset views at the same fighter position.
+   The close-up camera starts when the fighter leaves the view. The ring
+   and image use the front HUD. The game releases both when the bubble
+   declaration ends. At tick 149 with `--player-at 950,260@148`, Medium
+   captures of `--route smash_gameplay` show the ring and fighter on the
+   first frame in 2D, side-on 2.5D, and inset mode. The tilted view still
+   shows part of the fighter and hides the bubble. All four captures use
+   the same simulation state and logical view.
+
    Ground shadows use the shared presented body position. Each shadow uses
    the floor and art of its live room. A test checks the sprite and card
    positions for two actors with the same ID in different live rooms.
@@ -967,6 +986,10 @@ shared value preparation are sufficient until source proves otherwise.
    Both renderers draw emitted trails and retained debug lines from the same
    line buffers. Each card camera draws the lines for its room and local
    view. Switching to 2D removes the card draws and keeps the line buffers.
+   The navigation graph and rollback ghost overlays use these buffers.
+   Medium Central Hub captures show the graph in both renderers. A test
+   checks that a rollback ghost stays in its source room and disappears
+   when the room is removed.
 
    The card view uses Bevy's sprite slices for lock-wall braces and other
    sliced props. It draws boss-stage veils and both room darkness paths.
@@ -979,6 +1002,22 @@ shared value preparation are sufficient until source proves otherwise.
    the military gate annex, Gravity Lab, Portal Lab, and the central hub.
    The Clean / corrupted exhibit uses the same sky, fog, and front effects
    in both renderers. Medium captures show the front in all three views.
+   The Hub sky, blueprint overlay, and Mary-O shimmer use the same mesh
+   fragment inputs and camera projection in both renderers. The plane
+   renderer loads this shader library with the room presentation. This
+   fixes a missing shader import when the card plugin is absent. Medium
+   Central Hub captures at tick 160 show the corrupted sky behind the
+   developer wing in both renderers. Captures also show the Tech-Bros
+   Basement blueprint and the Mary-O starlight shimmer in both renderers.
+   Shared mesh effects get their fragment inputs from
+   `ambition_sprite_fx::mesh_fragment`. The library uses the Bevy render
+   view and clock types. It selects the correct vertex color and clock
+   binding locations for each renderer. The sprite-effect GPU test draws
+   a silhouette in a composition that has only the 2D render features.
+   The default desktop build draws the Tech-Bros Basement blueprint at
+   Medium. Medium Portal Lab captures show the clip and glow in 2D,
+   side-on, and oblique views. A rendered vertex color check gives the
+   same result in 2D and side-on 2.5D.
 
    `capture_scene --renderer` fills the image with the selected renderer.
    Each camera uses the same presented frame. The card view keeps each

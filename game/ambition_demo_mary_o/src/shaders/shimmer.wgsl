@@ -6,14 +6,7 @@
 // shape come and go, and gives it its colour. All work is in engine world
 // coordinates (y down). Colours are display values, converted at the end.
 
-#ifdef AMBITION_CARD_MESH
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::{view, globals}
-#import ambition_render::card_view::camera_on_play_plane
-#else
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
-#import bevy_sprite::mesh2d_view_bindings::{view, globals}
-#endif
+#import ambition_sprite_fx::mesh_fragment::{MeshFragment, globals, camera_on_play_plane}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -38,13 +31,9 @@ fn engine(w: vec2<f32>) -> vec2<f32> {
     return vec2<f32>(w.x + room.x * 0.5, room.y * 0.5 - w.y);
 }
 
-fn shade(mesh: VertexOutput) -> vec4<f32> {
+fn shade(mesh: MeshFragment) -> vec4<f32> {
     let p = engine(mesh.world_position.xy);
-#ifdef AMBITION_CARD_MESH
-    let camera = engine(camera_on_play_plane(view.world_position, view.world_from_view[2].xyz));
-#else
-    let camera = engine(view.world_position.xy);
-#endif
+    let camera = engine(camera_on_play_plane());
     let t = globals.time;
     let tile = shape_b.a;
     var colour = vec3<f32>(0.0);
@@ -82,7 +71,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 // the shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh
 // shaders write it.
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(mesh: MeshFragment) -> @location(0) vec4<f32> {
     let colour = shade(mesh);
 #ifdef SRGB_OUTPUT
     return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);

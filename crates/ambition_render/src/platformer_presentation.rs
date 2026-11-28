@@ -30,6 +30,7 @@ pub struct SessionRoomVisualsPlugin;
 
 impl Plugin for SessionRoomVisualsPlugin {
     fn build(&self, app: &mut App) {
+        ambition_sprite_fx::install_mesh_fragment_shader(app);
         // Room visuals include world labels, so this composition also installs their layout pass.
         // `WorldLabelLayoutPlugin` is idempotent.
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);

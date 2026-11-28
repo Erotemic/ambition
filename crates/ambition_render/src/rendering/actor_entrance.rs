@@ -1,4 +1,3 @@
-use ambition_sprite_sheet::character::rigged::ComposedBodyDemand;
 use bevy::prelude::*;
 
 const FADE_SECONDS: f32 = 0.22;
@@ -10,11 +9,13 @@ pub(super) struct ActorEntranceFade {
 }
 
 /// Apply the fade after the animator and passage set the body's tint.
+///
+/// A short entrance uses the current sprite path. A new atlas page can take
+/// several frames to draw.
 pub(super) fn present_actor_entrances(
     mut commands: Commands,
     time: ambition_time::PresentationTime,
     mut actors: Query<(Entity, &mut Sprite, &mut ActorEntranceFade)>,
-    mut demand: ResMut<ComposedBodyDemand>,
 ) {
     for (body, mut sprite, mut fade) in &mut actors {
         if !fade.is_added() {
@@ -31,6 +32,5 @@ pub(super) fn present_actor_entrances(
         let opacity = FIRST_FRAME_OPACITY + (1.0 - FIRST_FRAME_OPACITY) * eased;
         let alpha = sprite.color.alpha() * opacity;
         sprite.color.set_alpha(alpha);
-        demand.declare(body);
     }
 }

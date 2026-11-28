@@ -908,6 +908,10 @@ shared value preparation are sufficient until source proves otherwise.
    wounds, and hazard column. Hazard columns use the frame's room and
    geometry table, so they can draw before the boss art is available.
 
+   Ground shadows use the shared presented body position. Each shadow uses
+   the floor and art of its live room. A test checks the sprite and card
+   positions for two actors with the same ID in different live rooms.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

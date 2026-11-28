@@ -359,6 +359,7 @@ mod boss_pass {
 
     #[test]
     fn the_boss_sprite_upgrade_survives_its_target_being_retired() {
+        use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;
         use ambition_sprite_sheet::boss::{BossSheetSpec, BossSpriteAsset, BossSpritePage};
 
         let mut app = App::new();
@@ -421,12 +422,12 @@ mod boss_pass {
             },
             Doomed,
         ));
-        app.world_mut().spawn((
+        let witness = app.world_mut().spawn((
             FeatureVisual {
                 id: WITNESS_ID.to_string(),
             },
             Witness,
-        ));
+        )).id();
 
         run_frame_despawning_targets_with_witness::<
             Doomed,
@@ -439,6 +440,9 @@ mod boss_pass {
             Update,
             crate::rendering::actors::upgrade_boss_sprites,
         );
+        let view = a_feature_view();
+        let kind = app.world().get::<BoundFeatureKind>(witness).unwrap();
+        assert!(kind.matches(view.kind, Vec2::new(view.size.x, view.size.y)));
     }
 }
 

@@ -13,7 +13,7 @@
 
 use ambition_content::presentation::room_look::{RoomSkinMaterial, RoomStateMaterial};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
-use ambition_platformer2d::render::rendering::label_layout::{StaticWorldLabel, WorldLabel};
+use ambition_platformer2d::render::rendering::label_layout::{StaticWorldLabel, WorldLabel, WorldLabelStyle};
 use ambition_platformer2d::render::rendering::planar_mesh::PreparedPlanarMesh;
 use ambition_platformer2d::render::rendering::terrain_skin::TerrainSkinMesh;
 use ambition_platformer2d::render::rendering::{EntityArt, LoadingZoneVisual};
@@ -52,13 +52,14 @@ fn dress(app: &mut App) -> Dress {
         .count();
     let bytes = |color: Color| color.to_srgba().to_u8_array();
     let mut signs: Vec<_> = world
-        .query_filtered::<(&WorldLabel, Option<&Children>), With<StaticWorldLabel>>()
+        .query_filtered::<(&WorldLabel, Option<&WorldLabelStyle>, Option<&Children>), With<StaticWorldLabel>>()
         .iter(world)
-        .map(|(label, children)| {
+        .map(|(label, style, children)| {
+            let style = style.unwrap_or(&label.style);
             (
                 label.owner_id.clone(),
-                bytes(label.text_color),
-                label.outline_color.map(bytes),
+                bytes(style.text),
+                style.stroke.map(|stroke| bytes(stroke.color)),
                 children.map_or(0, |children| children.len()),
             )
         })

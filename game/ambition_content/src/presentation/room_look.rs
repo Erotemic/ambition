@@ -62,7 +62,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, LoadingZoneActivation, RoomSpec};
-use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLabel, WorldLabel};
+use ambition_render::rendering::label_layout::{
+    layout_world_labels, mirror_static_world_labels_per_view, MirroredWorldLabel, StaticWorldLabel,
+    WorldLabel, WorldLabelStyle,
+};
 use ambition_render::rendering::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
 use ambition_render::rendering::terrain_skin::TerrainSkinMesh;
 use ambition_render::rendering::{
@@ -743,15 +746,6 @@ struct RoomLookSpread {
     advance: f32,
 }
 
-/// The ink of a static sign on the pale side: what the sign looked like
-/// before, and the halo that the ink added.
-#[derive(Component)]
-struct LabelInk {
-    text_color: Color,
-    outline_color: Option<Color>,
-    halo: [Entity; 4],
-}
-
 /// Marks each entity of a spawned look. It is stamped with the room, so it
 /// leaves with the room, and the look is spawned again on a replay. A live
 /// room with no such entity has no look.
@@ -964,7 +958,9 @@ pub fn install(app: &mut App) {
                 spread_room_states.run_if(looks_are_in_budget),
                 // In each budget: out of budget it gives each sign its own
                 // colours back.
-                ink_labels_on_the_clean_side,
+                ink_labels_on_the_clean_side
+                    .after(mirror_static_world_labels_per_view)
+                    .before(layout_world_labels),
             )
                 .chain()
                 .run_if(resource_exists::<Assets<RoomStateMaterial>>),
@@ -1503,37 +1499,27 @@ fn is_platform(size: Vec2) -> bool {
     size.y <= PLATFORM_MAX_HEIGHT && size.x >= 96.0
 }
 
-/// Write the static signs of the pale side of the two-state look in ink.
-///
-/// A static label is white, which the clean sky hides. The placement pass
-/// reads the colour from [`WorldLabel`], so this writes there. The front
-/// moves, so each sign is asked again each frame: a sign the front passes
-/// gets its ink, or gets back the colours it had ([`LabelInk`]). The copy of
-/// a label for a second view is a label also, with its own ink and halo.
+/// Give signs on the pale side dark ink and a light stroke.
 fn ink_labels_on_the_clean_side(
     mut commands: Commands,
     quality: Option<Res<ResolvedVisualQuality>>,
     save: Option<Res<AmbitionGameSave>>,
     rooms: LiveRoomSpecs,
     spreads: Query<(&InRoomInstance, &RoomLookSpread)>,
-    mut labels: Query<
+    labels: Query<
         (
             Entity,
-            &mut WorldLabel,
-            &Text2d,
-            &TextFont,
+            &WorldLabel,
             Option<&InRoomInstance>,
             Option<&MirroredWorldLabel>,
-            Option<&LabelInk>,
+            Option<&WorldLabelStyle>,
         ),
         With<StaticWorldLabel>,
     >,
     stamps: Query<&InRoomInstance>,
 ) {
-    // With no budget no look is drawn and no air is pale: each sign that has
-    // ink gets its own colours back, by the arm that takes ink off below.
     let in_budget = draws_looks(quality.as_deref());
-    for (entity, mut label, text, font, stamp, copy, ink) in &mut labels {
+    for (entity, label, stamp, copy, ink) in &labels {
         let stamp = stamp.or_else(|| copy.and_then(|copy| stamps.get(copy.root).ok()));
         let Some(stamp) = stamp else {
             continue;
@@ -1551,32 +1537,10 @@ fn ink_labels_on_the_clean_side(
         let pale = in_budget && behind_front(world, at, advance_of(&spreads, stamp, spec, save.as_deref())) <= -60.0;
         match (pale, ink) {
             (true, None) => {
-                let halo = [Vec2::X, -Vec2::X, Vec2::Y, -Vec2::Y].map(|offset| {
-                    commands
-                        .spawn((
-                            text.clone(),
-                            font.clone(),
-                            TextColor(INK_HALO),
-                            Transform::from_xyz(offset.x * 1.2, offset.y * 1.2, -0.1),
-                            ChildOf(entity),
-                        ))
-                        .id()
-                });
-                commands.entity(entity).try_insert(LabelInk {
-                    text_color: label.text_color,
-                    outline_color: label.outline_color,
-                    halo,
-                });
-                label.text_color = INK_TEXT;
-                label.outline_color = Some(INK_HALO);
+                commands.entity(entity).try_insert(WorldLabelStyle::outlined(INK_TEXT, INK_HALO, 1.2));
             }
-            (false, Some(ink)) => {
-                label.text_color = ink.text_color;
-                label.outline_color = ink.outline_color;
-                for halo in ink.halo {
-                    commands.entity(halo).try_despawn();
-                }
-                commands.entity(entity).try_remove::<LabelInk>();
+            (false, Some(_)) => {
+                commands.entity(entity).try_remove::<WorldLabelStyle>();
             }
             _ => {}
         }

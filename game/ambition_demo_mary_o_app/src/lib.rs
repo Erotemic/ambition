@@ -190,6 +190,11 @@ pub fn build_windowed_demo_app_entering(
     app.add_plugins((VideoPausePage(video_options), RebindPausePage));
     #[cfg(feature = "web")]
     app.add_plugins(ambition_platformer2d::touch_input::TouchControlsPlugin);
+    let pack = &ambition_demo_mary_o::pack::PACK;
+    let generation = app.world().get_resource::<ambition_platformer2d::content::PackSelections>()
+        .map_or_else(|| pack.prepared(), |selections| selections.of(pack));
+    let rules = ambition_demo_mary_o::rules::mary_o_rules_of(generation);
+    let room = ambition_demo_mary_o::provider::mary_o_session_world_entering(&rules, entry_room);
     // The provider prepares the room data. The catalog needs no world-file rows.
     app.add_plugins(
         ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
@@ -198,12 +203,7 @@ pub fn build_windowed_demo_app_entering(
         // Startup asset binding precedes gameplay activation, so the theme comes from the
         // authored room rather than a session root that does not exist yet.
         .with_room(
-            // The entry room's metadata is its room set's (AP11).
-            ambition_demo_mary_o::provider::mary_o_session_world_entering(entry_room)
-                .room_set
-                .activation_spec()
-                .metadata
-                .clone(),
+            room.room_set.activation_spec().metadata.clone(),
         ),
     );
 

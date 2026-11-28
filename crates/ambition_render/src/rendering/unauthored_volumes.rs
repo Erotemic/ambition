@@ -22,9 +22,12 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::primitives::MeshAabb;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
+use bevy::sprite_render::ColorMaterial;
+
+use super::planar_mesh::PreparedPlanarMesh;
 
 /// The swing's colour and its peak opacity, along the leading edge.
 ///
@@ -184,12 +187,19 @@ pub(crate) fn draw_unauthored_attack_volumes(
         let Some(mesh) = fan_mesh(volume, volume.bounds().center(), reach) else {
             continue;
         };
+        // Portal carry reads the mesh bounds before Bevy binds the 2D draw.
+        let Some(bounds) = mesh.compute_aabb() else {
+            continue;
+        };
         commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),
             (
                 Name::new("VFX default attack swing"),
-                Mesh2d(meshes.add(mesh)),
-                MeshMaterial2d(materials.add(ColorMaterial::from_color(SWING_TINT))),
+                PreparedPlanarMesh {
+                    mesh: meshes.add(mesh),
+                    material: materials.add(ColorMaterial::from_color(SWING_TINT)),
+                },
+                bounds,
                 Transform::from_translation(world_to_bevy(&world.0, centre, WORLD_Z_FX + 1.0)),
                 Visibility::Visible,
                 ReachesFrom(from),

@@ -20,7 +20,9 @@ use bevy::prelude::*;
 
 use ambition_demo_mary_o::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
 use ambition_demo_mary_o::level_1_2::{level_1_2, LEVEL_1_2_ROOM_ID};
+use ambition_demo_mary_o::pack::PACK;
 use ambition_demo_mary_o::powerups::SpentPowerBlocks;
+use ambition_demo_mary_o::rules::mary_o_rules_of;
 use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
 use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::view::EntitySprite;
@@ -72,7 +74,7 @@ fn hold_jump() -> ControlFrame {
 
 /// The leftmost block of `look` that 1-2 authors.
 fn authored(look: MaryOBlockLook) -> ae::world::Block {
-    let room = level_1_2();
+    let room = level_1_2(&mary_o_rules_of(PACK.prepared()));
     room.world
         .blocks
         .iter()
@@ -148,7 +150,7 @@ fn a_question_block_in_the_painted_cavern_wears_its_own_art() {
 #[test]
 fn a_painted_block_nobody_dresses_keeps_its_flat_quad() {
     let mut app = cavern();
-    let stone = level_1_2()
+    let stone = level_1_2(&mary_o_rules_of(PACK.prepared()))
         .world
         .blocks
         .iter()
@@ -310,7 +312,7 @@ struct Strike {
 fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
     let column = block.aabb.center().x;
     let underside = block.aabb.max.y;
-    let floor_top = level_1_2()
+    let floor_top = level_1_2(&mary_o_rules_of(PACK.prepared()))
         .world
         .blocks
         .iter()
@@ -517,7 +519,7 @@ fn a_brick_keeps_its_own_art_when_spent_in_a_skinned_room() {
     for _ in 0..120 {
         app.update();
     }
-    let brick = ambition_demo_mary_o::authored_level(SKY_LEVEL)
+    let brick = ambition_demo_mary_o::authored_level(&mary_o_rules_of(PACK.prepared()), SKY_LEVEL)
         .world
         .blocks
         .into_iter()

@@ -33,7 +33,6 @@ use crate::folded_mesh::AddedLightMaterial;
 use crate::rendering::planar_mesh::{PlanarMeshSource, PreparedPlanarMesh};
 use crate::rendering::chain_skin::ChainEarth;
 use crate::rendering::terrain_skin::TerrainSkinMesh;
-use crate::rendering::unauthored_volumes::UnauthoredVolumeVisual;
 
 #[derive(Component)]
 pub(super) struct CardWorldMesh;
@@ -323,7 +322,7 @@ fn realize_color_meshes(
     sources: Query<
         (
             Entity,
-            PlanarMeshRead<'static, ColorMaterial>,
+            &PreparedPlanarMesh<ColorMaterial>,
             &Transform,
             &GlobalTransform,
             &InheritedVisibility,
@@ -331,13 +330,7 @@ fn realize_color_meshes(
             Has<TerrainSkinMesh>,
             Has<NoFrustumCulling>,
         ),
-        (
-            Or<(
-                With<PreparedPlanarMesh<ColorMaterial>>,
-                (With<UnauthoredVolumeVisual>, Without<PlanarMeshSource>),
-            )>,
-            Without<CardWorldMesh>,
-        ),
+        Without<CardWorldMesh>,
     >,
     colors: Option<Res<Assets<ColorMaterial>>>,
     materials: Option<ResMut<Assets<StandardMaterial>>>,
@@ -358,18 +351,15 @@ fn realize_color_meshes(
     };
     products.retained.reconcile(&mut products.commands, |entity| {
         sources.get(*entity).is_ok_and(|(_, draw, _, _, visible, ..)| {
-            visible.get() && planar_mesh(draw).is_some_and(|(_, material)| colors.contains(material.id()))
+            visible.get() && colors.contains(draw.material.id())
         })
     });
     used.clear();
     for (source, draw, local, global, visible, earth, terrain, skip_culling) in &sources {
-        let Some((mesh, material)) = planar_mesh(draw) else {
+        let Some(color) = colors.get(&draw.material).filter(|_| visible.get()) else {
             continue;
         };
-        let Some(color) = colors.get(material).filter(|_| visible.get()) else {
-            continue;
-        };
-        let id = material.id();
+        let id = draw.material.id();
         let alpha_mode = match color.alpha_mode {
             AlphaMode2d::Opaque => AlphaMode::Opaque,
             AlphaMode2d::Mask(cutoff) => AlphaMode::Mask(cutoff),
@@ -400,7 +390,7 @@ fn realize_color_meshes(
         } else {
             depths.scenery(global.translation().z, rooms.of(source))
         };
-        products.show(source, mesh, card, &global.compute_transform(), skip_culling, depth);
+        products.show(source, &draw.mesh, card, &global.compute_transform(), skip_culling, depth);
     }
     by_material.retain(|id, _| used.contains(id));
 }

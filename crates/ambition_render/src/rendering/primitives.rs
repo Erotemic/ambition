@@ -283,7 +283,7 @@ pub(super) fn spawn_world_label(
     };
     let anchor = world_to_bevy(world, pos, z);
     let mut label = super::label_layout::WorldLabel::new(owner_id, family, anchor)
-        .with_colors(WORLD_LABEL_COLOR, None);
+        .with_style(super::label_layout::WorldLabelStyle::plain(WORLD_LABEL_COLOR));
     label.bounds = bounds;
     commands.spawn_session_scoped(
         session_scope,

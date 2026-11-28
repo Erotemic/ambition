@@ -117,10 +117,11 @@ customer exists, with the same contract and hidden-state tests.
 - Idle ticks: `IdlePolicy::ResetState` and `ResetStateExcept(keep)` reset
   records without a call. With them, the loaded road's per-tick overhead with
   one boss is within run-to-run noise (30-100 us).
-- A fresh instance per call is kept: it is what stops a guest static from
-  carrying state across a rewind.
-- Open: the per-call glue cost (instance reuse with a restored image; a lighter
-  input encoding).
+- Every call starts from the file's starting image: that is what stops a
+  guest static from carrying state across a rewind. Since 2026-11-28 the
+  image is restored into a reused instance rather than built anew (below).
+- Open: the image restore (6.4 µs for 4 pages) and the sentry's own guest
+  work.
 
 ### M1 results: the native shared-library arm (2026-11-28, release, agent machine)
 
@@ -138,7 +139,7 @@ library loaded as long as the backend, which pins the code a call runs.
 | --- | --- | --- |
 | native, linked (the reference) | — | 755–777 ns |
 | native shared library | 2000 of 2000 | 770–789 ns |
-| wasm (wasmi, instance per call) | 2000 of 2000 | 88.4–90.9 µs |
+| wasm (wasmi, instance per call) | 2000 of 2000 | 88.4–90.9 µs (27.3–29.3 µs after the stack, reuse and prepare changes below) |
 | engine Rhai backend | 2000 of 2000 | ≈10.6 µs |
 
 - The shared library's transport costs about 15 ns per call over the linked
@@ -154,8 +155,30 @@ library loaded as long as the backend, which pins the code a call runs.
   (`MODULE_STACK_BYTES`), memory starts at 3 pages, instantiation takes
   33 µs, the first allocation costs nothing extra, and a sentry call takes
   59 µs, byte-equal. The rest of instantiation scales with the module
-  file's functions (every content module in one file); reuse of an instance
-  restored to its image is what remains.
+  file's functions (every content module in one file).
+- Instance reuse (2026-11-28): loading checks that an instance can be put
+  back exactly (`restorable_globals`: every mutable global exported, no code
+  that changes a table or a passive segment), and modules are linked to
+  export Rust's one mutable global, `__stack_pointer`. After each call the
+  backend copies the image back over memory and sets the globals back. Rust's
+  allocator takes its heap with `memory.grow` on its first allocation, so
+  every call from the bare instance grew memory (3 to 4 pages), and memory
+  never shrinks. The image is therefore taken after one allocation at start,
+  a fixed function of the file, the same for every call and every peer. A
+  call that grows memory past it drops the instance. A sentry call takes
+  34.0–35.9 µs (3 runs), byte-equal over the 2000 ticks; a refused call 13.7 µs against
+  33 µs of instantiation. Witnesses: a write to an exported global or to
+  memory is gone at the next call; a file with a hidden mutable global gets a
+  new instance per call; a call that grows memory does not leave it grown.
+- The module table in the image (2026-11-28): with the instance reused, each
+  call still built its module's descriptor before decoding, 14k–112k fuel by
+  module (sentry 26k, the bossofthegame 103k). A guest now exports
+  `amb_prepare` (`export_modules!` writes it), which builds the table into a
+  static; a host that reuses instances calls it before taking the image.
+  Every module's refused call is then 9.2k fuel, its guest side 2.0 µs
+  against 9.7 µs, and restoring the 4-page image (6.4 µs) is the larger part.
+  A sentry call takes 27.3–29.3 µs (3 runs), byte-equal over the 2000
+  ticks.
 
 **Deployment choice: keep wasmi and Rhai as the loaded roads; do not ship
 the native arm.** A native library has no sandbox, no fuel, no
@@ -207,7 +230,7 @@ target.
 | Question | Cheapest resolving evidence | What it gates | Default while open |
 | --- | --- | --- | --- |
 | Dominant current latency | M0 on move and procedural edits | Profile, link and cache optimizations | Independent artifact boundary |
-| Production executable backend | M1 against the native shared-library arm | I7 commitment | wasmi, deterministic, fuel, a new instance per call |
+| Production executable backend | M1 against the native shared-library arm | I7 commitment | wasmi, deterministic, fuel, every call from the starting image |
 | State physical layout | M2 over real GGRS snapshots | I8 | Safe schema-backed host storage |
 | Complete VM image fallback | One algorithm that host-managed state serves badly | An optional alternate state profile | Explicit host state; reset scratch |
 | Artifact encoding and compression | Canonical roundtrip and M0 load breakdown | Encoding optimization | Simple versioned canonical section encoding |

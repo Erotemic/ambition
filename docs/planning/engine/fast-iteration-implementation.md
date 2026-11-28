@@ -47,7 +47,7 @@ I5 -> M2 -> I8 measured runtime/snapshot optimizations -> I9 cost evidence
 | I3 | Data reload is implemented for the participating families; open items below |
 | I4 | First cut landed: every boss special, the wielded kit, the sentry, the vortex and the FSM conductor are modules |
 | I5 | Body and session records, schema migration on reload; durable session records; body and checkpoint save roads open |
-| I6 | One backend (wasmi) chosen; the native shared-library comparison measured (M1); per-call cost open |
+| I6 | One backend (wasmi) chosen; the native shared-library comparison measured (M1); instances reused from an image with the module table built |
 | I7 | Loaded road, hot reload, inspection tool and graph fixture landed; cancellation and source maps open |
 | I8 | Not started |
 | I9 | Not started |
@@ -513,26 +513,28 @@ each has a separate failing witness.
 
 ## I6 - compare executable backends behind the same contract
 
-**Current shape:** one backend. ABI `ambition-ext-1` (three exports, no
-imports, bytes in and out; `ambition_extension_sdk::{abi, wire}`,
+**Current shape:** one backend. ABI `ambition-ext-3` (three exports and an
+optional `amb_prepare`, no imports, bytes in and out; `ambition_extension_sdk::{abi, wire}`,
 `export_modules!`). The WebAssembly backend `crates/ambition_extension_wasm`
-uses wasmi in deterministic mode with fuel and a new instance per call. It
+uses wasmi in deterministic mode with fuel, and every call starts from the
+file's starting image (a reused instance put back to it, when loading proves
+it can be; otherwise a new instance). It
 refuses an importing module. Reason for wasmi: deterministic by construction
 (NaN canonicalization, fuel instead of a clock), pure Rust, builds for every
-shipped target. A new instance per call is what stops a guest static from
+shipped target. Starting every call from the image is what stops a guest static from
 carrying state across a rewind.
 
 **Native arm measured (2026-11-28):** the sentry behind a trusted C entry
 table (versioned, fixed-width lengths, caller-owned buffers) is byte-equal
 to the linked module and costs about 15 ns per call more; wasmi cost about
-115 times as much, and about 74 times once modules were linked with a
+115 times as much, about 74 times once modules were linked with a
 128 KiB stack (`MODULE_STACK_BYTES`; a fresh instance zeroed a 1 MiB stack
-on every call). wasmi and Rhai stay the loaded roads
+on every call), and about 37 times once a call reused an instance put back
+to an image that holds the guest's built module table (28 µs). wasmi and Rhai stay the loaded roads
 ([M1 results](extension-iteration-evidence.md#m1-results-the-native-shared-library-arm-2026-11-28-release-agent-machine)).
 
-**Open:** the rest of the per-call cost, about 33 µs of instantiating a
-file that holds every content module (instance reuse with a restored image,
-or one file per module), now the largest loaded-road cost measured.
+**Open:** the per-call image restore (6.4 µs for 4 pages) and the guest's
+own work; a refused call's guest side is 2.0 µs.
 
 **Acceptance:** raw observations and a justified deployment choice. An
 unsupported platform is reported, not simulated. **Poison:** mutate a guest

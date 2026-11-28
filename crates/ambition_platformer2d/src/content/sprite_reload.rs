@@ -281,8 +281,10 @@ impl SpriteSheetWatch {
     fn look_in_the_background(&self) {
         let scanner = Arc::downgrade(&self.scanner);
         let found = Arc::downgrade(&self.found);
-        let mut reports = ChangeReports::of(&self.roots);
+        let roots = self.roots.clone();
         let spawned = std::thread::Builder::new().name("sprite-sheet-watch".into()).spawn(move || {
+            // The operating system can scan the asset tree when it starts a watch.
+            let mut reports = ChangeReports::of(&roots);
             // The first look takes the baseline: it costs a full look once.
             let mut changed = true;
             loop {

@@ -168,8 +168,6 @@ fn hold_for_the_renderer(
     mut settling: ResMut<PresentationSettling>,
     assets: Option<Res<GameAssets>>,
     unclaimed: Option<Res<UnclaimedFeatureViews>>,
-    // The room of an undrawn view: its row says it.
-    views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
     pipelines: Option<Res<RenderPipelineWarmup>>,
     terrains: Query<(Entity, &RoomTerrain)>,
     // A door with art of its own (a room look's door) does not take its
@@ -179,8 +177,7 @@ fn hold_for_the_renderer(
     rooms: LiveRooms,
 ) {
     if let Some(unclaimed) = unclaimed {
-        for id in unclaimed.ids() {
-            let room = views.as_deref().and_then(|views| views.get(id)).and_then(|view| view.room);
+        for (id, room) in unclaimed.iter() {
             settling.hold_in(room, format!("feature view {id}"));
         }
     }
@@ -286,24 +283,36 @@ mod tests {
         assert_eq!(settling.pending_for(&[]).len(), 3, "control: a cover with no rooms waits on all");
     }
 
-    /// An undrawn feature view is held in the room its row names, and one
-    /// whose room cannot be told holds every cover. Poison: hold every view
-    /// as the whole App's.
     #[test]
-    fn an_undrawn_view_is_held_in_its_own_room() {
+    fn an_undrawn_copy_of_a_feature_holds_only_its_room_cover() {
+        use super::super::features::draw_unclaimed_feature_views;
+        use super::super::primitives::FeatureVisual;
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+
         let (here, there) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
         let mut app = App::new();
-        app.init_resource::<PresentationSettling>();
-        app.insert_resource(UnclaimedFeatureViews::of(&["a_there", "b_here", "c_nowhere"]));
+        app.add_plugins(PresentationSettlingPlugin);
+        app.init_resource::<UnclaimedFeatureViews>();
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
-            ("a_there".to_string(), actor_in(Some(there))),
-            ("b_here".to_string(), actor_in(Some(here))),
-            ("c_nowhere".to_string(), actor_in(None)),
+            ("shared_gate".to_string(), actor_in(Some(here))),
+            ("shared_gate".to_string(), actor_in(Some(there))),
         ]));
-        app.add_systems(Update, hold_for_the_renderer);
+        app.world_mut().spawn((
+            FeatureVisual { id: "shared_gate".into() },
+            InRoomInstance(here),
+        ));
+        app.add_systems(Update, draw_unclaimed_feature_views.before(PresentationSettlingSet));
         app.update();
         let settling = app.world().resource::<PresentationSettling>();
-        assert_eq!(settling.pending_for(&[here]), vec!["feature view b_here", "feature view c_nowhere"]);
+        assert!(settling.pending_for(&[here]).is_empty());
+        assert_eq!(settling.pending_for(&[there]), vec!["feature view shared_gate"]);
+
+        app.world_mut().spawn((
+            FeatureVisual { id: "shared_gate".into() },
+            InRoomInstance(there),
+        ));
+        app.update();
+        assert!(app.world().resource::<PresentationSettling>().is_empty());
     }
 
     fn actor_in(room: Option<LiveRoomInstance>) -> ambition_sim_view::FeatureView {

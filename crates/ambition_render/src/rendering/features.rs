@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, LiveRoomInstance, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::{DynamicFeatureViews, FeatureSheet};
 use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
@@ -209,7 +209,7 @@ pub fn draw_unclaimed_feature_views(
     mut unsettled: ResMut<UnclaimedFeatureViews>,
     // Consecutive unclaimed frames per id. See
     // `UNCLAIMED_STAND_IN_GRACE_FRAMES`.
-    mut unclaimed_streak: Local<std::collections::HashMap<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String), u32>>,
+    mut unclaimed_streak: Local<std::collections::HashMap<(Option<LiveRoomInstance>, String), u32>>,
 ) {
     // Split drawn ids into real visuals and this system's own stand-ins.
     // "Claimed" and "standing in for a claim" are different answers.
@@ -243,11 +243,11 @@ pub fn draw_unclaimed_feature_views(
         .collect();
     // `FeatureViewIndex::iter` is hash-ordered. Sort so reports and spawn
     // order are stable.
-    unclaimed_now.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
-    unsettled.ids.clear();
+    unclaimed_now.sort_unstable_by_key(|(id, view)| (*id, view.room));
+    unsettled.entries.clear();
     unsettled
-        .ids
-        .extend(unclaimed_now.iter().map(|(id, _)| id.to_string()));
+        .entries
+        .extend(unclaimed_now.iter().map(|(id, view)| (id.to_string(), view.room)));
 
     // A claimed or removed id restarts its grace. This also keeps the map
     // from growing forever.
@@ -309,8 +309,8 @@ pub fn draw_unclaimed_feature_views(
 /// Presentation is dormant, so nothing is waiting on it. Publish an empty
 /// census explicitly. This is the inverse of the live publisher.
 pub fn forget_unclaimed_feature_views_while_dormant(mut unsettled: ResMut<UnclaimedFeatureViews>) {
-    if !unsettled.ids.is_empty() {
-        unsettled.ids.clear();
+    if !unsettled.is_empty() {
+        unsettled.entries.clear();
     }
 }
 
@@ -336,30 +336,24 @@ pub struct UnclaimedBodyPlaceholder;
 /// A reader must run after the publisher in the same schedule.
 #[derive(Resource, Default, Debug)]
 pub struct UnclaimedFeatureViews {
-    /// Sorted, so a report that names them reads the same twice.
-    ids: Vec<String>,
+    /// Sort by feature ID, then by room instance.
+    entries: Vec<(String, Option<LiveRoomInstance>)>,
 }
 
 impl UnclaimedFeatureViews {
     /// How many published views are still undrawn.
     pub fn len(&self) -> usize {
-        self.ids.len()
+        self.entries.len()
     }
 
     /// Is every published view drawn by some render family?
     pub fn is_empty(&self) -> bool {
-        self.ids.is_empty()
+        self.entries.is_empty()
     }
 
-    /// The undrawn ids, sorted — for a report that has to say which.
-    pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
-        self.ids.iter().map(String::as_str)
-    }
-
-    /// A fixture: these ids undrawn.
-    #[cfg(test)]
-    pub(crate) fn of(ids: &[&str]) -> Self {
-        Self { ids: ids.iter().map(|id| id.to_string()).collect() }
+    /// The ID and live room of each undrawn feature.
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&str, Option<LiveRoomInstance>)> {
+        self.entries.iter().map(|(id, room)| (id.as_str(), *room))
     }
 }
 
@@ -656,7 +650,8 @@ mod tests {
         assert_eq!(
             app.world()
                 .resource::<UnclaimedFeatureViews>()
-                .ids()
+                .iter()
+                .map(|(id, _)| id)
                 .collect::<Vec<_>>(),
             vec!["not_drawn_yet"],
             "the census must report an undrawn view on the FIRST frame it is \
@@ -737,7 +732,8 @@ mod tests {
         assert_eq!(
             app.world()
                 .resource::<UnclaimedFeatureViews>()
-                .ids()
+                .iter()
+                .map(|(id, _)| id)
                 .collect::<Vec<_>>(),
             vec!["wearing_magenta"],
             "a view standing under the diagnostic rectangle is UNDRAWN. If this \
@@ -767,8 +763,8 @@ mod tests {
         // What the last live frame left behind.
         app.world_mut()
             .resource_mut::<UnclaimedFeatureViews>()
-            .ids
-            .push("left_over_from_the_last_session".to_string());
+            .entries
+            .push(("left_over_from_the_last_session".to_string(), None));
         assert_eq!(
             app.world().resource::<UnclaimedFeatureViews>().len(),
             1,

@@ -926,6 +926,9 @@ shared value preparation are sufficient until source proves otherwise.
    Local views, card outputs, menus, and portal captures use separate
    render layer families. The portal backdrop test covers two eyes in one
    live room and a third eye in a room that uses the same portal channels.
+   The feature census keeps the live room of each undrawn feature. When
+   two rooms use the same authored ID, only the room with missing art
+   keeps its loading cover.
 
    Portal windows use the final view pose, zoom, and pixel dimensions.
    A tilted view projects its viewport onto the play plane. Its capture

@@ -1026,6 +1026,9 @@ shared value preparation are sufficient until source proves otherwise.
    the military gate annex, Gravity Lab, Portal Lab, and the central hub.
    The Clean / corrupted exhibit uses the same sky, fog, and front effects
    in both renderers. Medium captures show the front in all three views.
+   The Hub look and Tech-Bros Basement blueprint publish prepared
+   meshes. The Hub front and fog update without a 2D world camera.
+   The front field is an offscreen input to both views.
    The Hub sky, blueprint overlay, and Mary-O shimmer use the same mesh
    fragment inputs and camera projection in both renderers. The plane
    renderer loads this shader library with the room presentation. This

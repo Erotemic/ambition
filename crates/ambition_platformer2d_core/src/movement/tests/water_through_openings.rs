@@ -96,6 +96,21 @@ fn a_straddler_climbs_the_ladder_its_far_part_is_on_only_where_up_stays_up() {
     assert!(on_ladder(FAR_POOL, Some(keeps)), "the carried part is on the far ladder, up kept");
     assert!(!on_ladder(BEHIND_ENTRY, Some(keeps)), "no material is behind the entry");
     assert!(!on_ladder(FAR_POOL, Some(flips)), "a ladder met through a map that flips up admits no climb");
+
+    // Inspection keeps what the response drops: the flipped touch is
+    // reported, and refused for its map.
+    let touched = |convention| {
+        let mut world = World::new("ladders through openings", Vec2::splat(2_000.0), Vec2::splat(100.0), Vec::new());
+        world.climbable_regions.push(ClimbableRegion::ladder(FAR_POOL));
+        world.climbable_regions.push(ClimbableRegion::ladder(FAR_POOL));
+        let links = links();
+        let kin = crate::BodyKinematics { pos: ROOT, canonical_size: BODY, ..Default::default() };
+        world.regions_touched(&kin.occupied(admission(&links, convention)).unwrap().unwrap())
+    };
+    use crate::{RegionTouch, TouchResponse::*, TouchedRegion::Climbable};
+    let touch = |index, response| RegionTouch { region: Climbable(index), response };
+    assert_eq!(touched(keeps), [touch(0, Answers), touch(1, Shadowed)], "up kept: the first ladder answers");
+    assert_eq!(touched(flips), [touch(0, UpTurned), touch(1, UpTurned)], "up flipped: both are touched, neither climbed");
 }
 
 #[test]

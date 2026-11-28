@@ -441,6 +441,50 @@ pub fn convex_strictly_overlaps(polygon: &[Vec2], aabb: Aabb) -> bool {
     !edges.map(|(a, b)| (*b - *a).perp()).filter(|n| *n != Vec2::ZERO).any(apart)
 }
 
+/// Does `part`'s map keep the root's up as up? A climb moves the body along
+/// its own chart's axes, so only such a part admits one.
+fn keeps_up(part: &crate::frame::thread::OccupiedPart) -> bool {
+    part.to_root.direction(Vec2::NEG_Y).normalize_or_zero().dot(Vec2::NEG_Y) > 0.999
+}
+
+/// One region a body's admitted material touches ([`World::regions_touched`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RegionTouch {
+    pub region: TouchedRegion,
+    pub response: TouchResponse,
+}
+
+/// A region by kind and native index (`World::water_regions`,
+/// `World::climbable_regions`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TouchedRegion {
+    Water(usize),
+    Climbable(usize),
+}
+
+/// What the movement response does with a touched region.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TouchResponse {
+    /// The contact the body's response reads.
+    Answers,
+    /// Touched, but an earlier region of its kind in native order answers.
+    Shadowed,
+    /// A climbable touched only through a map that turns or flips up: no
+    /// climb is admitted, and it grants no passability.
+    UpTurned,
+}
+
+impl TouchResponse {
+    /// Why the response does not read this region (`None`: it does).
+    pub fn refusal(self) -> Option<&'static str> {
+        match self {
+            Self::Answers => None,
+            Self::Shadowed => Some("an earlier region answers"),
+            Self::UpTurned => Some("met through a map that turns up: no climb is admitted"),
+        }
+    }
+}
+
 /// Snapshot of "the player's relationship to water" for one frame.
 /// Movement queries this rather than touching the underlying region
 /// list, so future water sources (entity, IntGrid, generated) all
@@ -1921,9 +1965,44 @@ impl World {
         self.climbable_regions.iter().find_map(|region| {
             parts.iter()
                 .filter(|part| part.strictly_overlaps(region.aabb))
-                .any(|part| part.to_root.direction(Vec2::NEG_Y).normalize_or_zero().dot(Vec2::NEG_Y) > 0.999)
+                .any(keeps_up)
                 .then(|| region.contact())
         })
+    }
+
+    /// Every water and climbable region a body's admitted material touches,
+    /// and what the response does with it: the inspection side of
+    /// [`Self::water_touched`] and [`Self::climbable_touched`], by the same
+    /// tests and in the same order. It keeps what the response drops, a
+    /// climbable met only through a map that turns up and a region that an
+    /// earlier one shadows.
+    pub fn regions_touched(&self, parts: &[crate::frame::thread::OccupiedPart]) -> Vec<RegionTouch> {
+        let mut out = Vec::new();
+        let mut answered = false;
+        for (index, region) in self.water_regions.iter().enumerate() {
+            if parts.iter().any(|part| part.strictly_overlaps(region.aabb)) {
+                let response = if answered { TouchResponse::Shadowed } else { TouchResponse::Answers };
+                answered = true;
+                out.push(RegionTouch { region: TouchedRegion::Water(index), response });
+            }
+        }
+        let mut answered = false;
+        for (index, region) in self.climbable_regions.iter().enumerate() {
+            let mut touching = parts.iter().filter(|part| part.strictly_overlaps(region.aabb)).peekable();
+            if touching.peek().is_none() {
+                continue;
+            }
+            let response = if !touching.any(keeps_up) {
+                TouchResponse::UpTurned
+            } else if answered {
+                TouchResponse::Shadowed
+            } else {
+                answered = true;
+                TouchResponse::Answers
+            };
+            out.push(RegionTouch { region: TouchedRegion::Climbable(index), response });
+        }
+        out
     }
 
     /// True if `body` overlaps any block accepted by `predicate`.

@@ -154,8 +154,8 @@ pub use player_state::{
 pub use surface_loop::{AttachedLoop, LoopResolution, LoopRoute};
 pub use world::{
     AuthoredBlock, BlinkWallTier, Block, BlockKind, Boarding, ClimbableContact, ClimbableKind, ClimbableRegion,
-    ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,
-    SurfacePort, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,
+    ClimbableSpec, RegionTouch, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,
+    SurfacePort, TouchResponse, TouchedRegion, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,
 };
 
 pub use ambition_geometry::spatial;

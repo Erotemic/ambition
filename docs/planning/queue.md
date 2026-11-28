@@ -27,10 +27,10 @@ calling it done, and go on to the next.
    movement, and the post-step snag writer is deleted. T3 landed the same
    day: a room's replay keeps the hidden rooms' portal publication. Water
    membership, chest/switch touch and climbing read the body's admitted
-   parts (also 2026-11-27). What remains in the row: the last SUP1 case
-   still reads the rigid fit (a deforming line leaving an aperture's plane,
-   or on a turning one), and audit step 4 (observers and cost counts). RV3
-   is handled separately.
+   parts, and `body.regions` observes that query with its cost counted
+   (all 2026-11-27). What remains in the row: the last SUP1 case still
+   reads the rigid fit (a deforming line leaving an aperture's plane, or on
+   a turning one). RV3 is handled separately.
 2. **Hobford polish (Jon, 2026-11-14).** [Hobford polish](game/hobford-polish.md)
    with [LEVEL-1](#level-1--the-lab-raid-and-the-first-level-after-it) and [LEVEL-TRUTH](#level-truth--authored-level-data-in-the-map-submodule-one-owner-per-room) for the level data. Story
    sequences SS1–SS8 (SS7/SS8 landed 2026-11-21) and dark rooms and tunnels
@@ -2086,7 +2086,8 @@ Water membership, chest/switch touch and climbing read accepted parts
 (landed 2026-11-27, [receipt](engine/world-geometry-and-spatial-semantics.md#bounded-delivery-and-evidence)).
 Touch keeps the part's map for facing and preference. A climb is admitted
 only through a map that keeps up. The observers and cost counts (step 4)
-remain.
+landed the same day: `body.regions` keeps the touches the response drops,
+and no cache is proposed.
 Keep discrete sampling, strict overlap and exact-box fast paths. These cuts
 do not wait for all P2–P6 work or select a universal zone redesign.
 

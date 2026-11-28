@@ -254,12 +254,52 @@ known.
    - Behind the entry: no ladder.
    - Root-box control: the reverse.
 
-   Still open: inspection does not yet retain the unsupported touch
-   (step 4).
+   Inspection retains the unsupported touch (step 4).
 4. **Owner observations and cost.** Extend the existing F1/headless observers
    with the actual query result and cut. Count part preparations, candidate
    tests and allocations in ordinary, straddling and no-region scenes. Use
    those counts before proposing persistent caching or claiming a speed gain.
+   **Landed 2026-11-27.** `World::regions_touched` is the inspection side of
+   water and climbing, using the same tests in the same order. It lists every
+   water and climbable region the parts touch, each with its
+   `TouchResponse`: `Answers` (the contact the response reads), `Shadowed`
+   (an earlier region of its kind answers) or `UpTurned` (a climbable met
+   only through a map that turns up).
+
+   The subject observer `body.regions` draws what movement's environment
+   sample asks. It shows each admitted part (root chart or portal-carried;
+   an uncut body's step box), and each touched region: active where it
+   answers, inactive with the reason where it does not. A refusal is one
+   inactive coarse box. It reads the walls movement steps against
+   (`physical_for`), so a body passing through solids meets no regions there
+   either. `interaction.reach` draws a cut body's touch as its admitted
+   parts, not the root box.
+
+   Witnesses:
+   - `body_geometry_observer::tests::a_straddlers_regions_are_observed_through_its_admitted_parts`:
+     the core pair under both conventions; the far ladder is active where up
+     is kept and refused, not dropped, where it flips.
+   - The core climb witness, which asserts `regions_touched` against the
+     response.
+
+   Counts (a temporary probe with a counting allocator, deleted; the core
+   witness pair, a 24×48 body):
+   - Ordinary scene, or a room with no links: no parts are prepared, and
+     `water_at` and `climbable_at` scan the regions with box tests.
+   - A room with links but no water or climbable region: no parts are
+     prepared.
+   - An uncut body in a room with links and regions: one partition per
+     movement step that finds no cut, at 2 allocations (984 B).
+   - A straddler: one preparation per movement step, at 31–34 allocations
+     (4.4–5.5 KB) for 2 four-vertex parts. Interaction's reach prepares its
+     parts again when it is asked.
+   - The region tests over the parts allocate nothing. They make at most
+     parts × regions separating-axis tests, stopping at the first answer of
+     each kind.
+
+   These costs fall only on the few bodies at an opening in a room with
+   regions, so no cache is proposed. If one is ever needed, the cheapest cut
+   is a bounds pre-check that skips the uncut body's partition.
 
 The first shared query needs no complete redesign of portal connection IDs,
 navigation, fluids or rendering. Existing snapshot-local native admission can

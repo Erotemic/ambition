@@ -332,3 +332,26 @@ character's opinion as a settled world fact.
 The new anecdotes, supply arrangements, fee structures, and personnel
 interactions are provisional dialogue-level worldbuilding. No new flags,
 rewards, placements, encounter outcomes, or progression rules are added.
+
+## Follow-up: voice, comic timing, and incidental dialogue
+
+Preserve jokes that already work, especially character names, deliberate
+repetition, and game-specific references. Avoid adding a second explanation
+of a punchline. Do not give every NPC the same mock-officious voice. Let
+Roo speak like an experienced captain, Salt Annet like a working sailor,
+Zorlack like a disciplined clan leader who wants a new career, and Bess
+like a gunner concerned with her next shot. Keep their different rhythms
+rather than intensifying the pirate dialect.
+
+Business satire can use a concrete transaction or administrative problem
+rather than an extended list of buzzwords. PCA enjoys his superiority and
+his challengers; keep his self-introduction consistent across arenas.
+Shorten the puppy slug stage directions to visible actions, without
+assigning them human inner monologues. In technical conversations, give
+the speaker a reason to explain the particular idea, such as Donna's
+measurement or Curry's glass of soda.
+
+These are line-level revisions. Choice labels, commands, conditionals,
+node names, existing encounter outcomes and progression are unchanged.
+Minor details about people, equipment and business practices are
+provisional, not implemented gameplay or settled canon.

@@ -31,8 +31,8 @@ title: neural_hebb
     <<stop>>
 <<endif>>
 -> What do you do here?
-    Donna: I study how activity changes connections. When those two cells fire together over and over, this connection gets stronger.
-    Donna: I need to try it a few more times with that lamp. I'm going to write down how much the response changes.
+    Donna: Watch the needle when I stimulate this cell. That's the response from its neighbour. If I get them firing together often enough, the response gets larger.
+    Donna: Could you tell me the reading? I can't see the scale from this side.
 -> What are the purple clouds?
     Donna: Intrusive thoughts. They keep turning up when I'm trying to work. I was halfway through testing a new connection when one of them knocked the bulb off the stand.
 -> ‹go›
@@ -47,7 +47,7 @@ Percy: QUESTION?
     Percy: ...
     Percy: LAMP ON, DOOR CLOSED: YES. LAMP OFF, DOOR OPEN: YES.
     Percy: ...
-    Percy: I cannot separate the YES cases from the NO cases with one straight line. Please submit a different question.
+    Percy: CANNOT SEPARATE YES FROM NO WITH ONE LINE. PLEASE ADD A LAYER.
 -> Who made you?
     Percy: A man with a camera and a board of wires, in nineteen fifty-eight. The papers said I would walk and talk one day.
     Percy: I do not walk.

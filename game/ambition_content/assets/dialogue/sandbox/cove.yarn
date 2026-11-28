@@ -39,7 +39,7 @@ Admiral: Don't assume a shark on fire is in need of rescuing. That'll end badly 
 
 title: pirate_admiral__3
 ---
-Admiral: Aye, if I can get a ship alongside her. Zorlack knows all our usual tricks. Bess wants to try a new one, which is generally an expensive conversation.
+Admiral: Aye, if I can get a ship alongside her. Zorlack knows all our usual tricks. Bess has drawn me a plan on a beer mat. I think that bit there is meant to be our mast.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -150,7 +150,7 @@ Broadside Bess: AHOY! Bess, gunner. Stand on me left. The other side's been know
 -> How'd you become a gunner?
     <<jump pirate_heavy_broadside_bess__2>>
 -> Are you ready for the shipment?
-    Broadside Bess: I've got powder, I've got shot, and I've got orders to leave the cargo intact. One of those things is spoilin' my fun.
+    Broadside Bess: Powder's dry, guns are run out. Admiral's made me promise not to put a hole in the hold. I said I'd try.
 -> Carry on.
 ===
 
@@ -200,7 +200,7 @@ Iron Mary: Last one jumped over me shoulder, so I backed him against the bulkhea
 
 title: pirate_heavy_salt_annet
 ---
-Salt Annet: Yarrrr. Salt in me eyes again. In me coffee too. Sit a spell, wee skipper, but use the dry end o' the bench unless ye fancy a wet backside.
+Salt Annet: Sit here, wee skipper. That end's wet. I've just been out on the foredeck.
 -> How long ye been here?
     <<jump pirate_heavy_salt_annet__1>>
 -> Got a shanty for me?
@@ -219,7 +219,7 @@ Salt Annet: He's got a good eye for weather. If he ever tells ye to put in at a 
 
 title: pirate_heavy_salt_annet__2
 ---
-Salt Annet: (coughs, clears throat, sings) 'Yo-ho, an' a barrel o' tar / we'll follow the freight by the light of a star / up with the anchor an' out with the oar / whoever comes last can be scrubbin' the floor.' Aye, I made the last verse up just now. Ye get what ye pay for in shanties, an' ye paid in a HELLO.
+Salt Annet: (coughs, clears throat, sings) 'Yo-ho, an' a barrel o' tar / we'll follow the freight by the light of a star / up with the anchor an' out with the oar / whoever comes last can be scrubbin' the floor.' Aye, that last line'll do. Sing it for Bess next time she's on deck.
 -> One more, ye old salt.
     <<jump pirate_heavy_salt_annet>>
 -> Carry on.
@@ -281,7 +281,7 @@ Navigator: Don't stand at the edge waitin' to see where the shot lands. Move whe
 
 title: pirate_quartermaster
 ---
-Quartermaster: Aye-aye, landstrider. I keep the manifest 'cause I'm the only bastard here what can spell it. Admiral signs. Raider wipes his hands on it.
+Quartermaster: Name and business, please. Badely's signature goes here. Don't put that hand on the ledger, it's covered in tar.
 -> How's the hold lookin'?
     <<jump pirate_quartermaster__1>>
 -> What's above decks?

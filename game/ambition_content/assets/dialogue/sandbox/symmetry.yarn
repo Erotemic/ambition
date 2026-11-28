@@ -45,8 +45,8 @@ Emmy Ethereal: Right side. Still four of us. If you want to test the symmetry, c
 
 title: perfect_cellular_automaton
 ---
-Perfect Cell-ular Automaton: At last. I was beginning to think nobody here could find the door. Perfect Cell-ular Automaton. Yes, "Perfect" is part of the name. No, you may not shorten it.
-Perfect Cell-ular Automaton: And you are still wandering around looking for instructions. Adorable.
+Perfect Cell-ular Automaton: At last! The others were quite unwilling to spar with me. Perfect Cellular Automaton. Perfect will do.
+Perfect Cell-ular Automaton: Do take your time. I would hate to deprive you of an advantage.
 -> What are you?
     <<jump perfect_cellular_automaton__theorem>>
 -> Who funds a thing like you?
@@ -61,7 +61,7 @@ Perfect Cell-ular Automaton: And you are still wandering around looking for inst
 
 title: perfect_cellular_automaton__theorem
 ---
-Perfect Cell-ular Automaton: Eight neighbours, one rule. Observe the lattice. I let a gentleman from the institute check it yesterday. He ran out of paper before I ran out of patience.
+Perfect Cell-ular Automaton: Eight neighbours, one rule. A gentleman from the institute asked me for my initial conditions. I was delighted. He spent the entire afternoon admiring me on graph paper.
 -> Has it ever gone wrong?
     Perfect Cell-ular Automaton: Oh, dear. Did someone send you here to look for a defect?
     <<jump perfect_cellular_automaton>>
@@ -79,6 +79,6 @@ Perfect Cell-ular Automaton: The patrons were wonderfully generous. I've spent a
 
 title: perfect_cellular_automaton__farewell
 ---
-Perfect Cell-ular Automaton: Run along. I have six other flawless processes to supervise.
+Perfect Cell-ular Automaton: Very well. I shall be here when you have practised.
 -> Leave.
 ===

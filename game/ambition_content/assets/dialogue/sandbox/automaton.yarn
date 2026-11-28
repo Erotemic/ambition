@@ -17,7 +17,7 @@ title: automaton_busy_beaver
     Busy Beaver: Here I've got five states and a tape. I'm trying to run for as many steps as I can and still halt.
 -> When will you stop?
     Busy Beaver: For five states, the record is 47,176,870 steps. Turns out proving that nobody could halt later was a much longer job.
-    Busy Beaver: For six, nobody knows. I like those odds.
+    Busy Beaver: Six next. I've got a fresh tape.
 -> ‹go›
 ===
 title: automaton_moore

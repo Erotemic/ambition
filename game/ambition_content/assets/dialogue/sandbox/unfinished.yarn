@@ -2,7 +2,7 @@ title: unfinished_surveyor
 ---
 <<present_speaker "npc_unfinished_subclause_surveyor">>
 <<if verdict("world.flag_set", "unfinished_surveyor_met") == "satisfied">>
-    Subclause: Per the spec, the ground east of here will be ground. Eventually.
+    Subclause: Clause has sent a new datum. I have to start from this end again.
 <<elseif verdict("world.flag_set", "unfinished_surveyor_met") == "not_satisfied">>
     <<command "world.set_flag" "unfinished_surveyor_met" true>>
     Subclause: Section four, paragraph b: survey the ground. Hold still, you're in my sightline.
@@ -34,7 +34,7 @@ title: unfinished_painter
     Subclause: One coat of blue, two of afternoon. The clouds go up after, on wires.
     Subclause: I have to wait for the surveyor to mark the cloud height. Last time we put them up they were behind the mountain.
 -> What's under us?
-    Subclause: The void. It's reserved. There's a ticket for a basement, but it's in the backlog.
+    Subclause: Void. I have a tin of grey ready for when they put a basement in.
 -> Who tells you what to paint?
     Subclause: Clause sends me the drawings. Subclause 4(b) tells me where to put them. If you've got a drawing dated later than mine, may I have a copy?
 -> ‹go›

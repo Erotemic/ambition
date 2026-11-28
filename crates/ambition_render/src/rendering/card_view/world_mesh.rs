@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, PresentationOf};
 #[cfg(feature = "portal_render")]
-use ambition_portal2d_presentation::PortalCarryOrder;
+use ambition_portal2d_presentation::{PortalCarryOrder, PortalGlow};
 use bevy::asset::AssetEventSystems;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers, VisibilitySystems};
 use bevy::ecs::system::{SystemParam, SystemParamItem};
@@ -23,8 +23,10 @@ use bevy::shader::ShaderRef;
 use bevy::sprite_render::{AlphaMode2d, ColorMaterial, Material2d, MeshMaterial2d};
 use bevy::transform::TransformSystems;
 
-use super::{CARD_BODY_STEP, EARTH_BEHIND_SKIN, TERRAIN_DEPTH, scenery_depth, sprite_material};
-use super::{CardBodyRepresentation, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
+use super::{EARTH_BEHIND_SKIN, TERRAIN_DEPTH, sprite_material};
+use super::{CardBodyRepresentation, CardDepth, CardRootDepths, CardScope, CardViewMode, CardViewSettings, RetainedEntities};
+#[cfg(feature = "portal_render")]
+use super::{platform_depth, HeldArtOf, MovingPlatformVisual, PlatformLooks, WornGearVisual};
 use super::paint_order::CardPaintDepth;
 #[cfg(not(target_os = "android"))]
 use crate::folded_mesh::AddedLightMaterial;
@@ -244,7 +246,7 @@ struct MeshProducts<'w, 's, M: Material> {
             &'static mut MeshMaterial3d<M>,
             &'static mut Transform,
             &'static mut GlobalTransform,
-            Option<&'static mut CardPaintDepth>,
+            &'static mut CardPaintDepth,
         ),
         With<CardWorldMesh>,
     >,
@@ -256,13 +258,14 @@ impl<M: Material> MeshProducts<'_, '_, M> {
         source: Entity,
         mesh: &Handle<Mesh>,
         material: &Handle<M>,
-        place: Transform,
+        transform: &Transform,
         skip_culling: bool,
-        paint_depth: Option<f32>,
+        depth: CardDepth,
     ) {
+        let place = depth.place(transform);
         let global = GlobalTransform::from(place);
         if let Some(&entity) = self.retained.get(&source) {
-            if let Ok((mut drawn_mesh, mut drawn_material, mut transform, mut drawn_global, order)) = self.meshes.get_mut(entity) {
+            if let Ok((mut drawn_mesh, mut drawn_material, mut transform, mut drawn_global, mut order)) = self.meshes.get_mut(entity) {
                 if drawn_mesh.0 != *mesh {
                     drawn_mesh.0 = mesh.clone();
                 }
@@ -271,12 +274,7 @@ impl<M: Material> MeshProducts<'_, '_, M> {
                 }
                 transform.set_if_neq(place);
                 drawn_global.set_if_neq(global);
-                match (order, paint_depth) {
-                    (Some(mut order), Some(depth)) => { order.set_if_neq(CardPaintDepth(depth)); }
-                    (None, Some(depth)) => { self.commands.entity(entity).insert(CardPaintDepth(depth)); }
-                    (Some(_), None) => { self.commands.entity(entity).remove::<CardPaintDepth>(); }
-                    (None, None) => {}
-                }
+                order.set_if_neq(depth.paint);
                 return;
             }
         }
@@ -289,6 +287,7 @@ impl<M: Material> MeshProducts<'_, '_, M> {
                 MeshMaterial3d(material.clone()),
                 place,
                 global,
+                depth.paint,
                 InheritedVisibility::VISIBLE,
                 RenderLayers::none(),
                 Name::new("Card world mesh"),
@@ -296,26 +295,8 @@ impl<M: Material> MeshProducts<'_, '_, M> {
         if skip_culling {
             entity.insert(NoFrustumCulling);
         }
-        if let Some(depth) = paint_depth {
-            entity.insert(CardPaintDepth(depth));
-        }
         self.retained.insert(source, entity.id());
     }
-}
-
-fn effect_place(
-    source: Entity,
-    global: &GlobalTransform,
-    rooms: &LiveRooms,
-    depths: &CardRootDepths,
-) -> Transform {
-    let place = global.compute_transform();
-    let front = depths
-        .fronts
-        .get(&rooms.of(source))
-        .copied()
-        .unwrap_or(CARD_BODY_STEP);
-    super::sprite_card_place(&place, scenery_depth(place.translation.z, front))
 }
 
 fn realize_color_meshes(
@@ -386,16 +367,46 @@ fn realize_color_meshes(
                 *material = make();
             }
         }
-        let place = if terrain {
-            super::sprite_card_place(&global.compute_transform(), TERRAIN_DEPTH + local.translation.z)
+        let depth = if terrain {
+            CardDepth::on_plane(TERRAIN_DEPTH + local.translation.z)
         } else if earth && local.translation.z < WORLD_Z_BLOCK {
-            super::sprite_card_place(&global.compute_transform(), TERRAIN_DEPTH - EARTH_BEHIND_SKIN)
+            CardDepth::on_plane(TERRAIN_DEPTH - EARTH_BEHIND_SKIN)
         } else {
-            effect_place(source, global, &rooms, &depths)
+            depths.scenery(global.translation().z, rooms.of(source))
         };
-        products.show(source, &mesh.0, card, place, skip_culling, None);
+        products.show(source, &mesh.0, card, &global.compute_transform(), skip_culling, depth);
     }
     by_material.retain(|id, _| used.contains(id));
+}
+
+#[cfg(feature = "portal_render")]
+#[derive(SystemParam)]
+struct PortalMeshPlacement<'w, 's> {
+    pieces: Query<'w, 's, &'static PortalCarryOrder>,
+    rims: Query<'w, 's, (), With<PortalGlow>>,
+    sources: Query<'w, 's, (
+        Option<&'static MovingPlatformVisual>,
+        Option<&'static HeldArtOf>,
+        Option<&'static WornGearVisual>,
+        Option<&'static PresentationOf>,
+    )>,
+    looks: Option<Res<'w, PlatformLooks>>,
+}
+
+#[cfg(feature = "portal_render")]
+impl PortalMeshPlacement<'_, '_> {
+    fn entry_depth(&self, source: Entity, source_z: f32, depths: &CardRootDepths) -> Option<CardDepth> {
+        if let Some(body) = depths.roots.get(&source) {
+            return Some(body.depth);
+        }
+        let (platform, held, gear, subject) = self.sources.get(source).ok()?;
+        if let Some(platform) = platform {
+            return Some(CardDepth::on_plane(platform_depth(platform, self.looks.as_deref())));
+        }
+        held.and_then(|item| depths.held_depth(item.0, source_z))
+            .or_else(|| gear.and_then(|gear| depths.gear_depth(gear.order, gear.layer)))
+            .or_else(|| depths.effect_depth(subject, source_z))
+    }
 }
 
 fn realize_shaded_meshes<M: CardMaterialSource>(
@@ -421,8 +432,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
     settings: Option<Res<CardViewSettings>>,
     rooms: LiveRooms,
     depths: Res<CardRootDepths>,
-    #[cfg(feature = "portal_render")] carry_orders: Query<&PortalCarryOrder>,
-    #[cfg(feature = "portal_render")] held_art: Query<&super::HeldArtOf>,
+    #[cfg(feature = "portal_render")] portal: PortalMeshPlacement,
 ) {
     if !cards_are_visible(settings) {
         by_material.clear();
@@ -465,35 +475,33 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
                 current.0 = draw.clone();
             }
         }
-        let body_depth = depths.effect_depth(subject, global.translation().z);
+        let z = global.translation().z;
+        let body_depth = depths.effect_depth(subject, z);
         #[cfg(feature = "portal_render")]
-        let body_depth = match carry_orders.get(source) {
-            Ok(PortalCarryOrder::Entry(root)) => {
-                if let Ok(super::HeldArtOf(holder)) = held_art.get(*root) {
-                    depths.held_depth(*holder, global.translation().z)
-                } else {
-                    depths.roots.get(root).map(|depth| depth.plane_z)
-                }
+        let piece = portal.pieces.get(source).ok().copied();
+        #[cfg(feature = "portal_render")]
+        let body_depth = match piece {
+            Some(PortalCarryOrder::Entry(root)) => portal.entry_depth(root, z, &depths),
+            Some(PortalCarryOrder::Exit) => None,
+            None => body_depth,
+        };
+        let room = rooms.of(source);
+        let mut depth = if terrain {
+            CardDepth::on_plane(TERRAIN_DEPTH + local.translation.z)
+        } else {
+            body_depth.unwrap_or_else(|| depths.scenery(z, room))
+        };
+        #[cfg(feature = "portal_render")]
+        if piece == Some(PortalCarryOrder::Exit) || portal.rims.contains(source) {
+            // Use the window plane for the rim and emerging parts.
+            depth = depth.on_play_plane();
+        }
+        if draw.paints_in_scene_order() {
+            if let Some(paint) = depths.scene_paint_depth(z, room) {
+                depth.paint = paint;
             }
-            Ok(PortalCarryOrder::Exit) => None,
-            Err(_) => body_depth,
-        };
-        let place = if terrain {
-            super::sprite_card_place(
-                &global.compute_transform(),
-                TERRAIN_DEPTH + local.translation.z,
-            )
-        } else if let Some(depth) = body_depth {
-            super::sprite_card_place(&global.compute_transform(), depth)
-        } else {
-            effect_place(source, global, &rooms, &depths)
-        };
-        let paint_depth = if draw.paints_in_scene_order() {
-            depths.scene_paint_depth(global.translation().z, rooms.of(source))
-        } else {
-            None
-        };
-        products.show(source, &mesh.0, card, place, skip_culling, paint_depth);
+        }
+        products.show(source, &mesh.0, card, &global.compute_transform(), skip_culling, depth);
     }
     by_material.retain(|id, _| used.contains(id));
 }
@@ -502,7 +510,7 @@ fn realize_shaded_meshes<M: CardMaterialSource>(
 mod tests {
     use super::*;
     use crate::rendering::hit_flash::{HitFlashMaterial, FLASH_OVERLAY_Z_BIAS};
-    use super::super::{card_body_depth, CardBodyDepth};
+    use super::super::CardBodyDepth;
 
     #[test]
     fn terrain_cards_draw_untextured_earth_and_keep_skin_layer_order() {
@@ -565,7 +573,7 @@ mod tests {
         assert_eq!(drawn[&earth].1, Vec3::Z * (TERRAIN_DEPTH - EARTH_BEHIND_SKIN));
         assert_eq!(drawn[&fill], (mesh.clone(), Vec3::new(40.0, -12.0, TERRAIN_DEPTH + 0.005)));
         assert_eq!(drawn[&trim], (mesh, Vec3::new(40.0, -12.0, TERRAIN_DEPTH + 0.03)));
-        assert!(drawn[&near_track].1.z > card_body_depth(false, 0));
+        assert!(drawn[&near_track].1.z > 0.0);
 
         app.world_mut().despawn(trim);
         app.update();
@@ -611,7 +619,7 @@ mod tests {
 
     #[cfg(feature = "portal_render")]
     #[test]
-    fn a_portal_entry_piece_keeps_its_sources_draw_depth() {
+    fn a_portal_entry_piece_keeps_its_source_plane_and_paint_key() {
         use ambition_portal2d_presentation::{PORTAL_EXIT_COPY_Z, PortalClipMaterial};
 
         let mut app = App::new();
@@ -625,7 +633,7 @@ mod tests {
         let depths = &mut *world.resource_mut::<CardRootDepths>();
         depths.fronts.insert(None, 7.5);
         depths.roots.insert(root, CardBodyDepth {
-            plane_z: 2.5,
+            depth: CardDepth::new(0.0, 2.5),
             source_z: 20.0,
             order_scale: 1.0,
             front_part: 0.0,
@@ -642,15 +650,16 @@ mod tests {
             InheritedVisibility::VISIBLE,
         )).id();
         let card = |world: &mut World| {
-            let (card, place) = world.query_filtered::<(Entity, &Transform), With<CardWorldMesh>>()
+            let (card, place, paint) = world.query_filtered::<(Entity, &Transform, &CardPaintDepth), With<CardWorldMesh>>()
                 .single(world)
                 .expect("the piece has one card");
-            (card, place.translation)
+            (card, place.translation, paint.0)
         };
 
         app.update();
-        let (entry_card, entry_place) = card(app.world_mut());
-        assert_eq!(entry_place, Vec3::new(42.0, 13.0, 2.5));
+        let (entry_card, entry_place, entry_paint) = card(app.world_mut());
+        assert_eq!(entry_place, Vec3::new(42.0, 13.0, 0.0));
+        assert_eq!(entry_paint, 2.5);
 
         let item = app.world_mut().spawn(super::super::HeldArtOf(root)).id();
         let item_z = 20.0 + 3.0 * super::super::SLOT_STEP_2D;
@@ -659,18 +668,37 @@ mod tests {
             GlobalTransform::from_translation(Vec3::new(42.0, 13.0, item_z)),
         ));
         app.update();
-        let (item_card, item_place) = card(app.world_mut());
+        let (item_card, item_place, item_paint) = card(app.world_mut());
         assert_eq!(entry_card, item_card);
-        assert!((item_place.z - (2.5 + 3.0 * super::super::CARD_PART_STEP)).abs() < 0.001);
+        assert_eq!(item_place, entry_place);
+        assert!((item_paint - (2.5 + 3.0 * super::super::CARD_PART_STEP)).abs() < 0.001);
+
+        let rail = app.world_mut().spawn(MovingPlatformVisual {
+            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
+            index: 0,
+            sheet: Some("cart".into()),
+            front: true,
+        }).id();
+        app.world_mut().entity_mut(piece).insert((
+            PortalCarryOrder::Entry(rail),
+            GlobalTransform::from_translation(Vec3::new(42.0, 13.0, 14.5)),
+        ));
+        app.update();
+        let (rail_card, rail_place, rail_paint) = card(app.world_mut());
+        assert_eq!(rail_card, entry_card);
+        assert_eq!(rail_place, Vec3::new(42.0, 13.0, -super::super::NEAR_PANEL_GAP));
+        assert_eq!(rail_paint, rail_place.z);
 
         app.world_mut().entity_mut(piece).insert((
             PortalCarryOrder::Exit,
             GlobalTransform::from_translation(Vec3::new(-36.0, 13.0, PORTAL_EXIT_COPY_Z)),
         ));
         app.update();
-        let (exit_card, exit_place) = card(app.world_mut());
+        let (exit_card, exit_place, exit_paint) = card(app.world_mut());
         assert_eq!(entry_card, exit_card);
-        assert_eq!(exit_place, Vec3::new(-36.0, 13.0, scenery_depth(PORTAL_EXIT_COPY_Z, 7.5)));
+        let exit = app.world().resource::<CardRootDepths>().scenery(PORTAL_EXIT_COPY_Z, None);
+        assert_eq!(exit_place, Vec3::new(-36.0, 13.0, super::super::PLAY_PLANE_Z));
+        assert_eq!(exit_paint, exit.paint.0);
     }
 
     #[test]
@@ -696,7 +724,7 @@ mod tests {
         ].into_iter().enumerate() {
             let actor = world.spawn_empty().id();
             world.resource_mut::<CardRootDepths>().roots.insert(actor, CardBodyDepth {
-                plane_z: (index as f32 + 1.0) * 2.5,
+                depth: CardDepth::new(0.0, (index as f32 + 1.0) * 2.5),
                 source_z: 20.0,
                 order_scale: 1.0,
                 front_part: 0.0,
@@ -711,10 +739,10 @@ mod tests {
             )).id());
         }
         let flash_cards = |world: &mut World| {
-            world.query_filtered::<(&CardScope, &Transform), With<CardWorldMesh>>()
+            world.query_filtered::<(&CardScope, &Transform, &CardPaintDepth), With<CardWorldMesh>>()
                 .iter(world)
-                .filter_map(|(scope, place)| match scope {
-                    CardScope::Source(source) => Some((*source, place.translation.z)),
+                .filter_map(|(scope, place, paint)| match scope {
+                    CardScope::Source(source) => Some((*source, paint.0, place.translation.z)),
                     CardScope::Camera(_) => None,
                 })
                 .collect::<Vec<_>>()
@@ -726,6 +754,7 @@ mod tests {
         assert_eq!([shown[0].0, shown[1].0], sources[..2]);
         assert!((2.5..5.0).contains(&shown[0].1) && shown[0].1 > 2.5);
         assert!((5.0..7.5).contains(&shown[1].1) && shown[1].1 > 5.0);
+        assert!(shown.iter().all(|(_, _, plane)| *plane == 0.0));
 
         app.world_mut().resource_mut::<Assets<HitFlashMaterial>>().get_mut(&material).unwrap().control.x = 0.0;
         app.update();

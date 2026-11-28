@@ -55,7 +55,7 @@ const BACK_LAYER_Z: f32 = super::world::SCENERY_Z_FRONT + 0.01;
 /// rail was drawn over the Creator and the robot standing on the floor beside
 /// it (Jon, 2026-11-17). Under an actor stepped back a depth plane
 /// (`DEPTH_PLANE_Z_STEP`), so the gnu beside the cart is in front of it too.
-const FRONT_LAYER_Z: f32 = WORLD_Z_DUMMY + 4.5;
+pub(super) const FRONT_LAYER_Z: f32 = WORLD_Z_DUMMY + 4.5;
 /// How far apart two bodies in one vessel are: more than the depth a body's
 /// own parts spread over (`SLOT_DEPTH_STEP` a part), so two seated bodies are
 /// two order blocks and their parts never interleave.
@@ -215,10 +215,16 @@ struct Vessel<'a> {
     rim: f32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VesselOccurrence {
-    room: LiveRoomInstance,
+    pub(super) room: LiveRoomInstance,
     platform: Box<str>,
+}
+
+#[derive(Component)]
+pub(super) struct VesselPanel {
+    pub vessel: VesselOccurrence,
+    pub near: bool,
 }
 
 impl<'a> Vessel<'a> {
@@ -311,7 +317,7 @@ pub fn seat_bodies_in_vessels(
                 .iter()
                 .flat_map(|(room, set)| {
                     set.0.iter().filter_map(|platform| {
-                        let look = looks.0.get(platform.visual.as_deref()?)?;
+                        let look = looks.0.get(platform.visual.as_deref().filter(|_| !is_hidden(platform))?)?;
                         Vessel::of(*room, platform, look)
                     })
                 })
@@ -324,9 +330,22 @@ pub fn seat_bodies_in_vessels(
         }
         return;
     }
-    let vessel_of = |room, pos, size| vessels.iter().position(|vessel| vessel.holds(room, pos, size));
+    let vessel_of = |entity, room, pos: ae::Vec2, size: ae::Vec2| {
+        let current = marked.get(entity).ok().map(|(_, seat)| &seat.vessel);
+        let feet = pos.y + size.y * 0.5;
+        vessels.iter().enumerate().filter(|(_, vessel)| vessel.holds(room, pos, size))
+            .min_by(|(_, a), (_, b)| {
+                let moved = |v: &Vessel<'_>| current.is_none_or(|seat| {
+                    seat.room != v.room || seat.platform.as_ref() != v.platform
+                });
+                (a.top - feet).abs().total_cmp(&(b.top - feet).abs())
+                    .then_with(|| moved(a).cmp(&moved(b)))
+                    .then_with(|| a.platform.cmp(b.platform))
+            })
+            .map(|(index, _)| index)
+    };
     for (entity, _, pose) in &players {
-        if let Some(vessel) = vessel_of(live.of(entity), pose.pos, pose.size) {
+        if let Some(vessel) = vessel_of(entity, live.of(entity), pose.pos, pose.size) {
             seated.push((vessel, entity));
         }
     }
@@ -338,7 +357,7 @@ pub fn seat_bodies_in_vessels(
         if view.kind != ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor {
             continue;
         }
-        if let Some(vessel) = vessel_of(room, view.pos, view.size) {
+        if let Some(vessel) = vessel_of(entity, room, view.pos, view.size) {
             seated.push((vessel, entity));
         }
     }
@@ -401,7 +420,7 @@ pub fn platforms_or_their_visuals(
 /// that is no longer live had), and moves and resizes the rest. Idempotent:
 /// it compares populations instead of reacting to events, so it needs no
 /// change detection and cannot double-spawn during a rollback resimulation.
-pub fn sync_moving_platform_visuals(
+pub(super) fn sync_moving_platform_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     // Each live room's geometry and its platforms, off its own root: a
@@ -424,6 +443,7 @@ pub fn sync_moving_platform_visuals(
         &mut Sprite,
         Option<&mut CharacterAnimator>,
         Option<&mut Anchor>,
+        Option<&VesselPanel>,
     )>,
     looks: Option<Res<PlatformLooks>>,
     assets: Option<Res<GameAssets>>,
@@ -480,7 +500,7 @@ pub fn sync_moving_platform_visuals(
     // shorter roster reuses its slot.
     // For each room and platform: its picture, and the front layer of its sheet.
     let mut drawn: Vec<Vec<[bool; 2]>> = live.iter().map(|(_, _, platforms, _)| vec![[false; 2]; platforms.len()]).collect();
-    for (entity, visual, mut transform, mut sprite, animator, anchor) in &mut existing {
+    for (entity, visual, mut transform, mut sprite, animator, anchor, panel) in &mut existing {
         let found = live.iter().position(|(room, ..)| *room == visual.room).and_then(|slot| {
             let (_, world, platforms, air_x) = live[slot];
             platforms.get(visual.index).filter(|platform| !is_hidden(platform)).map(|platform| (slot, world, platform, air_x))
@@ -501,6 +521,14 @@ pub fn sync_moving_platform_visuals(
             // A front layer of a look that has none now.
             commands.entity(entity).despawn();
             continue;
+        }
+        let vessel = sheet.and_then(|(_, look, _)| Vessel::of(visual.room, platform, look));
+        if let Some(vessel) = vessel {
+            if panel.is_none_or(|panel| panel.vessel.platform.as_ref() != vessel.platform) {
+                commands.entity(entity).insert(VesselPanel { vessel: vessel.occurrence(), near: visual.front });
+            }
+        } else if panel.is_some() {
+            commands.entity(entity).remove::<VesselPanel>();
         }
         drawn[slot][visual.index][usize::from(visual.front)] = true;
         match (sheet.zip(layer), animator) {
@@ -556,7 +584,7 @@ pub fn sync_moving_platform_visuals(
                         );
                     sprite.flip_x = sheet_flipped(look, platform, air_x);
                     let layer = if front { " front" } else { "" };
-                    commands.spawn_session_scoped(
+                    let entity = commands.spawn_session_scoped(
                         session_scope,
                         (
                             sprite,
@@ -568,7 +596,10 @@ pub fn sync_moving_platform_visuals(
                             super::actors::BoundSpriteQuality::of(asset),
                             RoomVisual,
                         ),
-                    );
+                    ).id();
+                    if let Some(vessel) = Vessel::of(room, platform, look) {
+                        commands.entity(entity).insert(VesselPanel { vessel: vessel.occurrence(), near: front });
+                    }
                 }
                 continue;
             }
@@ -632,6 +663,51 @@ mod tests {
         );
         app.add_systems(Update, sync_moving_platform_visuals);
         app
+    }
+
+    #[test]
+    fn a_rider_keeps_its_vessel_when_two_equal_beds_overlap() {
+        let cart = |id: &str, x| {
+            let mut cart = MovingPlatformState::from_authored(
+                ae::Vec2::new(x, 108.0), ae::Vec2::new(96.0, 16.0), 0.0, 0.0,
+            ).with_visual("cart");
+            cart.id = id.to_owned();
+            cart
+        };
+        let mut app = app_with_platforms(vec![cart("rear", 40.0), cart("front", 100.0)]);
+        app.init_resource::<ambition_sim_view::FeatureViewIndex>()
+            .insert_resource(PlatformLooks(std::collections::HashMap::from([("cart".into(), PlatformLook {
+                sheet: None,
+                row: "idle".into(),
+                frame_px: [100.0, 60.0],
+                span_px: [2.0, 98.0],
+                top_px: 40.0,
+                faces_right: true,
+                front_row: Some("rail".into()),
+                rim_px: Some(12.0),
+            })])))
+            .add_systems(Update, seat_bodies_in_vessels);
+        let rider = app.world_mut().spawn((
+            super::super::primitives::PlayerVisual,
+            Transform::default(),
+            ambition_sim_view::BodyPoseView {
+                pos: ae::Vec2::new(110.0, 84.0),
+                size: ae::Vec2::new(16.0, 32.0),
+                ..default()
+            },
+        )).id();
+        app.update();
+        let assert_vessel = |app: &App, id| {
+            let seat = app.world().get::<SeatedInVessel>(rider).unwrap();
+            assert_eq!(seat.vessel.platform.as_ref(), id);
+        };
+        assert_vessel(&app, "front");
+        app.world_mut().get_mut::<ambition_sim_view::BodyPoseView>(rider).unwrap().pos.x = 70.0;
+        app.update();
+        assert_vessel(&app, "front");
+        app.world_mut().get_mut::<ambition_sim_view::BodyPoseView>(rider).unwrap().pos.x = 40.0;
+        app.update();
+        assert_vessel(&app, "rear");
     }
 
     fn visuals(app: &mut App) -> Vec<(usize, ae::Vec2)> {

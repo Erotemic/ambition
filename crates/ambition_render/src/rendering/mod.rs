@@ -145,6 +145,7 @@ pub mod morph_ball;
 pub mod body_visibility;
 pub mod submerged;
 pub mod moving_platforms;
+mod vessel_order;
 mod nameplates;
 mod parallax;
 pub mod posed_hand;
@@ -597,6 +598,7 @@ pub struct PresentationVisualAnimationPlugin;
 
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        vessel_order::install(app);
     app.init_resource::<ambition_sprite_sheet::SpriteContent>();
         app.init_resource::<ambition_sfx::SfxListeners>();
         app.add_systems(bevy::prelude::PostUpdate, audio_listeners::publish_audio_listeners

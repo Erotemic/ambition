@@ -6,9 +6,8 @@
 //! town's street, and back out along it to the aqueduct.
 
 use ambition_platformer2d::engine_core as ae;
-use bevy::prelude::App;
 
-use crate::the_pirate_port::{a_session_in, go, go_to};
+use crate::the_pirate_port::{a_session_in, go};
 
 const ZENO: &str = "math_zeno_aqueduct";
 const STREET: &str = "math_town_street";
@@ -68,17 +67,18 @@ fn the_tower_of_hanoi_lies_west_of_the_gate_hall() {
 /// Jon (2026-10-30): "Make sure it's actually 64". The tower has the 64
 /// golden disks, each its own prop (`hanoi_disk_01` .. `hanoi_disk_64`), each
 /// on one of the three needles, stacked with no gap, and never a larger on a
-/// smaller. The disks are the climb: the player walks by keys up the
-/// tallest stack, a disk a step, to its top.
+/// smaller. The player jumps from the floor onto the top disk.
 #[test]
 fn the_tower_of_hanoi_has_sixty_four_disks_never_a_larger_on_a_smaller() {
+    use ambition_app::{AgentAction, AmbitionSim as _};
     use ambition_platformer2d::platformer::lifecycle::session_world_component;
     use ambition_platformer2d::world::rooms::RoomSet;
-    use crate::common::walk::{Keys, Press, Walker as _};
+    use crate::common::walk::{Pad, walk_to};
+    use crate::common::{base, fixed_60hz_room_sim};
 
-    let mut app = a_session_in("math_tower_of_hanoi");
-    let live = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world()).expect("a live room");
-    let spec = session_world_component::<RoomSet>(app.world()).expect("a room set").spec(live).clone();
+    let mut sim = fixed_60hz_room_sim("math_tower_of_hanoi");
+    let live = ambition_platformer2d::world::rooms::sole_live_room_definition(sim.world()).expect("a live room");
+    let spec = session_world_component::<RoomSet>(sim.world()).expect("a room set").spec(live).clone();
     let needles: Vec<f32> = spec.props.iter().filter(|p| p.kind == "hanoi_needle").map(|p| p.pos.x).collect();
     assert_eq!(needles.len(), 3, "the tower has three needles");
     // (size, centre, top, bottom) of each disk.
@@ -112,40 +112,30 @@ fn the_tower_of_hanoi_has_sixty_four_disks_never_a_larger_on_a_smaller() {
     let on_needles: usize = needles.iter().map(|x| disks.iter().filter(|d| (d.1 - x).abs() < 1.0).count()).sum();
     assert_eq!(on_needles, 64, "every disk is on a needle");
 
-    // The tallest stack is a climb: each disk's top is a one-way line, so a
-    // jump goes up through the disks over it and lands on the highest one
-    // under its peak. The player walks to the floor east of the stack, then
-    // jumps, moving in over its top, until it stands on the top disk.
+    // Each disk has a one-way surface. Jump through the disk above to land
+    // on it.
     let (_, top) = tallest;
     let x = needles.iter().copied().find(|x| disks.iter().filter(|d| (d.1 - x).abs() < 1.0).any(|d| d.2 == top)).unwrap();
-    let base = spec
+    let stack_edge = spec
         .props
         .iter()
         .filter(|p| p.kind.starts_with("hanoi_disk_") && (p.pos.x - x).abs() < 1.0)
         .map(|p| p.pos.x + p.size.x * 0.5)
         .fold(f32::MIN, f32::max);
-    go_to(&mut app, ae::Vec2::new(base + 40.0, floor - 30.0), "the foot of the tallest stack");
-    let body = crate::neighbor_prefetch_prepares_rooms::alice(&mut app);
-    let at = |app: &App| {
-        let kin = app.world().get::<ae::BodyKinematics>(body).expect("the player");
-        (kin.pos.x, kin.pos.y + kin.size().y * 0.5)
-    };
-    let mut keys = Keys::new(&mut app);
-    for frame in 0..1200 {
-        let (px, feet) = at(keys.app);
-        if px <= x + 40.0 && (feet - top).abs() < 1.0 {
-            break;
+    walk_to(&mut Pad::new(&mut sim), ae::Vec2::new(stack_edge + 40.0, floor - 30.0))
+        .expect("walk to the foot of the tallest stack");
+    let reached_top = (0..600).any(|_| {
+        let player = sim.observation();
+        let feet = player.player_pos.1 + player.player_size.1 * 0.5;
+        if player.on_ground && (feet - top).abs() < 2.0 {
+            return true;
         }
-        let jump = frame % 40 < 20;
-        let axis = if px > x + 40.0 { -1.0 } else { 0.0 };
-        keys.step(Press { axis, jump_pressed: jump, jump_held: jump, ..Default::default() });
-    }
-    for _ in 0..60 {
-        keys.step(Press::default());
-    }
-    drop(keys);
-    let (px, feet) = at(&app);
-    assert!((feet - top).abs() < 2.0, "the player stands at ({px}, {feet}), not on the top disk (y {top})");
+        let move_x = ((x - player.player_pos.0) / 24.0).clamp(-1.0, 1.0);
+        sim.step(AgentAction { move_x, jump: player.on_ground, jump_held: true, ..base() });
+        false
+    });
+    assert!(reached_top, "reach top disk y={top}: {:?}", sim.observation().player_pos);
+    assert_eq!(sim.observation().active_room, "math_tower_of_hanoi");
 }
 
 /// The Fibonacci Meadow, east of the Fractal Woods by a side exit, floors

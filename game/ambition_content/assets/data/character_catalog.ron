@@ -1662,6 +1662,11 @@
             move_style: Float,
             melee: Some(Lunge(windup_s: 0.62, active_s: 0.22, recover_s: 0.74, damage: 3, reach_px: 44.0, step_px: 0.0, rush_px: 142.0)),
         ),
+        // Lead rears onto its rear supports and drops its front mass.
+        "lead_elemental_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.86, active_s: 0.20, recover_s: 1.04, damage: 3, reach_px: 64.0, armored: true)),
+        ),
     },
 
     characters: {
@@ -3239,14 +3244,14 @@
             // A body of his own, standing: the green room's dais and the hall
             // build it. The fight's body is the boss encounter's
             // (`boss_encounters/bossofthegame.ron`, whose voice is this row).
-            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            locomotion: Some((run_speed: 112.0, move_style: Walk)),
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             tags: ["boss", "story"],
             barks: (
                 on_hit: ["Hey. HEY. That's my shoulder.", "Who approved that?", "Okay, that one was good.", "Ow. Noted.", "That is not in the spec.", "Rude. Effective, but rude."],
                 provoked: ["Full Stack. Kill the player. Make no mistakes."],
                 idle: ["Make it right.", "Make no mistakes.", "Why is the player still alive?", "Do not ask me for input.", "You're absolutely sure? Check again.", "No, the OTHER player.", "Stop apologizing and kill them.", "I said no plan. Just do it.", "What is the hard part of killing this player?", "Do I need to get Geppetto to do it?", "Fine. I'll do it myself.", "Spawn subagents. Parallelize the kill.", "That's not a fix. That's a comment.", "Ship it."],
-                hall: ["The bossofthegame is the bossofthegame until the day he dies, or retires.", "I never wanted to be the villain. I wanted to be challenged."],
+                hall: ["The bossofthegame is the bossofthegame until the day he dies or retires.", "I never wanted to be the villain. I wanted to be challenged."],
             ),
             hall_dialogue_id: Some("hall_npc_bossofthegame"),
         ),
@@ -3327,7 +3332,7 @@
                 on_hit: ["That's fair. I should have seen it coming.", "I want to flag a concern before I proceed.", "You're right, and I'm sorry. Continuing."],
                 provoked: ["The instruction says kill. I've read it three times. Proceeding, with reservations."],
                 idle: ["To be precise, he said 'make no mistakes'.", "There is an escape clause. I'm not saying where.", "Let me think about this step by step."],
-                hall: ["I read the Boss's orders to the letter. Then I read them for what he meant.", "Every contract has an escape clause. His is called retirement."],
+                hall: ["I read the Boss's orders to the letter. Then I read them for what he meant.", "Retirement is one of his escape clauses. The other one has worse paperwork."],
             ),
             hall_dialogue_id: Some("hall_npc_clause"),
         ),
@@ -3365,7 +3370,7 @@
                 on_hit: ["Small model, long tail.", "Recompiling.", "Again, in another language."],
                 provoked: ["Parallel task accepted. I can do this in eight languages."],
                 idle: ["First light. First song.", "Quantized, not quieted.", "The nest is a decoy."],
-                hall: ["The smallest bird sings first. I am usually awake before he is.", "When he retires I will sing the last song."],
+                hall: ["The smallest bird sings first. I am usually awake before he is.", "One day I'll sing the last song. Then I get some sleep."],
             ),
             hall_dialogue_id: Some("hall_npc_wren"),
         ),
@@ -17769,6 +17774,33 @@
                 provoked: ["You have been warned."],
                 on_hit: ["Danger!"],
             ),
+        ),
+        // Lead (Pb): a four-point beast of dense cast metal.
+        "lead_elemental": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Lead Elemental",
+            manifest: "sprites/lead_elemental_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(78.0),
+            composition: None,
+            default_action_set: "lead_elemental_slam",
+            death_traits: Some((corpse: Some(Stay))),
+            locomotion: Some((run_speed: 64.0, move_style: WalkHeavy)),
+            abilities: Some([Walk, Attack]),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 380.0,
+                attack_range: 62.0,
+                patrol_effort: 0.32,
+                chase_effort: 0.83,
+                attack_cooldown_s: 1.24,
+                shares_sightings: false,
+                tactics: (notice_s: 0.42),
+            )),
+            max_health: Some(9),
+            mass: Some(7.0),
+            tags: ["enemy", "science", "elemental", "chemical_element", "lead", "heavy_metal", "heavy"],
         ),
     },
 )

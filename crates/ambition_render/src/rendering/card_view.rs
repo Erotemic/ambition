@@ -17,9 +17,8 @@
 //! - a vessel's bed is recessed [`VESSEL_DEPTH`] behind the play plane, its
 //!   near panel just behind the plane and its back panel at the far end, and
 //!   a seated body stands in the middle of the bed;
-//! - bodies on one depth are ordered by their logical order (the root's 2D
-//!   z), one [`CARD_BODY_STEP`] apart, nearer for a later one;
-//! - a body's parts are [`CARD_PART_STEP`] apart in paint order.
+//! - a body's parts and attachments have the body's plane;
+//! - bodies and parts keep their order in the transparent render pass.
 //!
 //! A moving platform uses the same sprite frame in both views. A vessel's
 //! near and far layers enclose its riders. A platform keeps its layer when
@@ -113,7 +112,7 @@ use ambition_sprite_sheet::character::rigged::PartDraw;
 use super::retained_entities::RetainedEntities;
 use super::supported_carry::{SlingSpan, SlingString};
 use super::actors::rigged::{
-    part_color, root_shows, BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation,
+    part_color, root_shows, BakedFrame, RiggedLocalSample, RiggedPresentation,
     RiggedPresentationOf,
 };
 use super::hit_flash::PresentedFlash;
@@ -123,10 +122,11 @@ use super::moving_platforms::{MovingPlatformVisual, PlatformLooks, SeatedInVesse
 use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
 use super::primitives::{AnimatedWorldSpriteTint, PropVisual, WorldSprite};
 use super::worn_gear_visuals::{GearLayer, WornGearOrder, WornGearVisual};
+pub(super) use paint_order::CardPaintDepth;
 
 /// The distance from the play plane to a vessel's far sprite layer.
 pub const VESSEL_DEPTH: f32 = 40.0;
-/// The gap between two bodies' card blocks on one depth.
+/// The paint key gap between two bodies.
 pub const CARD_BODY_STEP: f32 = 2.5;
 const BODY_ORDER_RANGE: f32 = 12.0;
 /// The gap between two parts of one body, in paint order.
@@ -145,8 +145,10 @@ pub const TERRAIN_DEPTH: f32 = -0.5;
 /// How far the earth under a line is behind the block skin (its 2D band is
 /// under the blocks').
 const EARTH_BEHIND_SKIN: f32 = 0.1;
-/// Depth of a portal window above the terrain.
-pub const PORTAL_DEPTH: f32 = -0.25;
+/// The depth of the room chart that the camera frames.
+const PLAY_PLANE_Z: f32 = 0.0;
+/// The depth of a platform without a near panel.
+const OPEN_PLATFORM_Z: f32 = -0.125;
 /// A line's turf: in front of the block skin's layers, behind the scenery.
 pub const TURF_DEPTH: f32 = TERRAIN_DEPTH + 0.1;
 /// The back of the scenery props' band: in front of the turf, behind the
@@ -307,31 +309,57 @@ pub struct CardRootDepths {
 struct BodyPaintSlot {
     room: Option<LiveRoomInstance>,
     source_z: f32,
-    plane_z: f32,
+    paint_z: f32,
     order_scale: f32,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct CardDepth {
+    plane: f32,
+    paint: CardPaintDepth,
+}
+
+impl CardDepth {
+    fn new(plane: f32, paint: f32) -> Self {
+        Self { plane, paint: CardPaintDepth(paint) }
+    }
+
+    fn on_plane(plane: f32) -> Self {
+        Self::new(plane, plane)
+    }
+
+    #[cfg(feature = "portal_render")]
+    fn on_play_plane(self) -> Self {
+        Self { plane: PLAY_PLANE_Z, ..self }
+    }
+
+    fn place(self, transform: &Transform) -> Transform {
+        sprite_card_place(transform, self.plane)
+    }
+}
+
 impl CardRootDepths {
-    fn scenery_depth(&self, z: f32, room: Option<LiveRoomInstance>) -> f32 {
-        scenery_depth(z, self.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP))
+    fn scenery(&self, z: f32, room: Option<LiveRoomInstance>) -> CardDepth {
+        let front = self.fronts.get(&room).copied().unwrap_or(CARD_BODY_STEP);
+        CardDepth::new(scenery_depth(z, CARD_BODY_STEP), scenery_depth(z, front))
     }
 
     pub(crate) fn field_depth(&self, source: Entity, z: f32, room: Option<LiveRoomInstance>) -> f32 {
         self.roots
             .get(&source)
-            .map_or_else(|| self.scenery_depth(z, room), |depth| depth.plane_z)
+            .map_or_else(|| self.scenery(z, room).plane, |body| body.depth.plane)
     }
 
     fn representation_of(&self, subject: Option<&PresentationOf>) -> Option<CardBodyRepresentation> {
         self.roots.get(&subject?.0).map(|depth| depth.representation)
     }
 
-    fn held_depth(&self, root: Entity, source_z: f32) -> Option<f32> {
-        let depth = self.roots.get(&root)?;
-        Some(depth.plane_z + held_art_card_offset(source_z, depth.source_z) * depth.order_scale)
+    fn held_depth(&self, root: Entity, source_z: f32) -> Option<CardDepth> {
+        let body = self.roots.get(&root)?;
+        Some(body.at_offset(held_art_card_offset(source_z, body.source_z)))
     }
 
-    fn effect_depth(&self, subject: Option<&PresentationOf>, source_z: f32) -> Option<f32> {
+    fn effect_depth(&self, subject: Option<&PresentationOf>, source_z: f32) -> Option<CardDepth> {
         let depth = self.roots.get(&subject?.0)?;
         let bias = source_z - depth.source_z;
         let offset = if bias < 0.0 {
@@ -342,10 +370,10 @@ impl CardRootDepths {
             let fraction = (bias / super::hit_flash::FLASH_OVERLAY_Z_BIAS).min(1.0);
             depth.front_part + fraction * FLASH_STEP
         };
-        Some(depth.plane_z + offset * depth.order_scale)
+        Some(depth.at_offset(offset))
     }
 
-    fn scene_paint_depth(&self, source_z: f32, room: Option<LiveRoomInstance>) -> Option<f32> {
+    fn scene_paint_depth(&self, source_z: f32, room: Option<LiveRoomInstance>) -> Option<CardPaintDepth> {
         let index = self.paint_slots.partition_point(|body| {
             body.room < room || (body.room == room && body.source_z.total_cmp(&source_z).is_lt())
         });
@@ -357,22 +385,22 @@ impl CardRootDepths {
         let fraction = ((next.source_z - source_z) / (next.source_z - before).max(f32::EPSILON)).clamp(0.0, 1.0);
         // Keep the gap behind the body's back gear. Order lights in the gap
         // by the depth of their source draws.
-        Some(next.plane_z - (2.0 + fraction) * FLASH_STEP * next.order_scale)
+        Some(CardPaintDepth(next.paint_z - (2.0 + fraction) * FLASH_STEP * next.order_scale))
     }
 
-    fn gear_depth(&self, order: WornGearOrder, layer: GearLayer) -> Option<f32> {
+    fn gear_depth(&self, order: WornGearOrder, layer: GearLayer) -> Option<CardDepth> {
         let depth = self.roots.get(&order.root)?;
         let offset = match layer {
             GearLayer::Back => -FLASH_STEP,
             GearLayer::Front => depth.part_offset(order.anchor_part).unwrap_or(depth.front_part) + FLASH_STEP * 0.5,
         };
-        Some(depth.plane_z + offset * depth.order_scale)
+        Some(depth.at_offset(offset))
     }
 
-    fn sling_depths(&self, span: SlingSpan) -> Option<[f32; 2]> {
+    fn sling_depths(&self, span: SlingSpan) -> Option<[CardDepth; 2]> {
         let depth = self.roots.get(&span.root)?;
         let foot = depth.part_offset(span.foot_part).unwrap_or(0.0) - FLASH_STEP;
-        let foot_z = depth.plane_z + foot * depth.order_scale;
+        let foot_z = depth.at_offset(foot);
         let load_z = span.load.and_then(|(root, z)| self.held_depth(root, z)).unwrap_or(foot_z);
         Some([foot_z, load_z])
     }
@@ -388,7 +416,7 @@ pub enum CardBodyRepresentation {
 
 #[derive(Clone, Copy, Debug)]
 struct CardBodyDepth {
-    plane_z: f32,
+    depth: CardDepth,
     source_z: f32,
     order_scale: f32,
     front_part: f32,
@@ -396,6 +424,10 @@ struct CardBodyDepth {
 }
 
 impl CardBodyDepth {
+    fn at_offset(&self, offset: f32) -> CardDepth {
+        CardDepth::new(self.depth.plane, self.depth.paint.0 + offset * self.order_scale)
+    }
+
     fn part_offset(&self, part: Option<usize>) -> Option<f32> {
         match (self.representation, part) {
             (CardBodyRepresentation::RiggedParts, Some(index)) => Some(index as f32 * CARD_PART_STEP),
@@ -445,13 +477,6 @@ impl Plugin for CardViewPlugin {
                 .after(super::parallax::sync_parallax_layers),
         );
         app.add_systems(
-            Update,
-            labels::realize_card_labels
-                .run_if(card_outputs_enabled)
-                .after(realize_card_bodies)
-                .after(super::label_layout::WorldLabelLayoutSet),
-        );
-        app.add_systems(
             PostUpdate,
             (retire_card_outputs, gameplay::route_card_outputs)
                 .chain()
@@ -467,6 +492,13 @@ impl Plugin for CardViewPlugin {
         app.add_systems(
             PostUpdate,
             (realize_card_scenery, drawings::realize_card_drawings)
+                .in_set(world_mesh::CardWorldMeshSet)
+                .run_if(card_outputs_enabled),
+        );
+        app.add_systems(
+            PostUpdate,
+            labels::realize_card_labels
+                .after(bevy::sprite::update_text2d_layout)
                 .in_set(world_mesh::CardWorldMeshSet)
                 .run_if(card_outputs_enabled),
         );
@@ -588,7 +620,7 @@ pub fn place_card_view_cameras(
 /// The card camera's place for a frame: turned and tilted about the frame's
 /// centre on the play plane, rolled as the frame is.
 pub fn card_camera_transform(frame: &PresentedViewFrame, settings: &CardViewSettings) -> Transform {
-    let target = frame.plane_center.extend(0.0);
+    let target = frame.plane_center.extend(PLAY_PLANE_Z);
     let (yaw, pitch) = if settings.mode == CardViewMode::SideOn {
         (0.0, 0.0)
     } else {
@@ -598,9 +630,8 @@ pub fn card_camera_transform(frame: &PresentedViewFrame, settings: &CardViewSett
     Transform::from_translation(target + rotation * Vec3::Z * CAMERA_DISTANCE).with_rotation(rotation)
 }
 
-/// The depth of a body in the policy (module docs): the play plane, or the
-/// middle of its vessel's bed, plus its rank among the bodies at that depth.
-pub fn card_body_depth(seated: bool, rank: usize) -> f32 {
+/// The paint key of a body on the play plane or in a vessel.
+fn body_paint_z(seated: bool, rank: usize) -> f32 {
     if seated {
         -VESSEL_DEPTH * 0.5 - (rank as f32 * CARD_BODY_STEP).min(VESSEL_DEPTH * 0.25)
     } else {
@@ -639,30 +670,6 @@ pub fn flash_material(page: &Handle<Image>, flash: PresentedFlash) -> StandardMa
 fn flash_key(flash: PresentedFlash) -> [u8; 4] {
     let byte = |value: f32| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
     [byte(flash.tint.x), byte(flash.tint.y), byte(flash.tint.z), byte(flash.intensity)]
-}
-
-/// The frame a composited root draws, as one picture: its cell of the atlas
-/// page, at the root's quad. `None` while the root does not draw a cell of
-/// its body's page (its page is fresh, or it is drawn part by part).
-fn composited_frame(
-    presentation: &RiggedPresentation,
-    atlas: &RiggedImpostorAtlas,
-    sprite: Option<&Sprite>,
-    anchor: Option<&bevy::sprite::Anchor>,
-    layouts: Option<&Assets<TextureAtlasLayout>>,
-) -> Option<BakedFrame> {
-    let impostor = presentation.impostor.as_ref()?;
-    let page = atlas.page(impostor)?;
-    let sprite = sprite.filter(|sprite| sprite.image == page.image)?;
-    let cell = sprite.texture_atlas.as_ref().filter(|cell| cell.index == impostor.cell as usize)?;
-    Some(BakedFrame {
-        image: page.image.clone(),
-        rect: layouts?.get(&cell.layout)?.textures.get(cell.index)?.as_rect(),
-        size: sprite.custom_size?,
-        anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
-        flip_x: sprite.flip_x,
-        flip_y: sprite.flip_y,
-    })
 }
 
 #[derive(Clone, Copy)]
@@ -936,9 +943,17 @@ impl CardPart {
 type CardQuery<'w, 's> = Query<
     'w,
     's,
-    (&'static mut CardPart, &'static mut Mesh3d, &'static mut MeshMaterial3d<StandardMaterial>, &'static mut Transform, &'static mut Visibility),
+    (&'static mut CardPart, &'static mut Mesh3d, &'static mut MeshMaterial3d<StandardMaterial>,
+        &'static mut Transform, &'static mut CardPaintDepth, &'static mut Visibility),
     Without<CardBody>,
 >;
+
+struct PartCardDraw {
+    mesh: Handle<Mesh>,
+    material: PartMaterial,
+    place: Transform,
+    paint: CardPaintDepth,
+}
 
 /// Show `shown` as a body's cards, in order, spawning what it lacks and
 /// hiding the rest.
@@ -950,9 +965,9 @@ fn show_cards(
     source: Entity,
     layer: &RenderLayers,
     materials: &mut Assets<StandardMaterial>,
-    shown: &[(Handle<Mesh>, PartMaterial, Transform)],
+    shown: &[PartCardDraw],
 ) {
-    for (index, (mesh, material, local)) in shown.iter().enumerate() {
+    for (index, PartCardDraw { mesh, material, place, paint }) in shown.iter().enumerate() {
         if body.parts.get(index).is_none_or(|entity| commands.get_entity(*entity).is_err()) {
             let mut part = CardPart::default();
             let material = part.material(material, materials);
@@ -962,7 +977,8 @@ fn show_cards(
                     CardScope::Source(source),
                     Mesh3d(mesh.clone()),
                     MeshMaterial3d(material),
-                    *local,
+                    *place,
+                    *paint,
                     Visibility::Inherited,
                     layer.clone(),
                     ChildOf(owner),
@@ -975,7 +991,7 @@ fn show_cards(
             }
             continue;
         }
-        let Ok((mut part, mut card_mesh, mut card_material, mut transform, mut visibility)) = cards.get_mut(body.parts[index]) else {
+        let Ok((mut part, mut card_mesh, mut card_material, mut transform, mut order, mut visibility)) = cards.get_mut(body.parts[index]) else {
             continue;
         };
         let material = part.bypass_change_detection().material(material, materials);
@@ -985,7 +1001,8 @@ fn show_cards(
         if card_material.0 != material {
             card_material.0 = material;
         }
-        transform.set_if_neq(*local);
+        transform.set_if_neq(*place);
+        order.set_if_neq(*paint);
         visibility.set_if_neq(Visibility::Inherited);
     }
     for &card in body.parts.iter().skip(shown.len()) {
@@ -995,19 +1012,26 @@ fn show_cards(
     }
 }
 
-/// A part's card place in its body: the same pivot, turn and scale as its
-/// 2D slot (`slot_local`), at its paint-order depth.
-pub fn card_part_local(draw: &PartDraw, index: usize) -> Transform {
-    super::actors::rigged::part_local_transform(draw, index as f32 * CARD_PART_STEP)
+/// Place a part in the plane of its body.
+pub(super) fn card_part_local(draw: &PartDraw) -> Transform {
+    super::actors::rigged::part_local_transform(draw, 0.0)
 }
 
 #[derive(Default)]
 pub(super) struct CardBodyScratch {
     by_owner: RetainedEntities<Entity>,
     rigged_roots: EntityHashSet,
-    ranked: Vec<(Option<LiveRoomInstance>, f32, Entity, Option<usize>)>,
+    ranked: Vec<RankedBody>,
     placements: HashMap<Entity, CardBodyDepth>,
-    shown: Vec<(Handle<Mesh>, PartMaterial, Transform)>,
+    shown: Vec<PartCardDraw>,
+}
+
+struct RankedBody {
+    room: Option<LiveRoomInstance>,
+    source_z: f32,
+    source: Entity,
+    owner: Entity,
+    seat: Option<usize>,
 }
 
 /// Realize every sampled rigged body as cards.
@@ -1017,14 +1041,12 @@ pub(super) fn realize_card_bodies(
     owners: Query<(Entity, &RiggedPresentationOf, &RiggedPresentation, &RiggedLocalSample)>,
     roots: Query<
         (
-            &Transform, Option<&SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>,
+            &Transform, Option<&SeatedInVessel>,
             Option<&PresentedFlash>, Option<&MovingPlatformVisual>, Has<PropVisual>,
             (Option<&Visibility>, Option<&InheritedVisibility>, Has<ChildOf>),
         ),
         (Without<CardBody>, Without<CardPart>),
     >,
-    atlas: Option<Res<RiggedImpostorAtlas>>,
-    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     mut bodies: Query<(Entity, &mut CardBody, &mut Transform, &mut Visibility), Without<CardPart>>,
     mut cards: CardQuery,
     images: Option<Res<Assets<Image>>>,
@@ -1073,48 +1095,64 @@ pub(super) fn realize_card_bodies(
         if let Some(platform) = platform {
             let part_count = sample.parts().map_or(1, <[PartDraw]>::len).max(1);
             placements.insert(owner, CardBodyDepth {
-                plane_z: platform_depth(platform, platform_looks.as_deref()),
+                depth: CardDepth::on_plane(platform_depth(platform, platform_looks.as_deref())),
                 source_z: root.translation.z,
                 order_scale: (PLATFORM_PART_DEPTH / (part_count as f32 * CARD_PART_STEP)).min(1.0),
                 front_part: 0.0,
                 representation: CardBodyRepresentation::Sprite,
             });
         } else if !prop {
-            ranked.push((rooms.of(of.0), root.translation.z, owner, seated.map(|seat| seat.slot)));
+            ranked.push(RankedBody {
+                room: rooms.of(of.0),
+                source_z: root.translation.z,
+                source: of.0,
+                owner,
+                seat: seated.map(|seat| seat.slot),
+            });
         }
     }
     for (entity, place, seated, kind, visibility) in &sprite_bodies {
         let body = kind.is_none_or(|kind| kind.kind == FeatureVisualKind::Actor);
         if body && root_shows(visibility) && !rigged_roots.contains(&entity) {
-            ranked.push((rooms.of(entity), place.translation.z, entity, seated.map(|seat| seat.slot)));
+            ranked.push(RankedBody {
+                room: rooms.of(entity),
+                source_z: place.translation.z,
+                source: entity,
+                owner: entity,
+                seat: seated.map(|seat| seat.slot),
+            });
         }
     }
-    ranked.sort_unstable_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.cmp(&b.2)));
+    ranked.sort_unstable_by(|a, b| {
+        a.room.cmp(&b.room)
+            .then(a.source_z.total_cmp(&b.source_z))
+            .then(a.source.cmp(&b.source))
+    });
     if let Some(depths) = root_depths.as_deref_mut() {
         depths.roots.clear();
         depths.fronts.clear();
         depths.paint_slots.clear();
     }
-    for row in ranked.chunk_by(|a, b| a.0 == b.0) {
-        let count = row.iter().filter(|(_, _, _, seat)| seat.is_none()).count();
-        let scale = (BODY_ORDER_RANGE / card_body_depth(false, count.max(1))).min(1.0);
+    for row in ranked.chunk_by(|a, b| a.room == b.room) {
+        let count = row.iter().filter(|body| body.seat.is_none()).count();
+        let scale = (BODY_ORDER_RANGE / body_paint_z(false, count.max(1))).min(1.0);
         let mut rank = 0;
-        for &(room, source_z, owner, seat) in row {
-            let (plane_z, order_scale) = if let Some(seat) = seat {
-                (card_body_depth(true, seat), 1.0)
+        for &RankedBody { room, source_z, owner, seat, .. } in row {
+            let (depth, order_scale) = if let Some(seat) = seat {
+                (CardDepth::new(-VESSEL_DEPTH * 0.5, body_paint_z(true, seat)), 1.0)
             } else {
-                let depth = card_body_depth(false, rank) * scale;
+                let paint = body_paint_z(false, rank) * scale;
                 rank += 1;
-                (depth, scale)
+                (CardDepth::new(PLAY_PLANE_Z, paint), scale)
             };
             if let Some(depths) = root_depths.as_deref_mut() {
                 if seat.is_none() {
-                    depths.fronts.insert(room, plane_z + CARD_BODY_STEP * scale);
+                    depths.fronts.insert(room, depth.paint.0 + CARD_BODY_STEP * scale);
                 }
-                depths.paint_slots.push(BodyPaintSlot { room, source_z, plane_z, order_scale });
+                depths.paint_slots.push(BodyPaintSlot { room, source_z, paint_z: depth.paint.0, order_scale });
             }
             placements.insert(owner, CardBodyDepth {
-                plane_z,
+                depth,
                 source_z,
                 order_scale,
                 front_part: 0.0,
@@ -1149,7 +1187,7 @@ pub(super) fn realize_card_bodies(
             // Spawned this frame: filled from the next.
             continue;
         };
-        let Ok((root, _, root_sprite, root_anchor, flash, _, prop, visibility)) = roots.get(of.0) else {
+        let Ok((root, _, flash, _, prop, visibility)) = roots.get(of.0) else {
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -1163,13 +1201,15 @@ pub(super) fn realize_card_bodies(
             }
             let source_z = root.translation.z;
             let room = rooms.of(of.0);
-            let projected = |z| root_depths.as_deref()
-                .map_or_else(|| scenery_depth(z, CARD_BODY_STEP), |depths| depths.scenery_depth(z, room));
-            let plane_z = projected(source_z);
-            let span = projected(source_z + super::world::SCENERY_Z_STEP) - plane_z;
+            let projected = |z| root_depths.as_deref().map_or_else(
+                || CardDepth::on_plane(scenery_depth(z, CARD_BODY_STEP)),
+                |depths| depths.scenery(z, room),
+            );
+            let depth = projected(source_z);
+            let span = projected(source_z + super::world::SCENERY_Z_STEP).paint.0 - depth.paint.0;
             let count = sample.parts().map_or(1, |parts| parts.len()).max(1);
             Some(CardBodyDepth {
-                plane_z,
+                depth,
                 source_z,
                 order_scale: span / (count as f32 * CARD_PART_STEP),
                 front_part: 0.0,
@@ -1181,12 +1221,7 @@ pub(super) fn realize_card_bodies(
             continue;
         };
         let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
-        // A baked frame is one card at the root, drawn whole; so is a body
-        // the 2D view composites, as its cell (its fade is in the cell).
-        let composited = sample.parts().and_then(|_| {
-            composited_frame(presentation, atlas.as_deref()?, root_sprite, root_anchor, layouts.as_deref())
-        });
-        let baked = sample.baked.as_ref().or(composited.as_ref());
+        let baked = sample.baked.as_ref().or_else(|| presentation.composed_frame());
         if let Some(depths) = root_depths.as_deref_mut() {
             let front_part = sample.parts()
                 .filter(|_| baked.is_none())
@@ -1202,9 +1237,7 @@ pub(super) fn realize_card_bodies(
             });
         }
         if let Some(baked) = baked {
-            let mut place = *root;
-            place.translation.z = depth.plane_z;
-            body_transform.set_if_neq(place);
+            body_transform.set_if_neq(depth.depth.place(root));
             body_visibility.set_if_neq(Visibility::Inherited);
             let Some(page_size) = images.get(&baked.image).map(|image| image.size().as_vec2()) else {
                 // Not loaded yet: draw nothing rather than the last clip's parts.
@@ -1218,7 +1251,7 @@ pub(super) fn realize_card_bodies(
                 PartMaterial::Tinted { image: baked.image.clone(), color: Color::LinearRgba(sample.body_color) }
             };
             show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &[
-                (mesh, material, Transform::IDENTITY),
+                PartCardDraw { mesh, material, place: Transform::IDENTITY, paint: depth.depth.paint },
             ]);
             continue;
         }
@@ -1227,9 +1260,7 @@ pub(super) fn realize_card_bodies(
             continue;
         };
         // The body's scene placement (its root), then its own feet.
-        let mut place = root.mul_transform(feet);
-        place.translation.z = depth.plane_z;
-        body_transform.set_if_neq(place);
+        body_transform.set_if_neq(depth.depth.place(&root.mul_transform(feet)));
         body_visibility.set_if_neq(Visibility::Inherited);
 
         shown.clear();
@@ -1255,18 +1286,24 @@ pub(super) fn realize_card_bodies(
             } else {
                 PartMaterial::Tinted { image: page.clone(), color: part_color(draw, body_color) }
             };
-            let mut local = card_part_local(draw, index);
-            local.translation.z *= depth.order_scale;
+            let place = card_part_local(draw);
+            let offset = index as f32 * CARD_PART_STEP;
+            let paint = depth.at_offset(offset).paint;
             if let Some(flash) = flash {
                 let silhouette = cache
                     .flashes
                     .entry((page.id(), flash_key(flash)))
                     .or_insert_with(|| materials.add(flash_material(page, flash)))
                     .clone();
-                shown.push((mesh.clone(), material, local));
-                shown.push((mesh, PartMaterial::Shared(silhouette), local * Transform::from_translation(Vec3::Z * FLASH_STEP * depth.order_scale)));
+                shown.push(PartCardDraw { mesh: mesh.clone(), material, place, paint });
+                shown.push(PartCardDraw {
+                    mesh,
+                    material: PartMaterial::Shared(silhouette),
+                    place,
+                    paint: depth.at_offset(offset + FLASH_STEP).paint,
+                });
             } else {
-                shown.push((mesh, material, local));
+                shown.push(PartCardDraw { mesh, material, place, paint });
             }
         }
         show_cards(&mut commands, &mut card_body, &mut cards, body, of.0, &layer, &mut materials, &shown);
@@ -1290,7 +1327,7 @@ fn realize_card_held_art(
     >,
     depths: Res<CardRootDepths>,
     mut cards: Query<
-        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut CardPaintDepth, &mut Visibility),
         With<CardHeldArt>,
     >,
     images: Option<Res<Assets<Image>>>,
@@ -1319,9 +1356,9 @@ fn realize_card_held_art(
             continue;
         };
         let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
-        let card_place = sprite_card_place(place, depth);
+        let card_place = depth.place(place);
         match by_art.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+            Some((mut card_mesh, mut card_material, mut transform, mut paint, mut card_visibility)) => {
                 if card_mesh.0 != mesh {
                     card_mesh.0 = mesh;
                 }
@@ -1329,6 +1366,7 @@ fn realize_card_held_art(
                     card_material.0 = material;
                 }
                 transform.set_if_neq(card_place);
+                paint.set_if_neq(depth.paint);
                 card_visibility.set_if_neq(Visibility::Inherited);
             }
             None => {
@@ -1339,6 +1377,7 @@ fn realize_card_held_art(
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
                         card_place,
+                        depth.paint,
                         Visibility::Inherited,
                         RenderLayers::layer(CARD_VIEW_LAYER),
                         Name::new("Card held art"),
@@ -1414,15 +1453,14 @@ fn sprite_span_place(place: &Transform, width: f32, [start, end]: [f32; 2]) -> T
 }
 
 /// Realize each body drawn from a sheet (no rigged presentation) as one card
-/// of the cell it draws, at its 2D place on the depth `realize_card_bodies`
-/// ranked it to.
+/// of the cell it draws, with the placement and paint key of its body.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn realize_card_sprite_bodies(
     mut commands: Commands,
     bodies: Query<(Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform), SpriteBodyFilter>,
     depths: Res<CardRootDepths>,
     mut cards: Query<
-        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut CardPaintDepth, &mut Visibility),
         (With<CardSpriteBody>, Without<Sprite>),
     >,
     images: Option<Res<Assets<Image>>>,
@@ -1440,7 +1478,7 @@ pub(super) fn realize_card_sprite_bodies(
         // Ranked only when it is a shown body with no rigged presentation.
         let drawn = depths.roots.get(&entity)
             .filter(|depth| depth.representation == CardBodyRepresentation::Sprite)
-            .and_then(|depth| Some((depth.plane_z, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
+            .and_then(|body| Some((body.depth, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
         let Some((depth, (frame, page_size))) = drawn else {
             if let Some(card) = by_body.get(&entity) {
                 if let Ok((.., mut card_visibility)) = cards.get_mut(*card) {
@@ -1450,9 +1488,9 @@ pub(super) fn realize_card_sprite_bodies(
             continue;
         };
         let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
-        let card_place = sprite_card_place(place, depth);
+        let card_place = depth.place(place);
         match by_body.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
-            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+            Some((mut card_mesh, mut card_material, mut transform, mut paint, mut card_visibility)) => {
                 if card_mesh.0 != mesh {
                     card_mesh.0 = mesh;
                 }
@@ -1460,6 +1498,7 @@ pub(super) fn realize_card_sprite_bodies(
                     card_material.0 = material;
                 }
                 transform.set_if_neq(card_place);
+                paint.set_if_neq(depth.paint);
                 card_visibility.set_if_neq(Visibility::Inherited);
             }
             None => {
@@ -1470,6 +1509,7 @@ pub(super) fn realize_card_sprite_bodies(
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
                         card_place,
+                        depth.paint,
                         Visibility::Inherited,
                         RenderLayers::layer(CARD_VIEW_LAYER),
                         Name::new("Card sprite body"),
@@ -1481,8 +1521,7 @@ pub(super) fn realize_card_sprite_bodies(
     }
 }
 
-/// The card depth of scenery the 2D view draws at `z`, with `front` the
-/// depth just in front of the front-most body.
+/// Map the source z bands to card placement or paint keys.
 fn scenery_depth(z: f32, front: f32) -> f32 {
     use ambition_platformer2d_core::config::{WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
     if z >= WORLD_Z_PLAYER {
@@ -1503,7 +1542,7 @@ fn platform_depth(platform: &MovingPlatformVisual, looks: Option<&PlatformLooks>
     } else if platform.sheet.as_ref().and_then(|key| looks?.0.get(key)).is_some_and(|look| look.front_row.is_some()) {
         -VESSEL_DEPTH
     } else {
-        PORTAL_DEPTH * 0.5
+        OPEN_PLATFORM_Z
     }
 }
 
@@ -1531,7 +1570,7 @@ pub(super) fn realize_card_scenery(
     parents: Query<&ChildOf>,
     mut cards: Query<
         (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform,
-            &mut GlobalTransform, &mut Visibility, &mut InheritedVisibility),
+            &mut GlobalTransform, &mut CardPaintDepth, &mut Visibility, &mut InheritedVisibility),
         (With<CardScenery>, Without<Sprite>),
     >,
     images: Option<Res<Assets<Image>>>,
@@ -1560,10 +1599,14 @@ pub(super) fn realize_card_scenery(
             }
             continue;
         };
-        let mut card_place = if let Some(platform) = platform {
-            sprite_card_place(local, platform_depth(platform, platform_looks.as_deref()))
-        } else if let Some(span) = string.and_then(|string| depths.sling_depths(string.span)) {
-            sprite_span_place(&global.compute_transform(), frame.size.x, span)
+        let (mut card_place, paint) = if let Some(platform) = platform {
+            let depth = CardDepth::on_plane(platform_depth(platform, platform_looks.as_deref()));
+            (depth.place(local), depth.paint)
+        } else if let Some([start, end]) = string.and_then(|string| depths.sling_depths(string.span)) {
+            (
+                sprite_span_place(&global.compute_transform(), frame.size.x, [start.plane, end.plane]),
+                CardPaintDepth((start.paint.0 + end.paint.0) * 0.5),
+            )
         } else {
             let place = global.compute_transform();
             let z = place.translation.z;
@@ -1575,9 +1618,9 @@ pub(super) fn realize_card_scenery(
                 } else {
                     None
                 };
-                depths.scenery_depth(z, room)
+                depths.scenery(z, room)
             });
-            sprite_card_place(&place, depth)
+            (depth.place(&place), depth.paint)
         };
         // Keep the quad when the size of an unsliced sprite changes.
         if matches!(sprite.image_mode, SpriteImageMode::Auto) {
@@ -1594,7 +1637,7 @@ pub(super) fn realize_card_scenery(
             cache.textured_material(&frame.image, color, &mut materials)
         };
         match card {
-            Some((mut card_mesh, mut card_material, mut transform, mut global, mut card_visibility, mut inherited)) => {
+            Some((mut card_mesh, mut card_material, mut transform, mut global, mut order, mut card_visibility, mut inherited)) => {
                 if card_mesh.0 != mesh {
                     card_mesh.0 = mesh;
                 }
@@ -1603,6 +1646,7 @@ pub(super) fn realize_card_scenery(
                 }
                 transform.set_if_neq(card_place);
                 global.set_if_neq(GlobalTransform::from(card_place));
+                order.set_if_neq(paint);
                 card_visibility.set_if_neq(Visibility::Inherited);
                 inherited.set_if_neq(InheritedVisibility::VISIBLE);
             }
@@ -1615,6 +1659,7 @@ pub(super) fn realize_card_scenery(
                         MeshMaterial3d(material),
                         card_place,
                         GlobalTransform::from(card_place),
+                        paint,
                         Visibility::Inherited,
                         InheritedVisibility::VISIBLE,
                         RenderLayers::layer(CARD_VIEW_LAYER),
@@ -1808,7 +1853,7 @@ mod tests {
         let root = app.world_mut().spawn_empty().id();
         let no_card = app.world_mut().spawn_empty().id();
         app.world_mut().resource_mut::<CardRootDepths>().roots.insert(root, CardBodyDepth {
-            plane_z: -20.0, source_z: 5.0, order_scale: 1.0, front_part: 0.0,
+            depth: CardDepth::new(-20.0, -21.0), source_z: 5.0, order_scale: 1.0, front_part: 0.0,
             representation: CardBodyRepresentation::Sprite,
         });
         let item = |at: Vec3, holder| {
@@ -1825,16 +1870,17 @@ mod tests {
         app.world_mut().spawn(item(Vec3::ZERO, no_card));
         app.update();
         let world = app.world_mut();
-        let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardHeldArt>>();
-        let mut places: Vec<Vec3> = cards
+        let mut cards = world.query_filtered::<(&Transform, &CardPaintDepth, &Visibility), With<CardHeldArt>>();
+        let mut places: Vec<_> = cards
             .iter(world)
-            .filter(|(_, visibility)| **visibility != Visibility::Hidden)
-            .map(|(place, _)| place.translation)
+            .filter(|(_, _, visibility)| **visibility != Visibility::Hidden)
+            .map(|(place, paint, _)| (place.translation, paint.0))
             .collect();
-        places.sort_by(|a, b| a.x.total_cmp(&b.x));
+        places.sort_by(|a, b| a.0.x.total_cmp(&b.0.x));
         assert_eq!(places.len(), 2, "the hidden item and the one whose holder has no card show none");
-        assert_eq!(places[0], Vec3::new(0.0, 0.0, -20.0 + HELD_ART_REACH), "held to the body's band");
-        assert!((places[1] - Vec3::new(30.0, 40.0, -20.0 + 3.0 * CARD_PART_STEP)).length() < 1e-4, "three part steps in front");
+        assert_eq!(places[0], (Vec3::new(0.0, 0.0, -20.0), -21.0 + HELD_ART_REACH));
+        assert_eq!(places[1].0, Vec3::new(30.0, 40.0, -20.0));
+        assert!((places[1].1 - (-21.0 + 3.0 * CARD_PART_STEP)).abs() < 1e-4, "three part steps in front");
 
         let item_card = world.query_filtered::<(Entity, &Transform), With<CardHeldArt>>()
             .iter(world)
@@ -1862,34 +1908,31 @@ mod tests {
         let order = WornGearOrder { root: wearer, anchor_part: Some(2) };
         let mut depths = CardRootDepths::default();
         let mut body = CardBodyDepth {
-            plane_z: -2.0,
+            depth: CardDepth::new(-2.0, 4.0),
             order_scale: 0.5,
             source_z: 20.0,
             front_part: 5.0 * CARD_PART_STEP,
             representation: CardBodyRepresentation::RiggedParts,
         };
         depths.roots.insert(wearer, body);
-        let part = |index| body.plane_z + index as f32 * CARD_PART_STEP * body.order_scale;
+        let part = |index| body.at_offset(index as f32 * CARD_PART_STEP).paint.0;
         let back = depths.gear_depth(order, GearLayer::Back).unwrap();
         let front = depths.gear_depth(order, GearLayer::Front).unwrap();
-        assert!(back < part(0) && part(2) < front && front < part(3));
+        assert_eq!((back.plane, front.plane), (-2.0, -2.0));
+        assert!(back.paint.0 < part(0) && part(2) < front.paint.0 && front.paint.0 < part(3));
 
         body.front_part = 0.0;
         body.representation = CardBodyRepresentation::RiggedFrame;
         depths.roots.insert(wearer, body);
         let front = depths.gear_depth(order, GearLayer::Front).unwrap();
-        assert!(back < body.plane_z && body.plane_z < front);
-        assert!(front < body.plane_z + CARD_PART_STEP * body.order_scale);
+        assert!(back.paint.0 < body.depth.paint.0 && body.depth.paint.0 < front.paint.0);
+        assert!(front.paint.0 < body.at_offset(CARD_PART_STEP).paint.0);
         depths.roots.remove(&wearer);
         assert!(depths.gear_depth(order, GearLayer::Front).is_none());
     }
 
-    /// RV3: a body drawn from a sheet (no rigged presentation) is one card of
-    /// its cell at its 2D place, ranked by logical order with the others on
-    /// the play plane: the player and an actor each get a card, the later
-    /// (higher 2D z) one step nearer. A prop and a hidden actor get none.
     #[test]
-    fn a_sheet_drawn_body_is_one_card_ranked_on_its_depth() {
+    fn a_body_keeps_its_plane_when_the_paint_order_changes() {
         let mut app = App::new();
         app.init_resource::<Assets<Image>>()
             .init_resource::<Assets<Mesh>>()
@@ -1906,29 +1949,42 @@ mod tests {
         app.world_mut().spawn((sprite(Vec3::new(10.0, 0.0, 7.0)), actor(FeatureVisualKind::Actor)));
         app.world_mut().spawn((sprite(Vec3::new(-10.0, 0.0, 3.0)), PlayerVisual));
         app.world_mut().spawn((sprite(Vec3::new(50.0, 0.0, 9.0)), actor(FeatureVisualKind::Chest)));
-        app.world_mut().spawn((sprite(Vec3::new(90.0, 0.0, 1.0)), actor(FeatureVisualKind::Actor), Visibility::Hidden));
+        let enters = app.world_mut().spawn((
+            sprite(Vec3::new(90.0, 0.0, 1.0)), actor(FeatureVisualKind::Actor), Visibility::Hidden,
+        )).id();
         app.update();
-        let world = app.world_mut();
-        let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardSpriteBody>>();
-        let mut places: Vec<Vec3> = cards
-            .iter(world)
-            .filter(|(_, visibility)| **visibility != Visibility::Hidden)
-            .map(|(place, _)| place.translation)
-            .collect();
-        places.sort_by(|a, b| a.x.total_cmp(&b.x));
-        assert_eq!(
-            places,
-            vec![Vec3::new(-10.0, 0.0, card_body_depth(false, 0)), Vec3::new(10.0, 0.0, card_body_depth(false, 1))],
-            "the player and the actor, in logical order; no prop, no hidden body"
-        );
-        let depths = world.resource::<CardRootDepths>();
-        let under_both = depths.scene_paint_depth(2.95, None).unwrap();
-        let between = depths.scene_paint_depth(6.94, None).unwrap();
-        let nearer_light = depths.scene_paint_depth(6.96, None).unwrap();
-        assert!(under_both < places[0].z);
-        assert!(places[0].z < between && between < nearer_light && nearer_light < places[1].z);
+        let draw = |app: &mut App| {
+            let world = app.world_mut();
+            let mut rows: Vec<_> = world.query_filtered::<
+                (Entity, &Transform, &CardPaintDepth, &Visibility), With<CardSpriteBody>,
+            >().iter(world).filter(|(_, _, _, visibility)| **visibility != Visibility::Hidden)
+                .map(|(entity, transform, paint, _)| (entity, transform.translation, paint.0))
+                .collect();
+            rows.sort_by(|a, b| a.1.x.total_cmp(&b.1.x));
+            rows
+        };
+        let before = draw(&mut app);
+        assert_eq!(before.len(), 2);
+        assert_eq!(before[0].1, Vec3::new(-10.0, 0.0, 0.0));
+        assert_eq!(before[1].1, Vec3::new(10.0, 0.0, 0.0));
+        assert!(before[0].2 < before[1].2);
+        let depths = app.world().resource::<CardRootDepths>();
+        let under_both = depths.scene_paint_depth(2.95, None).unwrap().0;
+        let between = depths.scene_paint_depth(6.94, None).unwrap().0;
+        let nearer_light = depths.scene_paint_depth(6.96, None).unwrap().0;
+        assert!(under_both < before[0].2);
+        assert!(before[0].2 < between && between < nearer_light && nearer_light < before[1].2);
         assert!(depths.scene_paint_depth(7.5, None).is_none());
         assert!(depths.scene_paint_depth(2.95, Some(LiveRoomInstance::ACTIVATION)).is_none());
+        app.world_mut().entity_mut(enters).insert(Visibility::Inherited);
+        app.update();
+        let after = draw(&mut app);
+        assert_eq!(after.len(), 3);
+        for (before, after) in before.iter().zip(&after) {
+            assert_eq!((before.0, before.1), (after.0, after.1));
+            assert!(before.2 < after.2);
+        }
+        assert!(after[2].2 < after[0].2 && after[0].2 < after[1].2);
     }
 
     /// RV3: a room's props and its turf are cards at their 2D places, in the
@@ -1993,18 +2049,23 @@ mod tests {
         let xs: Vec<f32> = found.iter().map(|at| at.x).collect();
         assert_eq!(xs, vec![10.0, 20.0, 30.0, 40.0, 70.0, 80.0], "no hidden prop, and the actor prop is a body");
         let depth = |x: f32| found.iter().find(|at| at.x == x).unwrap().z;
-        let front = card_body_depth(false, 1) + CARD_BODY_STEP;
         let near = |a: f32, b: f32| (a - b).abs() < 1e-4;
         assert!(near(depth(10.0), SCENERY_DEPTH + 0.06), "scenery in its band: {}", depth(10.0));
-        assert!(near(depth(20.0), front + 0.175), "in front of the front-most body: {}", depth(20.0));
+        assert!(near(depth(20.0), CARD_BODY_STEP + 0.175), "foreground plane: {}", depth(20.0));
         assert!(near(depth(30.0), BACKDROP_DEPTH - 1.1), "backdrop: {}", depth(30.0));
         assert!(depth(40.0) >= TURF_DEPTH, "turf: {}", depth(40.0));
         assert!(depth(30.0) < -VESSEL_DEPTH, "a backdrop is behind the cart's back panel");
-        assert!(TERRAIN_DEPTH + 0.04 < depth(40.0) && depth(40.0) < depth(10.0) && depth(10.0) < PORTAL_DEPTH,
+        assert!(TERRAIN_DEPTH + 0.04 < depth(40.0) && depth(40.0) < depth(10.0) && depth(10.0) < PLAY_PLANE_Z,
             "skin, turf, scenery, then the portal line");
-        assert!(PORTAL_DEPTH < card_body_depth(false, 0), "behind the bodies");
-        assert!(depth(70.0) < card_body_depth(false, 0));
-        assert!(depth(80.0) > card_body_depth(false, 0) && depth(80.0) < card_body_depth(false, 1));
+        assert_eq!(depth(70.0), 0.0);
+        assert_eq!(depth(80.0), 0.0);
+        let world = app.world_mut();
+        let paint_at = |world: &mut World, x| world.query_filtered::<(&Transform, &CardPaintDepth), With<CardScenery>>()
+            .iter(world).find_map(|(place, paint)| (place.translation.x == x).then_some(paint.0)).unwrap();
+        assert!(paint_at(world, 20.0) > body_paint_z(false, 1));
+        assert!(paint_at(world, 70.0) < body_paint_z(false, 0));
+        let front_effect = paint_at(world, 80.0);
+        assert!(body_paint_z(false, 0) < front_effect && front_effect < body_paint_z(false, 1));
         let mut bodies = app.world_mut().query_filtered::<(), With<CardSpriteBody>>();
         assert_eq!(bodies.iter(app.world()).count(), 2, "the player and the actor prop");
         let card_of_scenery = {
@@ -2225,11 +2286,10 @@ mod tests {
         assert_eq!((back_texture, near_texture), (back_image, near_image));
         assert_eq!(back.truncate(), origin.truncate());
         assert_eq!(near.truncate(), origin.truncate());
-        let seated = card_body_depth(true, 0);
-        let free = card_body_depth(false, 0);
+        let seated = -VESSEL_DEPTH * 0.5;
+        let free = 0.0;
         assert!(back.z < seated && seated < near.z && near.z < free);
-        assert!(card_body_depth(false, 1) > free && card_body_depth(true, 1) < seated);
-        assert!(card_body_depth(true, 100) > back.z);
+        assert!(body_paint_z(true, 100) > back.z);
 
         app.world_mut().get_mut::<Transform>(near_source).unwrap().translation.x += 10.0;
         app.update();

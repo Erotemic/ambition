@@ -51,7 +51,7 @@
         (id: "world.history_ldtk", file: "history.ldtk"),
         // The Boss dimension, by the hidden gate LEGACY: the lobby, the main
         // stage where the bossofthegame stands on the shoulders of Full
-        // Stack, and the green room where he retires.
+        // Stack, and the green room where he takes a break.
         (id: "world.boss_ldtk", file: "boss.ldtk"),
         // The Frontier dimension, by the gate LEADENSADDLE: Dry Dock, the
         // spaceport town in the pass, its refinery, and Marshal Gallus's

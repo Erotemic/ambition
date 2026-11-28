@@ -50,6 +50,7 @@ mod specs;
 #[cfg(test)]
 mod sprite_sheet_tests;
 mod systems;
+pub use systems::BOSS_BODY_FORM;
 mod music;
 pub use music::{publish_boss_music, BOSS_MUSIC_SOURCE_KIND};
 

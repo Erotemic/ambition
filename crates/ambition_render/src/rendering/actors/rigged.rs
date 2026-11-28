@@ -564,9 +564,9 @@ pub struct RiggedLocalSample {
     pub baked: Option<BakedFrame>,
 }
 
-/// One baked frame as the animator chose it: the region of its page, drawn
-/// at `size` world units about `anchor` (a sprite anchor: `(-0.5, -0.5)` is
-/// the bottom left), mirrored when `flip_x`. Placement is the root's.
+/// One complete frame from a baked sheet or the compositor. Draw its page
+/// region at `size` world units with this sprite anchor and these flips.
+/// Use the root transform to place it in the scene.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BakedFrame {
     pub image: Handle<Image>,
@@ -622,6 +622,7 @@ pub struct RiggedPresentation {
     /// reads it as one image: [`ComposedBodyDemand`], a fading frame), else
     /// `None`: its parts are drawn directly in world space.
     pub impostor: Option<Impostor>,
+    composed_frame: Option<BakedFrame>,
     /// Frames the body stays composited with no new demand
     /// ([`COMPOSED_HOLD_FRAMES`] after the last).
     pub composed_hold: u16,
@@ -667,6 +668,12 @@ enum PartDrawTarget {
 }
 
 impl RiggedPresentation {
+    /// Get the frame when the compositor can draw the current atlas cell.
+    #[cfg(feature = "card_view")]
+    pub(in crate::rendering) fn composed_frame(&self) -> Option<&BakedFrame> {
+        self.composed_frame.as_ref()
+    }
+
     /// Get the position and generation of the last draw to the atlas.
     pub fn atlas_draw_stamp(&self) -> Option<(Vec3, u64)> {
         match self.shown.as_ref()?.target {
@@ -1197,6 +1204,7 @@ fn spawn_presentation(
         direct: false,
         slot_hold: 0,
         impostor: None,
+        composed_frame: None,
         composed_hold: 0,
         overflow_hold: 0,
         layers: RenderLayers::default(),
@@ -1632,7 +1640,7 @@ pub fn drive_rigged_presentations(
             }
         }
     }
-    let ImpostorAssets { atlas: mut atlases, materials, gpu, gpu_images, .. } = impostors;
+    let ImpostorAssets { atlas: mut atlases, layouts, materials, gpu, gpu_images, .. } = impostors;
     // Per page of each class: whether a body draws from it, whether a cell of
     // it changed, and its cells' opacities.
     //
@@ -1652,6 +1660,7 @@ pub fn drive_rigged_presentations(
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
     for (owner, &RiggedPresentationOf(root), mut presentation, mut owner_visibility, mut owner_transform, sample) in &mut owners {
+        presentation.composed_frame = None;
         let Ok((
             animator,
             mut root_sprite,
@@ -1797,6 +1806,17 @@ pub fn drive_rigged_presentations(
         let texture_atlas = atlas.layout.clone().map(|layout| TextureAtlas {
             layout,
             index: impostor.cell as usize,
+        });
+        presentation.composed_frame = texture_atlas.as_ref().and_then(|cell| {
+            let rect = layouts.as_deref()?.get(&cell.layout)?.textures.get(cell.index)?.as_rect();
+            Some(BakedFrame {
+                image: atlas.image.clone(),
+                rect,
+                size,
+                anchor,
+                flip_x: root_sprite.flip_x,
+                flip_y: root_sprite.flip_y,
+            })
         });
         if root_sprite.texture_atlas != texture_atlas {
             root_sprite.texture_atlas = texture_atlas;

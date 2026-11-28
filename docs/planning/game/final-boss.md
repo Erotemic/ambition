@@ -8,7 +8,7 @@ giant that is a mount and a stage.
 typed characters that fall on a climbing player, an agent that carries the
 Boss on its shoulders) and
 `docs/brainstorms/good_llm_ideas/creator_agents_and_endgame.md` (the Boss
-acquiesces; "the bossofthegame is the bossofthegame until the day he dies, or
+acquiesces; "the bossofthegame is the bossofthegame until the day he dies or
 retires").
 
 Jon, 2026-11-12: *"the bossofthegame fight should mirror gnuton somewhat in
@@ -107,7 +107,7 @@ in. Witness: `his_named_agents_join_the_fight`. The rest is still to build:
   stops, Geppetto puts it down and drops into the fight.
 - **The encore**: Clause leaves the drums and Wren her triangle; the Boss's
   keystroke rain and backspace are his keytar solo.
-- **The retirement**: whoever still stands plays him off.
+- **The departure**: the band plays him off.
 
 ## The place: the Boss dimension
 
@@ -118,7 +118,7 @@ written by `game/ambition_map_assets/ambition_content/generators/boss_stage/make
 | --- | --- |
 | `boss_lobby` | The arrival. The gate ring (address **LEGACY**), a ticket booth, the tour posters ("THE BOSSOFTHEGAME — FINAL TOUR"), tiered steps up to the stage door. |
 | `boss_main_stage` | The arena. A wide concert stage with tiered risers, two speaker towers and a lighting truss. Full Stack stands at the centre; the Boss stands on its right shoulder, beside its head. A sign over the show reads *THE BOSSOFTHEGAME - FINAL TOUR*. |
-| `boss_green_room` | Behind the stage, shut until the Boss retires (`LockWall`, `gated_by: boss.cleared boss_stage.bossofthegame`). The retirement scene plays here, spoken by him from its dais (`npc_bossofthegame` himself: one body, one actor; retired is the flag `bossofthegame_retired`). A door goes back to the lobby. |
+| `boss_green_room` | Behind the stage, past the grille that opens on `boss.cleared boss_stage.bossofthegame`. The Early Early Access scene plays here. A door leads back to the lobby. |
 
 **The gate address is `LEGACY`** (Λ Ε Γ Α Χ Υ, all on the ring). It dials
 straight to the lobby ring, one door from the stage. The address is
@@ -169,8 +169,8 @@ ladder.
 
 ## The phases
 
-The health bar is the Boss's **resolve**, not his life. When it empties he
-does not die: he retires (the ending below). Thresholds are of `max_hp` 60.
+The health bar measures the Boss's resolve. When it runs out, he leaves
+the stage. The phase thresholds use a maximum of 60.
 
 ### Intro — "Vibe Kill" (cinematic)
 
@@ -184,9 +184,8 @@ FINAL TOUR*. He speaks to his agent and not to the player:
 > **bossofthegame:** No plan. Just do it. I'm going to walk away for a few minutes.
 > **bossofthegame:** When I come back the player should be dead. Do not ask me for input.
 
-Then the encounter's intro (`intro_seconds`): Full Stack strikes its first
-chord and the name card shows (*the bossofthegame*, title *until the day he
-retires*).
+Full Stack strikes its first chord in the encounter intro (`intro_seconds`).
+The name card adds *or retires* after *Until the day he dies…*.
 
 ### Phase 1 — "Make No Mistakes" (100% to 66%)
 
@@ -253,30 +252,20 @@ a level and:
   the damage. The [authoring recipe](../../recipes/scripted-stage-attacks.md)
   describes live edits and measurement.
 
-### The end — "The Escape Clause" (the retirement)
+### The Early Early Access endpoint
 
-At zero resolve he does not die. He goes down on Full Stack's top (the
-sheet's `Death` row is the Director's `knockdown`), and the body stays
-(`corpses: Stay` is the room default). His defeat bark:
+The name card shows “Until the day he dies…” and adds “or retires” after a
+pause.
 
-> **bossofthegame:** ...Okay. Okay. That was a good one.
+On the main stage, the fight uses his resolve. When it runs out, the
+encounter records the defeat and removes the boss controller from his body.
+He falls, gets up, and walks through the green room door. The door opens on
+`boss.cleared boss_stage.bossofthegame`. The Hall practice fight has its own
+result and does not start this scene.
 
-The defeat records `boss.cleared boss_stage.bossofthegame`, the wall to the
-green room goes, and in the green room the retirement plays (a
-`CutsceneTrigger`, `boss_retirement`):
-
-> **bossofthegame:** I never wanted to be the villain. I wanted to be challenged.
-> **bossofthegame:** And I was. Thanks for that.
-> **bossofthegame:** The bossofthegame is the bossofthegame until the day he dies, or retires.
-> **bossofthegame:** I'm not dying today. So.
-> **bossofthegame:** I retire.
-> **Full Stack:** Would you like me to write a retirement speech? I have prepared seven.
-> **bossofthegame:** No.
-
-A banner: *THE BOSSOFTHEGAME HAS RETIRED*. It sets the flag
-`bossofthegame_retired`. He keeps his authority over the world in the
-fiction; the retirement is his choice, not a conversion (the brainstorm:
-"His acquiescence need not mean moral conversion").
+The green room scene marks the end of Early Early Access. The boss still
+holds his title, and the game returns control to the player. The stage and
+lobby doors remain usable.
 
 ## Music
 
@@ -294,8 +283,7 @@ change the `cue_id` when the anthem is rendered.
   derived from `director.svg` by `scripts/svg_art/director_boss_art.py`), his
   clips under the boss slots: `Rest` (`idle`), `FloorSlam` (`smash_down`),
   `SideSweep` (`smash_forward`), `SpikeHalo` (`smash_up`, the pen raised),
-  `Hit`, `Death` (`knockdown`: he goes down; the retirement is the green
-  room's scene). His library has no sitting clip. The first drawing of him
+  `Hit`, and `Death` (the `knockdown` pose). His library has no sitting clip. The first drawing of him
   (a developer in a hoodie and headset) is kept, unworn, as
   `hoodie_developer`.
 - **Full Stack** (renderer target `full_stack_giant`): a square amp stack on
@@ -377,5 +365,5 @@ end), and its `idle` strum between.
   named agents join the fight beside it (Geppetto in phase 2, Clause and
   Wren at the encore). The spelling is **Geppetto**.
 - **Q176** (2026-11-26): the bar is his resolve, and emptying it leads to a
-  final noncombat interaction in which he chooses to retire. The end must
-  not play as an ordinary boss kill. Remaining work: queue FINAL-BOSS.
+  noncombat scene. The Early Early Access scene leaves the boss in office.
+  See queue FINAL-BOSS for the full ending.

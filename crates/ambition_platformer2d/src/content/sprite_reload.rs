@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError, TryLockError};
 use std::time::{Duration, SystemTime};
 
 use ambition_sprite_sheet::baked_sheet_rons as sheet_table;
@@ -529,6 +529,13 @@ fn publish_the_staged_sheets(world: &mut World) {
     if (in_a_session && changes_mechanics) || preparing {
         return;
     }
+    let scanner = Arc::clone(&world.resource::<SpriteSheetWatch>().scanner);
+    // Leave the candidate staged while the worker reads and prepares a publication.
+    let mut scanner = match scanner.try_lock() {
+        Ok(scanner) => scanner,
+        Err(TryLockError::Poisoned(error)) => error.into_inner(),
+        Err(TryLockError::WouldBlock) => return,
+    };
     let (table, staged, snapshot, images) = {
         let mut watch = world.resource_mut::<SpriteSheetWatch>();
         let Some(table) = watch.candidate.take() else {
@@ -546,7 +553,8 @@ fn publish_the_staged_sheets(world: &mut World) {
     world.resource_mut::<SpriteSheetWatch>().reloaded_pages += reloaded;
     let generation = sheet_table::publish_prepared_sheet_table(&mut sprite_content, table);
     world.insert_resource(sprite_content.clone());
-    world.resource::<SpriteSheetWatch>().scanner.lock().unwrap_or_else(PoisonError::into_inner).content = sprite_content.clone();
+    scanner.content = sprite_content;
+    drop(scanner);
     info!(target: "ambition_platformer2d::sprites", "Sprite generation {generation} published with {} sheet identities", staged.len());
     // A restater reads only facts `changes_mechanics_of` compares, so a
     // table that changes none of them leaves each cast as it is.
@@ -568,6 +576,38 @@ fn publish_the_staged_sheets(world: &mut World) {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_busy_sprite_scanner_defers_publication() {
+        let mut world = World::new();
+        let content = ambition_sprite_sheet::SpriteContent::default();
+        let mut watch = SpriteSheetWatch::new(&content, ContentLibraries::default());
+        watch.candidate = Some(sheet_table::prepare_sheet_table(&content, sheet_table::SheetTexts::default()).unwrap());
+        watch.staged.insert("test sheet".into());
+        let scanner = Arc::clone(&watch.scanner);
+        world.insert_resource(content);
+        world.insert_resource(watch);
+
+        let (locked, wait_for_lock) = std::sync::mpsc::channel();
+        let (release, wait_for_release) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _scan = scanner.lock().unwrap();
+            locked.send(()).unwrap();
+            let _ = wait_for_release.recv_timeout(Duration::from_secs(2));
+        });
+        wait_for_lock.recv().unwrap();
+        publish_the_staged_sheets(&mut world);
+        let publications_during_scan = world.resource::<SpriteSheetWatch>().published;
+        let stayed_staged = world.resource::<SpriteSheetWatch>().is_staged();
+        let _ = release.send(());
+        worker.join().unwrap();
+
+        assert_eq!(publications_during_scan, 0);
+        assert!(stayed_staged);
+        publish_the_staged_sheets(&mut world);
+        assert_eq!(world.resource::<SpriteSheetWatch>().published, 1);
+        assert!(!world.resource::<SpriteSheetWatch>().is_staged());
+    }
 
     #[test]
     fn a_loose_image_change_requests_a_reload_without_a_sheet_revision() {

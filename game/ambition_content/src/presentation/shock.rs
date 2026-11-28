@@ -2,10 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use ambition_characters::actor::{
-    character_catalog::{CharacterBodyKind, CharacterCatalog},
-    CharacterForm,
-};
+use ambition_characters::actor::{character_catalog::CharacterCatalog, CharacterForm};
 use ambition_combat::body_landmarks::{BodyLandmarks, LandmarkPose};
 use ambition_platformer2d::damage::BodyHitResolved;
 use ambition_platformer2d_core::{
@@ -27,12 +24,13 @@ use ambition_render::{
     },
 };
 use ambition_sim_view::{BodyPoseView, PresentedPose};
-use ambition_sprite_sheet::{game_assets::load_sheet_image, SpriteContent};
 use bevy::{prelude::*, time::Real};
 
 mod art;
+mod profiles;
 
-use art::{arcs, Bone, Skeleton, DURATION};
+use art::{arcs, quadruped, skull_only, Bone, Skeleton, DURATION};
+use profiles::{BoneAtlas, BoneAtlasLoader, Layout, ATLAS};
 
 #[derive(Component)]
 struct Shock {
@@ -42,6 +40,10 @@ struct Shock {
 }
 
 pub(super) fn install(app: &mut App) {
+    if app.world().contains_resource::<AssetServer>() {
+        app.init_asset::<BoneAtlas>()
+            .init_asset_loader::<BoneAtlasLoader>();
+    }
     app.add_systems(
         Update,
         flash_shocked_bodies
@@ -70,8 +72,8 @@ fn flash_shocked_bodies(
     landmarks: BodyLandmarks,
     catalog: Option<Res<CharacterCatalog>>,
     assets: Option<Res<AssetServer>>,
-    sprite_content: Res<SpriteContent>,
-    mut atlas: Local<Option<Handle<Image>>>,
+    atlases: Option<Res<Assets<BoneAtlas>>>,
+    mut atlas_handle: Local<Option<Handle<BoneAtlas>>>,
     mut effects: Query<(Entity, &mut Shock, &mut FoldedMesh)>,
 ) {
     let mut renewed: BTreeSet<Entity> = hits
@@ -86,6 +88,11 @@ fn flash_shocked_bodies(
         .map(|hit| hit.body)
         .collect();
 
+    let atlas = atlases.as_deref().and_then(|atlases| {
+        let assets = assets.as_deref()?;
+        atlases.get(atlas_handle.get_or_insert_with(|| assets.load(ATLAS)).id())
+    });
+
     let mesh_for = |body, age| {
         let (kin, presented, session, form, pose) = bodies.get(body).ok()?;
         let room = rooms.of(body)?;
@@ -96,41 +103,26 @@ fn flash_shocked_bodies(
         let forward = if kin.facing < 0.0 { -side } else { side };
         let center = presented.map_or(kin.pos, |pose| pose.presented());
         let size = kin.size();
-        let may_have_bones = form
-            .and_then(|form| catalog.as_ref()?.get(form.id()))
-            .is_some_and(|entry| {
-                entry.body_kind == CharacterBodyKind::Standard
-                    && !entry.tags.iter().any(|tag| {
-                        matches!(
-                            tag.as_str(),
-                            "boneless"
-                                | "construct"
-                                | "elemental"
-                                | "ghost"
-                                | "slime"
-                                | "robot"
-                                | "automaton"
-                                | "mechanical"
-                                | "synthetic"
-                                | "insect"
-                                | "insectoid"
-                                | "plant"
-                                | "spirit"
-                        )
-                    })
-            });
-        let bones = (may_have_bones && pose.is_none_or(|pose| !body_presentation_hidden(pose)))
-            .then(|| {
-                let joint = |mark| {
-                    let point = landmarks
-                        .in_world(body, mark, LandmarkPose::ThisTick, kin)
-                        .ok()??;
-                    Some(point + (center - kin.pos))
-                };
-                Skeleton::from_landmarks(joint)
+        let bones = atlas.and_then(|atlas| {
+            let entry = catalog.as_ref()?.get(form?.id())?;
+            let profile = atlas.profile(entry)?;
+            if pose.is_some_and(body_presentation_hidden) {
+                return None;
+            }
+            let joint = |mark| {
+                let point = landmarks
+                    .in_world(body, mark, LandmarkPose::ThisTick, kin)
+                    .ok()??;
+                Some(point + (center - kin.pos))
+            };
+            Some(match profile.layout {
+                Layout::Biped => Skeleton::from_landmarks(joint)
                     .unwrap_or_else(|| Skeleton::standing(center, size, forward, down))
-                    .parts(center, size, forward, down)
-            });
+                    .parts(profile.skull, center, size, forward, down),
+                Layout::Quadruped => quadruped(profile.skull, center, size, forward, down, joint),
+                Layout::SkullOnly => skull_only(profile.skull, center, size, forward, down, joint),
+            })
+        });
 
         let scope = SessionSpawnScope::new(session.map(|scope| scope.0)).in_room(Some(room));
         let tris = arcs(body.to_bits(), age, center, size, side, down);
@@ -163,14 +155,14 @@ fn flash_shocked_bodies(
             .then(|| mesh_for(shock.body, shock.age))
             .flatten()
         {
-            let art = bone_image(&mut atlas, &sprite_content, assets.as_deref(), &bones);
+            let image = atlas.map(|atlas| &atlas.image);
             show_parts(
                 &mut commands,
                 scope,
                 world,
                 &replacement,
                 &mut shock,
-                art,
+                image,
                 bones,
             );
             *mesh = replacement;
@@ -186,8 +178,8 @@ fn flash_shocked_bodies(
                 age: 0.0,
                 parts: Vec::new(),
             };
-            let art = bone_image(&mut atlas, &sprite_content, assets.as_deref(), &bones);
-            show_parts(&mut commands, scope, world, &mesh, &mut shock, art, bones);
+            let image = atlas.map(|atlas| &atlas.image);
+            show_parts(&mut commands, scope, world, &mesh, &mut shock, image, bones);
             commands.spawn_session_scoped(
                 scope,
                 (
@@ -200,23 +192,6 @@ fn flash_shocked_bodies(
             );
         }
     }
-}
-
-fn bone_image<'a>(
-    atlas: &'a mut Option<Handle<Image>>,
-    content: &SpriteContent,
-    assets: Option<&AssetServer>,
-    bones: &[Bone],
-) -> Option<&'a Handle<Image>> {
-    let assets = assets.filter(|_| !bones.is_empty())?;
-    Some(atlas.get_or_insert_with(|| {
-        load_sheet_image(
-            Some(content),
-            assets,
-            "shock",
-            "content://ambition_shared/sprites/shock_bones.png",
-        )
-    }))
 }
 
 fn remove_parts(commands: &mut Commands, parts: &mut Vec<Entity>) {

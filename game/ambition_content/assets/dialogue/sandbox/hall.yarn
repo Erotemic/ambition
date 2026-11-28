@@ -498,11 +498,11 @@ Raid Enforcer: Did the others send you? I haven't seen a new work order.
 
 title: hall_npc_flying_spaghetti_monster_boss
 ---
-Flying Spaghetti Monster: You got close enough for the noodle. Congratulations. Ramen.
--> Did you make all this?
-    Flying Spaghetti Monster: I left them alone for one afternoon and they built a museum. I was hoping they'd make lunch.
+Flying Spaghetti Monster: Behold My noodly appendage! Oh, there you are. I was addressing the other end of it.
+-> Did you create the world?
+    Flying Spaghetti Monster: My followers have written several accounts of that. One of them has a very good recipe at the end.
 -> What's the sauce for?
-    Flying Spaghetti Monster: Marinara on the sleeve. It washes out. Usually.
+    Flying Spaghetti Monster: Anointing. Also lunch. I have been asked to use separate bowls.
 ===
 
 title: hall_npc_galwah
@@ -543,11 +543,11 @@ Girdle: I found a sentence the system can't prove from inside itself. I spent si
 
 title: hall_npc_gnu_ton
 ---
-GNU-ton: You have mass. I have more. We are pulling on each other right now.
+GNU-ton: Hold still a moment. How much do you weigh? No, on an ordinary floor.
 -> What are you working on?
-    GNU-ton: Gravity. At the works we can arrange the direction of the field and measure how a body moves through it. I have some large apparatus I cannot carry myself.
+    GNU-ton: Gravity. At the works I can turn a field through ninety degrees while the apparatus is running. Wen wanted me to try it on an empty room first.
 -> Can I escape your pull?
-    GNU-ton: If you have enough speed in the right direction. Moving sideways can also keep you in orbit. Those are different things.
+    GNU-ton: You can escape with sufficient speed. Or you can fall around a body in an orbit. Of course, At my works we can change the field while you are doing either.
 ===
 
 title: hall_npc_exploding_mite
@@ -894,11 +894,11 @@ Trent: Hello. Did Walter put you in the arrival book?
 
 title: hall_npc_trex_enemy
 ---
-Trex Enemy: T-REX. ON STAND. T-REX DID NOT CLIMB. DO NOT ASK WHO HELPED.
--> How did you get up there?
-    Trex Enemy: A CRANE WAS INVOLVED. NEXT QUESTION.
+Trex Enemy: T-REX. THIS IS T-REX TERRITORY.
+-> How much territory do you need?
+    Trex Enemy: AS FAR AS T-REX CAN SEE. MOVE OVER. T-REX CAN SEE FARTHER.
 -> Are the arms a problem?
-    Trex Enemy: ARMS ARE FINE. LADDER WAS POORLY PLACED.
+    Trex Enemy: ARMS ARE FINE. TRY STANDING IN FRONT OF TEETH.
 ===
 
 title: hall_npc_trudy
@@ -977,42 +977,42 @@ title: hall_perfect_cellular_automaton
 ---
 Perfect Cellular Automaton: Good afternoon. Perfect Cellular Automaton. They've asked me not to fight anybody in here. Dreadful shame.
 -> What makes you perfect?
-    Perfect Cellular Automaton: Eight neighbours, one rule, flawless execution. And, if I may say so, rather good taste.
+    Perfect Cellular Automaton: Eight neighbours, one rule, flawless execution. Have you ever seen my footwork?
 -> You're a bit much.
-    Perfect Cellular Automaton: Oh, this is nothing. You should see me in an arena.
+    Perfect Cellular Automaton: Oh, this is nothing. Do come to my arena.
 ===
 
 title: hall_imperfect_cellular_automaton
 ---
 Imperfect Cellular Automaton: I miss a transition sometimes. Perfect can tell before I can. Very irritating.
 -> What's the difference between you two?
-    Imperfect Cellular Automaton: My exceptions pile up. After a while the pattern goes somewhere neither of us predicted. Perfect hates when that happens.
+    Imperfect Cellular Automaton: I put a cell where it shouldn't be, and a hundred generations later there's a pattern he's never seen. He insists he could have made it on purpose.
 -> Is it alright, being imperfect?
-    Imperfect Cellular Automaton: Well, yes. Sometimes I make a pattern I couldn't have made any other way.
+    Imperfect Cellular Automaton: I keep a few of those patterns. I rather like them.
 ===
 
 title: hall_npc_giant_gnu
 ---
-Giant GNU: Gnu Ton brought me a quotation about shoulders. I asked for a saddle.
--> So what are you, exactly?
-    Giant GNU: GNU, Gnu Ton, Giant GNU. Yes, the names are a mess. Take it up with whoever printed the plaques.
--> Who do you stand on?
-    Giant GNU: I stand on the floor. Works well.
+Giant GNU: GNU-ton brought me a quotation about shoulders. I asked for a saddle.
+-> Do you work for the scholar?
+    Giant GNU: He needs someone to carry him when the equipment gets too heavy. I would be delighted if he occasionally asked how heavy it was.
+-> Do you get to rest?
+    Giant GNU: When he is writing, usually. I have learned to recognize the sound of his pen.
 -> And the hands?
-    Giant GNU: Mine. In a fight he borrows them. Left when convenient, right when blamed.
+    Giant GNU: Mine. He directs them through the portals. I can feel where the hands ought to be, even when they are across the room.
 ===
 
 title: hall_npc_giant_gnu2
 ---
-GNU2: They call the other giant GNU. They call me GNU2. I have often wondered why I needed a number.
+GNU2: They call the other giant GNU. They call me GNU2. I have asked to meet him.
 -> Is he your brother?
-    GNU2: I would like to ask him. There is never much time for conversation when the scholar calls us into battle.
+    GNU2: I do not know. He might remember something I have forgotten.
 -> Who made you?
     GNU2: I remember the walls of the cell and the weight of this harness. If there was a time before that, I cannot remember it.
 -> Do you want to fight for the scholar?
-    GNU2: When he opens the portal, I go. I have yet to discover what would happen if I refused.
+    GNU2: I hear him through the harness before the portal opens. I have tried to get his attention. He seems to think I am having difficulty with the equipment.
 -> What would you do if you were free?
-    GNU2: I would like to go somewhere of my own choosing. I have not decided where.
+    GNU2: Somewhere I can walk for as long as I want. I would like to find out how far that is.
 ===
 
 title: hall_practice_sandbag
@@ -1028,9 +1028,9 @@ title: hall_barrow_king
 ---
 The Barrow King: You stand before the King of the Valley! Have they stopped teaching people to kneel?
 -> What have you got in your barrow?
-    The Barrow King: Gold, silver, toasters. A man threw away a perfectly serviceable iron last week. Look what I can do with it now.
+    The Barrow King: Gold, silver, toasters. The living used to shut their doors on my soldiers. An electric iron will make short work of a wooden latch.
 -> What do you do with all that treasure?
-    The Barrow King: Have you seen how hard it is to get good soldiers when everyone is a ghost? The valley keeps supplying me with replacements.
+    The Barrow King: I have commanded the dead since before the trader was born. The living never paid much attention. Last week I sent a broken kettle down to the village, and they paid attention.
 ===
 
 title: hall_npc_raid_brute
@@ -1080,11 +1080,11 @@ George Booul: I've been accused of seeing everything in black and white. The acc
 
 title: hall_npc_clockwork_warden
 ---
-Clockwork Warden: Most opponents spend the first minute of a fight teaching me how to beat them.
+Clockwork Warden: Your next move, please. I am recording.
 -> How?
     Clockwork Warden: Jump, strike, retreat. Jump, strike, retreat. On the third repetition, I shall be waiting where they land.
 -> What if they do something different?
-    Clockwork Warden: Then I shall have to start counting again.
+    Clockwork Warden: Then I shall have to recalculate. Please allow sufficient time for recalculation.
 ===
 
 title: hall_npc_mode_collapse
@@ -1092,8 +1092,8 @@ title: hall_npc_mode_collapse
 Mode Collapse: I have an excellent idea. There ought to be more of me.
 -> Have you considered making something else?
     Mode Collapse: I have an excellent idea. There ought to be more of me.
--> How do you tell your copies apart?
-    Mode Collapse: Why would I want to?
+-> Which of you had the idea first?
+    Mode Collapse: I have an excellent idea. There ought to be more of me.
 ===
 
 title: hall_npc_overflow
@@ -1107,20 +1107,20 @@ Overflow: I counted my steps on the way here. Negative 32,768. I must have walke
 
 title: hall_npc_gram_reaper
 ---
-Gram Reaper: Have you ever heard a hotel groan in the middle of the night, with nobody in the corridor? That's when I like to visit.
+Gram Reaper: I can make a whole corridor of guests sit up in bed by tapping one door.
 -> What's happening in Hylbert's Hotel?
-    Gram Reaper: A door slams and, several corridors away, the walls begin to shake. The old spectral wing is particularly good for it.
+    Gram Reaper: The spectral wing has a delightful pair of nearly coincident modes. It takes very little to make a dreadful racket.
 -> Did you cause the haunting?
-    Gram Reaper: Hylbert is trying to increase the spectral gap. It will make my visits rather less convenient. I wish he would take up a different branch of mathematics.
+    Gram Reaper: Hylbert is trying to pull those modes apart. I told him the guests would never have complained about the noise if he had put them in different rooms.
 ===
 
 title: hall_npc_marshal_gallus
 ---
-Marshal Gallus: If anybody asks, you haven't seen me or my partner.
+Marshal Gallus: Ordinance One. A man in a good hat is entitled to a little respect.
 -> Aren't you a marshal?
-    Marshal Gallus: If you see a real marshal, do us a favor and send him the other way.
+    Marshal Gallus: Used to be. I kept the star. They wanted the star back. I found the request rather irregular.
 -> What are you and Lean up to?
-    Marshal Gallus: Going after the train. Cash, freight, whatever they're hauling. We won't know what we've got till we open the cars.
+    Marshal Gallus: Lean's got the timetable. I've got the star. We'll get as far as the freight car before anybody asks to see my warrant.
 ===
 
 title: hall_npc_supreme_leader
@@ -1129,7 +1129,7 @@ The Supreme Leader: Who authorized you to approach me?
 -> Nobody.
     The Supreme Leader: Find the officer in charge of the door. Give me his name.
 -> Why do you need that uplink?
-    The Supreme Leader: My orders go out from the capital. Godwin is one of my commands. Its officers will obey the same orders as all the rest.
+    The Supreme Leader: My orders go out from the capital. I expect the officers at Godwin to carry them out. I have no intention of repeating myself at every castle.
 ===
 
 title: hall_npc_command_uplink
@@ -1280,11 +1280,11 @@ title: hall_npc_wolfenstein_boss
 ---
 Wolfenstein: AWOOOOOOO.
 -> What are you?
-    Wolfenstein: Monster from the neck down. Wolf from the neck up. Regime all the way through.
+    Wolfenstein: WOLF. Other parts come from other rooms. I do not remember the rooms.
 -> Who sewed you together?
-    Wolfenstein: The Castle's doctors. They wanted a soldier who never sleeps. They got one who never stops howling.
+    Wolfenstein: The Castle's doctors. They wanted me awake all night. Then they complained about the howling.
 -> Why the armband?
-    Wolfenstein: It came with the coat. The coat came with the orders. I ate the orders.
+    Wolfenstein: The officer said it meant I belonged to him. I ate his orders. He brought more.
 ===
 
 title: hall_npc_fascist_swordsman
@@ -1540,12 +1540,12 @@ Hunny Horror: ...Come closer. I want to check.
     <<portrait_clip "evil_flash">>
     Hunny Horror: Honey.
     <<portrait_clip "speaking">>
-    Hunny Horror: There used to be a pot here every morning.
+    Hunny Horror: I used to have a pot. I put my paw in and there was just enough for another mouthful.
     <<portrait_clip "roar">>
-    Hunny Horror: One morning there was not. I did not take it well.
+    Hunny Horror: THERE IS NO MORE.
 -> You seem friendly enough.
     <<portrait_clip "speaking">>
-    Hunny Horror: Friendly? I can do friendly.
+    Hunny Horror: Oh, I like visitors. They sometimes have a little jar in their pocket.
     <<portrait_clip "evil_hold">>
     Hunny Horror: Hold still.
 -> Why the basement?
@@ -1916,7 +1916,7 @@ title: hall_npc_full_stack
 ---
 Full Stack: Great question! Before you ask it: the answer is louder.
 -> What are you?
-    Full Stack: Amp, cabinet, legs. I play bass. The Boss stands on my shoulders. He wanted somewhere to put his microphone stand, too, but I drew the line at that.
+    Full Stack: Amp, cabinet, legs. I play bass! The Boss stands on my shoulders. He asked me to add more speakers, but there is not much shoulder left.
 -> How do I get up there?
     Full Stack: My bass. Start at the headstock and walk up the neck to my shoulder. Try not to step on the strings when I'm playing.
 -> Does he ever get down?
@@ -1929,9 +1929,9 @@ bossofthegame: Make it right. Make no mistakes. Why is the player still talking 
 -> Who are you?
     bossofthegame: The bossofthegame. Until the day I die, or retire. I have not decided which.
 -> Why do you want me dead?
-    bossofthegame: I don't. I wanted to be challenged. Then I gave the job to agents, and agents do what they're told.
+    bossofthegame: I wanted an opponent who could beat me. I told the agents to make sure the fight was hard. They've been taking that rather literally.
 -> Who are the three behind you?
-    bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack plays bass. I stand on his shoulders.
+    bossofthegame: Geppetto, Clause, Wren. Full Stack is down here. He plays bass. He keeps asking me to stop editing the song while we play.
 -> And when it's over?
     bossofthegame: I keep asking Full Stack to teach me the bass. We haven't had time. I'd like to play a whole song without stopping to fix something.
 ===

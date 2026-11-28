@@ -76,6 +76,7 @@ fn effective_hide_sprites(developer_tools: &ambition_dev_tools::dev_tools::Devel
 /// id (the stable view identity, never a sim `Entity`) so the manager can
 /// find or remove the matching visual.
 #[derive(Component, Clone, Debug)]
+#[require(crate::rendering::AnimatedWorldSpriteTint)]
 pub struct GradientLaneVisual {
     pub owner_id: String,
 }

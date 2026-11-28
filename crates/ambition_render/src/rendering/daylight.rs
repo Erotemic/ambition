@@ -34,7 +34,7 @@ use bevy::{
         SpecializedMeshPipelineError,
     },
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin},
 };
 
 use ambition_persistence::settings::{DarknessQuality, ResolvedVisualQuality};
@@ -46,6 +46,8 @@ use ambition_sprite_sheet::game_assets::ParallaxTheme;
 
 use super::darkness::{room_lamps, GridKey, Lamp, RoomShadows};
 use super::lamps::{pack, reach_image, LampsPlugin, LampsUniform, ReachWrites};
+use super::planar_mesh::{install_planar_mesh_2d, PreparedPlanarMesh};
+use super::AnimatedWorldSpriteTint;
 
 /// Over the world and the parallax foreground (`FOREGROUND_PARALLAX_Z`), under the UI.
 pub const DAYLIGHT_VEIL_Z: f32 = 60.0;
@@ -249,6 +251,8 @@ impl Plugin for DaylightPlugin {
             app.add_plugins(LampsPlugin);
         }
         app.add_plugins((Material2dPlugin::<DaylightMaterial>::default(), Material2dPlugin::<LampGlowMaterial>::default()));
+        install_planar_mesh_2d::<DaylightMaterial>(app);
+        install_planar_mesh_2d::<LampGlowMaterial>(app);
         let world = app.world_mut();
         let Some(reach) = world.get_resource_mut::<Assets<Image>>().map(|mut images| images.add(reach_image())) else {
             return;
@@ -400,8 +404,7 @@ pub fn light_the_world(
         (Err(_), Some(assets)) => {
             commands.spawn((
                 LampGlow,
-                Mesh2d(assets.mesh.clone()),
-                MeshMaterial2d(assets.glow.clone()),
+                PreparedPlanarMesh { mesh: assets.mesh.clone(), material: assets.glow.clone() },
                 Transform::from_translation(glow_at),
                 bevy::camera::visibility::RenderLayers::layer(
                     ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
@@ -415,12 +418,18 @@ pub fn light_the_world(
         let veil = commands.spawn((DaylightVeil, Transform::from_translation(at), layer, Name::new("Daylight veil"))).id();
         match veil_assets.as_deref() {
             Some(assets) => {
-                commands.entity(veil).insert((Mesh2d(assets.mesh.clone()), MeshMaterial2d(assets.material.clone())));
+                commands.entity(veil).insert(PreparedPlanarMesh {
+                    mesh: assets.mesh.clone(),
+                    material: assets.material.clone(),
+                });
             }
             None => {
                 commands
                     .entity(veil)
-                    .insert(Sprite { color: target, custom_size: Some(Vec2::splat(VEIL_SIZE)), ..Default::default() });
+                    .insert((
+                        Sprite { color: target, custom_size: Some(Vec2::splat(VEIL_SIZE)), ..Default::default() },
+                        AnimatedWorldSpriteTint,
+                    ));
             }
         }
         return;

@@ -3,99 +3,119 @@ title: authority_information
 <<present_speaker "npc_authority_information">>
 <<if verdict("world.flag_set", "authority_information_met") == "satisfied">>
     Ottilie: Information! What are you looking for this time?
-    -> What is the Iron Bastion?
-        Ottilie: Military tower. The General has his office there. If you need clearance for the military annex, ask him.
-    -> What if someone feels sick after a crossing?
-        Ottilie: You can sit in the Concourse until you feel better. If you are still ill after the others have recovered, ask a member of staff for help.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "authority_information_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_information_met" true>>
     Ottilie: Welcome to the Concourse, licensed traveller. Information. How can I direct you?
-    -> Where can I go from here?
-        Ottilie: Which address would you like? We have a list of public addresses. For some of the others, you need to speak to the office that manages the gate.
-        Ottilie: Except LEGAL. You're standing in it. Everyone gets LEGAL. It's posted on every terminal in the network.
-        Ottilie: Our terminal also posts a way back to the public hub. If you know another address, you can dial it yourself.
-    -> Where am I?
-        Ottilie: The Central Hub, seat of the Gate Authority. You came in by our own gate, LEGAL.
-        Ottilie: Authority Plaza is east. Lost Baggage is down through the grate. Mind the claw.
-    -> Who handles military clearance?
-        Ottilie: The General at the Iron Bastion. His people have their own gate annex. We handle the civilian ring here.
-    -> Is there somewhere to recover from a crossing?
-        Ottilie: You can sit in the Concourse. We get people who need a few minutes and some who need most of the day. I would rather you sat down than fell on the stairs.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump authority_information__topics>>
+===
+
+title: authority_information__topics
+---
+-> Where can I go from here?
+    Ottilie: The terminal here lists public addresses. For some of the others, you need to speak to the office that manages the gate.
+    Ottilie: Keep LEGAL written down. It is the address of this gate, and it is posted on every terminal in the network.
+    Ottilie: Our terminal also posts a way back to the public hub. If you know another address, you can dial it yourself.
+    <<jump authority_information__topics>>
+-> Where am I?
+    Ottilie: The Central Hub, seat of the Gate Authority. This gate is LEGAL.
+    Ottilie: Authority Plaza is east. Lost Baggage is down through the grate. Mind the claw.
+    <<jump authority_information__topics>>
+-> What is the Iron Bastion?
+    Ottilie: The military tower. The General has his office there; ask him if you need clearance for the military annex. We handle the civilian ring here.
+    <<jump authority_information__topics>>
+-> Where can I recover from a crossing?
+    Ottilie: Sit in the Concourse until you feel better. We get people who need a few minutes and some who need most of the day. If you are still ill after the others have recovered, ask a member of staff for help.
+    <<jump authority_information__topics>>
+-> ‹go›
 ===
 title: authority_baggage
 ---
 <<present_speaker "npc_authority_baggage">>
 <<if verdict("world.flag_set", "authority_baggage_met") == "satisfied">>
     Bertram: Still no ticket? Then still no bag.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "authority_baggage_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_baggage_met" true>>
     Bertram: Lost Baggage. Ticket?
     Bertram: No ticket. Course not. Nobody who comes down here has a ticket. That's why they come down here.
-    -> What happens to a bag in a gate?
-        Bertram: Depends on the gate. A holdall went through to the dinosaurs and came back a nest. Egg and all. It's on the belt.
-        Bertram: One came back from the hill country a cloud. It's on the shelf. Mind it doesn't rain on you.
-    -> Why "declare any sentience"?
-        Bertram: Organic travellers' bags. Leather remembers it was a cow. Now and then it goes home.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> What happens to a bag in a gate?
+    Bertram: Depends on the gate. A holdall went through to the dinosaurs and came back a nest. Egg and all. It's on the belt.
+    Bertram: One came back from the hill country a cloud. It's on the shelf. Mind it doesn't rain on you.
+-> Why "declare any sentience"?
+    Bertram: Organic travellers' bags. Leather remembers it was a cow. Now and then it goes home.
+-> ‹go›
 ===
 title: authority_gatekeeper
 ---
 <<present_speaker "npc_authority_gatekeeper">>
 <<if verdict("world.flag_set", "authority_gatekeeper_met") == "satisfied">>
     Imre: Morning. Keep the gate clear, please.
-    -> Does the military use this gate?
-        Imre: Sometimes. Their annex has its own checkpoint. If they want to bring a squad through here, I ask them to wait until the civilians are clear.
-    -> Who can dial a military gate?
-        Imre: Anybody who has its address. Getting past the sentry when you arrive is another question.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "authority_gatekeeper_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_gatekeeper_met" true>>
     Imre: Gatekeeper Imre, Gate Authority. Papers?
     Imre: If you've just arrived, keep to this side while I clear the landing area.
-    -> What does the Authority do?
-        Imre: We survey rings, maintain terminals, and keep records of crossings at our posts. Anybody can dial a working gate if they know the address.
-        Imre: People tend to come to us when they need the address, or when something breaks.
-    -> Who were you at war with?
-        Imre: The regime. The ones whose banners we don't hang. It ended in a stalemate, a little in our favour.
-        Imre: We have an armistice. I hope it lasts.
-    -> What is the clock for?
-        Imre: Every licensed gate keeps its time by that clock. It is never wrong.
-        Imre: Occasionally it is corrected.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump authority_gatekeeper__topics>>
+===
+
+title: authority_gatekeeper__topics
+---
+-> What does the Authority do?
+    Imre: We survey rings, maintain terminals, and keep records of crossings at our posts. Anybody can dial a working gate if they know the address.
+    Imre: People tend to come to us when they need the address, or when something breaks.
+    <<jump authority_gatekeeper__topics>>
+-> Who were you at war with?
+    Imre: The regime. The ones whose banners we don't hang. It ended in a stalemate, a little in our favour.
+    Imre: We have an armistice. I hope it lasts.
+    <<jump authority_gatekeeper__topics>>
+-> What is the clock for?
+    Imre: Every licensed gate keeps its time by that clock. It is never wrong.
+    Imre: Occasionally it is corrected.
+    <<jump authority_gatekeeper__topics>>
+-> Does the military use this gate?
+    Imre: Sometimes. Their annex has its own checkpoint. If they want to bring a squad through here, I ask them to wait until the civilians are clear.
+    <<jump authority_gatekeeper__topics>>
+-> Who can dial a military gate?
+    Imre: Anybody who has its address. Getting past the sentry when you arrive is another question.
+    <<jump authority_gatekeeper__topics>>
+-> ‹go›
 ===
 title: authority_registrar
 ---
 <<present_speaker "npc_authority_registrar">>
 <<if verdict("world.flag_set", "authority_registrar_met") == "satisfied">>
     Registrar: Now serving four thousand and ninety-six. You are sixty-five thousand, five hundred and thirty-seven.
-    -> Do you keep records for the military?
-        Registrar: Ask the Iron Bastion for their annex logs. They send me summaries. They do not send them often enough.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "authority_registrar_met") == "not_satisfied">>
     <<command "world.set_flag" "authority_registrar_met" true>>
     Registrar: Number?
-    -> I don't have a number.
-        Registrar: Then you were never in the queue. Then you were never here. That's quicker for both of us.
-    -> What is this place?
-        Registrar: The Manifest Office. We receive manifests from the staffed gates. If an office reports the same passenger twice, we have to reconcile the entries.
-        Registrar: And if a director sends a correction, we file the corrected record. No, you cannot see the original.
-    -> Am I on the manifest?
-        Registrar: Let me see. You are... not.
-        Registrar: Do you have the receipt from your last crossing? No? Then I'd have to send a request to the terminal. Take another number if you want to wait for the reply.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+<<jump authority_registrar__topics>>
+===
+
+title: authority_registrar__topics
+---
+-> What if I don't have a number?
+    Registrar: Then you were never in the queue. Then you were never here. That's quicker for both of us.
+    <<jump authority_registrar__topics>>
+-> What is this place?
+    Registrar: The Manifest Office. We receive manifests from the staffed gates. If an office reports the same passenger twice, we have to reconcile the entries.
+    Registrar: And if a director sends a correction, we file the corrected record. No, you cannot see the original.
+    <<jump authority_registrar__topics>>
+-> Can you check whether I am on the manifest?
+    Registrar: Let me see. You are... not.
+    Registrar: I would need the receipt from your last crossing to check the terminal itself. Take another number if you want me to send a request.
+    <<jump authority_registrar__topics>>
+-> Do you keep records for the military?
+    Registrar: Ask the Iron Bastion for their annex logs. They send me summaries. They do not send them often enough.
+    <<jump authority_registrar__topics>>
+-> ‹go›
 ===

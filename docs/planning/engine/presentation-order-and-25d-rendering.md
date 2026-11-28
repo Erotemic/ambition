@@ -873,6 +873,14 @@ shared value preparation are sufficient until source proves otherwise.
    Medium captures of Mine Pocket show dust and moving fragments in 2D,
    side-on 2.5D, and oblique 2.5D at the same simulation tick.
 
+   The Clockwork Warden's hazard column uses the shared world sprite path.
+   Medium captures in the basement arena show the yellow warning at tick
+   345, the red strike at tick 435, and the clear lane at tick 480.
+
+   The daylight veil and lamp glow use prepared meshes. The translucent
+   fallback uses the same world sprite path. Medium night captures in Math
+   Town check the veil in 2D and side-on 2.5D.
+
    Developer health bars use the shared world-sprite and text paths.
    Each bar keeps its background, fill, and label as health changes.
    A test uses the same feature ID in two live rooms. It checks each

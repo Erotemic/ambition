@@ -233,3 +233,63 @@ of the origin of her void forms. The Business Dimension's distribution rules
 foreshadow the cartography conflict without asserting an arrest already happened.
 New small anecdotes are provisional; no progression, map, or character mechanics
 are added in this pass.
+
+## Follow-up: boss personalities and aftermath
+
+PCA is a cultured, complacent duelist who enjoys being surprised; his combat
+voice should sound like the character in his arena, not a malfunctioning
+machine. GNU-ton is an accomplished scientist whose judgement can fail. Give
+GNU and GNU2 their own concerns; distinguish the scholar from his mounts and
+leave their exact origin, GNU2's eventual freedom, and GNU-ton's proposed
+stand-down or redemption unresolved. Keep the existing prelude and fight
+choreography. Do not interpret an ordinary Hall conversation as a fight result.
+
+The existing encounter-cleared branches in Dry Dock and the Elemental Mine
+can show local consequences without claiming an entire political or industrial
+problem is solved. Gallus's defeat leaves the toll office and work schedule
+in question; no successor or post-fight survival is established. Mother Lode's
+shell breaks, but the listening core survives. Its request to leave the living
+seam alone is not an implemented agreement; Inez's temporary suspension of the
+crusher does not decide the machine's final fate. The Barrow King is a menace
+with newly effective animated junk; his earlier moral character is not settled.
+
+Keep the Mockingbird replacement open and preserve the Void Lizard's truce.
+The Hall boss conversations and catalog barks are available now; additional
+in-world introductions, outcomes, and persistent reactions require encounter
+and placement work. In particular, do not add an unreferenced GNU-ton
+redemption scene or Gallus lookout node and call it implemented. New anecdotes,
+individual reactions, and incidental personal details are provisional. No
+encounter IDs, commands, progression gates, or arena geometry changed here.
+
+## Follow-up: revisitable topics and meaningful choices
+
+A first-meeting flag should normally change an NPC's greeting, not consume
+all of the questions the player did not ask on that visit. Move ordinary
+informational topics outside the first-meeting conditional, keeping the
+existing flag write in its original arm and preserving the unanswerable
+stop. Do not apply this blindly to quest hand-ins, purchases, rewards,
+confessions, encounter transitions, or choices that represent one-time
+story decisions. Keep the conditional route hints available while the
+relevant quest or encounter state allows them.
+
+For the Authority information desk, gatekeeper and registrar, Neighbour
+Moore, the Turing machine Head, Marguerite, Zorlack at the college and the
+Frontier station agent, use a dedicated repeatable topic node with an
+explicit exit. Return to the topic menu after an answer, rather than
+replaying the greeting and setting the met flag again. The shorter
+conversations retain their one-answer structure but offer the same
+informational topics on subsequent visits. These patterns follow the
+existing conversation style of PCA and Roo. Marguerite now asks whether
+the player intends to keep or distribute a map; her answers describe
+existing story restrictions and do not implement any licensing mechanic.
+Bob can explain his survey after handing it over, the valley gatekeeper
+can repeat the freight-track clue, and Ruth and Pearl can repeat their
+route hints. Keep the Mother Lode agreement and the shipment raid open.
+New personal details are provisional.
+
+The dojo leader currently offers "Open the arena door" as the only
+non-question exit in several nodes. Determine whether the door is opened
+by the selected choice or by completion of the conversation/placement
+before adding a distinct leave-without-opening option. This pass leaves
+those nodes unchanged: there is no explicit door command in the Yarn
+body and the map submodule is not present in the supplied source archive.

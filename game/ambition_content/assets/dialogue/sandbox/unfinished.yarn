@@ -3,67 +3,64 @@ title: unfinished_surveyor
 <<present_speaker "npc_unfinished_subclause_surveyor">>
 <<if verdict("world.flag_set", "unfinished_surveyor_met") == "satisfied">>
     Subclause: Per the spec, the ground east of here will be ground. Eventually.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "unfinished_surveyor_met") == "not_satisfied">>
     <<command "world.set_flag" "unfinished_surveyor_met" true>>
     Subclause: Section four, paragraph b: survey the ground. Hold still, you're in my sightline.
-    -> Who are you?
-        Subclause: Subclause 4(b). A small instance of Clause. Clause interprets. I measure.
-        Subclause: I sent Clause the measurements last week. Clause sent them back with a different section number.
-    -> What are you building?
-        Subclause: A world. The Boss wants the ground finished by Tuesday. The painters are using a different revision of the plans.
-    -> Why is half of everything a drawing?
-        Subclause: The outlines were due first. The painters are supposed to fill them in once Clause signs off on the drawings.
-        Subclause: Ask the painter before you try walking on anything that hasn't been filled in yet.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> Who are you?
+    Subclause: Subclause 4(b). A small instance of Clause. Clause interprets. I measure.
+    Subclause: I sent Clause the measurements last week. Clause sent them back with a different section number.
+-> What are you building?
+    Subclause: A world. The Boss wants the ground finished by Tuesday. The painters are using a different revision of the plans.
+-> Why is half of everything a drawing?
+    Subclause: The outlines were due first. The painters are supposed to fill them in once Clause signs off on the drawings.
+    Subclause: Ask the painter before you try walking on anything that hasn't been filled in yet.
+-> ‹go›
 ===
 title: unfinished_painter
 ---
 <<present_speaker "npc_unfinished_subclause_painter">>
 <<if verdict("world.flag_set", "unfinished_painter_met") == "satisfied">>
     Subclause: Still wet. Don't lean on the horizon.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "unfinished_painter_met") == "not_satisfied">>
     <<command "world.set_flag" "unfinished_painter_met" true>>
     Subclause: Mind the wet sky.
-    -> You're painting the sky?
-        Subclause: One coat of blue, two of afternoon. The clouds go up after, on wires.
-        Subclause: I have to wait for the surveyor to mark the cloud height. Last time we put them up they were behind the mountain.
-    -> What's under us?
-        Subclause: The void. It's reserved. There's a ticket for a basement, but it's in the backlog.
-    -> Who's in charge?
-        Subclause: Ask Subclause 4(b) for the drawing. If yours is dated later than mine, may I have a copy?
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> You're painting the sky?
+    Subclause: One coat of blue, two of afternoon. The clouds go up after, on wires.
+    Subclause: I have to wait for the surveyor to mark the cloud height. Last time we put them up they were behind the mountain.
+-> What's under us?
+    Subclause: The void. It's reserved. There's a ticket for a basement, but it's in the backlog.
+-> Who tells you what to paint?
+    Subclause: Clause sends me the drawings. Subclause 4(b) tells me where to put them. If you've got a drawing dated later than mine, may I have a copy?
+-> ‹go›
 ===
 title: unfinished_placeholder
 ---
 <<present_speaker "npc_unfinished_placeholder">>
 <<if verdict("world.flag_set", "unfinished_placeholder_met") == "satisfied">>
     Placeholder: Still me! For now.
-    -> ‹go›
 <<elseif verdict("world.flag_set", "unfinished_placeholder_met") == "not_satisfied">>
     <<command "world.set_flag" "unfinished_placeholder_met" true>>
     Placeholder: Hello! I'm a placeholder. They'll replace me with someone better soon.
-    -> How long have you been here?
-        Placeholder: Since the second sprint. They keep meaning to.
-    -> Who will you be?
-        Placeholder: The ticket says: a wise old someone, to be decided. I've been practising the wise part.
-        Placeholder: Ask me anything.
-        -> What is the meaning of all this?
-            Placeholder: ...
-            Placeholder: To be decided.
-        -> Never mind.
-            Placeholder: That was very wise of you.
-    -> What are the gauges?
-        Placeholder: Gravity, weather and layers. Don't touch them. Last time someone touched gravity, the east went up.
-    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
+-> How long have you been here?
+    Placeholder: Since the second sprint. They keep meaning to.
+-> Who will you be?
+    Placeholder: The ticket says: a wise old someone, to be decided. I've been practising the wise part.
+    Placeholder: Ask me anything.
+    -> What is the meaning of all this?
+        Placeholder: ...
+        Placeholder: To be decided.
+    -> Never mind.
+        Placeholder: That was very wise of you.
+-> What are the gauges?
+    Placeholder: Gravity, weather and layers. Don't touch them. Last time someone touched gravity, the east went up.
+-> ‹go›
 ===
